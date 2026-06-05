@@ -1,0 +1,61 @@
+.settings-section {
+  scroll-margin-top: 20px;
+}
+
+.settings-store-scroll-grid {
+  display: grid;
+  grid-template-columns: repeat(auto-fill, minmax(220px, 1fr));
+  gap: 12px;
+}
+
+.settings-store-scroll-card {
+  display: flex;
+  flex-direction: column;
+  align-items: flex-start;
+  gap: 6px;
+  text-align: left;
+  padding: 14px 16px;
+  background: var(--bg-sunken);
+  border: 1px solid var(--border);
+  border-radius: 8px;
+  color: var(--text-secondary);
+  cursor: pointer;
+  font-family: inherit;
+  transition: border-color 0.12s ease, background 0.12s ease;
+}
+
+.settings-store-scroll-card:hover {
+  background: var(--bg-hover);
+  border-color: var(--border-strong);
+}
+
+.settings-store-scroll-card-active {
+  border-color: var(--accent);
+  background: color-mix(in srgb, var(--accent-soft-bg) 55%, var(--bg-sunken));
+}
+
+.settings-store-scroll-icon {
+  width: 36px;
+  height: 36px;
+  border-radius: 8px;
+  background: var(--bg-elevated);
+  border: 1px solid var(--border-faint);
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  font-size: 18px;
+  font-weight: 800;
+  color: var(--accent);
+}
+
+.settings-store-scroll-label {
+  font-size: 13px;
+  font-weight: 700;
+  color: var(--text-primary);
+}
+
+.settings-store-scroll-desc {
+  font-size: 11px;
+  line-height: 1.45;
+  color: var(--text-muted);
+}

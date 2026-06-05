@@ -1,0 +1,65 @@
+/**
+ * Straight vertical active indicator — same pattern as sidebar NavLink
+ * (border-left: 3px solid var(--accent), no rounded inset shadow).
+ */
+
+.settings-nav-item {
+  border: none;
+  border-left: 3px solid transparent;
+  border-radius: 0;
+  box-shadow: none;
+}
+
+.settings-nav-item-active {
+  background: var(--bg-elevated);
+  color: var(--text-primary);
+  font-weight: 700;
+  border-left-color: var(--accent);
+  box-shadow: none;
+}
+
+.settings-lib-item-default {
+  border-left: 3px solid var(--accent);
+  box-shadow: none;
+}
+
+.library-category-tab {
+  border: none;
+  border-left: 3px solid transparent;
+  border-radius: 0;
+  box-shadow: none;
+}
+
+.library-category-tab--active {
+  background: var(--bg-elevated);
+  font-weight: 700;
+  border-left-color: var(--accent);
+  box-shadow: none;
+}
+
+.media-viewer-folder-btn {
+  border-left: 3px solid transparent;
+  border-radius: 0;
+}
+
+.media-viewer-folder-btn--active {
+  border-left-color: var(--accent);
+  box-shadow: none;
+}
+
+.media-viewer-page-btn {
+  border-left: 3px solid transparent;
+}
+
+.media-viewer-page-btn--active {
+  border-left-color: var(--accent);
+  box-shadow: none;
+}
+
+@media (max-width: 900px) {
+  .settings-nav-item-active {
+    border: 1px solid var(--accent);
+    border-left-width: 3px;
+    box-shadow: none;
+  }
+}

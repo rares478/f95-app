@@ -1,0 +1,6 @@
+node_modules/
+dist/
+*.tsbuildinfo
+sea-prep.blob
+debug-*.html
+.tmp-*

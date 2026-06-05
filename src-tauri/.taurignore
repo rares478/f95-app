@@ -1,0 +1,2 @@
+# Playwright/Chromium runtime logs — must not restart `tauri dev` on every resolve.
+sidecar/dist/ms-playwright/

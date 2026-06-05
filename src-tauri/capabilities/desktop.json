@@ -1,0 +1,17 @@
+{
+  "identifier": "desktop-capability",
+  "platforms": [
+    "macOS",
+    "windows",
+    "linux"
+  ],
+  "windows": [
+    "main",
+    "game-overlay",
+    "overlay-hint",
+    "overlay-browser"
+  ],
+  "permissions": [
+    "global-shortcut:default"
+  ]
+}

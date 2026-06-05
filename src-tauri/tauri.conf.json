@@ -1,0 +1,112 @@
+{
+  "$schema": "https://schema.tauri.app/config/2",
+  "productName": "F95 App",
+  "version": "1.0.0",
+  "identifier": "com.f95.app",
+  "build": {
+    "beforeDevCommand": "npm run dev",
+    "devUrl": "http://localhost:1420",
+    "beforeBuildCommand": "npm run build && npm --prefix src-tauri/sidecar run build && npm --prefix src-tauri/sidecar run build:bundle && npm --prefix src-tauri/sidecar run build:sea",
+    "beforeBundleCommand": "npm --prefix src-tauri/sidecar run build:prune",
+    "frontendDist": "../dist"
+  },
+  "app": {
+    "windows": [
+      {
+        "label": "login",
+        "title": "F95 App",
+        "width": 420,
+        "height": 560,
+        "resizable": false,
+        "maximizable": false,
+        "minimizable": true,
+        "decorations": false,
+        "center": true,
+        "transparent": false
+      },
+      {
+        "label": "game-overlay",
+        "create": false,
+        "title": "F95 App Overlay",
+        "url": "index.html?window=overlay",
+        "width": 960,
+        "height": 640,
+        "visible": false,
+        "decorations": false,
+        "transparent": true,
+        "alwaysOnTop": true,
+        "skipTaskbar": true,
+        "resizable": false,
+        "focus": false
+      },
+      {
+        "label": "overlay-hint",
+        "create": false,
+        "title": "F95 Overlay Hint",
+        "url": "index.html?window=overlay-hint",
+        "width": 400,
+        "height": 96,
+        "visible": false,
+        "decorations": false,
+        "transparent": true,
+        "alwaysOnTop": true,
+        "skipTaskbar": true,
+        "resizable": false,
+        "focus": false
+      }
+    ],
+    "security": {
+      "csp": null,
+      "assetProtocol": {
+        "enable": true,
+        "scope": ["**"]
+      }
+    }
+  },
+  "bundle": {
+    "active": true,
+    "targets": "all",
+    "publisher": "F95 App",
+    "copyright": "Copyright © 2026 F95 App",
+    "category": "Utility",
+    "shortDescription": "Cliente desktop para F95Zone",
+    "longDescription": "F95 App é um cliente desktop para navegar, gerenciar biblioteca e baixar conteúdo do F95Zone com suporte offline e integração ao sidecar local.",
+    "resources": {
+      "sidecar/dist/bundle.cjs": "sidecar/bundle.cjs",
+      "sidecar/dist/node.exe": "sidecar/node.exe",
+      "sidecar/dist/node_modules/": "sidecar/node_modules/",
+      "sidecar/dist/ms-playwright/": "sidecar/ms-playwright/"
+    },
+    "icon": [
+      "icons/32x32.png",
+      "icons/128x128.png",
+      "icons/128x128@2x.png",
+      "icons/icon.icns",
+      "icons/icon.ico"
+    ],
+    "windows": {
+      "allowDowngrades": false,
+      "webviewInstallMode": {
+        "type": "embedBootstrapper",
+        "silent": true
+      },
+      "nsis": {
+        "installerIcon": "icons/icon.ico",
+        "uninstallerIcon": "icons/icon.ico",
+        "headerImage": "windows/installer/nsis-header.bmp",
+        "sidebarImage": "windows/installer/nsis-sidebar.bmp",
+        "installMode": "both",
+        "languages": ["English", "PortugueseBR"],
+        "displayLanguageSelector": true,
+        "compression": "lzma",
+        "startMenuFolder": "F95 App"
+      },
+      "wix": {
+        "upgradeCode": "4e362952-80b8-5f5a-b715-32d772fb27d0",
+        "language": ["en-US", "pt-BR"],
+        "bannerPath": "windows/installer/wix-banner.bmp",
+        "dialogImagePath": "windows/installer/wix-dialog.bmp"
+      }
+    }
+  }
+}

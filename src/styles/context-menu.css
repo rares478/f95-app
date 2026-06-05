@@ -1,0 +1,61 @@
+.context-menu-backdrop {
+  position: fixed;
+  inset: 0;
+  z-index: 3000;
+  background: transparent;
+}
+
+.context-menu {
+  position: fixed;
+  z-index: 3001;
+  min-width: 200px;
+  max-width: min(320px, calc(100vw - 16px));
+  padding: 4px 0;
+  background: var(--bg-elevated);
+  border: 1px solid var(--border);
+  border-radius: 6px;
+  box-shadow: 0 8px 28px rgba(0, 0, 0, 0.45);
+  user-select: none;
+}
+
+.context-menu-item {
+  display: block;
+  width: 100%;
+  text-align: left;
+  padding: 8px 14px;
+  border: none;
+  background: transparent;
+  color: var(--text-secondary);
+  font-size: 13px;
+  font-family: inherit;
+  cursor: pointer;
+  white-space: nowrap;
+  overflow: hidden;
+  text-overflow: ellipsis;
+}
+
+.context-menu-item:hover:not(:disabled) {
+  background: var(--bg-hover);
+  color: var(--text-primary);
+}
+
+.context-menu-item-disabled,
+.context-menu-item:disabled {
+  opacity: 0.45;
+  cursor: not-allowed;
+}
+
+.context-menu-item-danger {
+  color: var(--accent);
+}
+
+.context-menu-item-danger:hover:not(:disabled) {
+  background: var(--accent-soft-bg);
+  color: var(--accent);
+}
+
+.context-menu-separator {
+  height: 1px;
+  margin: 4px 8px;
+  background: var(--border-faint);
+}

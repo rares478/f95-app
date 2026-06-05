@@ -1,0 +1,139 @@
+/* Offline mode UI (kept separate from main App.css bundle source) */
+
+.offline-gate {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  min-height: min(70vh, 560px);
+  padding: 2rem 1.5rem;
+}
+
+.offline-gate-card {
+  max-width: 420px;
+  text-align: center;
+  padding: 2rem 1.75rem;
+  background: var(--bg-elevated);
+  border: 1px solid var(--border-faint);
+  border-radius: 8px;
+}
+
+.offline-gate-icon {
+  color: var(--text-muted);
+  margin-bottom: 1rem;
+}
+
+.offline-gate-title {
+  margin: 0 0 0.75rem;
+  font-size: 1.25rem;
+  font-weight: 600;
+  color: var(--text-primary);
+}
+
+.offline-gate-hint {
+  margin: 0 0 1.25rem;
+  font-size: 0.9rem;
+  line-height: 1.5;
+  color: var(--text-secondary);
+}
+
+.offline-gate-actions {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 0.5rem;
+  justify-content: center;
+}
+
+.offline-gate-btn-primary {
+  padding: 0.5rem 1rem;
+  background: var(--accent);
+  color: var(--accent-text);
+  border: none;
+  border-radius: 4px;
+  cursor: pointer;
+  font-size: 0.875rem;
+}
+
+.offline-gate-btn-primary:disabled {
+  opacity: 0.6;
+  cursor: wait;
+}
+
+.offline-gate-btn-secondary {
+  padding: 0.5rem 1rem;
+  color: var(--text-secondary);
+  border: 1px solid var(--border-strong);
+  border-radius: 4px;
+  text-decoration: none;
+  font-size: 0.875rem;
+}
+
+.offline-gate-btn-secondary:hover {
+  color: var(--text-primary);
+}
+
+.offline-banner {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 0.75rem;
+  flex-wrap: wrap;
+  padding: 0.5rem 1rem;
+  margin-bottom: 1rem;
+  background: color-mix(in srgb, var(--status-warning) 12%, var(--bg-elevated));
+  border: 1px solid color-mix(in srgb, var(--status-warning) 35%, transparent);
+  border-radius: 4px;
+  font-size: 0.8125rem;
+  color: var(--text-secondary);
+}
+
+.offline-banner-retry {
+  padding: 0.25rem 0.65rem;
+  font-size: 0.75rem;
+  background: transparent;
+  border: 1px solid var(--border-strong);
+  border-radius: 3px;
+  color: var(--text-secondary);
+  cursor: pointer;
+}
+
+.offline-banner-retry:disabled {
+  opacity: 0.6;
+  cursor: wait;
+}
+
+.status-bar-offline-badge {
+  flex-shrink: 0;
+  align-self: center;
+  margin: 0 0.5rem;
+  padding: 0.15rem 0.5rem;
+  font-size: 0.6875rem;
+  font-weight: 600;
+  letter-spacing: 0.04em;
+  text-transform: uppercase;
+  color: var(--status-warning);
+  background: color-mix(in srgb, var(--status-warning) 15%, transparent);
+  border: 1px solid color-mix(in srgb, var(--status-warning) 40%, transparent);
+  border-radius: 3px;
+  cursor: pointer;
+}
+
+.status-bar-offline-badge:hover {
+  filter: brightness(1.1);
+}
+
+.settings-offline-actions {
+  display: flex;
+  align-items: center;
+  gap: 0.75rem;
+  flex-wrap: wrap;
+  margin-top: 0.75rem;
+}
+
+.settings-offline-last {
+  font-size: 0.8125rem;
+  color: var(--text-muted);
+}
+
+.settings-offline-reason {
+  margin-top: 0.5rem;
+}

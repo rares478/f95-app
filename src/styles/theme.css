@@ -1,0 +1,180 @@
+/* -----------------------------------------------------------------------------
+ * Theme tokens
+ *
+ * Every color used by inline-style components reads from one of these CSS vars.
+ * Switching theme is a matter of setting `data-theme` on <html>; the override
+ * blocks below redefine the same vars per theme.
+ *
+ * Token taxonomy:
+ *   --bg-*       backgrounds (surface layers)
+ *   --border-*   borders / dividers
+ *   --text-*     text colors (primary → faint)
+ *   --accent     brand action color (CTAs, active nav, focus)
+ *   --status-*   semantic status colors (success/info/warning/danger/purple)
+ *   --logo-src   url() of the wordmark image for the current theme
+ *
+ * The semantic --status-* set is kept stable across themes so a "green =
+ * installed" badge reads the same regardless of the surrounding tint; only
+ * shading is tweaked per theme.
+ * -------------------------------------------------------------------------- */
+
+:root,
+:root[data-theme='default'] {
+  /* DEFAULT — the original dark-with-red-accent palette. */
+  --bg-base: #141414;
+  --bg-elevated: #1a1a1a;
+  --bg-sunken: #0e0e0e;
+  --bg-sidebar: #0e0e0e;
+  --bg-hover: #222;
+
+  --border-faint: #1c1c1c;
+  --border: #2a2a2a;
+  --border-strong: #3a3a3a;
+
+  --text-primary: #ffffff;
+  --text-secondary: #dcdcdc;
+  --text-tertiary: #bdbdbd;
+  --text-muted: #888888;
+  --text-faint: #5a5a5a;
+
+  --accent: #e0444c;
+  --accent-strong: #c2453a;
+  --accent-text: #ffffff;
+  --accent-soft-bg: #2a1a1c;
+
+  --status-success: #3aa757;
+  --status-info: #3a78c2;
+  --status-warning: #d3a31f;
+  --status-danger: #c2453a;
+  --status-purple: #a86fb0;
+  --status-danger-text: #f1a4a4;
+  --status-danger-bg: #3a1a1a;
+  --status-success-text: #9fd3a9;
+  --status-success-bg: #1a2a1c;
+
+  --scrollbar-track: #1a1a1a;
+  --scrollbar-thumb: #333333;
+  --scrollbar-thumb-hover: #444444;
+
+  /* --logo-src is set by lib/theme.ts (the asset URL is resolved by Vite). */
+  color-scheme: dark;
+}
+
+:root[data-theme='dark'] {
+  /* DARK — deeper OLED-friendly black, cool blue accent. */
+  --bg-base: #050505;
+  --bg-elevated: #0e0e0e;
+  --bg-sunken: #000000;
+  --bg-sidebar: #000000;
+  --bg-hover: #161616;
+
+  --border-faint: #161616;
+  --border: #222222;
+  --border-strong: #2e2e2e;
+
+  --text-primary: #ffffff;
+  --text-secondary: #e0e0e0;
+  --text-tertiary: #b0b0b0;
+  --text-muted: #7a7a7a;
+  --text-faint: #4a4a4a;
+
+  --accent: #2196f3;
+  --accent-strong: #1976d2;
+  --accent-text: #ffffff;
+  --accent-soft-bg: #0e1d2c;
+
+  --status-success: #3aa757;
+  --status-info: #2196f3;
+  --status-warning: #d3a31f;
+  --status-danger: #d04040;
+  --status-purple: #a86fb0;
+  --status-danger-text: #f1a4a4;
+  --status-danger-bg: #2a0a0a;
+  --status-success-text: #9fd3a9;
+  --status-success-bg: #0a2a0c;
+
+  --scrollbar-track: #0a0a0a;
+  --scrollbar-thumb: #2a2a2a;
+  --scrollbar-thumb-hover: #3a3a3a;
+
+  color-scheme: dark;
+}
+
+:root[data-theme='light'] {
+  /* LIGHT — bright surfaces, warm accent. */
+  --bg-base: #f5f5f5;
+  --bg-elevated: #ffffff;
+  --bg-sunken: #ebebeb;
+  --bg-sidebar: #ffffff;
+  --bg-hover: #f0f0f0;
+
+  --border-faint: #ebebeb;
+  --border: #d8d8d8;
+  --border-strong: #b8b8b8;
+
+  --text-primary: #1a1a1a;
+  --text-secondary: #2a2a2a;
+  --text-tertiary: #555555;
+  --text-muted: #777777;
+  --text-faint: #aaaaaa;
+
+  --accent: #c2453a;
+  --accent-strong: #9a3329;
+  --accent-text: #ffffff;
+  --accent-soft-bg: #fbe9e7;
+
+  --status-success: #2e8a47;
+  --status-info: #2e6db3;
+  --status-warning: #b07d10;
+  --status-danger: #c2453a;
+  --status-purple: #8a4c98;
+  --status-danger-text: #7a1a1a;
+  --status-danger-bg: #fbe9e7;
+  --status-success-text: #1a4a2a;
+  --status-success-bg: #e6f4ea;
+
+  --scrollbar-track: #ebebeb;
+  --scrollbar-thumb: #c0c0c0;
+  --scrollbar-thumb-hover: #a0a0a0;
+
+  color-scheme: light;
+}
+
+:root[data-theme='red'] {
+  /* RED — F95 brand-forward, deep red wash with cream text. */
+  --bg-base: #1f0a0a;
+  --bg-elevated: #2a1010;
+  --bg-sunken: #160606;
+  --bg-sidebar: #160606;
+  --bg-hover: #341616;
+
+  --border-faint: #2a1414;
+  --border: #3a1f1f;
+  --border-strong: #5a2a2a;
+
+  --text-primary: #fff5ed;
+  --text-secondary: #e8d5cc;
+  --text-tertiary: #c7a8a0;
+  --text-muted: #9a7872;
+  --text-faint: #6a4d4a;
+
+  --accent: #ff6b6b;
+  --accent-strong: #e85050;
+  --accent-text: #1f0a0a;
+  --accent-soft-bg: #3a1818;
+
+  --status-success: #5acf6a;
+  --status-info: #6aabf5;
+  --status-warning: #f0b840;
+  --status-danger: #ff6b6b;
+  --status-purple: #c889d0;
+  --status-danger-text: #ffc8c0;
+  --status-danger-bg: #3a1414;
+  --status-success-text: #c0ffc8;
+  --status-success-bg: #143a18;
+
+  --scrollbar-track: #2a1010;
+  --scrollbar-thumb: #4a2020;
+  --scrollbar-thumb-hover: #6a3030;
+
+}

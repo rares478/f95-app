@@ -1,0 +1,61 @@
+{
+  "$schema": "http://json-schema.org/draft-07/schema#",
+  "title": "f95-bridge RPC",
+  "description": "Contrato JSON-RPC 2.0 newline-delimited entre Tauri e o sidecar Node",
+  "definitions": {
+    "request": {
+      "type": "object",
+      "required": ["jsonrpc", "id", "method"],
+      "properties": {
+        "jsonrpc": { "const": "2.0" },
+        "id": { "type": "integer" },
+        "method": {
+          "enum": [
+            "init",
+            "ping",
+            "login",
+            "logout",
+            "getProfile",
+            "isLoggedIn",
+            "samList",
+            "samTagSearch",
+            "samOptions",
+            "gameDetail",
+            "getFollowing",
+            "unmaskUrl",
+            "resolveBuzzheavier",
+            "resolveDatanodes",
+            "resolveGdrive",
+            "resolveWorkupload",
+            "close"
+          ]
+        },
+        "params": { "type": "object" }
+      }
+    },
+    "unmaskResult": {
+      "type": "object",
+      "required": ["url", "status"],
+      "properties": {
+        "url": { "type": "string" },
+        "status": { "type": "integer" }
+      }
+    },
+    "hostResolveResult": {
+      "type": "object",
+      "required": ["directUrl", "fileName"],
+      "properties": {
+        "directUrl": { "type": "string" },
+        "fileName": { "type": "string" },
+        "fileSize": { "type": ["integer", "null"] }
+      }
+    },
+    "loggedInResult": {
+      "type": "object",
+      "required": ["loggedIn"],
+      "properties": {
+        "loggedIn": { "type": "boolean" }
+      }
+    }
+  }
+}
