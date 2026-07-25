@@ -1,4 +1,4 @@
-import { useCallback, useEffect, useState } from 'react';
+import { useCallback, useEffect, useMemo, useState } from 'react';
 import { useNavigate, useParams } from 'react-router-dom';
 import DOMPurify from 'dompurify';
 import { open as openFileDialog } from '@tauri-apps/plugin-dialog';
@@ -40,6 +40,9 @@ import {
   GameDetailAside,
 } from '../components/game/GameDetailLayout';
 import { useLibraryGameActions } from '../hooks/useLibraryGameActions';
+import { useLibraryInstallFlow } from '../hooks/useLibraryInstallFlow';
+import { useDownloads } from '../contexts/Downloads';
+import { inFlightLibraryStatus } from '../lib/downloadLibrarySync';
 import { useT } from '../lib/i18n';
 import type { GameDetail } from '../types/game';
 import type { LibraryGame } from '../types/library';
@@ -78,6 +81,15 @@ export function LibraryGamePage() {
   } | null>(null);
   const { running, launch } = useRunningGames();
   const isRunning = threadId ? running.has(threadId) : false;
+  const { rows: downloadRows } = useDownloads();
+  const downloadSyncKey = useMemo(
+    () =>
+      downloadRows
+        .filter((r) => threadId != null && r.threadId === threadId)
+        .map((r) => `${r.id}:${r.state}`)
+        .join('|'),
+    [downloadRows, threadId],
+  );
 
   const reload = useCallback(async () => {
     if (!threadId) return;
@@ -103,11 +115,27 @@ export function LibraryGamePage() {
     }
   }, [threadId]);
 
-  const { openLibraryDetailContextMenu } = useLibraryGameActions({ onReload: reload });
+  const installFlow = useLibraryInstallFlow({ onStarted: () => { void reload(); } });
+  const { openLibraryDetailContextMenu } = useLibraryGameActions({
+    onReload: reload,
+    onInstallOrUpdate: installFlow.beginInstallOrUpdate,
+  });
 
   useEffect(() => {
     reload();
   }, [reload]);
+
+  useEffect(() => {
+    if (!threadId || !downloadSyncKey) return;
+    let cancelled = false;
+    library.get(threadId).then((game) => {
+      if (cancelled || !game) return;
+      setState((prev) => (prev.kind === 'ready' ? { kind: 'ready', game } : prev));
+    });
+    return () => {
+      cancelled = true;
+    };
+  }, [downloadSyncKey, threadId]);
 
   useEffect(
     () => () => {
@@ -176,6 +204,10 @@ export function LibraryGamePage() {
   }
 
   const g = state.game;
+  const displayStatus =
+    inFlightLibraryStatus(downloadRows, g.threadId) ?? g.installStatus;
+  const downloadInFlight =
+    displayStatus === 'downloading' || displayStatus === 'extracting';
   const bannerUrl = storeDetail?.bannerUrl ?? g.thumbnailUrl;
   const sanitized =
     storeDetail?.descriptionHtml &&
@@ -185,6 +217,7 @@ export function LibraryGamePage() {
     });
 
   async function onPickExe() {
+    if (downloadInFlight) return;
     const selected = await openFileDialog({
       multiple: false,
       directory: false,
@@ -302,10 +335,6 @@ export function LibraryGamePage() {
     }
   }
 
-  function onUpdateNow() {
-    navigate(`/store/game/${g.threadId}?cat=${g.category}`);
-  }
-
   function onOpenViewer() {
     navigate(`/library/game/${g.threadId}/view`);
   }
@@ -367,14 +396,15 @@ export function LibraryGamePage() {
     hasInstallFiles &&
     !isRunning &&
     g.installStatus !== 'downloading' &&
-    g.installStatus !== 'extracting';
+    g.installStatus !== 'extracting' &&
+    !downloadInFlight;
 
   async function onUninstall() {
     if (isRunning) {
       await dialog.alert(t('libdetail.uninstall.notRunning'));
       return;
     }
-    if (g.installStatus === 'downloading' || g.installStatus === 'extracting') {
+    if (g.installStatus === 'downloading' || g.installStatus === 'extracting' || downloadInFlight) {
       await dialog.alert(t('libdetail.uninstall.waitDownload'));
       return;
     }
@@ -411,14 +441,13 @@ export function LibraryGamePage() {
     }
   }
 
-  const statusBg = isRunning ? 'var(--status-success)' : statusColor(g.installStatus);
+  const statusBg = isRunning ? 'var(--status-success)' : statusColor(displayStatus);
 
   return (
     <Shell
       onContextMenu={(e) =>
         openLibraryDetailContextMenu(e, g, {
           onPickExe,
-          onOpenStore: onUpdateNow,
         })
       }
     >
@@ -437,7 +466,7 @@ export function LibraryGamePage() {
               className="game-detail-prefix"
               style={{ background: statusBg }}
             >
-              {isRunning ? t('libdetail.running') : t(statusKey(g.installStatus))}
+              {isRunning ? t('libdetail.running') : t(statusKey(displayStatus))}
             </span>
           </>
         }
@@ -478,15 +507,34 @@ export function LibraryGamePage() {
                 >
                   {t('libdetail.action.stop')}
                 </GameDetailBtnPrimary>
-              ) : g.availableVersion && g.installStatus === 'update_available' ? (
+              ) : downloadInFlight ? (
+                <GameDetailBtnPrimary disabled title={t('libcard.cta.inFlight.title')}>
+                  {displayStatus === 'extracting'
+                    ? t('libcard.cta.extracting')
+                    : t('libcard.cta.downloading')}
+                </GameDetailBtnPrimary>
+              ) : displayStatus === 'not_installed' ? (
                 <GameDetailBtnPrimary
-                  onClick={onUpdateNow}
-                  className="game-detail-btn-update"
-                  title={t('libdetail.action.update.title', {
-                    version: g.availableVersion,
-                  })}
+                  onClick={() => void installFlow.beginInstallOrUpdate(g)}
+                  disabled={installFlow.busy}
+                  title={t('libcard.cta.install.title')}
                 >
-                  {t('libdetail.action.update', { version: g.availableVersion })}
+                  {t('libcard.cta.install')}
+                </GameDetailBtnPrimary>
+              ) : displayStatus === 'update_available' ? (
+                <GameDetailBtnPrimary
+                  onClick={() => void installFlow.beginInstallOrUpdate(g)}
+                  disabled={installFlow.busy}
+                  className="game-detail-btn-update"
+                  title={
+                    g.availableVersion
+                      ? t('libcard.cta.update.title', { version: g.availableVersion })
+                      : t('libcard.cta.update.titleSimple')
+                  }
+                >
+                  {g.availableVersion
+                    ? t('libcard.cta.updateTo', { version: g.availableVersion })
+                    : t('libcard.cta.update')}
                 </GameDetailBtnPrimary>
               ) : (
                 <GameDetailBtnPrimary
@@ -503,7 +551,7 @@ export function LibraryGamePage() {
                   {launching ? t('libdetail.action.launching') : t('libdetail.action.play')}
                 </GameDetailBtnPrimary>
               )}
-              <GameDetailBtnSecondary onClick={onPickExe}>
+              <GameDetailBtnSecondary onClick={onPickExe} disabled={downloadInFlight}>
                 {g.exePath ? t('libdetail.action.switchExe') : t('libdetail.action.setExe')}
               </GameDetailBtnSecondary>
               <GameDetailBtnSecondary onClick={onCheckUpdate}>
@@ -533,7 +581,7 @@ export function LibraryGamePage() {
       <GameDetailStatGrid>
         <GameDetailStat
           label={t('libdetail.location.status')}
-          value={isRunning ? t('libdetail.running') : t(statusKey(g.installStatus))}
+          value={isRunning ? t('libdetail.running') : t(statusKey(displayStatus))}
           highlight={isRunning}
         />
         {isGame && (
@@ -658,7 +706,7 @@ export function LibraryGamePage() {
             <GameDetailFields>
               <GameDetailField
                 label={t('libdetail.location.status')}
-                value={t(statusKey(g.installStatus))}
+                value={t(statusKey(displayStatus))}
               />
               <GameDetailField
                 label={t('libdetail.location.version')}
@@ -699,7 +747,7 @@ export function LibraryGamePage() {
                   title={
                     isRunning
                       ? t('libdetail.uninstall.notRunning')
-                      : g.installStatus === 'downloading' || g.installStatus === 'extracting'
+                      : g.installStatus === 'downloading' || g.installStatus === 'extracting' || downloadInFlight
                         ? t('libdetail.uninstall.waitDownload')
                         : t('libdetail.action.uninstall.title')
                   }
@@ -750,6 +798,8 @@ export function LibraryGamePage() {
         onCancel={() => setMovePickerOpen(false)}
         onConfirm={onMoveLibraryPicked}
       />
+
+      {installFlow.modal}
 
       {moveInFlight && (
         <MoveProgressModal
