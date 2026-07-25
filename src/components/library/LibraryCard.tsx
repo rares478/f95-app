@@ -1,7 +1,10 @@
 import { Link } from 'react-router-dom';
 import { useIsRunning } from '../../contexts/RunningGames';
+import { useDownloads } from '../../contexts/Downloads';
+import { inFlightLibraryStatus } from '../../lib/downloadLibrarySync';
 import { useT } from '../../lib/i18n';
 import type { LibraryGame } from '../../types/library';
+import type { InstallStatus } from '../../types/library';
 import { formatPlaytime, statusColor, statusKey } from '../../types/library';
 
 interface Props {
@@ -12,8 +15,11 @@ interface Props {
 
 export function LibraryCard({ game, onPrimaryAction, onContextMenu }: Props) {
   const { t } = useT();
+  const { rows: downloadRows } = useDownloads();
   const isRunning = useIsRunning(game.threadId);
-  const cta = primaryCta(game, isRunning, t);
+  const displayStatus =
+    inFlightLibraryStatus(downloadRows, game.threadId) ?? game.installStatus;
+  const cta = primaryCta(game, displayStatus, isRunning, t);
   return (
     <div
       style={cardStyle}
@@ -28,10 +34,10 @@ export function LibraryCard({ game, onPrimaryAction, onContextMenu }: Props) {
         <div
           style={{
             ...statusBadgeStyle,
-            background: isRunning ? 'var(--status-success)' : statusColor(game.installStatus),
+            background: isRunning ? 'var(--status-success)' : statusColor(displayStatus),
           }}
         >
-          {isRunning ? t('libcard.playing') : t(statusKey(game.installStatus))}
+          {isRunning ? t('libcard.playing') : t(statusKey(displayStatus))}
         </div>
       </Link>
 
@@ -92,18 +98,19 @@ function mediaCta(
 
 function primaryCta(
   g: LibraryGame,
+  installStatus: InstallStatus,
   isRunning: boolean,
   t: (k: string, v?: Record<string, string | number>) => string,
 ): {
   label: string;
   title: string;
   disabled: boolean;
-  intent: 'play' | 'stop' | 'pick-exe' | 'update' | 'noop' | 'view';
+  intent: 'play' | 'stop' | 'pick-exe' | 'update' | 'install' | 'noop' | 'view';
 } {
   if (isRunning && g.category === 'games') {
     return { label: t('libcard.cta.stop'), title: t('libcard.cta.stop.title'), disabled: false, intent: 'stop' };
   }
-  switch (g.installStatus) {
+  switch (installStatus) {
     case 'installed':
       if (g.category !== 'games') {
         if (g.installPath) return mediaCta(g, t);
@@ -131,6 +138,14 @@ function primaryCta(
       return { label: t('libcard.cta.error'), title: t('libcard.cta.error.title'), disabled: true, intent: 'noop' };
     case 'not_installed':
     default:
+      if (g.category === 'games') {
+        return {
+          label: t('libcard.cta.install'),
+          title: t('libcard.cta.install.title'),
+          disabled: false,
+          intent: 'install',
+        };
+      }
       return { label: t('libcard.cta.pickExe'), title: t('libcard.cta.pickExe.title'), disabled: false, intent: 'pick-exe' };
   }
 }

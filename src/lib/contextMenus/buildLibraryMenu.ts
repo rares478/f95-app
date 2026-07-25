@@ -50,7 +50,11 @@ function primaryLabel(
     case 'extracting':
     case 'error':
       return { label: '', disabled: true, hidden: true };
+    case 'not_installed':
     default:
+      if (game.category === 'games') {
+        return { label: t('contextMenu.install'), disabled: false, hidden: false };
+      }
       return { label: t('contextMenu.pickExe'), disabled: false, hidden: false };
   }
 }

@@ -7,6 +7,8 @@ import { GameCardGridSkeleton } from '../components/ui/GameCardSkeleton';
 import { parseSamCategory } from '../constants/samCategories';
 import { useOffline } from '../contexts/Offline';
 import { useLibraryGameActions } from '../hooks/useLibraryGameActions';
+import { useLibraryInstallFlow } from '../hooks/useLibraryInstallFlow';
+import { useDownloads } from '../contexts/Downloads';
 import { useT } from '../lib/i18n';
 import { dialog } from '../lib/dialog';
 import * as library from '../lib/library';
@@ -60,6 +62,16 @@ export function LibraryPage() {
     [searchParams, setSearchParams],
   );
 
+  const { rows: downloadRows } = useDownloads();
+  const downloadSyncKey = useMemo(
+    () =>
+      downloadRows
+        .map((r) => `${r.threadId}:${r.state}`)
+        .sort()
+        .join('|'),
+    [downloadRows],
+  );
+
   const reload = useCallback(async () => {
     setLoading(true);
     setError(null);
@@ -83,6 +95,10 @@ export function LibraryPage() {
     return () => clearTimeout(t);
   }, [reload, search]);
 
+  useEffect(() => {
+    reload();
+  }, [downloadSyncKey, reload]);
+
   const stats = useMemo(
     () => ({
       total: items.length,
@@ -105,8 +121,10 @@ export function LibraryPage() {
       .slice(0, 4);
   }, [items, search, status, category]);
 
+  const installFlow = useLibraryInstallFlow({ onStarted: () => { void reload(); } });
   const { openLibraryContextMenu, playOrStop } = useLibraryGameActions({
     onReload: reload,
+    onInstallOrUpdate: installFlow.beginInstallOrUpdate,
   });
 
   function formatErr(err: unknown): string {
@@ -158,6 +176,7 @@ export function LibraryPage() {
 
   return (
     <div style={pageStyle}>
+      {installFlow.modal}
       <header style={headerStyle}>
         <h1 style={titleStyle}>{t('library.title')}</h1>
         <div style={{ display: 'flex', alignItems: 'baseline', gap: 14 }}>

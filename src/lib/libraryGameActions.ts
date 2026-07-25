@@ -3,7 +3,9 @@ import { openUrl } from '@tauri-apps/plugin-opener';
 import type { NavigateFunction } from 'react-router-dom';
 import * as ipc from './ipc';
 import * as library from './library';
+import * as downloads from './downloads';
 import * as updates from './updates';
+import { IN_FLIGHT_DOWNLOAD_STATES } from './downloadLibrarySync';
 import * as uninstall from './uninstall';
 import { dialog } from './dialog';
 import type { LibraryGame } from '../types/library';
@@ -20,6 +22,7 @@ export interface LibraryGameActionsDeps {
   isOffline: boolean;
   t: TranslateFn;
   onReload?: () => void | Promise<void>;
+  onInstallOrUpdate?: (game: LibraryGame) => void | Promise<void>;
 }
 
 function formatErr(err: unknown): string {
@@ -43,7 +46,15 @@ export async function playOrStop(
     return;
   }
   if (game.installStatus === 'update_available') {
-    navigate(`/store/game/${game.threadId}?cat=${game.category}`);
+    if (deps.onInstallOrUpdate) {
+      await deps.onInstallOrUpdate(game);
+    } else {
+      navigate(`/store/game/${game.threadId}?cat=${game.category}`);
+    }
+    return;
+  }
+  const dlRows = await downloads.listByThread(game.threadId);
+  if (dlRows.some((row) => IN_FLIGHT_DOWNLOAD_STATES.has(row.state))) {
     return;
   }
   if (game.installStatus === 'installed' && game.installPath && game.category !== 'games') {
@@ -63,6 +74,14 @@ export async function playOrStop(
       await launch(game);
     } catch (err) {
       await dialog.alert(formatErr(err), { kind: 'error' });
+    }
+    return;
+  }
+  if (game.installStatus === 'not_installed' && game.category === 'games') {
+    if (deps.onInstallOrUpdate) {
+      await deps.onInstallOrUpdate(game);
+    } else {
+      await pickExeFor(game, deps);
     }
     return;
   }
