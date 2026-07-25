@@ -5,6 +5,7 @@ import * as downloads from '../../lib/downloads';
 import * as library from '../../lib/library';
 import * as libraries from '../../lib/libraries';
 import * as ipc from '../../lib/ipc';
+import { saveLinksSnapshot } from '../../lib/libraryDownloadLinks';
 import { useOffline } from '../../contexts/Offline';
 import { useT } from '../../lib/i18n';
 import { dialog } from '../../lib/dialog';
@@ -72,6 +73,12 @@ export function DownloadLinks({ game, downloads: items, social, embedded }: Prop
         thumbnailUrl: game.thumbnailUrl,
         currentVersion: game.version,
       });
+      await library.setStatus(game.threadId, 'downloading');
+      try {
+        await saveLinksSnapshot(game.threadId, items, game.version);
+      } catch (err) {
+        console.warn('[library] failed to cache download links on download start', err);
+      }
       const row = await downloads.create({
         threadId: game.threadId,
         host: download.host,

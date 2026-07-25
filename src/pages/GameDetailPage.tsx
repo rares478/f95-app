@@ -7,6 +7,7 @@ import { openUrl } from '@tauri-apps/plugin-opener';
 import { gameDetail } from '../lib/ipc';
 import { dialog } from '../lib/dialog';
 import * as library from '../lib/library';
+import { saveLinksFromDetail } from '../lib/libraryDownloadLinks';
 import { GameDescription } from '../components/game/GameDescription';
 import { clearGridPreviewCache } from '../lib/gridPreviewQueue';
 import { clearRemoteImageQueue } from '../lib/remoteImageQueue';
@@ -163,6 +164,11 @@ function GameDetailPageInner() {
         thumbnailUrl: state.data.bannerUrl,
         currentVersion: state.data.version,
       });
+      try {
+        await saveLinksFromDetail(state.data.threadId, state.data);
+      } catch (err) {
+        console.warn('[library] failed to cache download links on add', err);
+      }
       setInLibrary(true);
     } catch (err) {
       await dialog.alert(formatError(err), { kind: 'error' });

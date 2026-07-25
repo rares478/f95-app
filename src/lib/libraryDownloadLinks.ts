@@ -45,7 +45,15 @@ export async function saveLinksFromDetail(
   detail: GameDetail,
 ): Promise<void> {
   const version = (detail.version ?? '').trim() || null;
-  await library.setDownloadLinks(threadId, detail.downloads ?? [], version);
+  await saveLinksSnapshot(threadId, detail.downloads ?? [], version);
+}
+
+export async function saveLinksSnapshot(
+  threadId: string,
+  links: GameDownload[],
+  version: string | null,
+): Promise<void> {
+  await library.setDownloadLinks(threadId, links, version);
 }
 
 export class LibraryLinksError extends Error {
