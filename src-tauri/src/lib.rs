@@ -89,6 +89,12 @@ pub fn run() {
             sql: migrations::V7_NOTIFICATIONS,
             kind: MigrationKind::Up,
         },
+        Migration {
+            version: 8,
+            description: "library_games_download_links",
+            sql: migrations::V8_LIBRARY_DOWNLOAD_LINKS,
+            kind: MigrationKind::Up,
+        },
     ];
 
     tauri::Builder::default()

@@ -169,3 +169,12 @@ CREATE TABLE rss_seen_guids (
   seen_at  TEXT NOT NULL DEFAULT (datetime('now'))
 );
 "#;
+
+/// v8 caches OP download links on library rows so Install/Update can run
+/// from the library without opening the store page. Version stamp tracks
+/// which F95 version the links belong to (refreshed on update checks).
+pub const V8_LIBRARY_DOWNLOAD_LINKS: &str = r#"
+ALTER TABLE library_games ADD COLUMN download_links_json TEXT;
+ALTER TABLE library_games ADD COLUMN download_links_version TEXT;
+ALTER TABLE library_games ADD COLUMN download_links_fetched_at TEXT;
+"#;

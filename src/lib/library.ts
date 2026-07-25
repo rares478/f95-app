@@ -6,6 +6,7 @@ import type {
   LibraryGame,
   LibrarySort,
 } from '../types/library';
+import type { GameDownload } from '../types/game';
 import type { SamCategory } from '../types/sam';
 
 interface DbRow {
@@ -24,6 +25,33 @@ interface DbRow {
   total_playtime_seconds: number;
   custom_tags_json: string | null;
   notes: string | null;
+  download_links_json?: string | null;
+  download_links_version?: string | null;
+  download_links_fetched_at?: string | null;
+}
+
+function parseDownloadLinksJson(raw: string | null | undefined): GameDownload[] {
+  if (!raw) return [];
+  try {
+    const parsed = JSON.parse(raw);
+    if (!Array.isArray(parsed)) return [];
+    return parsed.filter(
+      (x): x is GameDownload =>
+        x &&
+        typeof x === 'object' &&
+        typeof x.host === 'string' &&
+        typeof x.url === 'string' &&
+        typeof x.text === 'string' &&
+        (x.group === null || typeof x.group === 'string' || x.group === undefined),
+    ).map((x) => ({
+      host: x.host,
+      url: x.url,
+      text: x.text,
+      group: x.group ?? null,
+    }));
+  } catch {
+    return [];
+  }
 }
 
 function rowToGame(r: DbRow): LibraryGame {
@@ -52,6 +80,9 @@ function rowToGame(r: DbRow): LibraryGame {
     totalPlaytimeSeconds: r.total_playtime_seconds ?? 0,
     customTags,
     notes: r.notes ?? '',
+    downloadLinks: parseDownloadLinksJson(r.download_links_json),
+    downloadLinksVersion: r.download_links_version ?? null,
+    downloadLinksFetchedAt: r.download_links_fetched_at ?? null,
   };
 }
 
@@ -279,6 +310,21 @@ export async function setCustomTags(
   await execute(
     `UPDATE library_games SET custom_tags_json = ? WHERE thread_id = ?`,
     [json, threadId],
+  );
+}
+
+export async function setDownloadLinks(
+  threadId: string,
+  links: GameDownload[],
+  version: string | null,
+): Promise<void> {
+  await execute(
+    `UPDATE library_games
+        SET download_links_json = ?,
+            download_links_version = ?,
+            download_links_fetched_at = datetime('now')
+      WHERE thread_id = ?`,
+    [JSON.stringify(links), version, threadId],
   );
 }
 

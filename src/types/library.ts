@@ -1,3 +1,4 @@
+import type { GameDownload } from './game';
 import type { SamCategory } from './sam';
 
 export type InstallStatus =
@@ -24,6 +25,9 @@ export interface LibraryGame {
   totalPlaytimeSeconds: number;
   customTags: string[];
   notes: string;
+  downloadLinks: GameDownload[];
+  downloadLinksVersion: string | null;
+  downloadLinksFetchedAt: string | null;
 }
 
 export interface LibraryFilter {
