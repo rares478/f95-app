@@ -19,7 +19,6 @@ import { item, offlineTitle, sep } from './helpers';
 function primaryLabel(
   game: LibraryGame,
   isRunning: boolean,
-  isOffline: boolean,
   t: LibraryGameActionsDeps['t'],
 ): { label: string; disabled: boolean; hidden: boolean } {
   if (isRunning && game.category === 'games') {
@@ -43,7 +42,7 @@ function primaryLabel(
         label: game.availableVersion
           ? t('contextMenu.updateTo', { version: game.availableVersion })
           : t('contextMenu.update'),
-        disabled: isOffline,
+        disabled: false,
         hidden: false,
       };
     case 'downloading':
@@ -65,7 +64,7 @@ export function buildLibraryMenu(
 ): ContextMenuItem[] {
   const { running, isOffline, t, navigate } = deps;
   const isRunning = running.has(game.threadId);
-  const primary = primaryLabel(game, isRunning, isOffline, t);
+  const primary = primaryLabel(game, isRunning, t);
   const off = offlineTitle(isOffline, t);
 
   const items: ContextMenuItem[] = [];

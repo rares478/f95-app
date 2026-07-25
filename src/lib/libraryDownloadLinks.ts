@@ -83,10 +83,10 @@ export async function ensureLinks(
         : String(err);
     throw new LibraryLinksError('fetch_failed', msg);
   }
-  await saveLinksFromDetail(game.threadId, detail);
   const links = detail.downloads ?? [];
   if (links.length === 0) {
     throw new LibraryLinksError('empty_links', 'No download links found');
   }
+  await saveLinksFromDetail(game.threadId, detail);
   return links;
 }
