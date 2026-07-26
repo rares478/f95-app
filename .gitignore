@@ -28,3 +28,8 @@ tmp-*
 uh-post-*.html
 gdrive-cookies.txt
 gdrive-docs.bin
+
+# Local agent / planning scratch (not for the repo)
+/.superpowers
+.superpowers/*
+docs/superpowers/
