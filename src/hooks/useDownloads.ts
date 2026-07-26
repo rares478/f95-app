@@ -129,6 +129,10 @@ export async function runExtraction(
         await markJobAssign(linkedJob.id, 'assigned', { exeId: exe.id });
         await recomputePlanStatus(linkedJob.planId);
 
+        if (gameVersion) {
+          await library.applyVersion(threadId, gameVersion);
+        }
+
         if (dlSettings.createShortcuts) {
           try {
             await ipc.createGameShortcuts({
@@ -140,7 +144,11 @@ export async function runExtraction(
           }
         }
       } else {
-        // Leave assign_status pending; do not clobber install_path / exe via setExe.
+        // Reset pending after successful extract (clears prior failed + error).
+        // Do not applyVersion here — Assigner (Task 7) applies after assign.
+        await markJobAssign(linkedJob.id, 'pending', { errorMessage: null });
+        await recomputePlanStatus(linkedJob.planId);
+        // Do not clobber install_path / exe via setExe.
         if (wasInstalled) {
           await library.setStatus(threadId, previousStatus);
         } else {
@@ -151,10 +159,6 @@ export async function runExtraction(
           planId: linkedJob.planId,
           threadId,
         });
-      }
-
-      if (gameVersion) {
-        await library.applyVersion(threadId, gameVersion);
       }
 
       if (dlSettings.deleteArchiveAfterExtract) {

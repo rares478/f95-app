@@ -203,15 +203,27 @@ export async function markJobExtracted(
 export async function markJobAssign(
   jobId: string,
   status: AssignStatus,
-  opts?: { exeId?: string; errorMessage?: string },
+  opts?: { exeId?: string; errorMessage?: string | null },
 ): Promise<void> {
+  // Pass `errorMessage: null` to clear a prior failure; omit the key to leave
+  // error_message unchanged (COALESCE alone cannot clear).
+  if (opts != null && 'errorMessage' in opts) {
+    await execute(
+      `UPDATE install_jobs
+          SET assign_status = ?,
+              exe_id = COALESCE(?, exe_id),
+              error_message = ?
+        WHERE id = ?`,
+      [status, opts.exeId ?? null, opts.errorMessage ?? null, jobId],
+    );
+    return;
+  }
   await execute(
     `UPDATE install_jobs
         SET assign_status = ?,
-            exe_id = COALESCE(?, exe_id),
-            error_message = COALESCE(?, error_message)
+            exe_id = COALESCE(?, exe_id)
       WHERE id = ?`,
-    [status, opts?.exeId ?? null, opts?.errorMessage ?? null, jobId],
+    [status, opts?.exeId ?? null, jobId],
   );
 }
 

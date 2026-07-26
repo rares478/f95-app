@@ -152,6 +152,29 @@ describe('installPlans DB façade', () => {
     expect(await installPlans.findJobByDownloadId(99)).toBeNull();
   });
 
+  it('markJobAssign clears error_message when null is passed', async () => {
+    await installPlans.markJobAssign('j1', 'pending', { errorMessage: null });
+
+    const update = execute.mock.calls.find((c) =>
+      String(c[0]).includes('UPDATE install_jobs'),
+    );
+    expect(update).toBeTruthy();
+    expect(String(update![0])).toContain('error_message = ?');
+    expect(String(update![0])).not.toContain('COALESCE(?, error_message)');
+    expect(update![1]).toEqual(['pending', null, null, 'j1']);
+  });
+
+  it('markJobAssign leaves error_message unchanged when omitted', async () => {
+    await installPlans.markJobAssign('j1', 'assigned', { exeId: 'e1' });
+
+    const update = execute.mock.calls.find((c) =>
+      String(c[0]).includes('UPDATE install_jobs'),
+    );
+    expect(update).toBeTruthy();
+    expect(String(update![0])).not.toContain('error_message');
+    expect(update![1]).toEqual(['assigned', 'e1', 'j1']);
+  });
+
   it('recomputePlanStatus marks completed when all jobs are terminal', async () => {
     query.mockResolvedValueOnce([
       { assign_status: 'assigned' },
