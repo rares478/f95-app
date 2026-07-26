@@ -26,6 +26,7 @@ pub async fn extract_archive(
     archive_path: String,
     game_title: String,
     download_id: Option<i64>,
+    dest_dir: Option<String>,
 ) -> Result<ExtractResult, AppError> {
     let bundled_root = app
         .path()
@@ -82,7 +83,10 @@ pub async fn extract_archive(
                     .map(str::to_string)
             })
             .unwrap_or_else(|| "extracted".to_string());
-        let dest = parent.join(stem);
+        let dest = match dest_dir {
+            Some(p) if !p.trim().is_empty() => PathBuf::from(p),
+            _ => parent.join(stem),
+        };
         crate::extraction::extract(&archive, &dest, bundled_7z.as_deref(), progress)?;
         let exe = crate::extraction::find_main_exe(&dest, &game_title);
         Ok(ExtractResult {

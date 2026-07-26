@@ -198,6 +198,7 @@ export async function extractArchive(args: {
   archivePath: string;
   gameTitle: string;
   downloadId?: number | null;
+  destDir?: string | null;
 }): Promise<ExtractResult> {
   return invoke<ExtractResult>('extract_archive', args);
 }
