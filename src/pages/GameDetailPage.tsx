@@ -35,6 +35,7 @@ import {
   PrefixPill,
 } from '../components/game/GameDetailLayout';
 import { MoreLikeThis } from '../components/game/MoreLikeThis';
+import { ThreadDiscussion } from '../components/game/ThreadDiscussion';
 import { OfflineGate } from '../components/OfflineGate';
 import { useContextMenu } from '../components/contextMenu';
 import { useOffline } from '../contexts/Offline';
@@ -78,6 +79,7 @@ function GameDetailPageInner() {
   const { threadId } = useParams<{ threadId: string }>();
   const [searchParams] = useSearchParams();
   const category = parseSamCategory(searchParams.get('cat'));
+  const focusPostId = searchParams.get('post');
   const navigate = useNavigate();
   const { t } = useT();
   const { isOffline } = useOffline();
@@ -351,6 +353,8 @@ function GameDetailPageInner() {
               style={{ fontSize: 13.5, lineHeight: 1.65, wordBreak: 'break-word' }}
             />
           </GameDetailSection>
+
+          <ThreadDiscussion threadId={g.threadId} focusPostId={focusPostId} />
         </GameDetailMain>
 
         <GameDetailAside>

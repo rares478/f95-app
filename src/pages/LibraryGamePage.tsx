@@ -1,5 +1,5 @@
 import { useCallback, useEffect, useMemo, useState } from 'react';
-import { useNavigate, useParams } from 'react-router-dom';
+import { useNavigate, useParams, useSearchParams } from 'react-router-dom';
 import DOMPurify from 'dompurify';
 import { open as openFileDialog } from '@tauri-apps/plugin-dialog';
 import { dialog } from '../lib/dialog';
@@ -16,6 +16,7 @@ import { InstallLocationModal } from '../components/InstallLocationModal';
 import { MoveProgressModal } from '../components/MoveProgressModal';
 import { GameDescription } from '../components/game/GameDescription';
 import { ScreenshotGallery } from '../components/game/ScreenshotGallery';
+import { ThreadDiscussion } from '../components/game/ThreadDiscussion';
 import { clearGridPreviewCache } from '../lib/gridPreviewQueue';
 import { clearRemoteImageQueue } from '../lib/remoteImageQueue';
 import {
@@ -67,6 +68,8 @@ export function LibraryGamePage() {
   const { t } = useT();
   const { isOffline } = useOffline();
   const { threadId } = useParams<{ threadId: string }>();
+  const [searchParams] = useSearchParams();
+  const focusPostId = searchParams.get('post');
   const navigate = useNavigate();
   const [state, setState] = useState<State>({ kind: 'loading' });
   const [storeDetail, setStoreDetail] = useState<GameDetail | null>(null);
@@ -630,6 +633,14 @@ export function LibraryGamePage() {
                 style={{ fontSize: 13.5, lineHeight: 1.65, wordBreak: 'break-word' }}
               />
             </GameDetailSection>
+          )}
+
+          {g.threadId && (
+            <ThreadDiscussion
+              threadId={g.threadId}
+              focusPostId={focusPostId}
+              offline={isOffline}
+            />
           )}
 
           <GameDetailSection title={t('libdetail.section.notes')}>
