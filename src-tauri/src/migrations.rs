@@ -213,3 +213,35 @@ SELECT
 FROM library_games
 WHERE exe_path IS NOT NULL AND TRIM(exe_path) != '';
 "#;
+
+/// v10: install plans + jobs so multi-section Install/Update can queue
+/// coordinated downloads, extract per job, and assign exes without clobbering.
+pub const V10_INSTALL_PLANS: &str = r#"
+CREATE TABLE install_plans (
+  id          TEXT PRIMARY KEY NOT NULL,
+  thread_id   TEXT NOT NULL,
+  intent      TEXT NOT NULL,
+  status      TEXT NOT NULL DEFAULT 'active',
+  created_at  TEXT NOT NULL DEFAULT (datetime('now')),
+  FOREIGN KEY (thread_id) REFERENCES library_games(thread_id) ON DELETE CASCADE
+);
+CREATE INDEX idx_install_plans_thread ON install_plans(thread_id);
+
+CREATE TABLE install_jobs (
+  id              TEXT PRIMARY KEY NOT NULL,
+  plan_id         TEXT NOT NULL,
+  section_label   TEXT NOT NULL,
+  section_kind    TEXT NOT NULL,
+  source_url      TEXT NOT NULL,
+  host            TEXT NOT NULL,
+  download_id     INTEGER,
+  extract_path    TEXT,
+  exe_id          TEXT,
+  assign_status   TEXT NOT NULL DEFAULT 'pending',
+  sort_order      INTEGER NOT NULL DEFAULT 0,
+  error_message   TEXT,
+  FOREIGN KEY (plan_id) REFERENCES install_plans(id) ON DELETE CASCADE
+);
+CREATE INDEX idx_install_jobs_plan ON install_jobs(plan_id);
+CREATE INDEX idx_install_jobs_download ON install_jobs(download_id);
+"#;

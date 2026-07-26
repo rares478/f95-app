@@ -101,6 +101,12 @@ pub fn run() {
             sql: migrations::V9_LIBRARY_GAME_EXES,
             kind: MigrationKind::Up,
         },
+        Migration {
+            version: 10,
+            description: "install_plans_and_jobs",
+            sql: migrations::V10_INSTALL_PLANS,
+            kind: MigrationKind::Up,
+        },
     ];
 
     tauri::Builder::default()
