@@ -4,6 +4,7 @@ import {
   toF95FullUrl,
 } from '../../lib/f95ImageUrl';
 import { requestGridPreview } from '../../lib/gridPreviewQueue';
+import { useT } from '../../lib/i18n';
 import '../../styles/game-description.css';
 
 interface Props {
@@ -13,6 +14,7 @@ interface Props {
 }
 
 const VIEW_MARGIN_PX = 200;
+const QUOTE_COLLAPSE_PX = 160;
 
 function isNearViewport(img: HTMLImageElement): boolean {
   const rect = img.getBoundingClientRect();
@@ -21,8 +23,10 @@ function isNearViewport(img: HTMLImageElement): boolean {
 
 /**
  * Descrição: thumb F95 imediato (sem ícone quebrado) → preview ~720px em cache (fila).
+ * Also wires expandable XF quotes (normalized to `.x-quote`).
  */
 export function GameDescription({ html, className, style }: Props) {
+  const { t } = useT();
   const rootRef = useRef<HTMLDivElement>(null);
   const priorityRef = useRef(0);
   const upgradedRef = useRef(new WeakSet<HTMLImageElement>());
@@ -102,6 +106,47 @@ export function GameDescription({ html, className, style }: Props) {
 
     return () => io.disconnect();
   }, [html]);
+
+  useEffect(() => {
+    const root = rootRef.current;
+    if (!root) return;
+
+    const expandLabel = t('gamedetail.description.expandQuote');
+    const collapseLabel = t('gamedetail.description.collapseQuote');
+    const cleanups: Array<() => void> = [];
+
+    root.querySelectorAll<HTMLElement>('.x-quote').forEach((quote) => {
+      const content = quote.querySelector<HTMLElement>('.x-quote-content');
+      const btn = quote.querySelector<HTMLButtonElement>('button.x-quote-expand');
+      if (!content || !btn) return;
+
+      quote.classList.remove('x-quote--expanded', 'x-quote--short');
+      // Force layout so scrollHeight reflects the clamped box.
+      content.style.maxHeight = `${QUOTE_COLLAPSE_PX}px`;
+      const needsExpand = content.scrollHeight > QUOTE_COLLAPSE_PX + 8;
+      content.style.maxHeight = '';
+
+      if (!needsExpand) {
+        quote.classList.add('x-quote--short');
+        btn.hidden = true;
+        btn.textContent = '';
+        return;
+      }
+
+      btn.hidden = false;
+      btn.textContent = expandLabel;
+      const onClick = () => {
+        const open = quote.classList.toggle('x-quote--expanded');
+        btn.textContent = open ? collapseLabel : expandLabel;
+      };
+      btn.addEventListener('click', onClick);
+      cleanups.push(() => btn.removeEventListener('click', onClick));
+    });
+
+    return () => {
+      for (const fn of cleanups) fn();
+    };
+  }, [html, t]);
 
   return (
     <div

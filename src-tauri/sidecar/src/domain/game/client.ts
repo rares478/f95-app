@@ -9,6 +9,7 @@ import { F95_BASE } from '../../shared/constants';
 import { absoluteUrl, cleanText, normalizeOpHtml } from './htmlNormalize';
 import {
   extractPostIdFromFinal,
+  extractThreadPageFromFinal,
   parseThreadPostsPage,
   type ThreadPostsPage,
 } from './posts';
@@ -120,7 +121,7 @@ export class GameClient {
 
   async resolvePost(
     postId: string,
-  ): Promise<{ threadId: string; postId: string }> {
+  ): Promise<{ threadId: string; postId: string; page: number | null }> {
     const id = String(postId).trim();
     if (!/^\d+$/.test(id)) {
       throw new RpcError(RPC_ERROR.INVALID_PARAMS, 'postId must be numeric');
@@ -140,7 +141,8 @@ export class GameClient {
     const finalUrl = res.url || url;
     const threadId = extractThreadId(finalUrl);
     const resolvedPost = extractPostIdFromFinal(finalUrl) ?? id;
-    if (threadId) return { threadId, postId: resolvedPost };
+    const page = extractThreadPageFromFinal(finalUrl);
+    if (threadId) return { threadId, postId: resolvedPost, page };
 
     // Fallback: scrape canonical thread link from HTML
     const $ = cheerio.load(res.body);
@@ -155,7 +157,11 @@ export class GameClient {
         `could not resolve thread for post ${id}`,
       );
     }
-    return { threadId: fromHtml, postId: id };
+    return {
+      threadId: fromHtml,
+      postId: id,
+      page: extractThreadPageFromFinal(href) ?? page,
+    };
   }
 }
 

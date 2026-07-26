@@ -79,7 +79,6 @@ function GameDetailPageInner() {
   const { threadId } = useParams<{ threadId: string }>();
   const [searchParams] = useSearchParams();
   const category = parseSamCategory(searchParams.get('cat'));
-  const focusPostId = searchParams.get('post');
   const navigate = useNavigate();
   const { t } = useT();
   const { isOffline } = useOffline();
@@ -246,8 +245,8 @@ function GameDetailPageInner() {
   const g = state.data;
   const displayPrefixes = normalizeDetailPrefixes(g.prefixes, g.version);
   const sanitized = DOMPurify.sanitize(g.descriptionHtml, {
-    ADD_TAGS: ['details', 'summary'],
-    ADD_ATTR: ['target', 'rel', 'loading'],
+    ADD_TAGS: ['details', 'summary', 'button'],
+    ADD_ATTR: ['target', 'rel', 'loading', 'type', 'hidden'],
   });
 
   const orderedFields = FIELD_ORDER.filter((k) => g.fields[k]);
@@ -354,7 +353,9 @@ function GameDetailPageInner() {
             />
           </GameDetailSection>
 
-          <ThreadDiscussion threadId={g.threadId} focusPostId={focusPostId} />
+          <MoreLikeThis threadId={g.threadId} category={category} tags={g.tags} />
+
+          <ThreadDiscussion threadId={g.threadId} />
         </GameDetailMain>
 
         <GameDetailAside>
@@ -386,8 +387,6 @@ function GameDetailPageInner() {
           </GameDetailSection>
         </GameDetailAside>
       </GameDetailBody>
-
-      <MoreLikeThis threadId={g.threadId} category={category} tags={g.tags} />
     </GameDetailShell>
   );
 }

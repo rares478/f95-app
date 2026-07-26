@@ -4,6 +4,8 @@ export interface ThreadPost {
   authorAvatarUrl: string | null;
   postedAt: string | null;
   html: string;
+  /** Normalized XF profile signature HTML, when present. */
+  signatureHtml: string | null;
   permalink: string | null;
 }
 
@@ -19,4 +21,6 @@ export interface ThreadPostsPage {
 export interface ResolvePostResult {
   threadId: string;
   postId: string;
+  /** XF page when known from the redirect/canonical URL. */
+  page: number | null;
 }

@@ -1,24 +1,25 @@
-import { useCallback, useEffect, useRef, useState } from 'react';
+import { useCallback, useEffect, useMemo, useRef, useState, type FormEvent } from 'react';
 import DOMPurify from 'dompurify';
 import { openUrl } from '@tauri-apps/plugin-opener';
+import { useSearchParams } from 'react-router-dom';
 import { GameDescription } from './GameDescription';
 import { threadPosts } from '../../lib/ipc';
 import { formatIpcError } from '../../lib/ipcError';
 import { formatRelativeDate } from '../../lib/formatDate';
+import { useDiscussionSettings } from '../../contexts/DiscussionSettings';
 import { useT } from '../../lib/i18n';
-import type { ThreadPost } from '../../types/threadPosts';
+import type { ThreadPost, ThreadPostsPage } from '../../types/threadPosts';
 import '../../styles/thread-discussion.css';
 
-const SEEK_PAGE_CAP = 10;
+const SEEK_PAGE_CAP = 25;
 const HIGHLIGHT_MS = 2500;
+
+type FocusStatus = 'idle' | 'seeking' | 'found' | 'missing';
 
 interface Props {
   threadId: string;
-  focusPostId?: string | null;
   offline?: boolean;
 }
-
-type FocusStatus = 'idle' | 'seeking' | 'found' | 'missing';
 
 function authorInitial(author: string): string {
   const trimmed = author.trim();
@@ -27,8 +28,8 @@ function authorInitial(author: string): string {
 
 function sanitizePostHtml(html: string): string {
   return DOMPurify.sanitize(html, {
-    ADD_TAGS: ['details', 'summary'],
-    ADD_ATTR: ['target', 'rel', 'loading'],
+    ADD_TAGS: ['details', 'summary', 'button'],
+    ADD_ATTR: ['target', 'rel', 'loading', 'type', 'hidden'],
   });
 }
 
@@ -36,41 +37,94 @@ function postExternalUrl(post: ThreadPost): string {
   return post.permalink ?? `https://f95zone.to/posts/${post.postId}/`;
 }
 
-/** Lazy read-only thread replies — fetches when scrolled into view (or immediately for deep-links). */
-export function ThreadDiscussion({
-  threadId,
-  focusPostId = null,
-  offline = false,
-}: Props) {
+function SignatureBlock({
+  postId,
+  html,
+  autoShow,
+}: {
+  postId: string;
+  html: string;
+  autoShow: boolean;
+}) {
+  const { t } = useT();
+  const [open, setOpen] = useState(autoShow);
+
+  useEffect(() => {
+    setOpen(autoShow);
+  }, [autoShow, postId]);
+
+  return (
+    <details
+      className="thread-post-signature"
+      open={open}
+      onToggle={(e) => setOpen(e.currentTarget.open)}
+    >
+      <summary>{t('gamedetail.discussion.signature')}</summary>
+      <GameDescription html={sanitizePostHtml(html)} className="thread-post-signature-body" />
+    </details>
+  );
+}
+
+function parsePositiveInt(raw: string | null): number | null {
+  if (!raw) return null;
+  const n = Number.parseInt(raw, 10);
+  return Number.isFinite(n) && n >= 1 ? n : null;
+}
+
+/** Compact XF-style page list: 1 … 4 5 6 … 20 */
+function buildPageItems(
+  current: number,
+  total: number,
+): Array<number | 'ellipsis'> {
+  if (total <= 7) {
+    return Array.from({ length: total }, (_, i) => i + 1);
+  }
+  const items: Array<number | 'ellipsis'> = [];
+  const push = (n: number | 'ellipsis') => {
+    if (items[items.length - 1] !== n) items.push(n);
+  };
+  push(1);
+  const start = Math.max(2, current - 1);
+  const end = Math.min(total - 1, current + 1);
+  if (start > 2) push('ellipsis');
+  for (let p = start; p <= end; p++) push(p);
+  if (end < total - 1) push('ellipsis');
+  push(total);
+  return items;
+}
+
+/** Lazy read-only thread replies with F95-style page navigation. */
+export function ThreadDiscussion({ threadId, offline = false }: Props) {
   const { t, locale } = useT();
+  const { settings: discussionSettings } = useDiscussionSettings();
+  const [searchParams, setSearchParams] = useSearchParams();
+  const focusPostId = searchParams.get('post');
+  const pageParamRaw = searchParams.get('page');
+  const wantLatest = pageParamRaw === 'latest';
+  const urlPage = wantLatest ? null : parsePositiveInt(pageParamRaw);
+
   const sentinelRef = useRef<HTMLDivElement>(null);
   const fetchGen = useRef(0);
   const highlightedFor = useRef<string | null>(null);
   const highlightScrollTimer = useRef<number | null>(null);
   const highlightRemoveTimer = useRef<number | null>(null);
+  const seekPagesUsed = useRef(0);
 
-  const [visible, setVisible] = useState(() => Boolean(focusPostId));
+  const [visible, setVisible] = useState(() =>
+    Boolean(focusPostId || urlPage || wantLatest),
+  );
   const [posts, setPosts] = useState<ThreadPost[]>([]);
   const [page, setPage] = useState(0);
+  const [totalPages, setTotalPages] = useState<number | null>(null);
   const [hasMore, setHasMore] = useState(false);
   const [loading, setLoading] = useState(false);
-  const [loadingMore, setLoadingMore] = useState(false);
   const [error, setError] = useState<string | null>(null);
   const [focusStatus, setFocusStatus] = useState<FocusStatus>(() =>
     focusPostId ? 'seeking' : 'idle',
   );
+  const [jumpDraft, setJumpDraft] = useState('');
 
-  useEffect(() => {
-    fetchGen.current += 1;
-    setVisible(Boolean(focusPostId));
-    setPosts([]);
-    setPage(0);
-    setHasMore(false);
-    setLoading(false);
-    setLoadingMore(false);
-    setError(null);
-    setFocusStatus(focusPostId ? 'seeking' : 'idle');
-    highlightedFor.current = null;
+  const clearHighlightTimers = () => {
     if (highlightScrollTimer.current != null) {
       window.clearTimeout(highlightScrollTimer.current);
       highlightScrollTimer.current = null;
@@ -79,7 +133,123 @@ export function ThreadDiscussion({
       window.clearTimeout(highlightRemoveTimer.current);
       highlightRemoveTimer.current = null;
     }
+  };
+
+  const syncPageInUrl = useCallback(
+    (nextPage: number) => {
+      setSearchParams(
+        (prev) => {
+          const next = new URLSearchParams(prev);
+          if (nextPage <= 1) next.delete('page');
+          else next.set('page', String(nextPage));
+          return next;
+        },
+        { replace: true },
+      );
+    },
+    [setSearchParams],
+  );
+
+  const applyResult = useCallback(
+    (result: ThreadPostsPage) => {
+      setPosts(result.posts);
+      setPage(result.page);
+      if (result.totalPages != null) setTotalPages(result.totalPages);
+      setHasMore(result.hasMore);
+      syncPageInUrl(result.page);
+    },
+    [syncPageInUrl],
+  );
+
+  const goToPage = useCallback(
+    async (target: number) => {
+      const clamped = Math.max(1, Math.floor(target));
+      const gen = fetchGen.current;
+      setLoading(true);
+      setError(null);
+      try {
+        const result = await threadPosts(threadId, clamped);
+        if (gen !== fetchGen.current) return null;
+        applyResult(result);
+        return result;
+      } catch (err) {
+        if (gen !== fetchGen.current) return null;
+        setError(formatIpcError(err));
+        setFocusStatus((s) => (s === 'seeking' ? 'missing' : s));
+        return null;
+      } finally {
+        if (gen === fetchGen.current) setLoading(false);
+      }
+    },
+    [threadId, applyResult],
+  );
+
+  const goToLatest = useCallback(async (opts?: { keepSeeking?: boolean }) => {
+    const gen = fetchGen.current;
+    setLoading(true);
+    setError(null);
+    if (!opts?.keepSeeking) {
+      setFocusStatus('idle');
+      highlightedFor.current = null;
+    }
+    try {
+      const probe = await threadPosts(threadId, 1);
+      if (gen !== fetchGen.current) return null;
+      const last = probe.totalPages ?? (!probe.hasMore ? 1 : null);
+      if (last == null || last <= 1) {
+        applyResult(probe);
+        return probe;
+      }
+      const result = await threadPosts(threadId, last);
+      if (gen !== fetchGen.current) return null;
+      applyResult(result);
+      return result;
+    } catch (err) {
+      if (gen !== fetchGen.current) return null;
+      setError(formatIpcError(err));
+      if (opts?.keepSeeking) {
+        setFocusStatus((s) => (s === 'seeking' ? 'missing' : s));
+      }
+      return null;
+    } finally {
+      if (gen === fetchGen.current) setLoading(false);
+    }
+  }, [threadId, applyResult]);
+
+  // Reset when thread / deep-link post changes.
+  useEffect(() => {
+    fetchGen.current += 1;
+    setVisible(Boolean(focusPostId || urlPage || wantLatest));
+    setPosts([]);
+    setPage(0);
+    setTotalPages(null);
+    setHasMore(false);
+    setLoading(false);
+    setError(null);
+    setFocusStatus(focusPostId ? 'seeking' : 'idle');
+    highlightedFor.current = null;
+    seekPagesUsed.current = 0;
+    setJumpDraft('');
+    clearHighlightTimers();
+    // eslint-disable-next-line react-hooks/exhaustive-deps -- reset on thread/post identity
   }, [threadId, focusPostId]);
+
+  // Bare-thread alerts use ?page=latest; re-enter even if already on this game page.
+  useEffect(() => {
+    if (!wantLatest || offline) return;
+    fetchGen.current += 1;
+    setVisible(true);
+    setPosts([]);
+    setPage(0);
+    setTotalPages(null);
+    setHasMore(false);
+    setLoading(false);
+    setError(null);
+    setFocusStatus('idle');
+    highlightedFor.current = null;
+    seekPagesUsed.current = 0;
+    clearHighlightTimers();
+  }, [wantLatest, threadId, offline]);
 
   useEffect(() => {
     if (offline || visible) return;
@@ -88,9 +258,7 @@ export function ThreadDiscussion({
     const root = document.querySelector('.app-main');
     const io = new IntersectionObserver(
       (entries) => {
-        if (entries.some((e) => e.isIntersecting)) {
-          setVisible(true);
-        }
+        if (entries.some((e) => e.isIntersecting)) setVisible(true);
       },
       {
         root: root instanceof Element ? root : null,
@@ -102,47 +270,47 @@ export function ThreadDiscussion({
     return () => io.disconnect();
   }, [visible, threadId, offline]);
 
-  const appendPage = useCallback(
-    async (nextPage: number, kind: 'initial' | 'more') => {
-      const gen = fetchGen.current;
-      if (kind === 'initial') setLoading(true);
-      else setLoadingMore(true);
-      setError(null);
-      try {
-        const result = await threadPosts(threadId, nextPage);
-        if (gen !== fetchGen.current) return;
-        setPosts((prev) => {
-          const seen = new Set(prev.map((p) => p.postId));
-          return [...prev, ...result.posts.filter((p) => !seen.has(p.postId))];
-        });
-        setPage(result.page);
-        setHasMore(result.hasMore);
-      } catch (err) {
-        if (gen !== fetchGen.current) return;
-        setError(formatIpcError(err));
-        // Unstick seek so Load more is not left disabled forever.
-        setFocusStatus((s) => (s === 'seeking' ? 'missing' : s));
-      } finally {
-        if (gen !== fetchGen.current) return;
-        if (kind === 'initial') setLoading(false);
-        else setLoadingMore(false);
-      }
-    },
-    [threadId],
-  );
-
+  // Initial page load once visible.
+  // Reply deep-links start at the latest page (or a known ?page=) and seek backwards.
   useEffect(() => {
-    // Gate on `error` so a failed page-1 fetch does not retry in a tight loop.
     if (offline || !visible || page > 0 || loading || error) return;
-    void appendPage(1, 'initial');
-  }, [offline, visible, page, loading, error, appendPage]);
+    if (focusPostId) {
+      if (urlPage) void goToPage(urlPage);
+      else void goToLatest({ keepSeeking: true });
+      return;
+    }
+    if (wantLatest) {
+      void goToLatest();
+      return;
+    }
+    void goToPage(urlPage ?? 1);
+  }, [
+    offline,
+    visible,
+    page,
+    loading,
+    error,
+    focusPostId,
+    urlPage,
+    wantLatest,
+    goToPage,
+    goToLatest,
+  ]);
 
+  // Seek across pages for ?post= — walk toward older pages from the end.
   useEffect(() => {
     if (offline || !focusPostId || focusStatus !== 'seeking') return;
-    if (loading || loadingMore || page === 0 || error) return;
+    if (loading || page === 0 || error) return;
     if (posts.some((p) => p.postId === focusPostId)) return;
-    if (page < SEEK_PAGE_CAP && hasMore) {
-      void appendPage(page + 1, 'more');
+
+    if (seekPagesUsed.current >= SEEK_PAGE_CAP) {
+      setFocusStatus('missing');
+      return;
+    }
+
+    if (page > 1) {
+      seekPagesUsed.current += 1;
+      void goToPage(page - 1);
     } else {
       setFocusStatus('missing');
     }
@@ -151,12 +319,10 @@ export function ThreadDiscussion({
     focusPostId,
     focusStatus,
     loading,
-    loadingMore,
     page,
-    hasMore,
     posts,
     error,
-    appendPage,
+    goToPage,
   ]);
 
   useEffect(() => {
@@ -165,8 +331,6 @@ export function ThreadDiscussion({
     setFocusStatus('found');
   }, [posts, focusPostId, focusStatus]);
 
-  // Scroll/highlight once when the target post appears. Intentionally omits
-  // focusStatus so the `found` transition cannot cancel the pending timer.
   useEffect(() => {
     if (!focusPostId) return;
     if (highlightedFor.current === focusPostId) return;
@@ -185,16 +349,37 @@ export function ThreadDiscussion({
     }, 50);
   }, [posts, focusPostId]);
 
-  useEffect(() => {
-    return () => {
-      if (highlightScrollTimer.current != null) {
-        window.clearTimeout(highlightScrollTimer.current);
-      }
-      if (highlightRemoveTimer.current != null) {
-        window.clearTimeout(highlightRemoveTimer.current);
-      }
-    };
-  }, []);
+  useEffect(() => () => clearHighlightTimers(), []);
+
+  const effectiveTotal = totalPages ?? (hasMore ? null : Math.max(page, 1));
+  const pageItems = useMemo(() => {
+    if (effectiveTotal == null || effectiveTotal < 1 || page < 1) return [];
+    return buildPageItems(page, effectiveTotal);
+  }, [page, effectiveTotal]);
+
+  const canPrev = page > 1 && !loading;
+  const canNext = hasMore && !loading;
+  const canLatest =
+    !loading && (totalPages == null || totalPages > 1 || hasMore);
+
+  const onJumpSubmit = (e: FormEvent) => {
+    e.preventDefault();
+    const n = parsePositiveInt(jumpDraft.trim());
+    if (!n) return;
+    const max = totalPages ?? n;
+    const target = Math.min(n, max);
+    setFocusStatus('idle');
+    highlightedFor.current = null;
+    seekPagesUsed.current = SEEK_PAGE_CAP; // stop seek
+    void goToPage(target);
+  };
+
+  const navigateTo = (target: number) => {
+    setFocusStatus('idle');
+    highlightedFor.current = null;
+    seekPagesUsed.current = SEEK_PAGE_CAP;
+    void goToPage(target);
+  };
 
   if (offline) {
     return (
@@ -207,8 +392,9 @@ export function ThreadDiscussion({
     );
   }
 
-  const showBody = visible || Boolean(focusPostId);
+  const showBody = visible || Boolean(focusPostId) || Boolean(urlPage) || wantLatest;
   const seeking = focusStatus === 'seeking' && Boolean(focusPostId);
+  const showPager = page > 0 && (hasMore || page > 1 || (effectiveTotal != null && effectiveTotal > 1));
 
   return (
     <section className="thread-discussion" aria-label={t('gamedetail.section.discussion')}>
@@ -216,7 +402,17 @@ export function ThreadDiscussion({
 
       {showBody && (
         <>
-          <h2 className="game-detail-section-title">{t('gamedetail.section.discussion')}</h2>
+          <div className="thread-discussion-header">
+            <h2 className="game-detail-section-title">{t('gamedetail.section.discussion')}</h2>
+            <button
+              type="button"
+              className="thread-discussion-latest-btn"
+              disabled={!canLatest || seeking}
+              onClick={() => void goToLatest()}
+            >
+              {t('gamedetail.discussion.latest')}
+            </button>
+          </div>
 
           {loading && (
             <div className="thread-discussion-status thread-discussion-status--muted">
@@ -283,24 +479,96 @@ export function ThreadDiscussion({
                     html={sanitizePostHtml(post.html)}
                     className="thread-post-body"
                   />
+                  {post.signatureHtml ? (
+                    <SignatureBlock
+                      postId={post.postId}
+                      html={post.signatureHtml}
+                      autoShow={discussionSettings.autoShowSignatures}
+                    />
+                  ) : null}
                 </li>
               ))}
             </ul>
           )}
 
-          {hasMore && !error && page > 0 && (
-            <div className="thread-discussion-load-more">
+          {showPager && (
+            <nav className="thread-discussion-pager" aria-label={t('gamedetail.discussion.pagerLabel')}>
               <button
                 type="button"
-                className="thread-discussion-load-more-btn"
-                disabled={loadingMore || seeking}
-                onClick={() => void appendPage(page + 1, 'more')}
+                className="thread-discussion-pager-btn"
+                disabled={!canPrev || seeking}
+                onClick={() => navigateTo(page - 1)}
               >
-                {loadingMore
-                  ? t('gamedetail.discussion.loading')
-                  : t('gamedetail.discussion.loadMore')}
+                {t('gamedetail.discussion.prev')}
               </button>
-            </div>
+
+              <div className="thread-discussion-pager-pages">
+                {pageItems.length > 0 ? (
+                  pageItems.map((item, idx) =>
+                    item === 'ellipsis' ? (
+                      <span key={`e-${idx}`} className="thread-discussion-pager-ellipsis">
+                        …
+                      </span>
+                    ) : (
+                      <button
+                        key={item}
+                        type="button"
+                        className={
+                          item === page
+                            ? 'thread-discussion-pager-page thread-discussion-pager-page--active'
+                            : 'thread-discussion-pager-page'
+                        }
+                        disabled={loading || seeking || item === page}
+                        onClick={() => navigateTo(item)}
+                      >
+                        {item}
+                      </button>
+                    ),
+                  )
+                ) : (
+                  <span className="thread-discussion-pager-status">
+                    {t('gamedetail.discussion.pageOf', {
+                      page: String(page),
+                      total: effectiveTotal != null ? String(effectiveTotal) : '…',
+                    })}
+                  </span>
+                )}
+              </div>
+
+              <button
+                type="button"
+                className="thread-discussion-pager-btn"
+                disabled={!canNext || seeking}
+                onClick={() => navigateTo(page + 1)}
+              >
+                {t('gamedetail.discussion.next')}
+              </button>
+
+              <form className="thread-discussion-jump" onSubmit={onJumpSubmit}>
+                <label className="thread-discussion-jump-label" htmlFor={`thread-jump-${threadId}`}>
+                  {t('gamedetail.discussion.jumpTo')}
+                </label>
+                <input
+                  id={`thread-jump-${threadId}`}
+                  className="thread-discussion-jump-input"
+                  type="number"
+                  min={1}
+                  max={totalPages ?? undefined}
+                  inputMode="numeric"
+                  value={jumpDraft}
+                  disabled={loading || seeking}
+                  onChange={(e) => setJumpDraft(e.target.value)}
+                  placeholder={String(page || 1)}
+                />
+                <button
+                  type="submit"
+                  className="thread-discussion-pager-btn"
+                  disabled={loading || seeking || !parsePositiveInt(jumpDraft.trim())}
+                >
+                  {t('gamedetail.discussion.go')}
+                </button>
+              </form>
+            </nav>
           )}
         </>
       )}

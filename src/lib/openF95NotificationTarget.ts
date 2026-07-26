@@ -9,6 +9,7 @@ export function storePathForContentTarget(
 ): string {
   const q = new URLSearchParams({ cat });
   if (target.postId) q.set('post', target.postId);
+  if (target.page != null && target.page > 1) q.set('page', String(target.page));
   return `/store/game/${target.threadId}?${q.toString()}`;
 }
 
@@ -28,14 +29,21 @@ export async function openF95NotificationTarget(
   }
 
   if (target.kind === 'thread') {
+    // Reply alerts that only name the thread should open near the newest posts.
+    if (target.postId == null && target.page == null) {
+      navigate(`/store/game/${target.threadId}?cat=${encodeURIComponent(cat)}&page=latest`);
+      return;
+    }
     navigate(storePathForContentTarget(target, cat));
     return;
   }
 
   // kind === 'post'
   try {
-    const { threadId, postId } = await resolvePost(target.postId);
-    navigate(storePathForContentTarget({ kind: 'thread', threadId, postId }, cat));
+    const { threadId, postId, page } = await resolvePost(target.postId);
+    navigate(
+      storePathForContentTarget({ kind: 'thread', threadId, postId, page }, cat),
+    );
   } catch {
     if (url) await openUrl(url);
   }
