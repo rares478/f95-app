@@ -92,6 +92,35 @@ export function buildJobExtractDest(args: {
   return joinPath(gameDir, `${baseName}-${shortJobId(args.jobId)}`);
 }
 
+/**
+ * Shared extract folder for split-archive siblings (same bundleId).
+ * Reuses a sibling's extractPath when present; otherwise
+ * `{libraryGameDir}/{sanitize(sectionLabel)}` with no per-job / stem suffix.
+ */
+export function buildBundleExtractDest(args: {
+  archivePath: string;
+  sectionLabel: string;
+  jobId: string;
+  installPath?: string | null;
+  siblingExtractPaths?: Iterable<string | null | undefined>;
+}): string {
+  for (const p of args.siblingExtractPaths ?? []) {
+    if (p) return p;
+  }
+  const gameDir = resolveLibraryGameDir(args.archivePath, args.installPath);
+  return joinPath(gameDir, sanitizePathSegment(args.sectionLabel));
+}
+
+/** Lead job for bundle assign-once: lowest sortOrder, then id. */
+export function pickBundleLeadJob<T extends { id: string; sortOrder: number }>(
+  jobs: readonly T[],
+): T | null {
+  if (jobs.length === 0) return null;
+  return [...jobs].sort(
+    (a, b) => a.sortOrder - b.sortOrder || a.id.localeCompare(b.id),
+  )[0]!;
+}
+
 export const INSTALL_NEEDS_ASSIGN_EVENT = 'install:needs-assign';
 
 export interface InstallNeedsAssignDetail {

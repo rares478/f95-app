@@ -1,7 +1,9 @@
 import { describe, expect, it } from 'vitest';
 import {
   archiveStem,
+  buildBundleExtractDest,
   buildJobExtractDest,
+  pickBundleLeadJob,
   resolveLibraryGameDir,
   sanitizePathSegment,
   shortJobId,
@@ -86,6 +88,56 @@ describe('buildJobExtractDest', () => {
 describe('shortJobId', () => {
   it('returns first 8 hex chars without dashes', () => {
     expect(shortJobId('abcdef12-3456-7890-abcd-ef1234567890')).toBe('abcdef12');
+  });
+});
+
+describe('buildBundleExtractDest', () => {
+  it('uses sanitize(sectionLabel) under library game dir without job/stem suffix', () => {
+    expect(
+      buildBundleExtractDest({
+        archivePath: 'D:/lib/99/Game.part1.rar',
+        sectionLabel: 'Season 1-2 · Win/Linux · Splits',
+        jobId: 'abcdef12-3456-7890-abcd-ef1234567890',
+      }),
+    ).toBe('D:/lib/99/Season 1-2 · Win_Linux · Splits');
+  });
+
+  it('reuses an existing sibling extractPath', () => {
+    expect(
+      buildBundleExtractDest({
+        archivePath: 'D:/lib/99/Game.part2.rar',
+        sectionLabel: 'Season 1-2 · Win/Linux · Splits',
+        jobId: '11111111-2222-3333-4444-555555555555',
+        siblingExtractPaths: [null, 'D:/lib/99/Season 1-2 · Win_Linux · Splits'],
+      }),
+    ).toBe('D:/lib/99/Season 1-2 · Win_Linux · Splits');
+  });
+
+  it('uses parent of install path when install is outside archive tree', () => {
+    expect(
+      buildBundleExtractDest({
+        archivePath: 'E:/dl/99/a.part1.rar',
+        sectionLabel: 'Splits',
+        jobId: 'aaaaaaaa-bbbb-cccc-dddd-eeeeeeeeeeee',
+        installPath: 'D:/Games/MyGame/old',
+      }),
+    ).toBe('D:/Games/MyGame/Splits');
+  });
+});
+
+describe('pickBundleLeadJob', () => {
+  it('returns the lowest sortOrder job (then id)', () => {
+    expect(
+      pickBundleLeadJob([
+        { id: 'j2', sortOrder: 2 },
+        { id: 'j1', sortOrder: 1 },
+        { id: 'j0', sortOrder: 0 },
+      ])?.id,
+    ).toBe('j0');
+  });
+
+  it('returns null for empty list', () => {
+    expect(pickBundleLeadJob([])).toBeNull();
   });
 });
 
