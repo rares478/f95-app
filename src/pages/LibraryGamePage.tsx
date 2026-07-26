@@ -285,13 +285,19 @@ export function LibraryGamePage() {
       await dialog.alert(t('libdetail.play.needExe'));
       return;
     }
-    if (isRunning) return;
+    if (isRunning || launching) return;
     setLaunching(true);
     try {
       // Goes through the context's `launch` helper so the Hydra-style
       // overlay shows up while the game spawns. The overlay clears
-      // itself once `game:started` fires.
-      await launch(g);
+      // itself once `game:started` fires. Prefer the resolved row so a
+      // stale game.exePath cache can't spawn the wrong binary.
+      await launch(
+        g,
+        resolvedExe
+          ? { exePath: resolvedExe.exePath, exeId: resolvedExe.id }
+          : undefined,
+      );
       await reload();
     } catch (err) {
       await dialog.alert(t('libdetail.play.failed', { error: formatIpcError(err) }));
@@ -301,7 +307,7 @@ export function LibraryGamePage() {
   }
 
   async function onPlayExe(exe: LibraryGameExe) {
-    if (isRunning) return;
+    if (isRunning || launching) return;
     setLaunching(true);
     try {
       await launch(g, { exePath: exe.exePath, exeId: exe.id });
@@ -548,7 +554,6 @@ export function LibraryGamePage() {
                 <SplitPlayButton
                   launching={launching}
                   disabled={playDisabled || isRunning}
-                  resolved={resolvedExe}
                   others={otherExes}
                   onPlay={() => void onPlay()}
                   onPlayExe={(exe) => void onPlayExe(exe)}
@@ -583,7 +588,6 @@ export function LibraryGamePage() {
                     variant="secondary"
                     launching={launching}
                     disabled={playDisabled || isRunning}
-                    resolved={resolvedExe}
                     others={otherExes}
                     onPlay={() => void onPlay()}
                     onPlayExe={(exe) => void onPlayExe(exe)}
@@ -766,14 +770,13 @@ export function LibraryGamePage() {
                 {t('libdetail.exe.section')}
               </h3>
               <LibraryExesSection
-                threadId={g.threadId}
                 game={g}
                 exes={exes}
                 resolvedId={resolvedExe?.id ?? null}
                 onChanged={reload}
-                launch={launch}
+                onPlayExe={onPlayExe}
                 deps={libraryActionDeps}
-                disabled={downloadInFlight || isRunning}
+                disabled={downloadInFlight || isRunning || launching}
               />
             </div>
 

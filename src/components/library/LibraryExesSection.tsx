@@ -14,15 +14,11 @@ import type { LibraryGameActionsDeps } from '../../lib/libraryGameActions';
 import '../../styles/library-exes.css';
 
 export type LibraryExesSectionProps = {
-  threadId: string;
   game: LibraryGame;
   exes: LibraryGameExe[];
   resolvedId: string | null;
   onChanged: () => Promise<void>;
-  launch: (
-    game: LibraryGame,
-    opts?: { exePath?: string; exeId?: string },
-  ) => Promise<void>;
+  onPlayExe: (exe: LibraryGameExe) => Promise<void>;
   deps: LibraryGameActionsDeps;
   disabled?: boolean;
 };
@@ -36,12 +32,11 @@ function lastPlayedId(exes: LibraryGameExe[]): string | null {
 }
 
 export function LibraryExesSection({
-  threadId: _threadId,
   game,
   exes,
   resolvedId,
   onChanged,
-  launch,
+  onPlayExe,
   deps,
   disabled = false,
 }: LibraryExesSectionProps) {
@@ -54,9 +49,9 @@ export function LibraryExesSection({
   }
 
   async function onPlayRow(row: LibraryGameExe) {
+    if (disabled) return;
     try {
-      await launch(game, { exePath: row.exePath, exeId: row.id });
-      await onChanged();
+      await onPlayExe(row);
     } catch (err) {
       await dialog.alert(t('libdetail.play.failed', { error: formatIpcError(err) }));
     }

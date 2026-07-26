@@ -6,7 +6,6 @@ import '../../styles/library-exes.css';
 export type SplitPlayButtonProps = {
   launching: boolean;
   disabled: boolean;
-  resolved: LibraryGameExe | null;
   others: LibraryGameExe[];
   onPlay: () => void;
   onPlayExe: (exe: LibraryGameExe) => void;
@@ -17,7 +16,6 @@ export type SplitPlayButtonProps = {
 export function SplitPlayButton({
   launching,
   disabled,
-  resolved: _resolved,
   others,
   onPlay,
   onPlayExe,
