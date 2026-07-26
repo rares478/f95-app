@@ -183,12 +183,26 @@ export function DownloadsPage() {
     const job =
       jobByDownloadId[row.id] ?? (await findJobByDownloadId(row.id));
     if (!job || job.assignStatus !== 'pending') return;
-    // No findMainExe IPC — open with null; modal shows "no exe" if missing.
+    let exePath: string | null = null;
+    if (job.extractPath) {
+      const gameTitle =
+        libraryMap[row.threadId]?.title ??
+        (await library.get(row.threadId))?.title ??
+        '';
+      try {
+        exePath = await ipc.findMainExe({
+          root: job.extractPath,
+          gameTitle,
+        });
+      } catch {
+        exePath = null;
+      }
+    }
     openAssign({
       jobId: job.id,
       planId: job.planId,
       threadId: row.threadId,
-      exePath: null,
+      exePath,
     });
   }
 
