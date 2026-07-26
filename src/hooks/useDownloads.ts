@@ -13,12 +13,16 @@ import {
 } from '../lib/archives';
 import { defaultExeLabel, shouldAutoAssign } from '../lib/installAssign';
 import {
+  buildBundleExtractDest,
   buildJobExtractDest,
   emitInstallNeedsAssign,
+  pickBundleLeadJob,
   shouldAutoExtractDownload,
 } from '../lib/installJobExtract';
 import {
+  bundleExtractReady,
   findJobByDownloadId,
+  listJobsForBundle,
   listJobsForPlan,
   markJobAssign,
   markJobExtracted,
@@ -94,16 +98,31 @@ export async function runExtraction(
   try {
     if (linkedJob) {
       const planJobs = await listJobsForPlan(linkedJob.planId);
-      const destDir = buildJobExtractDest({
-        archivePath,
-        sectionLabel: linkedJob.sectionLabel,
-        jobId: linkedJob.id,
-        installPath: game.installPath,
-        takenPaths: planJobs
-          .filter((j) => j.id !== linkedJob.id)
-          .map((j) => j.extractPath),
-        jobCount: planJobs.length,
-      });
+      const bundleSiblings =
+        linkedJob.bundleId != null
+          ? await listJobsForBundle(linkedJob.bundleId)
+          : null;
+      const destDir =
+        linkedJob.bundleId != null
+          ? buildBundleExtractDest({
+              archivePath,
+              sectionLabel: linkedJob.sectionLabel,
+              jobId: linkedJob.id,
+              installPath: game.installPath,
+              siblingExtractPaths: (bundleSiblings ?? [])
+                .filter((j) => j.id !== linkedJob.id)
+                .map((j) => j.extractPath),
+            })
+          : buildJobExtractDest({
+              archivePath,
+              sectionLabel: linkedJob.sectionLabel,
+              jobId: linkedJob.id,
+              installPath: game.installPath,
+              takenPaths: planJobs
+                .filter((j) => j.id !== linkedJob.id)
+                .map((j) => j.extractPath),
+              jobCount: planJobs.length,
+            });
       const result = await ipc.extractArchive({
         archivePath,
         gameTitle: game.title,
@@ -114,7 +133,65 @@ export async function runExtraction(
 
       const dlSettings = await loadDownloadSettings();
 
-      if (
+      if (linkedJob.bundleId != null) {
+        const siblings = await listJobsForBundle(linkedJob.bundleId);
+        if (!bundleExtractReady(siblings)) {
+          if (wasInstalled) {
+            await library.setStatus(threadId, previousStatus);
+          } else {
+            await library.setStatus(threadId, 'not_installed');
+          }
+        } else {
+          const lead = pickBundleLeadJob(siblings) ?? linkedJob;
+          if (
+            shouldAutoAssign({
+              jobCount: 1,
+              sectionKind: lead.sectionKind,
+              exePath: result.exePath,
+            }) &&
+            result.exePath
+          ) {
+            const exe = await library.addExe(
+              threadId,
+              result.exePath,
+              defaultExeLabel(lead.sectionLabel, result.exePath),
+            );
+            for (const sibling of siblings) {
+              await markJobAssign(sibling.id, 'assigned', { exeId: exe.id });
+            }
+            await recomputePlanStatus(linkedJob.planId);
+
+            if (gameVersion) {
+              await library.applyVersion(threadId, gameVersion);
+            }
+
+            if (dlSettings.createShortcuts) {
+              try {
+                await ipc.createGameShortcuts({
+                  exePath: result.exePath,
+                  title: game.title,
+                });
+              } catch (err) {
+                console.warn('[extract] failed to create shortcuts', err);
+              }
+            }
+          } else {
+            await markJobAssign(lead.id, 'pending', { errorMessage: null });
+            await recomputePlanStatus(linkedJob.planId);
+            if (wasInstalled) {
+              await library.setStatus(threadId, previousStatus);
+            } else {
+              await library.setStatus(threadId, 'not_installed');
+            }
+            emitInstallNeedsAssign({
+              jobId: lead.id,
+              planId: lead.planId,
+              threadId,
+              exePath: result.exePath,
+            });
+          }
+        }
+      } else if (
         shouldAutoAssign({
           jobCount: planJobs.length,
           sectionKind: linkedJob.sectionKind,
