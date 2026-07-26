@@ -60,7 +60,7 @@ export function AppShell({ profile, onLoggedOut }: Props) {
 const rootStyle: React.CSSProperties = {
   display: 'flex',
   flexDirection: 'column',
-  height: '100vh',
+  height: '100%',
   background: 'var(--bg-base)',
   color: 'var(--text-secondary)',
   overflow: 'hidden',
@@ -75,5 +75,8 @@ const bodyStyle: React.CSSProperties = {
 const contentStyle: React.CSSProperties = {
   flex: 1,
   minWidth: 0,
+  minHeight: 0,
   overflow: 'auto',
+  display: 'flex',
+  flexDirection: 'column',
 };

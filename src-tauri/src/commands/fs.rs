@@ -33,6 +33,22 @@ pub async fn extract_archive(
         .ok()
         .map(|root| root.join("7zip"));
     let bundled_7z = bundled_root.and_then(|dir| {
+        // Prefer arch-matched standalone binary when the Extra package ships
+        // both (root 7za.exe is often x86).
+        #[cfg(all(windows, target_arch = "x86_64"))]
+        {
+            let x64 = dir.join("x64").join("7za.exe");
+            if x64.is_file() {
+                return Some(x64);
+            }
+        }
+        #[cfg(all(windows, target_arch = "aarch64"))]
+        {
+            let arm = dir.join("arm64").join("7za.exe");
+            if arm.is_file() {
+                return Some(arm);
+            }
+        }
         let primary = dir.join(if cfg!(windows) { "7z.exe" } else { "7z" });
         if primary.is_file() {
             return Some(primary);

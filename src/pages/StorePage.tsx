@@ -144,7 +144,7 @@ export function StorePage() {
 
   const restoredRef = useRef(false);
   useEffect(() => {
-    const main = document.querySelector('.app-main');
+    const main = document.querySelector('.store-main');
     if (!(main instanceof HTMLElement)) return;
     const onScroll = () => {
       if (!restoredRef.current) return;
@@ -159,13 +159,17 @@ export function StorePage() {
     if (!infiniteScroll) return;
     const el = sentinelRef.current;
     if (!el) return;
+    const root = document.querySelector('.store-main');
     const obs = new IntersectionObserver(
       (entries) => {
         for (const entry of entries) {
           if (entry.isIntersecting) loadMore();
         }
       },
-      { rootMargin: '300px' },
+      {
+        root: root instanceof Element ? root : null,
+        rootMargin: '300px',
+      },
     );
     obs.observe(el);
     return () => obs.disconnect();
@@ -175,7 +179,7 @@ export function StorePage() {
     if (restoredRef.current) return;
     if (loading) return;
     if (items.length === 0) return;
-    const main = document.querySelector('.app-main');
+    const main = document.querySelector('.store-main');
     if (!(main instanceof HTMLElement)) return;
     return restoreScrollWhenReady(main, initialViewRef.current.scrollTop, () => {
       restoredRef.current = true;
@@ -205,7 +209,7 @@ export function StorePage() {
   const handlePageChange = useCallback(
     (target: number) => {
       goToPage(target);
-      document.querySelector('.app-main')?.scrollTo({ top: 0, behavior: 'smooth' });
+      document.querySelector('.store-main')?.scrollTo({ top: 0, behavior: 'smooth' });
     },
     [goToPage],
   );
