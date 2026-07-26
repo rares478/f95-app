@@ -25,6 +25,8 @@ export interface InstallJob {
   assignStatus: AssignStatus;
   sortOrder: number;
   errorMessage: string | null;
+  /** Shared id for multi-archive split parts; null for single-file jobs. */
+  bundleId: string | null;
 }
 
 interface PlanDbRow {
@@ -48,6 +50,7 @@ interface JobDbRow {
   assign_status: string;
   sort_order: number;
   error_message: string | null;
+  bundle_id: string | null;
 }
 
 const TERMINAL_ASSIGN = new Set(['assigned', 'skipped', 'failed']);
@@ -76,6 +79,7 @@ function rowToJob(r: JobDbRow): InstallJob {
     assignStatus: r.assign_status,
     sortOrder: r.sort_order,
     errorMessage: r.error_message,
+    bundleId: r.bundle_id ?? null,
   };
 }
 
@@ -85,6 +89,7 @@ export interface CreatePlanJobInput {
   sourceUrl: string;
   host: string;
   sortOrder: number;
+  bundleId?: string | null;
 }
 
 export interface CreatePlanArgs {
@@ -106,12 +111,23 @@ export async function createPlan(
   const jobs: InstallJob[] = [];
   for (const j of args.jobs) {
     const id = crypto.randomUUID();
+    const bundleId = j.bundleId ?? null;
     await execute(
       `INSERT INTO install_jobs (
          id, plan_id, section_label, section_kind, source_url, host,
-         download_id, extract_path, exe_id, assign_status, sort_order, error_message
-       ) VALUES (?, ?, ?, ?, ?, ?, NULL, NULL, NULL, 'pending', ?, NULL)`,
-      [id, planId, j.sectionLabel, j.sectionKind, j.sourceUrl, j.host, j.sortOrder],
+         download_id, extract_path, exe_id, assign_status, sort_order, error_message,
+         bundle_id
+       ) VALUES (?, ?, ?, ?, ?, ?, NULL, NULL, NULL, 'pending', ?, NULL, ?)`,
+      [
+        id,
+        planId,
+        j.sectionLabel,
+        j.sectionKind,
+        j.sourceUrl,
+        j.host,
+        j.sortOrder,
+        bundleId,
+      ],
     );
     jobs.push({
       id,
@@ -126,6 +142,7 @@ export async function createPlan(
       assignStatus: 'pending',
       sortOrder: j.sortOrder,
       errorMessage: null,
+      bundleId,
     });
   }
 
@@ -156,6 +173,24 @@ export async function listJobsForPlan(planId: string): Promise<InstallJob[]> {
     [planId],
   );
   return rows.map(rowToJob);
+}
+
+export async function listJobsForBundle(bundleId: string): Promise<InstallJob[]> {
+  const rows = await query<JobDbRow>(
+    `SELECT * FROM install_jobs
+      WHERE bundle_id = ?
+      ORDER BY sort_order ASC, id ASC`,
+    [bundleId],
+  );
+  return rows.map(rowToJob);
+}
+
+/** True when every sibling has extracted and none failed assign. */
+export function bundleExtractReady(jobs: InstallJob[]): boolean {
+  if (jobs.length === 0) return false;
+  return jobs.every(
+    (j) => j.extractPath != null && j.assignStatus !== 'failed',
+  );
 }
 
 export async function listJobsByThread(threadId: string): Promise<InstallJob[]> {
