@@ -30,3 +30,7 @@ export interface ThreadReplyResult {
   postId: string | null;
   page: number | null;
 }
+
+export interface BbcodePreviewResult {
+  html: string;
+}

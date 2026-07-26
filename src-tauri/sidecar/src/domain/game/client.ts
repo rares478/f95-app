@@ -14,6 +14,11 @@ import {
   type ThreadPostsPage,
 } from './posts';
 import {
+  buildBbcodePreviewForm,
+  parseBbcodePreviewResponse,
+  type BbcodePreviewResult,
+} from './bbcodePreview';
+import {
   buildThreadReplyForm,
   parseThreadReplyResponse,
   type ThreadReplyResult,
@@ -193,6 +198,69 @@ export class GameClient {
       body: typeof res.body === 'string' ? res.body : '',
       finalUrl: res.url,
     });
+  }
+
+  async previewBbcode(bbCode: string): Promise<BbcodePreviewResult> {
+    const text = String(bbCode ?? '');
+    if (!text.trim()) {
+      return { html: '' };
+    }
+
+    const accountUrl = `${BASE}/account/`;
+    log(`[game] GET account for bbcode preview token ${accountUrl}`);
+    const pageRes = await this.http.get(accountUrl);
+    assertNotCloudflareChallenge(pageRes.body, pageRes.headers, {
+      message: 'Cloudflare challenge encountered on bbcode preview',
+    });
+    if (pageRes.url.includes('/login')) {
+      throw new RpcError(RPC_ERROR.NOT_INITIALIZED, 'not logged in');
+    }
+    if (pageRes.status >= 400) {
+      throw new RpcError(
+        RPC_ERROR.INTERNAL,
+        `bbcode preview prep HTTP ${pageRes.status}`,
+      );
+    }
+
+    const $ = cheerio.load(pageRes.body);
+    const xfToken =
+      $('input[name="_xfToken"]').first().attr('value') ??
+      $('html').attr('data-csrf') ??
+      null;
+    if (!xfToken) {
+      throw new RpcError(
+        RPC_ERROR.INTERNAL,
+        'could not extract _xfToken for bbcode preview',
+      );
+    }
+
+    const form = buildBbcodePreviewForm({
+      bbCode: text,
+      xfToken,
+      requestUri: '/',
+    });
+    log(`[game] POST bbcode preview ${form.url}`);
+    const res = await this.http.post(form.url, {
+      headers: form.headers,
+      body: form.body,
+    });
+    assertNotCloudflareChallenge(res.body, res.headers, {
+      message: 'Cloudflare challenge encountered on bbcode preview post',
+    });
+    if (res.url.includes('/login')) {
+      throw new RpcError(RPC_ERROR.NOT_INITIALIZED, 'not logged in');
+    }
+    if (res.status >= 400) {
+      try {
+        parseBbcodePreviewResponse(typeof res.body === 'string' ? res.body : '');
+      } catch (err) {
+        if (err instanceof RpcError) throw err;
+      }
+      throw new RpcError(RPC_ERROR.INTERNAL, `bbcode preview HTTP ${res.status}`);
+    }
+    return {
+      html: parseBbcodePreviewResponse(typeof res.body === 'string' ? res.body : ''),
+    };
   }
 
   async resolvePost(

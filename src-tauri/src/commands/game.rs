@@ -30,6 +30,15 @@ pub async fn thread_reply(
 }
 
 #[tauri::command]
+pub async fn bbcode_preview(
+    state: State<'_, AppState>,
+    bb_code: String,
+) -> Result<Value, AppError> {
+    let client = ensure_sidecar(&state).await?;
+    client.bbcode_preview(&bb_code).await
+}
+
+#[tauri::command]
 pub async fn resolve_post(
     state: State<'_, AppState>,
     post_id: String,

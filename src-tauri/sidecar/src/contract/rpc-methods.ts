@@ -51,6 +51,10 @@ export const RPC_METHODS = {
     params: { threadId: 'string', message: 'string' },
     result: { threadId: 'string', postId: 'string|null', page: 'number|null' },
   },
+  bbcodePreview: {
+    params: { bbCode: 'string' },
+    result: { html: 'string' },
+  },
   resolvePost: {
     params: { postId: 'string' },
     result: { threadId: 'string', postId: 'string' },

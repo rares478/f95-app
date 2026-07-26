@@ -148,6 +148,12 @@ impl SidecarClient {
             .await
     }
 
+    pub async fn bbcode_preview(&self, bb_code: &str) -> Result<Value, AppError> {
+        self.inner
+            .call("bbcodePreview", json!({ "bbCode": bb_code }))
+            .await
+    }
+
     pub async fn resolve_post(&self, post_id: &str) -> Result<Value, AppError> {
         self.inner
             .call("resolvePost", json!({ "postId": post_id }))
