@@ -36,7 +36,11 @@ function parsePostId($el: cheerio.Cheerio<Element>): string | null {
   }
   const id = $el.attr('id') ?? '';
   const m2 = id.match(/(\d+)/);
-  return m2 ? m2[1] : null;
+  if (m2) return m2[1];
+  // Fallback: first permalink-style `/posts/{id}` href inside the message.
+  const href = $el.find('a[href*="/posts/"]').first().attr('href') ?? '';
+  const m3 = href.match(/\/posts\/(\d+)/);
+  return m3 ? m3[1] : null;
 }
 
 /** Post id from `/posts/{id}`, `#post-{id}`, or `/post-{id}` in a final/redirect URL. */
