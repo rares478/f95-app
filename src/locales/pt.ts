@@ -922,6 +922,14 @@ const pt: Record<string, string> = {
   'error.overlay.gameWindowPending':
     'A janela do jogo ainda não apareceu — tente focar o jogo.',
   'error.overlay.windowsOnly': 'Este recurso do overlay requer Windows.',
+  'error.overlay.noGame': 'Nenhum jogo em execução.',
+  'error.overlay.waitingWindow': 'Aguardando a janela do jogo…',
+  'error.overlay.windowNotDetected': 'Janela do jogo ainda não detectada.',
+  'error.overlay.anchoringWindowsOnly': 'A ancoragem do jogo requer Windows.',
+  'error.overlay.exclusiveFullscreen':
+    'Tela cheia exclusiva: overlay no monitor do jogo (pressione o atalho com o jogo em foco para melhor precisão).',
+  'error.overlay.locateGame':
+    'Não foi possível localizar o jogo. Pressione o atalho com o jogo em foco ou use sem bordas.',
   'error.overlay.generic': 'Overlay: {detail}',
   'error.fs.fileNotFound': 'Arquivo não encontrado: {path}',
   'error.fs.archiveNoParent': 'O arquivo não tem diretório pai.',

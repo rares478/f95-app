@@ -849,10 +849,7 @@ fn show_overlay_on_game(
                 message: if game_match.attach_mode
                     == crate::game_window::OverlayAttachMode::MonitorFallback
                 {
-                    Some(
-                        "Exclusive fullscreen: overlay on the game monitor (press the hotkey with the game focused for best accuracy)."
-                            .into(),
-                    )
+                    Some("error.overlay.exclusiveFullscreen".into())
                 } else {
                     None
                 },
@@ -1001,7 +998,7 @@ pub async fn overlay_get_anchor_status(
 
             attach_mode: None,
 
-            message: Some("No game running.".into()),
+            message: Some("error.overlay.noGame".into()),
 
         });
 
@@ -1035,7 +1032,7 @@ pub async fn overlay_get_anchor_status(
                 message: if attached {
                     None
                 } else {
-                    Some("Waiting for game window…".into())
+                    Some("error.overlay.waitingWindow".into())
                 },
             });
         }
@@ -1045,7 +1042,7 @@ pub async fn overlay_get_anchor_status(
             pid: Some(pid),
             game_rect: None,
             attach_mode: None,
-            message: Some("Game window not detected yet.".into()),
+            message: Some("error.overlay.windowNotDetected".into()),
         });
 
     }
@@ -1064,7 +1061,7 @@ pub async fn overlay_get_anchor_status(
 
         attach_mode: None,
 
-        message: Some("Game anchoring requires Windows.".into()),
+        message: Some("error.overlay.anchoringWindowsOnly".into()),
 
     })
 

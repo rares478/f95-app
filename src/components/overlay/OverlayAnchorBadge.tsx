@@ -1,3 +1,4 @@
+import { translateBackendMessage } from '../../lib/backendMessage';
 import { useT } from '../../lib/i18n';
 import type { OverlayAnchorStatus } from '../../types/overlay';
 
@@ -33,7 +34,7 @@ function resolveStatus(anchor: OverlayAnchorStatus | null): { kind: StatusKind; 
 export function OverlayAnchorBadge({ anchor }: Props) {
   const { t } = useT();
   const { kind, label, detail } = resolveStatus(anchor);
-  const title = detail ? (detail.startsWith('overlay.') ? t(detail) : detail) : undefined;
+  const title = detail ? translateBackendMessage(detail, t) : undefined;
 
   return (
     <span className={`game-overlay-status game-overlay-status--${kind}`} title={title}>

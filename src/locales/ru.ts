@@ -917,6 +917,14 @@ const ru: Record<string, string> = {
   'error.overlay.gameWindowPending':
     'Окно игры ещё не появилось — попробуйте сфокусировать игру.',
   'error.overlay.windowsOnly': 'Эта функция оверлея требует Windows.',
+  'error.overlay.noGame': 'Нет запущенной игры.',
+  'error.overlay.waitingWindow': 'Ожидание окна игры…',
+  'error.overlay.windowNotDetected': 'Окно игры пока не обнаружено.',
+  'error.overlay.anchoringWindowsOnly': 'Привязка к игре требует Windows.',
+  'error.overlay.exclusiveFullscreen':
+    'Эксклюзивный полный экран: оверлей на мониторе игры (нажмите хоткей с фокусом на игре для точности).',
+  'error.overlay.locateGame':
+    'Не удалось найти игру. Нажмите хоткей с фокусом на игре или используйте безрамочный режим.',
   'error.overlay.generic': 'Оверлей: {detail}',
   'error.fs.fileNotFound': 'Файл не найден: {path}',
   'error.fs.archiveNoParent': 'У архива нет родительской папки.',

@@ -374,7 +374,7 @@ fn extract_rar(archive: &Path, dest: &Path) -> Result<(), AppError> {
 }
 
 fn io_err(e: io::Error) -> AppError {
-    AppError::Io(e.to_string())
+    AppError::keyed_vars("error.extract.failed", json!({ "detail": e.to_string() }))
 }
 
 // -- main exe heuristic -------------------------------------------------------

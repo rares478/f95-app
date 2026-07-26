@@ -920,6 +920,14 @@ const en: Record<string, string> = {
   'error.overlay.gameWindowPending':
     'The game window has not appeared yet — try focusing the game.',
   'error.overlay.windowsOnly': 'This overlay feature requires Windows.',
+  'error.overlay.noGame': 'No game running.',
+  'error.overlay.waitingWindow': 'Waiting for game window…',
+  'error.overlay.windowNotDetected': 'Game window not detected yet.',
+  'error.overlay.anchoringWindowsOnly': 'Game anchoring requires Windows.',
+  'error.overlay.exclusiveFullscreen':
+    'Exclusive fullscreen: overlay on the game monitor (press the hotkey with the game focused for best accuracy).',
+  'error.overlay.locateGame':
+    'Could not locate the game. Press the hotkey with the game focused or use borderless.',
   'error.overlay.generic': 'Overlay: {detail}',
   'error.fs.fileNotFound': 'File not found: {path}',
   'error.fs.archiveNoParent': 'Archive has no parent directory.',
