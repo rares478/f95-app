@@ -32,6 +32,17 @@ pub enum AppError {
 }
 
 impl AppError {
+    pub fn keyed(key: &str) -> Self {
+        AppError::Other(key.to_string())
+    }
+
+    pub fn keyed_vars(key: &str, vars: impl Serialize) -> Self {
+        match serde_json::to_string(&vars) {
+            Ok(json) => AppError::Other(format!("{key}|{json}")),
+            Err(_) => AppError::Other(key.to_string()),
+        }
+    }
+
     pub fn code(&self) -> &'static str {
         match self {
             AppError::InvalidCredentials(_) => "invalid_credentials",
