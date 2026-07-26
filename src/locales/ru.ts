@@ -900,6 +900,7 @@ const ru: Record<string, string> = {
     'MEGA: не удалось нормализовать URL — убедитесь, что ссылка содержит ключ (#...)',
   'error.mega.invalidUrl':
     'MEGA: неверный формат URL — ссылка должна быть https://mega.nz/file/... или /folder/...',
+  'error.mega.noFiles': 'MEGA: по этой ссылке файлы не найдены',
 
   // Library install move
   'error.mover.oldMissing': 'Старая установка не существует: {path}',

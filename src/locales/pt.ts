@@ -905,6 +905,7 @@ const pt: Record<string, string> = {
     'MEGA: não foi possível normalizar a URL — confira se o link inclui a chave (#...)',
   'error.mega.invalidUrl':
     'MEGA: formato de URL inválido — o link deve ser https://mega.nz/file/... ou /folder/...',
+  'error.mega.noFiles': 'MEGA: nenhum arquivo encontrado neste link',
 
   // Library install move
   'error.mover.oldMissing': 'Install antigo não existe: {path}',

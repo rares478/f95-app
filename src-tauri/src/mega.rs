@@ -113,9 +113,7 @@ pub async fn inspect_public_link(
 
     let files = collect_file_nodes(&nodes);
     if files.is_empty() {
-        return Err(AppError::Other(
-            "mega: no files found at link".into(),
-        ));
+        return Err(AppError::keyed("error.mega.noFiles"));
     }
 
     let total_size: u64 = files.iter().map(|n| n.size()).sum();
