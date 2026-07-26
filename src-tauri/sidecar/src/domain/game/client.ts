@@ -175,18 +175,18 @@ export class GameClient {
       throw new RpcError(RPC_ERROR.NOT_INITIALIZED, 'not logged in');
     }
     // XF may return 200 with error JSON; parser handles soft errors.
+    // HTTP ≥400 must never return success — parse only to surface XF error text.
     if (res.status >= 400) {
-      // Still try parse for error message body
       try {
-        return parseThreadReplyResponse({
+        parseThreadReplyResponse({
           threadId: id,
           body: typeof res.body === 'string' ? res.body : '',
           finalUrl: res.url,
         });
       } catch (err) {
         if (err instanceof RpcError) throw err;
-        throw new RpcError(RPC_ERROR.INTERNAL, `thread reply HTTP ${res.status}`);
       }
+      throw new RpcError(RPC_ERROR.INTERNAL, `thread reply HTTP ${res.status}`);
     }
     return parseThreadReplyResponse({
       threadId: id,
