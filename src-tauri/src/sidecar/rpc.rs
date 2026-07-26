@@ -139,6 +139,15 @@ impl SidecarClient {
             .await
     }
 
+    pub async fn thread_reply(&self, thread_id: &str, message: &str) -> Result<Value, AppError> {
+        self.inner
+            .call(
+                "threadReply",
+                json!({ "threadId": thread_id, "message": message }),
+            )
+            .await
+    }
+
     pub async fn resolve_post(&self, post_id: &str) -> Result<Value, AppError> {
         self.inner
             .call("resolvePost", json!({ "postId": post_id }))

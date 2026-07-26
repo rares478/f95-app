@@ -38,6 +38,13 @@ export function createGameHandlers(ctx: AppContext): Record<string, RpcHandler> 
       }
       return ctx.getGame().getPosts(threadId, page);
     },
+    threadReply: async (p) => {
+      const threadId = String(p?.threadId ?? p?.thread_id ?? '');
+      const message = String(p?.message ?? '');
+      if (!threadId) throw new RpcError(RPC_ERROR.INVALID_PARAMS, 'threadId required');
+      if (!message.trim()) throw new RpcError(RPC_ERROR.INVALID_PARAMS, 'message required');
+      return ctx.getGame().reply(threadId, message);
+    },
     resolvePost: async (p) => {
       const postId = String(p?.postId ?? p?.post_id ?? '');
       if (!postId) throw new RpcError(RPC_ERROR.INVALID_PARAMS, 'postId required');

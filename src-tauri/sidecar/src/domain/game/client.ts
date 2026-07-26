@@ -13,6 +13,11 @@ import {
   parseThreadPostsPage,
   type ThreadPostsPage,
 } from './posts';
+import {
+  buildThreadReplyForm,
+  parseThreadReplyResponse,
+  type ThreadReplyResult,
+} from './reply';
 
 const BASE = F95_BASE;
 
@@ -117,6 +122,77 @@ export class GameClient {
       );
     }
     return parseThreadPostsPage(res.body, { threadId: id, page });
+  }
+
+  async reply(threadId: string, message: string): Promise<ThreadReplyResult> {
+    const id = String(threadId).trim();
+    const text = String(message).trim();
+    if (!/^\d+$/.test(id)) {
+      throw new RpcError(RPC_ERROR.INVALID_PARAMS, 'threadId must be numeric');
+    }
+    if (!text) {
+      throw new RpcError(RPC_ERROR.INVALID_PARAMS, 'message required');
+    }
+
+    const threadUrl = this.threadPageUrl(id, 1);
+    log(`[game] GET thread for reply token ${threadUrl}`);
+    const pageRes = await this.http.get(threadUrl);
+    assertNotCloudflareChallenge(pageRes.body, pageRes.headers, {
+      message: 'Cloudflare challenge encountered on thread reply',
+    });
+    if (pageRes.url.includes('/login')) {
+      throw new RpcError(RPC_ERROR.NOT_INITIALIZED, 'not logged in');
+    }
+    if (pageRes.status >= 400) {
+      throw new RpcError(RPC_ERROR.INTERNAL, `thread reply prep HTTP ${pageRes.status}`);
+    }
+
+    const $ = cheerio.load(pageRes.body);
+    const xfToken =
+      $('input[name="_xfToken"]').first().attr('value') ??
+      $('html').attr('data-csrf') ??
+      null;
+    if (!xfToken) {
+      throw new RpcError(RPC_ERROR.INTERNAL, 'could not extract _xfToken for reply');
+    }
+
+    const requestUri = `/threads/${id}/`;
+    const form = buildThreadReplyForm({
+      threadId: id,
+      message: text,
+      xfToken,
+      requestUri,
+    });
+    log(`[game] POST reply ${form.url}`);
+    const res = await this.http.post(form.url, {
+      headers: form.headers,
+      body: form.body,
+    });
+    assertNotCloudflareChallenge(res.body, res.headers, {
+      message: 'Cloudflare challenge encountered on thread reply post',
+    });
+    if (res.url.includes('/login')) {
+      throw new RpcError(RPC_ERROR.NOT_INITIALIZED, 'not logged in');
+    }
+    // XF may return 200 with error JSON; parser handles soft errors.
+    if (res.status >= 400) {
+      // Still try parse for error message body
+      try {
+        return parseThreadReplyResponse({
+          threadId: id,
+          body: typeof res.body === 'string' ? res.body : '',
+          finalUrl: res.url,
+        });
+      } catch (err) {
+        if (err instanceof RpcError) throw err;
+        throw new RpcError(RPC_ERROR.INTERNAL, `thread reply HTTP ${res.status}`);
+      }
+    }
+    return parseThreadReplyResponse({
+      threadId: id,
+      body: typeof res.body === 'string' ? res.body : '',
+      finalUrl: res.url,
+    });
   }
 
   async resolvePost(

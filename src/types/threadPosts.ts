@@ -24,3 +24,9 @@ export interface ResolvePostResult {
   /** XF page when known from the redirect/canonical URL. */
   page: number | null;
 }
+
+export interface ThreadReplyResult {
+  threadId: string;
+  postId: string | null;
+  page: number | null;
+}
