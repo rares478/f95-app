@@ -2,8 +2,120 @@
   padding: 8px 32px 24px;
 }
 
-.thread-discussion .game-detail-section-title {
+.thread-discussion-header {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 12px;
   margin-bottom: 16px;
+  flex-wrap: wrap;
+}
+
+.thread-discussion-header .game-detail-section-title {
+  margin: 0;
+}
+
+.thread-discussion-latest-btn {
+  font: inherit;
+  font-size: 12px;
+  font-weight: 600;
+  padding: 6px 12px;
+  border-radius: 6px;
+  border: 1px solid var(--border);
+  background: var(--bg-elevated);
+  color: var(--text-primary);
+  cursor: pointer;
+  flex-shrink: 0;
+}
+
+.thread-discussion-latest-btn:hover:not(:disabled) {
+  border-color: var(--accent);
+  background: var(--accent-soft-bg);
+  color: var(--accent);
+}
+
+.thread-discussion-latest-btn:disabled {
+  opacity: 0.55;
+  cursor: default;
+}
+
+.thread-discussion-pager {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  gap: 8px;
+  padding: 16px 0 4px;
+  border-top: 1px solid var(--border);
+  margin-top: 8px;
+}
+
+.thread-discussion-pager-btn,
+.thread-discussion-pager-page {
+  font: inherit;
+  font-size: 12px;
+  font-weight: 600;
+  padding: 6px 10px;
+  border-radius: 6px;
+  border: 1px solid var(--border);
+  background: var(--bg-elevated);
+  color: var(--text-primary);
+  cursor: pointer;
+}
+
+.thread-discussion-pager-btn:hover:not(:disabled),
+.thread-discussion-pager-page:hover:not(:disabled) {
+  border-color: var(--accent);
+  background: var(--bg-hover);
+}
+
+.thread-discussion-pager-page--active {
+  background: var(--accent-soft-bg);
+  border-color: var(--accent);
+  color: var(--accent);
+  cursor: default;
+}
+
+.thread-discussion-pager-btn:disabled,
+.thread-discussion-pager-page:disabled {
+  opacity: 0.55;
+  cursor: default;
+}
+
+.thread-discussion-pager-pages {
+  display: inline-flex;
+  flex-wrap: wrap;
+  align-items: center;
+  gap: 4px;
+}
+
+.thread-discussion-pager-ellipsis,
+.thread-discussion-pager-status {
+  font-size: 12px;
+  color: var(--text-muted);
+  padding: 0 4px;
+}
+
+.thread-discussion-jump {
+  display: inline-flex;
+  align-items: center;
+  gap: 6px;
+  margin-left: auto;
+}
+
+.thread-discussion-jump-label {
+  font-size: 12px;
+  color: var(--text-muted);
+}
+
+.thread-discussion-jump-input {
+  width: 64px;
+  font: inherit;
+  font-size: 12px;
+  padding: 6px 8px;
+  border-radius: 6px;
+  border: 1px solid var(--border);
+  background: var(--bg-sunken);
+  color: var(--text-primary);
 }
 
 .thread-discussion-sentinel {
@@ -109,6 +221,72 @@
   word-break: break-word;
 }
 
+.thread-post-signature {
+  margin-top: 12px;
+  border-top: 1px dashed var(--border);
+  padding-top: 4px;
+}
+
+.thread-post-signature > summary {
+  cursor: pointer;
+  list-style: none;
+  font-size: 12px;
+  font-weight: 600;
+  color: var(--text-muted);
+  padding: 6px 0;
+  user-select: none;
+}
+
+.thread-post-signature > summary::-webkit-details-marker {
+  display: none;
+}
+
+.thread-post-signature > summary::before {
+  content: '▸';
+  display: inline-block;
+  margin-right: 6px;
+  transition: transform 0.12s ease;
+}
+
+.thread-post-signature[open] > summary::before {
+  transform: rotate(90deg);
+}
+
+.thread-post-signature[open] > summary {
+  color: var(--text-secondary);
+}
+
+.thread-post-signature-body {
+  font-size: 12.5px;
+  line-height: 1.55;
+  color: var(--text-muted);
+  opacity: 0.92;
+  padding: 0 0 4px;
+  display: flex;
+  flex-wrap: wrap;
+  align-items: flex-start;
+  gap: 8px;
+}
+
+/* Keep plain text / link rows full width under the image row. */
+.thread-post-signature-body > :not(:has(img)) {
+  flex: 1 1 100%;
+}
+
+.thread-post-signature-body > p,
+.thread-post-signature-body > div {
+  margin: 0;
+}
+
+.thread-post-signature-body img {
+  display: block;
+  max-width: min(280px, 46vw);
+  max-height: 110px;
+  width: auto;
+  height: auto;
+  object-fit: contain;
+}
+
 .thread-discussion-link-btn {
   background: none;
   border: none;
@@ -124,32 +302,6 @@
 
 .thread-discussion-link-btn:hover {
   text-decoration: underline;
-}
-
-.thread-discussion-load-more {
-  padding: 12px 0 4px;
-}
-
-.thread-discussion-load-more-btn {
-  font: inherit;
-  font-size: 13px;
-  font-weight: 600;
-  padding: 8px 14px;
-  border-radius: 6px;
-  border: 1px solid var(--border);
-  background: var(--bg-elevated);
-  color: var(--text-primary);
-  cursor: pointer;
-}
-
-.thread-discussion-load-more-btn:hover:not(:disabled) {
-  background: var(--bg-hover);
-  border-color: var(--accent);
-}
-
-.thread-discussion-load-more-btn:disabled {
-  opacity: 0.55;
-  cursor: default;
 }
 
 @media (max-width: 960px) {

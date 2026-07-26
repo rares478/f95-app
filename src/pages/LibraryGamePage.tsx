@@ -1,5 +1,5 @@
 import { useCallback, useEffect, useMemo, useState } from 'react';
-import { useNavigate, useParams, useSearchParams } from 'react-router-dom';
+import { useNavigate, useParams } from 'react-router-dom';
 import DOMPurify from 'dompurify';
 import { open as openFileDialog } from '@tauri-apps/plugin-dialog';
 import { dialog } from '../lib/dialog';
@@ -68,8 +68,6 @@ export function LibraryGamePage() {
   const { t } = useT();
   const { isOffline } = useOffline();
   const { threadId } = useParams<{ threadId: string }>();
-  const [searchParams] = useSearchParams();
-  const focusPostId = searchParams.get('post');
   const navigate = useNavigate();
   const [state, setState] = useState<State>({ kind: 'loading' });
   const [storeDetail, setStoreDetail] = useState<GameDetail | null>(null);
@@ -217,8 +215,8 @@ export function LibraryGamePage() {
   const sanitized =
     storeDetail?.descriptionHtml &&
     DOMPurify.sanitize(storeDetail.descriptionHtml, {
-      ADD_TAGS: ['details', 'summary'],
-      ADD_ATTR: ['target', 'rel', 'loading'],
+      ADD_TAGS: ['details', 'summary', 'button'],
+      ADD_ATTR: ['target', 'rel', 'loading', 'type', 'hidden'],
     });
 
   async function onPickExe() {
@@ -636,11 +634,7 @@ export function LibraryGamePage() {
           )}
 
           {g.threadId && (
-            <ThreadDiscussion
-              threadId={g.threadId}
-              focusPostId={focusPostId}
-              offline={isOffline}
-            />
+            <ThreadDiscussion threadId={g.threadId} offline={isOffline} />
           )}
 
           <GameDetailSection title={t('libdetail.section.notes')}>

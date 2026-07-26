@@ -2,6 +2,7 @@ import { describe, expect, it } from 'vitest';
 import {
   extractPostIdFromUrl,
   extractThreadIdFromUrl,
+  extractThreadPageFromUrl,
   parseF95ContentTarget,
 } from './f95ThreadUrls';
 
@@ -28,12 +29,33 @@ describe('extractPostIdFromUrl', () => {
   });
 });
 
+describe('extractThreadPageFromUrl', () => {
+  it('parses /page-N and ?page=', () => {
+    expect(extractThreadPageFromUrl('https://f95zone.to/threads/1/page-5')).toBe(5);
+    expect(extractThreadPageFromUrl('https://f95zone.to/threads/1/?page=3')).toBe(3);
+  });
+
+  it('returns null when missing', () => {
+    expect(extractThreadPageFromUrl('https://f95zone.to/threads/1/')).toBeNull();
+  });
+});
+
 describe('parseF95ContentTarget', () => {
   it('classifies thread with optional post', () => {
     expect(parseF95ContentTarget('https://f95zone.to/threads/12/#post-34')).toEqual({
       kind: 'thread',
       threadId: '12',
       postId: '34',
+      page: null,
+    });
+  });
+
+  it('classifies thread with page', () => {
+    expect(parseF95ContentTarget('https://f95zone.to/threads/12/page-7')).toEqual({
+      kind: 'thread',
+      threadId: '12',
+      postId: null,
+      page: 7,
     });
   });
 

@@ -9,6 +9,8 @@ export interface ThreadPost {
   authorAvatarUrl: string | null;
   postedAt: string | null;
   html: string;
+  /** Normalized XF profile signature HTML, when present. */
+  signatureHtml: string | null;
   permalink: string | null;
 }
 
@@ -43,12 +45,62 @@ function parsePostId($el: cheerio.Cheerio<Element>): string | null {
   return m3 ? m3[1] : null;
 }
 
+/** Best-effort last page index from XF pagination chrome only (never post bodies). */
+function detectTotalPages($: cheerio.CheerioAPI): number | null {
+  const nums: number[] = [];
+  const pushPage = (raw: string | undefined) => {
+    if (!raw) return;
+    const n = parseInt(raw, 10);
+    if (Number.isFinite(n) && n > 0) nums.push(n);
+  };
+  const pushFromHref = (href: string) => {
+    const path = href.match(/\/page-(\d+)/i);
+    const query = href.match(/[?&]page=(\d+)/i);
+    if (path) pushPage(path[1]);
+    if (query) pushPage(query[1]);
+  };
+
+  $('.pageNav-page a, .pageNav-page').each((_, el) => {
+    pushPage($(el).text().trim());
+  });
+  // Scope href scraping to pageNav / jumps — whole-document `/page-` links
+  // (quotes, signatures, sidebars) used to poison Math.max (e.g. 20899).
+  $('.pageNav a[href], .pageNav-main a[href], a.pageNav-jump[href]').each(
+    (_, el) => {
+      pushFromHref($(el).attr('href') ?? '');
+    },
+  );
+  const navText = $('.pageNav').first().text();
+  const ofMatch =
+    navText.match(/\bof\s+(\d+)\b/i) ||
+    navText.match(/\bde\s+(\d+)\b/i) ||
+    navText.match(/\bvon\s+(\d+)\b/i) ||
+    navText.match(/\bиз\s+(\d+)\b/i);
+  if (ofMatch) pushPage(ofMatch[1]);
+  return nums.length ? Math.max(...nums) : null;
+}
+
 /** Post id from `/posts/{id}`, `#post-{id}`, or `/post-{id}` in a final/redirect URL. */
 export function extractPostIdFromFinal(url: string): string | null {
   const posts = url.match(/\/posts\/(\d+)/);
   if (posts) return posts[1];
   const anchor = url.match(/(?:#post-|\/post-)(\d+)/i);
   return anchor ? anchor[1] : null;
+}
+
+/** Page number from `/page-N` or `?page=` in a thread URL. */
+export function extractThreadPageFromFinal(url: string): number | null {
+  const path = url.match(/\/page-(\d+)/i);
+  if (path) {
+    const n = parseInt(path[1]!, 10);
+    return Number.isFinite(n) && n >= 1 ? n : null;
+  }
+  const query = url.match(/[?&]page=(\d+)/i);
+  if (query) {
+    const n = parseInt(query[1]!, 10);
+    return Number.isFinite(n) && n >= 1 ? n : null;
+  }
+  return null;
 }
 
 export function parseThreadPostsPage(
@@ -70,9 +122,23 @@ export function parseThreadPostsPage(
       absUrl($el.find('.message-avatar img, .avatar img').first().attr('data-src'));
     const postedAt =
       $el.find('time.u-dt, time').first().attr('datetime')?.trim() || null;
-    const body = $el.find('.message-body .bbWrapper').first();
+
+    // Prefer the body wrapper; strip any nested signature nodes if a theme nests them.
+    const $bodyRoot = $el.find('.message-body').first().clone();
+    $bodyRoot.find('.message-signature, aside.message-signature').remove();
+    const body = $bodyRoot.find('.bbWrapper').first();
     if (body.length === 0) continue;
     const htmlBody = normalizeOpHtml($, body, new Set());
+
+    let signatureHtml: string | null = null;
+    const $sig = $el.find('aside.message-signature, .message-signature').first();
+    if ($sig.length) {
+      const sigBody = $sig.find('.bbWrapper').first();
+      const sigSource = sigBody.length ? sigBody : $sig;
+      const normalized = normalizeOpHtml($, sigSource, new Set()).trim();
+      if (normalized) signatureHtml = normalized;
+    }
+
     const permalink =
       absUrl($el.find(`a[href*="/posts/${postId}"]`).first().attr('href')) ??
       `${F95_BASE}/posts/${postId}/`;
@@ -82,15 +148,12 @@ export function parseThreadPostsPage(
       authorAvatarUrl: avatar,
       postedAt,
       html: htmlBody,
+      signatureHtml,
       permalink,
     });
   }
 
-  const pageNums = $('.pageNav-page a, .pageNav-page')
-    .toArray()
-    .map((el) => parseInt($(el).text().trim(), 10))
-    .filter((n) => Number.isFinite(n) && n > 0);
-  const totalPages = pageNums.length ? Math.max(...pageNums) : null;
+  const totalPages = detectTotalPages($);
   const hasNextJump = $('.pageNav-jump--next').length > 0;
   const hasMore =
     hasNextJump || (totalPages != null && opts.page < totalPages);

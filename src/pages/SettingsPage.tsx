@@ -16,6 +16,7 @@ import type { InstallLibraryWithDisk } from '../types/install-library';
 import type { ThemeId } from '../lib/theme';
 import { useDownloadSettings } from '../contexts/DownloadSettings';
 import { useStoreSettings } from '../contexts/StoreSettings';
+import { useDiscussionSettings } from '../contexts/DiscussionSettings';
 import type { StoreScrollMode } from '../lib/storeSettings';
 import { useOffline } from '../contexts/Offline';
 import {
@@ -93,6 +94,8 @@ export function SettingsPage({ onLoggedOut: _onLoggedOut }: Props) {
   } = useOffline();
   const { settings: dlSettings, update: updateDlSettings } = useDownloadSettings();
   const { settings: storeSettings, update: updateStoreSettings } = useStoreSettings();
+  const { settings: discussionSettings, update: updateDiscussionSettings } =
+    useDiscussionSettings();
 
   async function requireOnlineForHostAction(): Promise<boolean> {
     if (!isOffline) return true;
@@ -938,6 +941,23 @@ export function SettingsPage({ onLoggedOut: _onLoggedOut }: Props) {
                     );
                   },
                 )}
+              </div>
+            </div>
+
+            <div className="settings-card">
+              <h3 className="settings-card-title">{t('settings.discussion.section')}</h3>
+              <p className="settings-card-hint">{t('settings.discussion.hint')}</p>
+              <div className="settings-checklist">
+                <label className="settings-check-row">
+                  <input
+                    type="checkbox"
+                    checked={discussionSettings.autoShowSignatures}
+                    onChange={(e) =>
+                      void updateDiscussionSettings({ autoShowSignatures: e.target.checked })
+                    }
+                  />
+                  <span>{t('settings.discussion.autoShowSignatures')}</span>
+                </label>
               </div>
             </div>
           </section>

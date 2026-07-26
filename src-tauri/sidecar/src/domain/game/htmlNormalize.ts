@@ -79,6 +79,36 @@ export function normalizeOpHtml(
     );
   });
 
+  // Rewrite XF quote blocks into a clean blockquote + expand control.
+  // Deepest-first so nested quotes normalize before their parents.
+  const quoteNodes = clone
+    .find('blockquote.bbCodeBlock--quote, .bbCodeBlock--quote')
+    .toArray()
+    .reverse();
+  for (const el of quoteNodes) {
+    const $el = $(el);
+    if ($el.hasClass('x-quote')) continue;
+    const title =
+      cleanText($el.find('.bbCodeBlock-title').first().text()) || 'Quote';
+    const $expandContent = $el.find('.bbCodeBlock-expandContent').first();
+    let content: string;
+    if ($expandContent.length) {
+      content = $expandContent.html() ?? '';
+    } else {
+      const $blockContent = $el.find('.bbCodeBlock-content').first().clone();
+      $blockContent.find('.bbCodeBlock-expandLink').remove();
+      content =
+        ($blockContent.length ? $blockContent.html() : null) ?? $el.html() ?? '';
+    }
+    $el.replaceWith(
+      `<blockquote class="x-quote">` +
+        `<div class="x-quote-title">${escapeHtml(title)}</div>` +
+        `<div class="x-quote-content">${content}</div>` +
+        `<button type="button" class="x-quote-expand" hidden></button>` +
+        `</blockquote>`,
+    );
+  }
+
   // Strip <noscript> (we already use data-src) and inline lightbox containers.
   clone.find('noscript').remove();
   clone.find('.lbContainer-zoomer').remove();
