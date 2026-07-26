@@ -3,7 +3,7 @@ import DOMPurify from 'dompurify';
 import { openUrl } from '@tauri-apps/plugin-opener';
 import { useSearchParams } from 'react-router-dom';
 import { GameDescription } from './GameDescription';
-import { threadPosts } from '../../lib/ipc';
+import { threadPosts, threadReply } from '../../lib/ipc';
 import { formatIpcError } from '../../lib/ipcError';
 import { formatRelativeDate } from '../../lib/formatDate';
 import { useDiscussionSettings } from '../../contexts/DiscussionSettings';
@@ -123,6 +123,10 @@ export function ThreadDiscussion({ threadId, offline = false }: Props) {
     focusPostId ? 'seeking' : 'idle',
   );
   const [jumpDraft, setJumpDraft] = useState('');
+  const [draft, setDraft] = useState('');
+  const [replyError, setReplyError] = useState<string | null>(null);
+  const [replyBusy, setReplyBusy] = useState(false);
+  const [replyNeedsBrowser, setReplyNeedsBrowser] = useState(false);
 
   const clearHighlightTimers = () => {
     if (highlightScrollTimer.current != null) {
@@ -230,6 +234,10 @@ export function ThreadDiscussion({ threadId, offline = false }: Props) {
     highlightedFor.current = null;
     seekPagesUsed.current = 0;
     setJumpDraft('');
+    setDraft('');
+    setReplyError(null);
+    setReplyBusy(false);
+    setReplyNeedsBrowser(false);
     clearHighlightTimers();
     // eslint-disable-next-line react-hooks/exhaustive-deps -- reset on thread/post identity
   }, [threadId, focusPostId]);
@@ -372,6 +380,41 @@ export function ThreadDiscussion({ threadId, offline = false }: Props) {
     highlightedFor.current = null;
     seekPagesUsed.current = SEEK_PAGE_CAP; // stop seek
     void goToPage(target);
+  };
+
+  const onReplySubmit = async (e: FormEvent) => {
+    e.preventDefault();
+    const message = draft.trim();
+    if (!message || replyBusy || offline) return;
+    setReplyBusy(true);
+    setReplyError(null);
+    setReplyNeedsBrowser(false);
+    try {
+      const result = await threadReply(threadId, message);
+      setDraft('');
+      setReplyError(null);
+      if (result.postId) {
+        setSearchParams(
+          (prev) => {
+            const next = new URLSearchParams(prev);
+            next.set('post', result.postId!);
+            next.delete('page');
+            return next;
+          },
+          { replace: true },
+        );
+        // focusPostId change resets + seek-from-latest via existing effects
+      } else {
+        await goToLatest();
+      }
+    } catch (err) {
+      const msg = formatIpcError(err);
+      setReplyError(msg);
+      // Captcha / challenge → offer browser link
+      if (/captcha|challenge/i.test(msg)) setReplyNeedsBrowser(true);
+    } finally {
+      setReplyBusy(false);
+    }
   };
 
   const navigateTo = (target: number) => {
@@ -569,6 +612,56 @@ export function ThreadDiscussion({ threadId, offline = false }: Props) {
                 </button>
               </form>
             </nav>
+          )}
+
+          {visible && !offline && (
+            <form
+              className="thread-discussion-composer"
+              onSubmit={(e) => void onReplySubmit(e)}
+            >
+              <label
+                className="thread-discussion-composer-label"
+                htmlFor={`thread-reply-${threadId}`}
+              >
+                {t('gamedetail.discussion.replyPlaceholder')}
+              </label>
+              <textarea
+                id={`thread-reply-${threadId}`}
+                className="thread-discussion-composer-input"
+                rows={3}
+                value={draft}
+                disabled={replyBusy}
+                placeholder={t('gamedetail.discussion.replyPlaceholder')}
+                onChange={(e) => setDraft(e.target.value)}
+              />
+              {replyError && (
+                <div className="thread-discussion-composer-error" role="alert">
+                  {t('gamedetail.discussion.replyFailed', { error: replyError })}
+                  {replyNeedsBrowser && (
+                    <button
+                      type="button"
+                      className="thread-discussion-open-f95"
+                      onClick={() =>
+                        void openUrl(`https://f95zone.to/threads/${threadId}/`)
+                      }
+                    >
+                      {t('gamedetail.discussion.replyOpenOnF95')}
+                    </button>
+                  )}
+                </div>
+              )}
+              <div className="thread-discussion-composer-actions">
+                <button
+                  type="submit"
+                  className="thread-discussion-pager-btn thread-discussion-composer-submit"
+                  disabled={replyBusy || !draft.trim()}
+                >
+                  {replyBusy
+                    ? t('gamedetail.discussion.replyPosting')
+                    : t('gamedetail.discussion.replyPost')}
+                </button>
+              </div>
+            </form>
           )}
         </>
       )}
