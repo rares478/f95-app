@@ -416,10 +416,11 @@ export async function setDefaultExe(id: string): Promise<void> {
   if (!row) return;
 
   await execute(
-    `UPDATE library_game_exes SET is_default = 0 WHERE thread_id = ?`,
-    [row.thread_id],
+    `UPDATE library_game_exes
+        SET is_default = CASE WHEN id = ? THEN 1 ELSE 0 END
+      WHERE thread_id = ?`,
+    [id, row.thread_id],
   );
-  await execute(`UPDATE library_game_exes SET is_default = 1 WHERE id = ?`, [id]);
   await syncGameExeCache(row.thread_id);
 }
 

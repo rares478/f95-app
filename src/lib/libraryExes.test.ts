@@ -74,4 +74,34 @@ describe('resolvePlayExe', () => {
     const b = row({ id: 'b', sortOrder: 1, exePath: 'D:/s2/x.exe', installPath: 'D:/s2' });
     expect(resolvePlayExe([a, b])?.id).toBe('b');
   });
+
+  it('ties on equal sortOrder via createdAt then id', () => {
+    const later = row({
+      id: 'z',
+      sortOrder: 0,
+      createdAt: '2026-02-01T00:00:00.000Z',
+      exePath: 'D:/s2/x.exe',
+      installPath: 'D:/s2',
+    });
+    const earlier = row({
+      id: 'a',
+      sortOrder: 0,
+      createdAt: '2026-01-01T00:00:00.000Z',
+    });
+    expect(resolvePlayExe([later, earlier])?.id).toBe('a');
+
+    const sameCreatedB = row({
+      id: 'b',
+      sortOrder: 0,
+      createdAt: '2026-01-01T00:00:00.000Z',
+      exePath: 'D:/s2/x.exe',
+      installPath: 'D:/s2',
+    });
+    const sameCreatedA = row({
+      id: 'a',
+      sortOrder: 0,
+      createdAt: '2026-01-01T00:00:00.000Z',
+    });
+    expect(resolvePlayExe([sameCreatedB, sameCreatedA])?.id).toBe('a');
+  });
 });

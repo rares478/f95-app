@@ -8,7 +8,6 @@ import {
 } from '../../lib/libraryExes';
 import { pickExeFor } from '../../lib/libraryGameActions';
 import { useT } from '../../lib/i18n';
-import { formatIpcError } from '../../lib/ipcError';
 import type { LibraryGame } from '../../types/library';
 import type { LibraryGameActionsDeps } from '../../lib/libraryGameActions';
 import '../../styles/library-exes.css';
@@ -50,11 +49,7 @@ export function LibraryExesSection({
 
   async function onPlayRow(row: LibraryGameExe) {
     if (disabled) return;
-    try {
-      await onPlayExe(row);
-    } catch (err) {
-      await dialog.alert(t('libdetail.play.failed', { error: formatIpcError(err) }));
-    }
+    await onPlayExe(row);
   }
 
   async function onOpenFolder(row: LibraryGameExe) {
