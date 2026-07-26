@@ -383,6 +383,7 @@ function GameDetailPageInner() {
               }}
               downloads={g.downloads}
               social={g.social}
+              onStarted={() => setInLibrary(true)}
             />
           </GameDetailSection>
         </GameDetailAside>

@@ -45,20 +45,45 @@ export function classifySectionLabel(
   return 'other';
 }
 
+const NON_DEFAULT_KINDS = new Set<SectionKind>(['legacy', 'patch', 'extra']);
+
 export function buildInstallSections(
   links: GameDownload[],
   platform: 'windows' | 'macos' | 'linux',
 ): InstallSection[] {
-  return groupDownloads(links).map(([group, groupLinks]) => {
+  const sections = groupDownloads(links).map(([group, groupLinks]) => {
     const label = group ?? '(ungrouped)';
     const kind = classifySectionLabel(group, platform);
     return {
       label,
       kind,
       links: groupLinks,
-      defaultChecked: kind === 'current_os',
+      defaultChecked: false,
     };
   });
+
+  if (sections.some((s) => s.kind === 'current_os')) {
+    return sections.map((s) => ({
+      ...s,
+      defaultChecked: s.kind === 'current_os',
+    }));
+  }
+
+  // No current_os: sole section, else first non-legacy/patch/extra (prefer other).
+  let defaultLabel: string | null = null;
+  if (sections.length === 1) {
+    defaultLabel = sections[0]!.label;
+  } else {
+    const eligible = sections.filter((s) => !NON_DEFAULT_KINDS.has(s.kind));
+    const pick =
+      eligible.find((s) => s.kind === 'other') ?? eligible[0] ?? null;
+    defaultLabel = pick?.label ?? null;
+  }
+
+  return sections.map((s) => ({
+    ...s,
+    defaultChecked: defaultLabel != null && s.label === defaultLabel,
+  }));
 }
 
 export function pickPreferredHost(

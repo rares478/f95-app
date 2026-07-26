@@ -8,7 +8,10 @@ import * as library from '../../lib/library';
 import {
   attachDownload,
   createPlan,
+  markJobAssign,
+  markPlanStatus,
   type CreatePlanJobInput,
+  type InstallJob,
 } from '../../lib/installPlans';
 import {
   buildInstallSections,
@@ -157,15 +160,19 @@ export function InstallPlanWizard({
       return;
     }
     setBusy(true);
+    let planId: string | null = null;
+    let createdJobs: InstallJob[] = [];
+    const startedJobIds = new Set<string>();
     try {
       await prepareStart?.();
-      await library.setStatus(threadId, 'downloading');
 
-      const { jobs: createdJobs } = await createPlan({
+      const created = await createPlan({
         threadId,
         intent,
         jobs,
       });
+      planId = created.plan.id;
+      createdJobs = created.jobs;
 
       for (const job of createdJobs) {
         const row = await downloads.create({
@@ -182,11 +189,32 @@ export function InstallPlanWizard({
           libraryPath,
           platformGroup: job.sectionLabel,
         });
+        startedJobIds.add(job.id);
+        // Set downloading only after the first successful start so a total
+        // failure before any start leaves the prior library status intact.
+        if (startedJobIds.size === 1) {
+          await library.setStatus(threadId, 'downloading');
+        }
       }
 
       onStarted?.();
       onClose();
     } catch (err) {
+      if (planId) {
+        const errMsg = formatIpcError(err);
+        try {
+          for (const job of createdJobs) {
+            if (!startedJobIds.has(job.id)) {
+              await markJobAssign(job.id, 'failed', {
+                errorMessage: errMsg,
+              });
+            }
+          }
+          await markPlanStatus(planId, 'failed');
+        } catch (markErr) {
+          console.warn('[install] failed to mark plan after start error', markErr);
+        }
+      }
       await dialog.alert(t('dl.start.failed', { error: formatIpcError(err) }), {
         kind: 'error',
       });
