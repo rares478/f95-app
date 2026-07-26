@@ -45,6 +45,10 @@ export function createGameHandlers(ctx: AppContext): Record<string, RpcHandler> 
       if (!message.trim()) throw new RpcError(RPC_ERROR.INVALID_PARAMS, 'message required');
       return ctx.getGame().reply(threadId, message);
     },
+    bbcodePreview: async (p) => {
+      const bbCode = String(p?.bbCode ?? p?.bb_code ?? '');
+      return ctx.getGame().previewBbcode(bbCode);
+    },
     resolvePost: async (p) => {
       const postId = String(p?.postId ?? p?.post_id ?? '');
       if (!postId) throw new RpcError(RPC_ERROR.INVALID_PARAMS, 'postId required');

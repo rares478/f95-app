@@ -4,6 +4,7 @@ import type { SamFilters, SamOptionsResult, SamPage, SamTag } from '../types/sam
 import type { SamCategory } from '../types/sam';
 import type { GameDetail } from '../types/game';
 import type {
+  BbcodePreviewResult,
   ResolvePostResult,
   ThreadPostsPage,
   ThreadReplyResult,
@@ -75,6 +76,10 @@ export async function threadReply(
   message: string,
 ): Promise<ThreadReplyResult> {
   return invoke<ThreadReplyResult>('thread_reply', { threadId, message });
+}
+
+export async function bbcodePreview(bbCode: string): Promise<BbcodePreviewResult> {
+  return invoke<BbcodePreviewResult>('bbcode_preview', { bbCode });
 }
 
 export async function resolvePost(postId: string): Promise<ResolvePostResult> {
