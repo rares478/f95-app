@@ -180,6 +180,22 @@ export async function findJobByDownloadId(
   return rows[0] ? rowToJob(rows[0]) : null;
 }
 
+export async function findJob(jobId: string): Promise<InstallJob | null> {
+  const rows = await query<JobDbRow>(
+    `SELECT * FROM install_jobs WHERE id = ? LIMIT 1`,
+    [jobId],
+  );
+  return rows[0] ? rowToJob(rows[0]) : null;
+}
+
+export async function getPlan(planId: string): Promise<InstallPlan | null> {
+  const rows = await query<PlanDbRow>(
+    `SELECT * FROM install_plans WHERE id = ? LIMIT 1`,
+    [planId],
+  );
+  return rows[0] ? rowToPlan(rows[0]) : null;
+}
+
 export async function attachDownload(
   jobId: string,
   downloadId: number,

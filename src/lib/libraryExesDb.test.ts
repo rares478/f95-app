@@ -198,6 +198,58 @@ describe('library multi-exe façade', () => {
     ).toBe(false);
   });
 
+  it('updateExePaths updates one row and syncs game cache', async () => {
+    const a: LibraryGameExe = {
+      id: 'a',
+      threadId: 't1',
+      exePath: 'D:/s1/game.exe',
+      installPath: 'D:/s1',
+      label: 'Season 1',
+      sortOrder: 0,
+      isDefault: true,
+      lastLaunchedAt: null,
+      createdAt: '2026-01-01T00:00:00.000Z',
+    };
+    const b: LibraryGameExe = {
+      id: 'b',
+      threadId: 't1',
+      exePath: 'D:/s2/game.exe',
+      installPath: 'D:/s2',
+      label: 'Season 2',
+      sortOrder: 1,
+      isDefault: false,
+      lastLaunchedAt: null,
+      createdAt: '2026-02-01T00:00:00.000Z',
+    };
+    const updatedA = {
+      ...toDbRow(a),
+      exe_path: 'D:/s1b/game.exe',
+      install_path: 'D:/s1b',
+    };
+
+    // select by id → listExes siblings → sync listExes
+    query
+      .mockResolvedValueOnce([toDbRow(a)])
+      .mockResolvedValueOnce([toDbRow(a), toDbRow(b)])
+      .mockResolvedValueOnce([updatedA, toDbRow(b)]);
+
+    await library.updateExePaths('a', 'D:/s1b/game.exe', 'D:/s1b');
+
+    const childUpdate = execute.mock.calls.find(
+      (c) =>
+        String(c[0]).includes('UPDATE library_game_exes') &&
+        String(c[0]).includes('exe_path'),
+    );
+    expect(childUpdate![1]).toEqual(['D:/s1b/game.exe', 'D:/s1b', 'a']);
+
+    const gameUpdate = execute.mock.calls.find(
+      (c) =>
+        String(c[0]).includes('UPDATE library_games') &&
+        String(c[0]).includes("install_status = 'installed'"),
+    );
+    expect(gameUpdate![1]).toEqual(['D:/s1b/game.exe', 'D:/s1b', 't1']);
+  });
+
   it('clearExe deletes children and clears game fields', async () => {
     await library.clearExe('t1');
 
