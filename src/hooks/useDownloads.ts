@@ -11,6 +11,18 @@ import {
   extractDirForArchive,
   isArchivePath,
 } from '../lib/archives';
+import { defaultExeLabel, shouldAutoAssign } from '../lib/installAssign';
+import {
+  buildJobExtractDest,
+  emitInstallNeedsAssign,
+} from '../lib/installJobExtract';
+import {
+  findJobByDownloadId,
+  listJobsForPlan,
+  markJobAssign,
+  markJobExtracted,
+  recomputePlanStatus,
+} from '../lib/installPlans';
 import { dialog } from '../lib/dialog';
 import { tStandalone } from '../lib/i18n';
 import { extractRawMessage, formatIpcError } from '../lib/ipcError';
@@ -62,7 +74,12 @@ export async function runExtraction(
     resolvedDownloadId =
       rows.find((row) => row.destPath === archivePath)?.id ?? null;
   }
+  const linkedJob =
+    resolvedDownloadId != null
+      ? await findJobByDownloadId(resolvedDownloadId)
+      : null;
   const previousInstallDir = game.installPath;
+  const previousStatus = game.installStatus;
   const wasInstalled =
     game.installStatus === 'installed' || game.installStatus === 'update_available';
 
@@ -74,6 +91,87 @@ export async function runExtraction(
     /* row may have been removed mid-extract */
   }
   try {
+    if (linkedJob) {
+      const planJobs = await listJobsForPlan(linkedJob.planId);
+      const destDir = buildJobExtractDest({
+        archivePath,
+        sectionLabel: linkedJob.sectionLabel,
+        jobId: linkedJob.id,
+        installPath: game.installPath,
+        takenPaths: planJobs
+          .filter((j) => j.id !== linkedJob.id)
+          .map((j) => j.extractPath),
+        jobCount: planJobs.length,
+      });
+      const result = await ipc.extractArchive({
+        archivePath,
+        gameTitle: game.title,
+        downloadId: resolvedDownloadId,
+        destDir,
+      });
+      await markJobExtracted(linkedJob.id, result.destDir);
+
+      const dlSettings = await loadDownloadSettings();
+
+      if (
+        shouldAutoAssign({
+          jobCount: planJobs.length,
+          sectionKind: linkedJob.sectionKind,
+          exePath: result.exePath,
+        }) &&
+        result.exePath
+      ) {
+        const exe = await library.addExe(
+          threadId,
+          result.exePath,
+          defaultExeLabel(linkedJob.sectionLabel, result.exePath),
+        );
+        await markJobAssign(linkedJob.id, 'assigned', { exeId: exe.id });
+        await recomputePlanStatus(linkedJob.planId);
+
+        if (dlSettings.createShortcuts) {
+          try {
+            await ipc.createGameShortcuts({
+              exePath: result.exePath,
+              title: game.title,
+            });
+          } catch (err) {
+            console.warn('[extract] failed to create shortcuts', err);
+          }
+        }
+      } else {
+        // Leave assign_status pending; do not clobber install_path / exe via setExe.
+        if (wasInstalled) {
+          await library.setStatus(threadId, previousStatus);
+        } else {
+          await library.setStatus(threadId, 'not_installed');
+        }
+        emitInstallNeedsAssign({
+          jobId: linkedJob.id,
+          planId: linkedJob.planId,
+          threadId,
+        });
+      }
+
+      if (gameVersion) {
+        await library.applyVersion(threadId, gameVersion);
+      }
+
+      if (dlSettings.deleteArchiveAfterExtract) {
+        try {
+          await ipc.deletePath(archivePath);
+        } catch (err) {
+          console.warn('[extract] failed to delete archive', err);
+        }
+      }
+      try {
+        await downloads.markExtracted(threadId, archivePath);
+      } catch {
+        /* ignore */
+      }
+      return;
+    }
+
     const result = await ipc.extractArchive({
       archivePath,
       gameTitle: game.title,
@@ -161,6 +259,16 @@ export async function runExtraction(
       await downloads.markExtractFailed(threadId, archivePath, extractRawMessage(err));
     } catch {
       /* ignore */
+    }
+    if (linkedJob) {
+      try {
+        await markJobAssign(linkedJob.id, 'failed', {
+          errorMessage: extractRawMessage(err),
+        });
+        await recomputePlanStatus(linkedJob.planId);
+      } catch {
+        /* ignore */
+      }
     }
     try {
       const game = await library.get(threadId);
@@ -405,11 +513,16 @@ export function useDownloads(options?: UseDownloadsOptions): {
             if (!cancelled) reload();
             return;
           }
-          const archiveFolder = e.payload.filePath.replace(/[\\/][^\\/]+$/, '');
-          try {
-            await library.setInstallPath(row.threadId, archiveFolder);
-          } catch {
-            /* not in library */
+          const linkedJob = await findJobByDownloadId(e.payload.id);
+          if (!linkedJob) {
+            // Legacy / Browse-all: point install_path at the archive folder until extract.
+            // Plan jobs must not clobber an existing multi-part install_path here.
+            const archiveFolder = e.payload.filePath.replace(/[\\/][^\\/]+$/, '');
+            try {
+              await library.setInstallPath(row.threadId, archiveFolder);
+            } catch {
+              /* not in library */
+            }
           }
           const archivePaths = archivePathsFromDone(e.payload);
           const dlSettings = await loadDownloadSettings();
