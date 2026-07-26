@@ -3,11 +3,13 @@ import {
   archiveStem,
   buildBundleExtractDest,
   buildJobExtractDest,
+  bundleAlreadyAssigned,
   pickBundleLeadJob,
   resolveLibraryGameDir,
   sanitizePathSegment,
   shortJobId,
   shouldAutoExtractDownload,
+  withBundleAssignLock,
 } from './installJobExtract';
 
 describe('sanitizePathSegment', () => {
@@ -138,6 +140,62 @@ describe('pickBundleLeadJob', () => {
 
   it('returns null for empty list', () => {
     expect(pickBundleLeadJob([])).toBeNull();
+  });
+});
+
+describe('bundleAlreadyAssigned', () => {
+  it('is true when any sibling is assigned', () => {
+    expect(
+      bundleAlreadyAssigned([
+        { assignStatus: 'pending' },
+        { assignStatus: 'assigned' },
+      ]),
+    ).toBe(true);
+  });
+
+  it('is false when none are assigned', () => {
+    expect(
+      bundleAlreadyAssigned([
+        { assignStatus: 'pending' },
+        { assignStatus: 'pending' },
+      ]),
+    ).toBe(false);
+  });
+});
+
+describe('withBundleAssignLock', () => {
+  it('serializes concurrent work for the same bundleId', async () => {
+    const order: number[] = [];
+    await Promise.all([
+      withBundleAssignLock('b1', async () => {
+        order.push(1);
+        await new Promise((r) => setTimeout(r, 20));
+        order.push(2);
+      }),
+      withBundleAssignLock('b1', async () => {
+        order.push(3);
+        order.push(4);
+      }),
+    ]);
+    expect(order).toEqual([1, 2, 3, 4]);
+  });
+
+  it('allows different bundleIds to run concurrently', async () => {
+    let b2StartedBeforeB1Finished = false;
+    let releaseB1!: () => void;
+    const b1Gate = new Promise<void>((r) => {
+      releaseB1 = r;
+    });
+
+    const p1 = withBundleAssignLock('bx', async () => {
+      await b1Gate;
+    });
+    const p2 = withBundleAssignLock('by', async () => {
+      b2StartedBeforeB1Finished = true;
+      releaseB1();
+    });
+    await Promise.all([p1, p2]);
+    expect(b2StartedBeforeB1Finished).toBe(true);
   });
 });
 

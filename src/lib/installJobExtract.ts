@@ -121,6 +121,38 @@ export function pickBundleLeadJob<T extends { id: string; sortOrder: number }>(
   )[0]!;
 }
 
+/** True when any sibling has already been assigned (skip duplicate assign). */
+export function bundleAlreadyAssigned(
+  jobs: readonly { assignStatus: string }[],
+): boolean {
+  return jobs.some((j) => j.assignStatus === 'assigned');
+}
+
+/** Serialize assign-once per bundle so concurrent finishing extracts cannot double-assign. */
+const bundleAssignLocks = new Map<string, Promise<void>>();
+
+export async function withBundleAssignLock<T>(
+  bundleId: string,
+  fn: () => Promise<T>,
+): Promise<T> {
+  const prev = bundleAssignLocks.get(bundleId) ?? Promise.resolve();
+  let release!: () => void;
+  const gate = new Promise<void>((resolve) => {
+    release = resolve;
+  });
+  const next = prev.then(() => gate);
+  bundleAssignLocks.set(bundleId, next);
+  await prev;
+  try {
+    return await fn();
+  } finally {
+    release();
+    if (bundleAssignLocks.get(bundleId) === next) {
+      bundleAssignLocks.delete(bundleId);
+    }
+  }
+}
+
 export const INSTALL_NEEDS_ASSIGN_EVENT = 'install:needs-assign';
 
 export interface InstallNeedsAssignDetail {
