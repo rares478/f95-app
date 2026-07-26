@@ -36,9 +36,17 @@ interface Props {
   downloads: GameDownload[];
   social: SocialLink[];
   embedded?: boolean;
+  /** Called after a wizard/download start succeeds (e.g. refresh library UI). */
+  onStarted?: () => void;
 }
 
-export function DownloadLinks({ game, downloads: items, social, embedded }: Props) {
+export function DownloadLinks({
+  game,
+  downloads: items,
+  social,
+  embedded,
+  onStarted,
+}: Props) {
   const { t } = useT();
   const { isOffline } = useOffline();
   const [busyUrl, setBusyUrl] = useState<string | null>(null);
@@ -98,6 +106,7 @@ export function DownloadLinks({ game, downloads: items, social, embedded }: Prop
         libraryPath,
         platformGroup: download.group,
       });
+      onStarted?.();
     } catch (err) {
       await dialog.alert(t('dl.start.failed', { error: formatIpcError(err) }), { kind: 'error' });
     } finally {
@@ -227,6 +236,7 @@ export function DownloadLinks({ game, downloads: items, social, embedded }: Prop
         gameVersion={game.version}
         intent="install"
         onClose={() => setWizardOpen(false)}
+        onStarted={onStarted}
         prepareStart={prepareWizardStart}
       />
 

@@ -46,6 +46,40 @@ describe('buildInstallSections', () => {
       ['Extras', false],
     ]);
   });
+
+  it('pre-checks other when no current_os', () => {
+    const links: GameDownload[] = [
+      link({ host: 'mega', url: 'https://mega.nz/b', group: 'Mac' }),
+      link({ host: 'mega', url: 'https://mega.nz/c', group: 'Patches' }),
+      link({ host: 'mega', url: 'https://mega.nz/d', group: 'Extras' }),
+    ];
+    const sections = buildInstallSections(links, 'windows');
+    expect(sections.map((s) => [s.label, s.kind, s.defaultChecked])).toEqual([
+      ['Mac', 'other', true],
+      ['Patches', 'patch', false],
+      ['Extras', 'extra', false],
+    ]);
+  });
+
+  it('pre-checks sole section even when legacy/patch/extra', () => {
+    const links: GameDownload[] = [
+      link({ host: 'mega', url: 'https://mega.nz/c', group: 'Patches' }),
+    ];
+    const sections = buildInstallSections(links, 'windows');
+    expect(sections).toHaveLength(1);
+    expect(sections[0]?.defaultChecked).toBe(true);
+    expect(sections[0]?.kind).toBe('patch');
+  });
+
+  it('checks nothing when multiple sections are all legacy/patch/extra', () => {
+    const links: GameDownload[] = [
+      link({ host: 'mega', url: 'https://mega.nz/a', group: 'Before v1' }),
+      link({ host: 'mega', url: 'https://mega.nz/c', group: 'Patches' }),
+      link({ host: 'mega', url: 'https://mega.nz/d', group: 'Extras' }),
+    ];
+    const sections = buildInstallSections(links, 'windows');
+    expect(sections.every((s) => !s.defaultChecked)).toBe(true);
+  });
 });
 
 describe('pickPreferredHost', () => {
