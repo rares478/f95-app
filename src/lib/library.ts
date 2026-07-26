@@ -382,6 +382,43 @@ export async function renameExe(id: string, label: string | null): Promise<void>
   ]);
 }
 
+/**
+ * Repoint an existing exe row (Assigner Replace). Syncs the game cache.
+ * Rejects paths that collide with a sibling row.
+ */
+export async function updateExePaths(
+  id: string,
+  exePath: string,
+  installPath: string | null,
+): Promise<void> {
+  const rows = await query<ExeDbRow>(
+    `SELECT * FROM library_game_exes WHERE id = ?`,
+    [id],
+  );
+  const row = rows[0];
+  if (!row) return;
+
+  const siblings = await listExes(row.thread_id);
+  if (siblings.some((r) => r.id !== id && r.exePath === exePath)) {
+    throw new Error('DUPLICATE_EXE_PATH');
+  }
+
+  try {
+    await execute(
+      `UPDATE library_game_exes SET exe_path = ?, install_path = ? WHERE id = ?`,
+      [exePath, installPath, id],
+    );
+  } catch (err) {
+    const msg = err instanceof Error ? err.message : String(err);
+    if (/UNIQUE|unique/i.test(msg)) {
+      throw new Error('DUPLICATE_EXE_PATH');
+    }
+    throw err;
+  }
+
+  await syncGameExeCache(row.thread_id);
+}
+
 export async function removeExe(id: string): Promise<void> {
   const rows = await query<ExeDbRow>(
     `SELECT * FROM library_game_exes WHERE id = ?`,

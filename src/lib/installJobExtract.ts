@@ -98,6 +98,8 @@ export interface InstallNeedsAssignDetail {
   jobId: string;
   planId: string;
   threadId: string;
+  /** Detected main exe from extract; null when none found. */
+  exePath?: string | null;
 }
 
 export function emitInstallNeedsAssign(detail: InstallNeedsAssignDetail): void {

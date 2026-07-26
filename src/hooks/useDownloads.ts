@@ -158,6 +158,7 @@ export async function runExtraction(
           jobId: linkedJob.id,
           planId: linkedJob.planId,
           threadId,
+          exePath: result.exePath,
         });
       }
 

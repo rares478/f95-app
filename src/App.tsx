@@ -5,6 +5,7 @@ import { listen } from '@tauri-apps/api/event';
 import { LoginWindow } from './components/LoginWindow';
 import { MainAppGate } from './components/MainAppGate';
 import { DownloadsProvider } from './contexts/Downloads';
+import { InstallAssignProvider } from './contexts/InstallAssign';
 import { OfflineProvider } from './contexts/Offline';
 import { AppDialogProvider } from './components/AppDialogProvider';
 import { ContextMenuProvider } from './components/contextMenu';
@@ -154,8 +155,10 @@ function App() {
             <MainAppGate>
               {({ profile, onLoggedOut }) => (
                 <DownloadsProvider>
-                  <RouterRoot profile={profile} onLoggedOut={onLoggedOut} />
-                  <DevDebugConsole />
+                  <InstallAssignProvider>
+                    <RouterRoot profile={profile} onLoggedOut={onLoggedOut} />
+                    <DevDebugConsole />
+                  </InstallAssignProvider>
                 </DownloadsProvider>
               )}
             </MainAppGate>

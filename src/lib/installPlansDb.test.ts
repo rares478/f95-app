@@ -152,6 +152,52 @@ describe('installPlans DB façade', () => {
     expect(await installPlans.findJobByDownloadId(99)).toBeNull();
   });
 
+  it('findJob and getPlan return mapped rows or null', async () => {
+    query.mockResolvedValueOnce([
+      {
+        id: 'j1',
+        plan_id: 'p1',
+        section_label: 'Windows',
+        section_kind: 'current_os',
+        source_url: 'https://example.com/a',
+        host: 'pixeldrain',
+        download_id: 42,
+        extract_path: 'D:/games/Win',
+        exe_id: null,
+        assign_status: 'pending',
+        sort_order: 0,
+        error_message: null,
+      },
+    ]);
+    const job = await installPlans.findJob('j1');
+    expect(job?.id).toBe('j1');
+    expect(job?.extractPath).toBe('D:/games/Win');
+
+    query.mockResolvedValueOnce([]);
+    expect(await installPlans.findJob('missing')).toBeNull();
+
+    query.mockResolvedValueOnce([
+      {
+        id: 'p1',
+        thread_id: 't1',
+        intent: 'install',
+        status: 'active',
+        created_at: '2026-07-26T00:00:00.000Z',
+      },
+    ]);
+    const plan = await installPlans.getPlan('p1');
+    expect(plan).toEqual({
+      id: 'p1',
+      threadId: 't1',
+      intent: 'install',
+      status: 'active',
+      createdAt: '2026-07-26T00:00:00.000Z',
+    });
+
+    query.mockResolvedValueOnce([]);
+    expect(await installPlans.getPlan('missing')).toBeNull();
+  });
+
   it('markJobAssign clears error_message when null is passed', async () => {
     await installPlans.markJobAssign('j1', 'pending', { errorMessage: null });
 
