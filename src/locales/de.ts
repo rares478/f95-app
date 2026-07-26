@@ -792,6 +792,7 @@ const de: Record<string, string> = {
   'error.gofile.guestBlocked': 'Uploader hat anonymen Zugriff deaktiviert. Füge deinen GoFile-Token unter Einstellungen → Hosts ein.',
   'error.gofile.badToken': 'GoFile-Token wurde nicht akzeptiert. Prüfe unter Einstellungen → Hosts → Zugangsdaten prüfen.',
   'error.gofile.unknown': 'GoFile: Host hat einen unbekannten Fehler zurückgegeben',
+  'error.gofile.generic': 'GoFile: {detail}',
   'error.gofile.missingData': 'GoFile: Contents-Antwort ohne Daten',
   'error.gofile.guestTokenMissing': 'GoFile: Gast-Account-Token fehlt',
 

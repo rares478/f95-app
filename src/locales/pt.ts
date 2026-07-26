@@ -797,6 +797,7 @@ const pt: Record<string, string> = {
   'error.gofile.guestBlocked': 'O uploader desativou o acesso anônimo. Cole seu token do GoFile em Configurações → Hosts.',
   'error.gofile.badToken': 'Token do GoFile não foi aceito. Verifique em Configurações → Hosts → Verificar credenciais.',
   'error.gofile.unknown': 'GoFile: o host retornou um erro desconhecido',
+  'error.gofile.generic': 'GoFile: {detail}',
   'error.gofile.missingData': 'GoFile: resposta de contents sem dados',
   'error.gofile.guestTokenMissing': 'GoFile: token de conta visitante ausente',
 

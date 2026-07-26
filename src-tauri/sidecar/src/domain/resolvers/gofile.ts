@@ -325,7 +325,10 @@ export async function resolveGofile(
         'error.gofile.browserTimeout',
       );
     }
-    throw new RpcError(RPC_ERROR.INTERNAL, 'error.gofile.unknown');
+    throw new RpcError(
+      RPC_ERROR.INTERNAL,
+      `error.gofile.generic|${JSON.stringify({ detail: msg })}`,
+    );
   } finally {
     await context.close().catch(() => undefined);
   }

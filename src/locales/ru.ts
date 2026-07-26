@@ -792,6 +792,7 @@ const ru: Record<string, string> = {
   'error.gofile.guestBlocked': 'Загрузчик отключил анонимный доступ. Вставьте токен GoFile в Настройки → Хосты.',
   'error.gofile.badToken': 'Токен GoFile не принят. Проверьте в Настройки → Хосты → Проверить учётные данные.',
   'error.gofile.unknown': 'GoFile: хост вернул неизвестную ошибку',
+  'error.gofile.generic': 'GoFile: {detail}',
   'error.gofile.missingData': 'GoFile: в ответе contents нет данных',
   'error.gofile.guestTokenMissing': 'GoFile: отсутствует токен гостевого аккаунта',
 

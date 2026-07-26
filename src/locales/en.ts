@@ -798,6 +798,7 @@ const en: Record<string, string> = {
   'error.gofile.guestBlocked': 'Uploader disabled anonymous access. Paste your GoFile token in Settings → Hosts.',
   'error.gofile.badToken': 'GoFile token was not accepted. Check Settings → Hosts → Verify credentials.',
   'error.gofile.unknown': 'GoFile: host returned an unknown error',
+  'error.gofile.generic': 'GoFile: {detail}',
   'error.gofile.missingData': 'GoFile: contents response missing data',
   'error.gofile.guestTokenMissing': 'GoFile: guest account token missing',
 
