@@ -222,6 +222,11 @@ const ru: Record<string, string> = {
   'downloads.action.verifyingCaptcha': 'Проверка…',
   'downloads.action.captchaShort': 'Captcha',
   'downloads.captcha.failed': 'Не удалось продолжить: {error}',
+  'downloads.hint.noApiKey': 'Нет API-ключа',
+  'downloads.hint.noApiKey.title': 'Этому хосту нужен API-ключ в Настройки → Хосты, или выберите другой провайдер',
+  'downloads.action.changeProvider': 'Сменить провайдер',
+  'downloads.action.changeProvider.title': 'Отменить загрузку и выбрать другой хост',
+  'downloads.changeProvider.notInLibrary': 'Сначала добавьте игру в библиотеку, чтобы сменить провайдер.',
   'downloads.action.cancel': 'Отмена',
   'downloads.action.retry': 'Повторить',
   'downloads.action.remove': 'Удалить',
@@ -487,6 +492,7 @@ const ru: Record<string, string> = {
   // ─── Install status ─────────────────────────────────────────────────────
   'status.not_installed': 'Не установлено',
   'status.downloading': 'Загружается',
+  'status.needs_attention': 'Требует внимания',
   'status.extracting': 'Распаковка…',
   'status.installed': 'Установлено',
   'status.update_available': 'Доступно обновление',
@@ -520,6 +526,8 @@ const ru: Record<string, string> = {
   'libcard.cta.install.title': 'Выберите хост для скачивания',
   'libcard.cta.downloading': 'Загружается…',
   'libcard.cta.extracting': 'Распаковка…',
+  'libcard.cta.needsAttention': 'Требует внимания',
+  'libcard.cta.needsAttention.title': 'Открыть Загрузки, чтобы завершить или сменить хост',
   'libcard.cta.inFlight.title': 'В процессе',
   'libcard.cta.update': 'Обновить',
   'libcard.cta.updateTo': 'Обновить ({version})',
@@ -752,6 +760,88 @@ const ru: Record<string, string> = {
   'auth.loginRequired': 'Нужно войти, чтобы пользоваться приложением.',
   'auth.error.generic': 'Что-то пошло не так.',
   'auth.error.dismiss': 'Закрыть',
+  'auth.error.invalid_credentials': 'Неверное имя пользователя или пароль.',
+  'auth.error.two_factor_required':
+    'У этого аккаунта включена двухфакторная аутентификация. 2FA в этой версии не поддерживается.',
+  'auth.error.cloudflare':
+    'Cloudflare заблокировал запрос (Just a moment…). Эта сборка не может пройти проверку.',
+  'auth.error.sidecar_timeout': 'Нет ответа от Node sidecar. Проверьте, что процесс запущен.',
+  'auth.error.sidecar_crash': 'Node sidecar неожиданно завершился.',
+  'auth.error.not_initialized': 'Мост к sidecar ещё не инициализирован.',
+  'auth.error.protocol': 'Ошибка протокола между Tauri и sidecar.',
+  'auth.error.io': 'Ошибка ввода-вывода при работе с sidecar.',
+  'auth.error.other': 'Неожиданная ошибка.',
+
+  // ─── Backend / download host errors ─────────────────────────────────────
+  // Google Drive
+  'error.gdrive.invalidUrl': 'Неверный URL Google Drive',
+  'error.gdrive.private': 'Google Drive: файл закрытый — ссылка должна быть публичной («Все, у кого есть ссылка»)',
+  'error.gdrive.directLink': 'Google Drive: прямая ссылка не получена — убедитесь, что файл публичный, или откройте в браузере',
+  'error.gdrive.generic': 'Google Drive: {detail}',
+
+  // GoFile
+  'error.gofile.missingId': 'В URL GoFile отсутствует content id',
+  'error.gofile.metaTimeout': 'GoFile: истекло время ожидания метаданных в браузере',
+  'error.gofile.noButton': 'GoFile: кнопка скачивания не найдена — откройте ссылку в браузере',
+  'error.gofile.noCdn': 'GoFile: загрузка не вернула CDN URL',
+  'error.gofile.notFound': 'GoFile: недействительная или удалённая ссылка',
+  'error.gofile.password': 'GoFile: ссылка защищена паролем — откройте в браузере и скачайте вручную',
+  'error.gofile.browserTimeout': 'GoFile: истекло время в браузере — попробуйте снова',
+  'error.gofile.notPremium': 'Этот файл можно скачать только через браузер (ограниченный API)',
+  'error.gofile.rateLimit': 'Слишком много запросов — подождите несколько минут и попробуйте снова',
+  'error.gofile.guestBlocked': 'Загрузчик отключил анонимный доступ. Вставьте токен GoFile в Настройки → Хосты.',
+  'error.gofile.badToken': 'Токен GoFile не принят. Проверьте в Настройки → Хосты → Проверить учётные данные.',
+  'error.gofile.unknown': 'GoFile: хост вернул неизвестную ошибку',
+  'error.gofile.missingData': 'GoFile: в ответе contents нет данных',
+  'error.gofile.guestTokenMissing': 'GoFile: отсутствует токен гостевого аккаунта',
+
+  // DataNodes
+  'error.datanodes.missingCode': 'В URL DataNodes отсутствует file code',
+  'error.datanodes.notFound': 'DataNodes: файл не найден или истёк',
+  'error.datanodes.noButton': 'DataNodes: кнопка скачивания не найдена',
+  'error.datanodes.needsAds': 'DataNodes: бесплатная загрузка требует рекламу в браузере. Укажите API-ключ в Настройки → Хосты → DataNodes (datanodes.to/account).',
+  'error.datanodes.timeout': 'DataNodes: истекло время подготовки загрузки — попробуйте снова или укажите API-ключ',
+  'error.datanodes.generic': 'DataNodes: {detail}',
+  'error.datanodes.multiFile': 'DataNodes: папки с несколькими файлами не поддерживаются',
+
+  // Mixdrop
+  'error.mixdrop.missingRef': 'В URL MixDrop отсутствует file ref',
+  'error.mixdrop.notFound': 'MixDrop: файл не найден или удалён',
+  'error.mixdrop.captcha': 'MixDrop требует проверку reCAPTCHA — откройте ссылку в браузере для скачивания',
+  'error.mixdrop.generic': 'MixDrop: {detail}',
+  'error.mixdrop.multiFile': 'MixDrop: папки с несколькими файлами не поддерживаются',
+
+  // Buzzheavier
+  'error.buzzheavier.missingId': 'В URL BuzzHeavier отсутствует file id',
+  'error.buzzheavier.notFound': 'BuzzHeavier: файл не найден или истёк',
+  'error.buzzheavier.cloudflare': 'BuzzHeavier: Cloudflare не пройден — попробуйте открыть в браузере',
+  'error.buzzheavier.folder': 'BuzzHeavier: ссылки на папки пока не поддерживаются — используйте один файл',
+  'error.buzzheavier.noButton': 'BuzzHeavier: кнопка скачивания на странице не найдена',
+  'error.buzzheavier.noCdn': 'BuzzHeavier: прямая CDN-ссылка не возвращена',
+  'error.buzzheavier.cfTimeout': 'BuzzHeavier: истекло время прохождения Cloudflare — попробуйте снова',
+  'error.buzzheavier.generic': 'BuzzHeavier: {detail}',
+
+  // Workupload
+  'error.workupload.missingId': 'В URL WorkUpload отсутствует file id',
+  'error.workupload.challenge': 'WorkUpload требует антибот-проверку — откройте ссылку в браузере для скачивания',
+  'error.workupload.noCdn': 'WorkUpload: загрузка не вернула CDN URL',
+  'error.workupload.notFound': 'WorkUpload: файл не найден или истёк',
+  'error.workupload.password': 'WorkUpload: ссылка защищена паролем — откройте в браузере и скачайте вручную',
+  'error.workupload.generic': 'WorkUpload: {detail}',
+
+  // Shared download manager
+  'error.download.choiceExpired': 'Выбор файла истёк — нажмите Повторить у загрузки',
+  'error.download.choiceMissing': 'Выбранный файл не найден',
+  'error.download.htmlInsteadOfFile': 'Загрузка вернула HTML вместо файла — откройте ссылку в браузере',
+
+  'settings.theme.default.label': 'По умолчанию',
+  'settings.theme.default.desc': 'Тёмная тема с красным акцентом — оригинальный вид.',
+  'settings.theme.dark.label': 'Тёмная (OLED)',
+  'settings.theme.dark.desc': 'Глубокий чёрный + синий акцент. Хорошо на OLED.',
+  'settings.theme.light.label': 'Светлая',
+  'settings.theme.light.desc': 'Белый фон, тёмный текст. Для дня.',
+  'settings.theme.red.label': 'F95 Красная',
+  'settings.theme.red.desc': 'В красных тонах с кремовым текстом.',
 
   // ─── Friends ────────────────────────────────────────────────────────────
   'friends.loadFailed': 'Ошибка загрузки: {error}',

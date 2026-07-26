@@ -222,6 +222,11 @@ const de: Record<string, string> = {
   'downloads.action.verifyingCaptcha': 'Verifizierung…',
   'downloads.action.captchaShort': 'Captcha',
   'downloads.captcha.failed': 'Fortsetzen fehlgeschlagen: {error}',
+  'downloads.hint.noApiKey': 'Kein API-Schlüssel',
+  'downloads.hint.noApiKey.title': 'Dieser Host braucht einen API-Schlüssel unter Einstellungen → Hosts, oder wähle einen anderen Anbieter',
+  'downloads.action.changeProvider': 'Anbieter wechseln',
+  'downloads.action.changeProvider.title': 'Diesen Download abbrechen und einen anderen Host wählen',
+  'downloads.changeProvider.notInLibrary': 'Füge dieses Spiel zuerst zur Bibliothek hinzu, um den Anbieter zu wechseln.',
   'downloads.action.cancel': 'Abbrechen',
   'downloads.action.retry': 'Erneut versuchen',
   'downloads.action.remove': 'Entfernen',
@@ -487,6 +492,7 @@ const de: Record<string, string> = {
   // ─── Install status ─────────────────────────────────────────────────────
   'status.not_installed': 'Nicht installiert',
   'status.downloading': 'Lädt herunter',
+  'status.needs_attention': 'Handlung nötig',
   'status.extracting': 'Entpackt…',
   'status.installed': 'Installiert',
   'status.update_available': 'Update verfügbar',
@@ -520,6 +526,8 @@ const de: Record<string, string> = {
   'libcard.cta.install.title': 'Download-Host wählen',
   'libcard.cta.downloading': 'Lädt herunter…',
   'libcard.cta.extracting': 'Entpackt…',
+  'libcard.cta.needsAttention': 'Handlung nötig',
+  'libcard.cta.needsAttention.title': 'Downloads öffnen, um fortzufahren oder den Host zu wechseln',
   'libcard.cta.inFlight.title': 'In Bearbeitung',
   'libcard.cta.update': 'Aktualisieren',
   'libcard.cta.updateTo': 'Aktualisieren ({version})',
@@ -752,6 +760,88 @@ const de: Record<string, string> = {
   'auth.loginRequired': 'Du musst dich anmelden, um die App zu nutzen.',
   'auth.error.generic': 'Etwas ist schiefgelaufen.',
   'auth.error.dismiss': 'Schließen',
+  'auth.error.invalid_credentials': 'Benutzername oder Passwort falsch.',
+  'auth.error.two_factor_required':
+    'Dieses Konto hat Zwei-Faktor-Authentifizierung. 2FA wird in dieser Version nicht unterstützt.',
+  'auth.error.cloudflare':
+    'Cloudflare hat die Anfrage blockiert (Just a moment…). Diese Version kann die Challenge nicht lösen.',
+  'auth.error.sidecar_timeout': 'Keine Antwort vom Node-Sidecar. Prüfe, ob der Prozess läuft.',
+  'auth.error.sidecar_crash': 'Der Node-Sidecar wurde unerwartet beendet.',
+  'auth.error.not_initialized': 'Die Sidecar-Brücke ist noch nicht initialisiert.',
+  'auth.error.protocol': 'Protokollfehler zwischen Tauri und dem Sidecar.',
+  'auth.error.io': 'I/O-Fehler bei der Kommunikation mit dem Sidecar.',
+  'auth.error.other': 'Unerwarteter Fehler.',
+
+  // ─── Backend / download host errors ─────────────────────────────────────
+  // Google Drive
+  'error.gdrive.invalidUrl': 'Ungültige Google-Drive-URL',
+  'error.gdrive.private': 'Google Drive: private Datei — der Link muss öffentlich sein („Jeder, der über den Link verfügt“)',
+  'error.gdrive.directLink': 'Google Drive: Direktlink nicht erhalten — stelle sicher, dass die Datei öffentlich ist, oder öffne sie im Browser',
+  'error.gdrive.generic': 'Google Drive: {detail}',
+
+  // GoFile
+  'error.gofile.missingId': 'GoFile-URL ohne Content-ID',
+  'error.gofile.metaTimeout': 'GoFile: Zeitüberschreitung beim Warten auf Metadaten im Browser',
+  'error.gofile.noButton': 'GoFile: Download-Button nicht gefunden — öffne den Link im Browser',
+  'error.gofile.noCdn': 'GoFile: Download hat keine CDN-URL zurückgegeben',
+  'error.gofile.notFound': 'GoFile: ungültiger oder entfernter Link',
+  'error.gofile.password': 'GoFile: passwortgeschützter Link — im Browser öffnen und manuell herunterladen',
+  'error.gofile.browserTimeout': 'GoFile: Zeitüberschreitung im Browser — erneut versuchen',
+  'error.gofile.notPremium': 'Diese Datei kann nur über den Browser heruntergeladen werden (eingeschränkte API)',
+  'error.gofile.rateLimit': 'Zu viele Anfragen — warte einige Minuten und versuche es erneut',
+  'error.gofile.guestBlocked': 'Uploader hat anonymen Zugriff deaktiviert. Füge deinen GoFile-Token unter Einstellungen → Hosts ein.',
+  'error.gofile.badToken': 'GoFile-Token wurde nicht akzeptiert. Prüfe unter Einstellungen → Hosts → Zugangsdaten prüfen.',
+  'error.gofile.unknown': 'GoFile: Host hat einen unbekannten Fehler zurückgegeben',
+  'error.gofile.missingData': 'GoFile: Contents-Antwort ohne Daten',
+  'error.gofile.guestTokenMissing': 'GoFile: Gast-Account-Token fehlt',
+
+  // DataNodes
+  'error.datanodes.missingCode': 'DataNodes-URL ohne Dateicode',
+  'error.datanodes.notFound': 'DataNodes: Datei nicht gefunden oder abgelaufen',
+  'error.datanodes.noButton': 'DataNodes: Download-Button nicht gefunden',
+  'error.datanodes.needsAds': 'DataNodes: kostenloser Download erfordert Werbung im Browser. Lege einen API-Schlüssel unter Einstellungen → Hosts → DataNodes fest (datanodes.to/account).',
+  'error.datanodes.timeout': 'DataNodes: Zeitüberschreitung bei der Download-Vorbereitung — erneut versuchen oder API-Schlüssel setzen',
+  'error.datanodes.generic': 'DataNodes: {detail}',
+  'error.datanodes.multiFile': 'DataNodes: Ordner mit mehreren Dateien werden nicht unterstützt',
+
+  // Mixdrop
+  'error.mixdrop.missingRef': 'MixDrop-URL ohne Dateireferenz',
+  'error.mixdrop.notFound': 'MixDrop: Datei nicht gefunden oder entfernt',
+  'error.mixdrop.captcha': 'MixDrop erfordert reCAPTCHA-Verifizierung — öffne den Link im Browser zum Download',
+  'error.mixdrop.generic': 'MixDrop: {detail}',
+  'error.mixdrop.multiFile': 'MixDrop: Ordner mit mehreren Dateien werden nicht unterstützt',
+
+  // Buzzheavier
+  'error.buzzheavier.missingId': 'BuzzHeavier-URL ohne Datei-ID',
+  'error.buzzheavier.notFound': 'BuzzHeavier: Datei nicht gefunden oder abgelaufen',
+  'error.buzzheavier.cloudflare': 'BuzzHeavier: Cloudflare wurde nicht gelöst — versuche es im Browser zu öffnen',
+  'error.buzzheavier.folder': 'BuzzHeavier: Ordner-Links werden noch nicht unterstützt — nutze eine einzelne Datei',
+  'error.buzzheavier.noButton': 'BuzzHeavier: Download-Button auf der Seite nicht gefunden',
+  'error.buzzheavier.noCdn': 'BuzzHeavier: direkter CDN-Link nicht zurückgegeben',
+  'error.buzzheavier.cfTimeout': 'BuzzHeavier: Zeitüberschreitung bei Cloudflare — erneut versuchen',
+  'error.buzzheavier.generic': 'BuzzHeavier: {detail}',
+
+  // Workupload
+  'error.workupload.missingId': 'WorkUpload-URL ohne Datei-ID',
+  'error.workupload.challenge': 'WorkUpload erfordert Anti-Bot-Verifizierung — öffne den Link im Browser zum Download',
+  'error.workupload.noCdn': 'WorkUpload: Download hat keine CDN-URL zurückgegeben',
+  'error.workupload.notFound': 'WorkUpload: Datei nicht gefunden oder abgelaufen',
+  'error.workupload.password': 'WorkUpload: passwortgeschützter Link — im Browser öffnen und manuell herunterladen',
+  'error.workupload.generic': 'WorkUpload: {detail}',
+
+  // Shared download manager
+  'error.download.choiceExpired': 'Dateiauswahl abgelaufen — klicke auf Erneut versuchen beim Download',
+  'error.download.choiceMissing': 'Ausgewählte Datei nicht gefunden',
+  'error.download.htmlInsteadOfFile': 'Download hat HTML statt einer Datei zurückgegeben — öffne den Link im Browser',
+
+  'settings.theme.default.label': 'Standard',
+  'settings.theme.default.desc': 'Dunkel mit rotem Akzent — das Original.',
+  'settings.theme.dark.label': 'Dunkel (OLED)',
+  'settings.theme.dark.desc': 'Tiefschwarz + blauer Akzent. Gut auf OLED.',
+  'settings.theme.light.label': 'Hell',
+  'settings.theme.light.desc': 'Weißer Hintergrund, dunkler Text. Für tagsüber.',
+  'settings.theme.red.label': 'F95 Rot',
+  'settings.theme.red.desc': 'In Rot getaucht mit cremefarbenem Text.',
 
   // ─── Friends ────────────────────────────────────────────────────────────
   'friends.loadFailed': 'Laden fehlgeschlagen: {error}',
