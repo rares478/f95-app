@@ -1,7 +1,6 @@
 import { useCallback, useEffect, useMemo, useState } from 'react';
 import { useNavigate, useParams } from 'react-router-dom';
 import DOMPurify from 'dompurify';
-import { open as openFileDialog } from '@tauri-apps/plugin-dialog';
 import { dialog } from '../lib/dialog';
 import { openUrl } from '@tauri-apps/plugin-opener';
 import * as ipc from '../lib/ipc';
@@ -44,6 +43,7 @@ import { useLibraryGameActions } from '../hooks/useLibraryGameActions';
 import { useLibraryInstallFlow } from '../hooks/useLibraryInstallFlow';
 import { useDownloads } from '../contexts/Downloads';
 import { inFlightLibraryStatus } from '../lib/downloadLibrarySync';
+import { pickExeFor } from '../lib/libraryGameActions';
 import { useT } from '../lib/i18n';
 import { translateBackendMessage } from '../lib/backendMessage';
 import { formatIpcError } from '../lib/ipcError';
@@ -119,7 +119,7 @@ export function LibraryGamePage() {
   }, [threadId]);
 
   const installFlow = useLibraryInstallFlow({ onStarted: () => { void reload(); } });
-  const { openLibraryDetailContextMenu } = useLibraryGameActions({
+  const { deps: libraryActionDeps, openLibraryDetailContextMenu } = useLibraryGameActions({
     onReload: reload,
     onInstallOrUpdate: installFlow.beginInstallOrUpdate,
   });
@@ -221,18 +221,7 @@ export function LibraryGamePage() {
 
   async function onPickExe() {
     if (downloadInFlight) return;
-    const selected = await openFileDialog({
-      multiple: false,
-      directory: false,
-      title: t('libdetail.action.pickExeTitle', { title: g.title }),
-      filters: [
-        { name: t('libdetail.location.exe'), extensions: ['exe', 'sh', 'app', 'bat', 'cmd'] },
-        { name: 'All', extensions: ['*'] },
-      ],
-    });
-    if (typeof selected !== 'string') return;
-    await library.setExe(g.threadId, selected);
-    await reload();
+    await pickExeFor(g, libraryActionDeps);
   }
 
   async function onClearExe() {
