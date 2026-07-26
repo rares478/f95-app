@@ -44,6 +44,9 @@ import { useLibraryInstallFlow } from '../hooks/useLibraryInstallFlow';
 import { useDownloads } from '../contexts/Downloads';
 import { inFlightLibraryStatus } from '../lib/downloadLibrarySync';
 import { pickExeFor } from '../lib/libraryGameActions';
+import { resolvePlayExe, type LibraryGameExe } from '../lib/libraryExes';
+import { SplitPlayButton } from '../components/library/SplitPlayButton';
+import { LibraryExesSection } from '../components/library/LibraryExesSection';
 import { useT } from '../lib/i18n';
 import { translateBackendMessage } from '../lib/backendMessage';
 import { formatIpcError } from '../lib/ipcError';
@@ -75,6 +78,7 @@ export function LibraryGamePage() {
   const [tagDraft, setTagDraft] = useState('');
   const [recentSessions, setRecentSessions] = useState<PlaySession[]>([]);
   const [launching, setLaunching] = useState(false);
+  const [exes, setExes] = useState<LibraryGameExe[]>([]);
   const [uninstalling, setUninstalling] = useState(false);
   const [movePickerOpen, setMovePickerOpen] = useState(false);
   const [currentLibId, setCurrentLibId] = useState<number | undefined>(undefined);
@@ -106,6 +110,8 @@ export function LibraryGamePage() {
       setNotesDraft(game.notes);
       const recs = await sessions.recent(threadId, 12);
       setRecentSessions(recs);
+      const exeRows = await library.listExes(threadId);
+      setExes(exeRows);
       setState({ kind: 'ready', game });
       if (game.installPath) {
         const owning = await libraries.findContaining(game.installPath);
@@ -218,20 +224,15 @@ export function LibraryGamePage() {
       ADD_TAGS: ['details', 'summary', 'button'],
       ADD_ATTR: ['target', 'rel', 'loading', 'type', 'hidden'],
     });
+  const resolvedExe = resolvePlayExe(exes);
+  const otherExes = resolvedExe
+    ? exes.filter((e) => e.id !== resolvedExe.id)
+    : exes;
+  const playDisabled = (!g.exePath && !resolvedExe) || launching;
 
   async function onPickExe() {
     if (downloadInFlight) return;
     await pickExeFor(g, libraryActionDeps);
-  }
-
-  async function onClearExe() {
-    const ok = await dialog.confirm(t('libdetail.confirmClearExe'), {
-      title: t('libdetail.confirmClearExeTitle'),
-      kind: 'warning',
-    });
-    if (!ok) return;
-    await library.clearExe(g.threadId);
-    await reload();
   }
 
   async function onRemove() {
@@ -280,7 +281,7 @@ export function LibraryGamePage() {
   }
 
   async function onPlay() {
-    if (!g.exePath) {
+    if (!g.exePath && exes.length === 0) {
       await dialog.alert(t('libdetail.play.needExe'));
       return;
     }
@@ -291,6 +292,19 @@ export function LibraryGamePage() {
       // overlay shows up while the game spawns. The overlay clears
       // itself once `game:started` fires.
       await launch(g);
+      await reload();
+    } catch (err) {
+      await dialog.alert(t('libdetail.play.failed', { error: formatIpcError(err) }));
+    } finally {
+      setLaunching(false);
+    }
+  }
+
+  async function onPlayExe(exe: LibraryGameExe) {
+    if (isRunning) return;
+    setLaunching(true);
+    try {
+      await launch(g, { exePath: exe.exePath, exeId: exe.id });
       await reload();
     } catch (err) {
       await dialog.alert(t('libdetail.play.failed', { error: formatIpcError(err) }));
@@ -531,23 +545,27 @@ export function LibraryGamePage() {
                     : t('libcard.cta.update')}
                 </GameDetailBtnPrimary>
               ) : (
-                <GameDetailBtnPrimary
-                  onClick={onPlay}
-                  disabled={!g.exePath || launching}
+                <SplitPlayButton
+                  launching={launching}
+                  disabled={playDisabled || isRunning}
+                  resolved={resolvedExe}
+                  others={otherExes}
+                  onPlay={() => void onPlay()}
+                  onPlayExe={(exe) => void onPlayExe(exe)}
                   title={
-                    !g.exePath
+                    !g.exePath && !resolvedExe
                       ? t('libdetail.action.play.hintExe')
                       : launching
                         ? t('libdetail.action.play.hintLaunch')
                         : t('libdetail.action.play.title')
                   }
-                >
-                  {launching ? t('libdetail.action.launching') : t('libdetail.action.play')}
-                </GameDetailBtnPrimary>
+                />
               )}
-              <GameDetailBtnSecondary onClick={onPickExe} disabled={downloadInFlight}>
-                {g.exePath ? t('libdetail.action.switchExe') : t('libdetail.action.setExe')}
-              </GameDetailBtnSecondary>
+              {exes.length === 0 && (
+                <GameDetailBtnSecondary onClick={onPickExe} disabled={downloadInFlight}>
+                  {t('libdetail.exe.add')}
+                </GameDetailBtnSecondary>
+              )}
               <GameDetailBtnSecondary onClick={onCheckUpdate}>
                 {t('libdetail.action.checkUpdate')}
               </GameDetailBtnSecondary>
@@ -559,10 +577,22 @@ export function LibraryGamePage() {
                   {t('libdetail.action.openViewer')}
                 </GameDetailBtnPrimary>
               )}
-              {g.category === 'mods' && g.exePath && (
-                <GameDetailBtnSecondary onClick={onPlay} disabled={launching}>
-                  {launching ? t('libdetail.action.launching') : t('libdetail.action.play')}
-                </GameDetailBtnSecondary>
+              {g.category === 'mods' && (g.exePath || exes.length > 0) && (
+                otherExes.length > 0 ? (
+                  <SplitPlayButton
+                    variant="secondary"
+                    launching={launching}
+                    disabled={playDisabled || isRunning}
+                    resolved={resolvedExe}
+                    others={otherExes}
+                    onPlay={() => void onPlay()}
+                    onPlayExe={(exe) => void onPlayExe(exe)}
+                  />
+                ) : (
+                  <GameDetailBtnSecondary onClick={onPlay} disabled={launching || isRunning}>
+                    {launching ? t('libdetail.action.launching') : t('libdetail.action.play')}
+                  </GameDetailBtnSecondary>
+                )
               )}
               <GameDetailBtnSecondary onClick={onOpenInstallFolder}>
                 {t('common.open')}
@@ -717,12 +747,6 @@ export function LibraryGamePage() {
                 />
               )}
               <GameDetailField
-                label={t('libdetail.location.exe')}
-                value={g.exePath ?? '—'}
-                actionLabel={g.exePath ? t('common.clear') : undefined}
-                onAction={onClearExe}
-              />
-              <GameDetailField
                 label={t('libdetail.location.folder')}
                 value={g.installPath ?? '—'}
                 actionLabel={g.installPath ? t('common.open') : undefined}
@@ -733,6 +757,25 @@ export function LibraryGamePage() {
                 value={new Date(g.addedAt).toLocaleString()}
               />
             </GameDetailFields>
+
+            <div style={{ marginTop: 14 }}>
+              <h3
+                className="game-detail-section-title"
+                style={{ marginTop: 0, marginBottom: 10, borderBottom: 'none', paddingBottom: 0 }}
+              >
+                {t('libdetail.exe.section')}
+              </h3>
+              <LibraryExesSection
+                threadId={g.threadId}
+                game={g}
+                exes={exes}
+                resolvedId={resolvedExe?.id ?? null}
+                onChanged={reload}
+                launch={launch}
+                deps={libraryActionDeps}
+                disabled={downloadInFlight || isRunning}
+              />
+            </div>
 
             {hasInstallFiles && (
               <div className="game-detail-uninstall-block">
