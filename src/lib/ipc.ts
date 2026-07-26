@@ -203,6 +203,13 @@ export async function extractArchive(args: {
   return invoke<ExtractResult>('extract_archive', args);
 }
 
+export async function findMainExe(args: {
+  root: string;
+  gameTitle: string;
+}): Promise<string | null> {
+  return invoke<string | null>('find_main_exe', args);
+}
+
 export async function deletePath(path: string): Promise<void> {
   return invoke('delete_path', { path });
 }

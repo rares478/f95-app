@@ -104,6 +104,20 @@ pub async fn extract_archive(
     Ok(result)
 }
 
+/// Re-detect the main game executable under an already-extracted folder.
+/// Used when reopening Assign from Downloads after the live extract event.
+#[tauri::command]
+pub async fn find_main_exe(root: String, game_title: String) -> Option<String> {
+    let root_path = PathBuf::from(root);
+    tokio::task::spawn_blocking(move || {
+        crate::extraction::find_main_exe(&root_path, &game_title)
+            .map(|p| p.to_string_lossy().into_owned())
+    })
+    .await
+    .ok()
+    .flatten()
+}
+
 fn make_extract_progress(app: AppHandle, download_id: i64) -> ExtractProgressFn {
     Arc::new(move |percent, eta_secs| {
         let _ = app.emit(
