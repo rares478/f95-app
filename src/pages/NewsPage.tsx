@@ -1,6 +1,5 @@
 import { useCallback, useEffect, useState } from 'react';
-import { Link, useLocation } from 'react-router-dom';
-import { openUrl } from '@tauri-apps/plugin-opener';
+import { Link, useLocation, useNavigate } from 'react-router-dom';
 import * as ipc from '../lib/ipc';
 import * as library from '../lib/library';
 import * as updates from '../lib/updates';
@@ -8,6 +7,7 @@ import { dialog } from '../lib/dialog';
 import { useContextMenu } from '../components/contextMenu';
 import { useOffline } from '../contexts/Offline';
 import { buildNewsActivityMenu } from '../lib/contextMenus/buildNewsMenu';
+import { openF95NotificationTarget } from '../lib/openF95NotificationTarget';
 import { useT } from '../lib/i18n';
 import { formatIpcError } from '../lib/ipcError';
 import { RssFeedSection } from '../components/news/RssFeedSection';
@@ -27,6 +27,7 @@ interface State {
 
 export function NewsPage() {
   const { t } = useT();
+  const navigate = useNavigate();
   const location = useLocation();
   const { isOffline } = useOffline();
   const { openContextMenu } = useContextMenu();
@@ -246,7 +247,7 @@ export function NewsPage() {
                             href={a.url}
                             onClick={(e) => {
                               e.preventDefault();
-                              if (a.url) openUrl(a.url);
+                              void openF95NotificationTarget(a.url, navigate);
                             }}
                             style={linkStyle}
                           >
