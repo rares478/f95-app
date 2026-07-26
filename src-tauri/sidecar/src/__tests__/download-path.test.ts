@@ -186,3 +186,40 @@ describe('resolveDownloadPath — Eternum real markup', () => {
     });
   });
 });
+
+describe('resolveDownloadPath — Being a DIK patch vs season', () => {
+  const dikHtml = readFileSync(
+    join(__dirname, 'fixtures', 'download-path-dik-patch.html'),
+    'utf8',
+  );
+
+  function dikPath(urlFragment: string) {
+    const $ = cheerio.load(dikHtml);
+    const el = $(`a[href*="${urlFragment}"]`).get(0) as Element | undefined;
+    if (!el) throw new Error(`missing link ${urlFragment}`);
+    return resolveDownloadPath($, el);
+  }
+
+  it('keeps Season 3 full separate from Patch rows', () => {
+    expect(dikPath('s3-full-win')).toMatchObject({
+      edition: 'Season 3 Interlude + Episode 11',
+      platform: 'Win/Linux',
+      part: null,
+      kindHint: 'full',
+    });
+    expect(dikPath('patch-ep11')).toMatchObject({
+      kindHint: 'patch',
+      platform: 'Win/Linux',
+    });
+    expect(dikPath('patch-ep11').edition).toMatch(/Patch/i);
+    expect(dikPath('patch-ep10')).toMatchObject({
+      kindHint: 'patch',
+      platform: 'Win/Linux',
+    });
+  });
+
+  it('does not put patch hosts in the Season 3 full group', () => {
+    expect(dikPath('patch-ep11').group).not.toContain('Season 3');
+    expect(dikPath('s3-full-win').kindHint).toBe('full');
+  });
+});
