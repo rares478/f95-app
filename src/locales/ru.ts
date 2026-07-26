@@ -847,6 +847,43 @@ const ru: Record<string, string> = {
   'error.uploadhaven.proActive': 'Аккаунт Pro активен — загрузки без ожидания.',
   'error.uploadhaven.freeConnected': 'Аккаунт подключён (бесплатный план).',
 
+  // Settings host verify / login
+  'error.host.noCredentials': 'Учётные данные не сохранены.',
+  'error.host.tokenNoAccountId':
+    'Токен сохранён, но уровень нельзя проверить без Account ID. Вставьте также Account ID (с той же страницы GoFile).',
+  'error.host.signedIn': 'Вход выполнен как {email}.',
+  'error.host.signedInPro': 'Вход выполнен как {email} (Pro).',
+  'error.host.signedInNoPro': 'Вход выполнен как {email}, но нет активного плана Pro.',
+  'error.host.signedInPremiumUntil': 'Вход выполнен как {email} (Premium до {exp}).',
+  'error.host.noSession': 'Нет сохранённой сессии.',
+  'error.host.sessionInvalid': 'Недействительная или истёкшая сессия: {detail}',
+  'error.host.noAccountId': 'Account ID не сохранён.',
+  'error.host.noApiKey': 'API-ключ не сохранён.',
+  'error.host.validApiKey': 'Действительный API-ключ.',
+  'error.host.mixdropNone': 'Учётные данные MixDrop не сохранены.',
+  'error.host.mixdropOk': 'API MixDrop подключено ({email})',
+  'error.host.mixdropApi': 'MixDrop: {detail}',
+  'error.host.emailPasswordRequired': 'Требуются e-mail и пароль.',
+  'error.host.megaQuota': 'Сессия действительна — использовано {used} / {total} байт.',
+  'error.host.gofilePremium': 'Premium — все загрузки работают.',
+  'error.host.gofileStandard': 'Standard — некоторые файлы требуют Premium.',
+  'error.host.gofileGuest':
+    'Guest — вы вставили гостевой токен. Войдите в GoFile и используйте токен аккаунта.',
+  'error.host.gofileTier': 'Уровень: {tier}',
+  'error.host.gofileValidUnknown': 'Учётные данные действительны (уровень неизвестен).',
+  'error.host.gofileBadAccountId':
+    'Неверный Account ID — убедитесь, что скопировали его со страницы GoFile.',
+  'error.host.gofileBadToken':
+    'Неверный или истёкший токен. Войдите на gofile.io и скопируйте новый токен.',
+  'error.host.gofileResponse': 'Ответ GoFile: {status} (HTTP {http})',
+  'error.host.datanodesBadKey':
+    'Неверный или истёкший API-ключ. Создайте новый на странице аккаунта DataNodes.',
+  'error.host.datanodesResponse': 'DataNodes ответил: {detail} (HTTP {http})',
+
+  // MEGA
+  'error.mega.badPassword': 'Неверный e-mail или пароль.',
+  'error.mega.generic': 'MEGA: {detail}',
+
   // Shared download manager
   'error.download.choiceExpired': 'Выбор файла истёк — нажмите Повторить у загрузки',
   'error.download.choiceMissing': 'Выбранный файл не найден',

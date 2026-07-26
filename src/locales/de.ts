@@ -847,6 +847,43 @@ const de: Record<string, string> = {
   'error.uploadhaven.proActive': 'Pro-Konto aktiv — Downloads ohne Wartezeit.',
   'error.uploadhaven.freeConnected': 'Konto verbunden (Free-Plan).',
 
+  // Settings host verify / login
+  'error.host.noCredentials': 'Keine Zugangsdaten gespeichert.',
+  'error.host.tokenNoAccountId':
+    'Token gespeichert, aber die Stufe kann ohne Account-ID nicht geprüft werden. Füge auch die Account-ID ein (von derselben GoFile-Seite).',
+  'error.host.signedIn': 'Angemeldet als {email}.',
+  'error.host.signedInPro': 'Angemeldet als {email} (Pro).',
+  'error.host.signedInNoPro': 'Angemeldet als {email}, aber kein aktives Pro-Abo.',
+  'error.host.signedInPremiumUntil': 'Angemeldet als {email} (Premium bis {exp}).',
+  'error.host.noSession': 'Keine gespeicherte Sitzung.',
+  'error.host.sessionInvalid': 'Ungültige oder abgelaufene Sitzung: {detail}',
+  'error.host.noAccountId': 'Keine Account-ID gespeichert.',
+  'error.host.noApiKey': 'Kein API-Schlüssel gespeichert.',
+  'error.host.validApiKey': 'Gültiger API-Schlüssel.',
+  'error.host.mixdropNone': 'Keine MixDrop-Zugangsdaten gespeichert.',
+  'error.host.mixdropOk': 'MixDrop-API verbunden ({email})',
+  'error.host.mixdropApi': 'MixDrop: {detail}',
+  'error.host.emailPasswordRequired': 'E-Mail und Passwort sind erforderlich.',
+  'error.host.megaQuota': 'Gültige Sitzung — {used} / {total} Bytes genutzt.',
+  'error.host.gofilePremium': 'Premium — alle Downloads funktionieren.',
+  'error.host.gofileStandard': 'Standard — einige Dateien benötigen Premium.',
+  'error.host.gofileGuest':
+    'Gast — du hast ein Besucher-Token eingefügt. Melde dich bei GoFile an und nutze dein Konto-Token.',
+  'error.host.gofileTier': 'Stufe: {tier}',
+  'error.host.gofileValidUnknown': 'Gültige Zugangsdaten (unbekannte Stufe).',
+  'error.host.gofileBadAccountId':
+    'Ungültige Account-ID — stelle sicher, dass du sie von der GoFile-Seite kopiert hast.',
+  'error.host.gofileBadToken':
+    'Ungültiges oder abgelaufenes Token. Melde dich bei gofile.io an und kopiere ein neues Token.',
+  'error.host.gofileResponse': 'GoFile-Antwort: {status} (HTTP {http})',
+  'error.host.datanodesBadKey':
+    'Ungültiger oder abgelaufener API-Schlüssel. Erzeuge einen neuen auf der DataNodes-Kontoseite.',
+  'error.host.datanodesResponse': 'DataNodes antwortete: {detail} (HTTP {http})',
+
+  // MEGA
+  'error.mega.badPassword': 'Ungültige E-Mail oder Passwort.',
+  'error.mega.generic': 'MEGA: {detail}',
+
   // Shared download manager
   'error.download.choiceExpired': 'Dateiauswahl abgelaufen — klicke auf Erneut versuchen beim Download',
   'error.download.choiceMissing': 'Ausgewählte Datei nicht gefunden',

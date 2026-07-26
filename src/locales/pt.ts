@@ -852,6 +852,43 @@ const pt: Record<string, string> = {
   'error.uploadhaven.proActive': 'Conta Pro ativa — downloads sem espera.',
   'error.uploadhaven.freeConnected': 'Conta conectada (plano gratuito).',
 
+  // Settings host verify / login
+  'error.host.noCredentials': 'Nenhuma credencial salva.',
+  'error.host.tokenNoAccountId':
+    'Token salvo, mas o tier não pode ser verificado sem um Account ID. Cole o Account ID também (da mesma página do GoFile).',
+  'error.host.signedIn': 'Conectado como {email}.',
+  'error.host.signedInPro': 'Conectado como {email} (Pro).',
+  'error.host.signedInNoPro': 'Conectado como {email}, mas sem plano Pro ativo.',
+  'error.host.signedInPremiumUntil': 'Conectado como {email} (Premium até {exp}).',
+  'error.host.noSession': 'Nenhuma sessão salva.',
+  'error.host.sessionInvalid': 'Sessão inválida ou expirada: {detail}',
+  'error.host.noAccountId': 'Nenhum Account ID salvo.',
+  'error.host.noApiKey': 'Nenhuma chave de API salva.',
+  'error.host.validApiKey': 'Chave de API válida.',
+  'error.host.mixdropNone': 'Nenhuma credencial MixDrop salva.',
+  'error.host.mixdropOk': 'API MixDrop conectada ({email})',
+  'error.host.mixdropApi': 'MixDrop: {detail}',
+  'error.host.emailPasswordRequired': 'E-mail e senha são obrigatórios.',
+  'error.host.megaQuota': 'Sessão válida — {used} / {total} bytes usados.',
+  'error.host.gofilePremium': 'Premium — todos os downloads funcionam.',
+  'error.host.gofileStandard': 'Standard — alguns arquivos exigem Premium.',
+  'error.host.gofileGuest':
+    'Guest — você colou um token de visitante. Entre no GoFile e use o token da conta.',
+  'error.host.gofileTier': 'Tier: {tier}',
+  'error.host.gofileValidUnknown': 'Credenciais válidas (tier desconhecido).',
+  'error.host.gofileBadAccountId':
+    'Account ID inválido — confirme que copiou da página do GoFile.',
+  'error.host.gofileBadToken':
+    'Token inválido ou expirado. Entre em gofile.io e copie um token novo.',
+  'error.host.gofileResponse': 'Resposta do GoFile: {status} (HTTP {http})',
+  'error.host.datanodesBadKey':
+    'Chave de API inválida ou expirada. Gere uma nova na página da conta DataNodes.',
+  'error.host.datanodesResponse': 'DataNodes respondeu: {detail} (HTTP {http})',
+
+  // MEGA
+  'error.mega.badPassword': 'E-mail ou senha inválidos.',
+  'error.mega.generic': 'MEGA: {detail}',
+
   // Shared download manager
   'error.download.choiceExpired': 'Escolha de arquivo expirada — clique em Tentar de novo no download',
   'error.download.choiceMissing': 'Arquivo selecionado não encontrado',

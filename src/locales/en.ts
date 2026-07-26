@@ -853,6 +853,43 @@ const en: Record<string, string> = {
   'error.uploadhaven.proActive': 'Pro account active — downloads without waiting.',
   'error.uploadhaven.freeConnected': 'Account connected (free plan).',
 
+  // Settings host verify / login
+  'error.host.noCredentials': 'No credentials saved.',
+  'error.host.tokenNoAccountId':
+    'Token saved, but tier cannot be verified without an Account ID. Paste the Account ID too (from the same GoFile page).',
+  'error.host.signedIn': 'Signed in as {email}.',
+  'error.host.signedInPro': 'Signed in as {email} (Pro).',
+  'error.host.signedInNoPro': 'Signed in as {email}, but no active Pro plan.',
+  'error.host.signedInPremiumUntil': 'Signed in as {email} (Premium until {exp}).',
+  'error.host.noSession': 'No saved session.',
+  'error.host.sessionInvalid': 'Invalid or expired session: {detail}',
+  'error.host.noAccountId': 'No Account ID saved.',
+  'error.host.noApiKey': 'No API key saved.',
+  'error.host.validApiKey': 'Valid API key.',
+  'error.host.mixdropNone': 'No MixDrop credentials saved.',
+  'error.host.mixdropOk': 'MixDrop API connected ({email})',
+  'error.host.mixdropApi': 'MixDrop: {detail}',
+  'error.host.emailPasswordRequired': 'Email and password are required.',
+  'error.host.megaQuota': 'Valid session — {used} / {total} bytes used.',
+  'error.host.gofilePremium': 'Premium — all downloads work.',
+  'error.host.gofileStandard': 'Standard — some files require Premium.',
+  'error.host.gofileGuest':
+    'Guest — you pasted a visitor token. Log in to GoFile and use your account token.',
+  'error.host.gofileTier': 'Tier: {tier}',
+  'error.host.gofileValidUnknown': 'Valid credentials (unknown tier).',
+  'error.host.gofileBadAccountId':
+    'Invalid Account ID — make sure you copied it from the GoFile page.',
+  'error.host.gofileBadToken':
+    'Invalid or expired token. Log in at gofile.io and copy a new token.',
+  'error.host.gofileResponse': 'GoFile response: {status} (HTTP {http})',
+  'error.host.datanodesBadKey':
+    'Invalid or expired API key. Generate a new one on the DataNodes account page.',
+  'error.host.datanodesResponse': 'DataNodes responded: {detail} (HTTP {http})',
+
+  // MEGA
+  'error.mega.badPassword': 'Invalid email or password.',
+  'error.mega.generic': 'MEGA: {detail}',
+
   // Shared download manager
   'error.download.choiceExpired': 'File choice expired — click Retry on the download',
   'error.download.choiceMissing': 'Selected file not found',

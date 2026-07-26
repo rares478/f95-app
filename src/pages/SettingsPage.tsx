@@ -34,7 +34,8 @@ import {
   type ExperimentalSettings,
 } from '../lib/experimentalSettings';
 import { formatOverlayAnchorStatus } from '../lib/overlayAnchorLabel';
-import { formatIpcError } from '../lib/ipcError';
+import { extractRawMessage, formatIpcError } from '../lib/ipcError';
+import { translateBackendMessage } from '../lib/backendMessage';
 import {
   getOverlayHotkeyRegistrationMessage,
   isOverlayHotkeyRegistered,
@@ -97,6 +98,11 @@ export function SettingsPage({ onLoggedOut: _onLoggedOut }: Props) {
     if (!isOffline) return true;
     await dialog.alert(t('offline.actionBlocked'), { kind: 'info' });
     return false;
+  }
+
+  /** Translate host verify/login `message` payloads (locale key or key|json). */
+  function hostMessage(raw: string): string {
+    return translateBackendMessage(raw, t);
   }
   const [devDebug, setDevDebug] = useState<DevDebugSettings | null>(null);
   const [experimental, setExperimental] = useState<ExperimentalSettings | null>(null);
@@ -335,7 +341,7 @@ export function SettingsPage({ onLoggedOut: _onLoggedOut }: Props) {
     } catch (err) {
       setGofileVerify({
         state: 'done',
-        result: { valid: false, tier: null, message: formatIpcError(err) },
+        result: { valid: false, tier: null, message: extractRawMessage(err) },
       });
     }
   }
@@ -413,7 +419,7 @@ export function SettingsPage({ onLoggedOut: _onLoggedOut }: Props) {
     } catch (err) {
       setMegaVerify({
         state: 'done',
-        result: { valid: false, message: formatIpcError(err) },
+        result: { valid: false, message: extractRawMessage(err) },
       });
     }
   }
@@ -491,7 +497,7 @@ export function SettingsPage({ onLoggedOut: _onLoggedOut }: Props) {
     } catch (err) {
       setUhVerify({
         state: 'done',
-        result: { valid: false, isPro: false, message: formatIpcError(err) },
+        result: { valid: false, isPro: false, message: extractRawMessage(err) },
       });
     }
   }
@@ -544,7 +550,7 @@ export function SettingsPage({ onLoggedOut: _onLoggedOut }: Props) {
     } catch (err) {
       setBhVerify({
         state: 'done',
-        result: { valid: false, message: formatIpcError(err) },
+        result: { valid: false, message: extractRawMessage(err) },
       });
     }
   }
@@ -591,7 +597,7 @@ export function SettingsPage({ onLoggedOut: _onLoggedOut }: Props) {
     } catch (err) {
       setDnVerify({
         state: 'done',
-        result: { valid: false, message: formatIpcError(err) },
+        result: { valid: false, message: extractRawMessage(err) },
       });
     }
   }
@@ -729,7 +735,6 @@ export function SettingsPage({ onLoggedOut: _onLoggedOut }: Props) {
     }
   }
 
-
   function isBackendError(err: unknown): err is { code: string; message: string } {
     return (
       err !== null &&
@@ -862,13 +867,15 @@ export function SettingsPage({ onLoggedOut: _onLoggedOut }: Props) {
               <div className="settings-theme-grid">
                 {theme.THEMES.map((th) => {
                   const selected = th.id === activeTheme;
+                  const label = t(`settings.theme.${th.id}.label`);
+                  const desc = t(`settings.theme.${th.id}.desc`);
                   return (
                     <button
                       key={th.id}
                       type="button"
                       className={`settings-theme-card${selected ? ' settings-theme-card-active' : ''}`}
                       onClick={() => onPickTheme(th.id)}
-                      title={th.description}
+                      title={desc}
                     >
                       <div
                         className="settings-theme-swatch"
@@ -889,10 +896,10 @@ export function SettingsPage({ onLoggedOut: _onLoggedOut }: Props) {
                         </div>
                       </div>
                       <div className="settings-theme-meta">
-                        <strong>{th.label}</strong>
+                        <strong>{label}</strong>
                         {selected && <span className="settings-pill">{t('settings.theme.active')}</span>}
                       </div>
-                      <span className="settings-theme-desc">{th.description}</span>
+                      <span className="settings-theme-desc">{desc}</span>
                     </button>
                   );
                 })}
@@ -1054,7 +1061,7 @@ export function SettingsPage({ onLoggedOut: _onLoggedOut }: Props) {
                             : ' settings-status-chip-info'
                           : ' settings-status-chip-err'
                       }`}
-                      title={gofileVerify.result.message}
+                      title={hostMessage(gofileVerify.result.message)}
                     >
                       {gofileVerify.result.valid
                         ? (gofileVerify.result.tier ?? 'OK').toUpperCase()
@@ -1114,7 +1121,7 @@ export function SettingsPage({ onLoggedOut: _onLoggedOut }: Props) {
                   }`}
                   role="status"
                 >
-                  {gofileVerify.result.message}
+                  {hostMessage(gofileVerify.result.message)}
                 </div>
               )}
 
@@ -1206,7 +1213,7 @@ export function SettingsPage({ onLoggedOut: _onLoggedOut }: Props) {
                           ? ' settings-status-chip-info'
                           : ' settings-status-chip-err'
                       }`}
-                      title={megaVerify.result.message}
+                      title={hostMessage(megaVerify.result.message)}
                     >
                       {megaVerify.result.valid ? 'OK' : t('settings.hosts.invalid')}
                     </span>
@@ -1275,7 +1282,7 @@ export function SettingsPage({ onLoggedOut: _onLoggedOut }: Props) {
                       : ' settings-host-feedback-err'
                   }`}
                 >
-                  {megaVerify.result.message}
+                  {hostMessage(megaVerify.result.message)}
                 </div>
               )}
 
@@ -1363,7 +1370,7 @@ export function SettingsPage({ onLoggedOut: _onLoggedOut }: Props) {
                             : ' settings-status-chip-info'
                           : ' settings-status-chip-err'
                       }`}
-                      title={uhVerify.result.message}
+                      title={hostMessage(uhVerify.result.message)}
                     >
                       {uhVerify.result.valid
                         ? uhVerify.result.isPro
@@ -1422,7 +1429,7 @@ export function SettingsPage({ onLoggedOut: _onLoggedOut }: Props) {
                       : ' settings-host-feedback-err'
                   }`}
                 >
-                  {uhVerify.result.message}
+                  {hostMessage(uhVerify.result.message)}
                 </div>
               )}
 
@@ -1498,7 +1505,7 @@ export function SettingsPage({ onLoggedOut: _onLoggedOut }: Props) {
                           ? ' settings-status-chip-info'
                           : ' settings-status-chip-err'
                       }`}
-                      title={bhVerify.result.message}
+                      title={hostMessage(bhVerify.result.message)}
                     >
                       {bhVerify.result.valid ? 'OK' : t('settings.hosts.invalid')}
                     </span>
@@ -1540,7 +1547,7 @@ export function SettingsPage({ onLoggedOut: _onLoggedOut }: Props) {
                   }`}
                   role="status"
                 >
-                  {bhVerify.result.message}
+                  {hostMessage(bhVerify.result.message)}
                   {bhVerify.result.valid &&
                     bhVerify.result.storageUsed &&
                     bhVerify.result.storageLimit && (
@@ -1631,7 +1638,7 @@ export function SettingsPage({ onLoggedOut: _onLoggedOut }: Props) {
                           ? ' settings-status-chip-info'
                           : ' settings-status-chip-err'
                       }`}
-                      title={dnVerify.result.message}
+                      title={hostMessage(dnVerify.result.message)}
                     >
                       {dnVerify.result.valid ? 'OK' : t('settings.hosts.invalid')}
                     </span>
@@ -1673,7 +1680,7 @@ export function SettingsPage({ onLoggedOut: _onLoggedOut }: Props) {
                   }`}
                   role="status"
                 >
-                  {dnVerify.result.message}
+                  {hostMessage(dnVerify.result.message)}
                 </div>
               )}
 
