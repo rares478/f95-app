@@ -405,6 +405,15 @@ export function ThreadDiscussion({ threadId, offline = false }: Props) {
         );
         // focusPostId change resets + seek-from-latest via existing effects
       } else {
+        // Drop leftover ?post= so an old highlight cannot stick after goToLatest.
+        setSearchParams(
+          (prev) => {
+            const next = new URLSearchParams(prev);
+            next.delete('post');
+            return next;
+          },
+          { replace: true },
+        );
         await goToLatest();
       }
     } catch (err) {
