@@ -8,6 +8,7 @@ import * as updates from './updates';
 import { IN_FLIGHT_DOWNLOAD_STATES } from './downloadLibrarySync';
 import * as uninstall from './uninstall';
 import { dialog } from './dialog';
+import { formatIpcError } from './ipcError';
 import type { LibraryGame } from '../types/library';
 
 export type TranslateFn = (
@@ -25,13 +26,6 @@ export interface LibraryGameActionsDeps {
   onInstallOrUpdate?: (game: LibraryGame) => void | Promise<void>;
 }
 
-function formatErr(err: unknown): string {
-  if (err && typeof err === 'object' && 'message' in err) {
-    return String((err as { message: string }).message);
-  }
-  return String(err);
-}
-
 export async function playOrStop(
   game: LibraryGame,
   deps: LibraryGameActionsDeps,
@@ -41,7 +35,7 @@ export async function playOrStop(
     try {
       await ipc.stopGame(game.threadId);
     } catch (err) {
-      await dialog.alert(formatErr(err), { kind: 'error' });
+      await dialog.alert(formatIpcError(err), { kind: 'error' });
     }
     return;
   }
@@ -65,7 +59,7 @@ export async function playOrStop(
     try {
       await launch(game);
     } catch (err) {
-      await dialog.alert(formatErr(err), { kind: 'error' });
+      await dialog.alert(formatIpcError(err), { kind: 'error' });
     }
     return;
   }
@@ -73,7 +67,7 @@ export async function playOrStop(
     try {
       await launch(game);
     } catch (err) {
-      await dialog.alert(formatErr(err), { kind: 'error' });
+      await dialog.alert(formatIpcError(err), { kind: 'error' });
     }
     return;
   }
@@ -116,7 +110,7 @@ export async function openInstallFolder(game: LibraryGame): Promise<void> {
   try {
     await ipc.revealInExplorer(game.installPath);
   } catch (err) {
-    await dialog.alert(formatErr(err), { kind: 'error' });
+    await dialog.alert(formatIpcError(err), { kind: 'error' });
   }
 }
 
@@ -211,7 +205,7 @@ export async function uninstallGameFromMenu(
       await dialog.alert(t('libdetail.uninstall.outsideLibrary'));
     }
   } catch (err) {
-    await dialog.alert(t('libdetail.uninstall.failed', { error: formatErr(err) }));
+    await dialog.alert(t('libdetail.uninstall.failed', { error: formatIpcError(err) }));
   }
 }
 

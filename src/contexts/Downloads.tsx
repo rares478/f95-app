@@ -8,6 +8,7 @@ import * as downloads from '../lib/downloads';
 import * as ipc from '../lib/ipc';
 import { dialog } from '../lib/dialog';
 import { useT } from '../lib/i18n';
+import { formatIpcError } from '../lib/ipcError';
 import type { DownloadProgress, DownloadRow } from '../types/download';
 
 interface DownloadsValue {
@@ -51,11 +52,9 @@ export function DownloadsProvider({ children }: { children: ReactNode }) {
       setFileChoice(null);
       await value.reload();
     } catch (err) {
-      const msg =
-        err && typeof err === 'object' && 'message' in err
-          ? String((err as { message: string }).message)
-          : String(err);
-      await dialog.alert(t('modal.hostFile.failed', { error: msg }), { kind: 'error' });
+      await dialog.alert(t('modal.hostFile.failed', { error: formatIpcError(err) }), {
+        kind: 'error',
+      });
     } finally {
       setChoiceBusy(false);
     }

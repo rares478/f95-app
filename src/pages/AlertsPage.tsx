@@ -13,6 +13,7 @@ import {
 } from '../lib/formatDate';
 import { extractThreadIdFromUrl } from '../lib/rssUpdates';
 import { useT } from '../lib/i18n';
+import { formatIpcError } from '../lib/ipcError';
 import { Spinner } from '../components/ui/Spinner';
 import type { AppNotification, F95Alert } from '../types/alerts';
 
@@ -63,11 +64,7 @@ export function AlertsPage() {
     try {
       await Promise.all([loadF95(1, false), refresh()]);
     } catch (err) {
-      setError(
-        err && typeof err === 'object' && 'message' in err
-          ? String((err as { message: string }).message)
-          : String(err),
-      );
+      setError(formatIpcError(err));
     } finally {
       setLoading(false);
     }
