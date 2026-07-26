@@ -78,9 +78,7 @@ export function NewsPage() {
       setState((s) => ({
         ...s,
         loading: false,
-        error: err && typeof err === 'object' && 'message' in err
-          ? String((err as { message: string }).message)
-          : String(err),
+        error: formatIpcError(err),
       }));
     } finally {
       setRefreshing(false);
