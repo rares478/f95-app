@@ -2,7 +2,13 @@ import { useCallback, useEffect, useMemo, useRef, useState, type FormEvent } fro
 import DOMPurify from 'dompurify';
 import { openUrl } from '@tauri-apps/plugin-opener';
 import { useSearchParams } from 'react-router-dom';
+import { DiscussionComposer } from './DiscussionComposer';
 import { GameDescription } from './GameDescription';
+import {
+  appendQuoteToDraft,
+  buildQuoteBbcode,
+  htmlToPlainText,
+} from '../../lib/bbcodeQuote';
 import { threadPosts, threadReply } from '../../lib/ipc';
 import { formatIpcError } from '../../lib/ipcError';
 import { formatRelativeDate } from '../../lib/formatDate';
@@ -37,6 +43,18 @@ function postExternalUrl(post: ThreadPost): string {
   return post.permalink ?? `https://f95zone.to/posts/${post.postId}/`;
 }
 
+function quotePlainFromPost(postEl: HTMLElement, post: ThreadPost): string {
+  const sel = window.getSelection();
+  if (sel && sel.rangeCount > 0 && !sel.isCollapsed) {
+    const range = sel.getRangeAt(0);
+    const body = postEl.querySelector('.thread-post-body');
+    if (body && body.contains(range.commonAncestorContainer)) {
+      return sel.toString();
+    }
+  }
+  return htmlToPlainText(post.html);
+}
+
 function SignatureBlock({
   postId,
   html,
@@ -62,6 +80,75 @@ function SignatureBlock({
       <summary>{t('gamedetail.discussion.signature')}</summary>
       <GameDescription html={sanitizePostHtml(html)} className="thread-post-signature-body" />
     </details>
+  );
+}
+
+function ThreadPostItem({
+  post,
+  locale,
+  autoShowSignatures,
+  onQuote,
+}: {
+  post: ThreadPost;
+  locale: string;
+  autoShowSignatures: boolean;
+  onQuote: (postEl: HTMLElement, post: ThreadPost) => void;
+}) {
+  const { t } = useT();
+  const liRef = useRef<HTMLLIElement>(null);
+
+  return (
+    <li ref={liRef} id={`post-${post.postId}`} className="thread-post">
+      <div className="thread-post-header">
+        {post.authorAvatarUrl ? (
+          <img
+            src={post.authorAvatarUrl}
+            alt=""
+            className="thread-post-avatar"
+          />
+        ) : (
+          <div className="thread-post-avatar thread-post-avatar--fallback" aria-hidden>
+            {authorInitial(post.author)}
+          </div>
+        )}
+        <div className="thread-post-meta">
+          <span className="thread-post-author">{post.author}</span>
+          <span className="thread-post-date">
+            {formatRelativeDate(post.postedAt, locale) ?? post.postedAt ?? ''}
+          </span>
+        </div>
+        <div className="thread-post-actions">
+          <button
+            type="button"
+            className="thread-discussion-link-btn"
+            onClick={() => {
+              if (!liRef.current) return;
+              onQuote(liRef.current, post);
+            }}
+          >
+            {t('gamedetail.discussion.quote')}
+          </button>
+          <button
+            type="button"
+            className="thread-discussion-link-btn thread-post-open"
+            onClick={() => void openUrl(postExternalUrl(post))}
+          >
+            {t('gamedetail.discussion.openOnF95')}
+          </button>
+        </div>
+      </div>
+      <GameDescription
+        html={sanitizePostHtml(post.html)}
+        className="thread-post-body"
+      />
+      {post.signatureHtml ? (
+        <SignatureBlock
+          postId={post.postId}
+          html={post.signatureHtml}
+          autoShow={autoShowSignatures}
+        />
+      ) : null}
+    </li>
   );
 }
 
@@ -127,6 +214,9 @@ export function ThreadDiscussion({ threadId, offline = false }: Props) {
   const [replyError, setReplyError] = useState<string | null>(null);
   const [replyBusy, setReplyBusy] = useState(false);
   const [replyNeedsBrowser, setReplyNeedsBrowser] = useState(false);
+  const [writeFocusKey, setWriteFocusKey] = useState(0);
+  const textareaRef = useRef<HTMLTextAreaElement>(null);
+  const composerRef = useRef<HTMLFormElement>(null);
 
   const clearHighlightTimers = () => {
     if (highlightScrollTimer.current != null) {
@@ -433,6 +523,20 @@ export function ThreadDiscussion({ threadId, offline = false }: Props) {
     void goToPage(target);
   };
 
+  const onQuote = (postEl: HTMLElement, post: ThreadPost) => {
+    const text = quotePlainFromPost(postEl, post);
+    const block = buildQuoteBbcode({
+      author: post.author,
+      postId: post.postId,
+      text,
+    });
+    if (!block) return;
+    setDraft((d) => appendQuoteToDraft(d, block));
+    setWriteFocusKey((k) => k + 1);
+    textareaRef.current?.focus();
+    composerRef.current?.scrollIntoView({ behavior: 'smooth', block: 'nearest' });
+  };
+
   if (offline) {
     return (
       <section className="thread-discussion" aria-label={t('gamedetail.section.discussion')}>
@@ -500,45 +604,13 @@ export function ThreadDiscussion({ threadId, offline = false }: Props) {
           {posts.length > 0 && (
             <ul className="thread-discussion-list">
               {posts.map((post) => (
-                <li key={post.postId} id={`post-${post.postId}`} className="thread-post">
-                  <div className="thread-post-header">
-                    {post.authorAvatarUrl ? (
-                      <img
-                        src={post.authorAvatarUrl}
-                        alt=""
-                        className="thread-post-avatar"
-                      />
-                    ) : (
-                      <div className="thread-post-avatar thread-post-avatar--fallback" aria-hidden>
-                        {authorInitial(post.author)}
-                      </div>
-                    )}
-                    <div className="thread-post-meta">
-                      <span className="thread-post-author">{post.author}</span>
-                      <span className="thread-post-date">
-                        {formatRelativeDate(post.postedAt, locale) ?? post.postedAt ?? ''}
-                      </span>
-                    </div>
-                    <button
-                      type="button"
-                      className="thread-discussion-link-btn thread-post-open"
-                      onClick={() => void openUrl(postExternalUrl(post))}
-                    >
-                      {t('gamedetail.discussion.openOnF95')}
-                    </button>
-                  </div>
-                  <GameDescription
-                    html={sanitizePostHtml(post.html)}
-                    className="thread-post-body"
-                  />
-                  {post.signatureHtml ? (
-                    <SignatureBlock
-                      postId={post.postId}
-                      html={post.signatureHtml}
-                      autoShow={discussionSettings.autoShowSignatures}
-                    />
-                  ) : null}
-                </li>
+                <ThreadPostItem
+                  key={post.postId}
+                  post={post}
+                  locale={locale}
+                  autoShowSignatures={discussionSettings.autoShowSignatures}
+                  onQuote={onQuote}
+                />
               ))}
             </ul>
           )}
@@ -624,53 +696,18 @@ export function ThreadDiscussion({ threadId, offline = false }: Props) {
           )}
 
           {visible && !offline && (
-            <form
-              className="thread-discussion-composer"
+            <DiscussionComposer
+              threadId={threadId}
+              draft={draft}
+              onDraftChange={setDraft}
+              replyBusy={replyBusy}
+              replyError={replyError}
+              replyNeedsBrowser={replyNeedsBrowser}
               onSubmit={(e) => void onReplySubmit(e)}
-            >
-              <label
-                className="thread-discussion-composer-label"
-                htmlFor={`thread-reply-${threadId}`}
-              >
-                {t('gamedetail.discussion.replyPlaceholder')}
-              </label>
-              <textarea
-                id={`thread-reply-${threadId}`}
-                className="thread-discussion-composer-input"
-                rows={3}
-                value={draft}
-                disabled={replyBusy}
-                placeholder={t('gamedetail.discussion.replyPlaceholder')}
-                onChange={(e) => setDraft(e.target.value)}
-              />
-              {replyError && (
-                <div className="thread-discussion-composer-error" role="alert">
-                  {t('gamedetail.discussion.replyFailed', { error: replyError })}
-                  {replyNeedsBrowser && (
-                    <button
-                      type="button"
-                      className="thread-discussion-open-f95"
-                      onClick={() =>
-                        void openUrl(`https://f95zone.to/threads/${threadId}/`)
-                      }
-                    >
-                      {t('gamedetail.discussion.replyOpenOnF95')}
-                    </button>
-                  )}
-                </div>
-              )}
-              <div className="thread-discussion-composer-actions">
-                <button
-                  type="submit"
-                  className="thread-discussion-pager-btn thread-discussion-composer-submit"
-                  disabled={replyBusy || !draft.trim()}
-                >
-                  {replyBusy
-                    ? t('gamedetail.discussion.replyPosting')
-                    : t('gamedetail.discussion.replyPost')}
-                </button>
-              </div>
-            </form>
+              textareaRef={textareaRef}
+              writeFocusKey={writeFocusKey}
+              formRef={composerRef}
+            />
           )}
         </>
       )}
