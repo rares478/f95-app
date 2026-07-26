@@ -108,6 +108,12 @@ pub fn run() {
             sql: migrations::V10_INSTALL_PLANS,
             kind: MigrationKind::Up,
         },
+        Migration {
+            version: 11,
+            description: "install_jobs_bundle_id",
+            sql: migrations::V11_INSTALL_JOB_BUNDLE,
+            kind: MigrationKind::Up,
+        },
     ];
 
     tauri::Builder::default()

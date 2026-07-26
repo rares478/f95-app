@@ -245,3 +245,10 @@ CREATE TABLE install_jobs (
 CREATE INDEX idx_install_jobs_plan ON install_jobs(plan_id);
 CREATE INDEX idx_install_jobs_download ON install_jobs(download_id);
 "#;
+
+/// v11: group multi-archive split parts under one bundle_id so they
+/// extract into a shared folder and assign once.
+pub const V11_INSTALL_JOB_BUNDLE: &str = r#"
+ALTER TABLE install_jobs ADD COLUMN bundle_id TEXT;
+CREATE INDEX idx_install_jobs_bundle ON install_jobs(bundle_id);
+"#;
