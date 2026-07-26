@@ -83,16 +83,16 @@ export function parseThreadReplyResponse(args: {
   if (parsed) {
     const errMsg = firstErrorMessage(parsed);
     const status = typeof parsed.status === 'string' ? parsed.status : null;
-    if (status === 'error' || (errMsg && status !== 'ok')) {
-      throw new RpcError(RPC_ERROR.INTERNAL, errMsg ?? 'reply failed');
-    }
-    // Captcha / challenge variants XF may return
+    // Captcha / challenge first — otherwise generic error branch misclassifies them
     if (status === 'captcha' || /captcha/i.test(errMsg ?? '')) {
       throw new RpcError(
         RPC_ERROR.CLOUDFLARE_CHALLENGE,
         errMsg ?? 'F95 requires a captcha to reply; open the thread in your browser',
         { variant: 'recaptcha' },
       );
+    }
+    if (status === 'error' || (errMsg && status !== 'ok')) {
+      throw new RpcError(RPC_ERROR.INTERNAL, errMsg ?? 'reply failed');
     }
     const candidate = pickCandidateUrl(parsed, args.finalUrl);
     return {

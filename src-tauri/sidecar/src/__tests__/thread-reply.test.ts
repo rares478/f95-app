@@ -1,7 +1,7 @@
 import { readFileSync } from 'node:fs';
 import { join } from 'node:path';
 import { describe, expect, it } from 'vitest';
-import { RpcError } from '../rpc';
+import { RPC_ERROR, RpcError } from '../rpc';
 import { buildThreadReplyForm, parseThreadReplyResponse } from '../domain/game/reply';
 
 const fix = (name: string) =>
@@ -45,6 +45,25 @@ describe('parseThreadReplyResponse', () => {
     });
     expect(result.postId).toBeNull();
     expect(result.threadId).toBe('100');
+  });
+
+  it('throws CLOUDFLARE_CHALLENGE on captcha status', () => {
+    expect(() =>
+      parseThreadReplyResponse({
+        threadId: '100',
+        body: JSON.stringify({ status: 'captcha', message: 'need captcha' }),
+      }),
+    ).toThrow(RpcError);
+    try {
+      parseThreadReplyResponse({
+        threadId: '100',
+        body: JSON.stringify({ status: 'captcha', message: 'need captcha' }),
+      });
+    } catch (e) {
+      const err = e as RpcError;
+      expect(err.code).toBe(RPC_ERROR.CLOUDFLARE_CHALLENGE);
+      expect(err.message).toMatch(/captcha/i);
+    }
   });
 });
 
