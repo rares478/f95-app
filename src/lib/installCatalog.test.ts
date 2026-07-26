@@ -1,5 +1,6 @@
 import { describe, expect, it } from 'vitest';
 import {
+  backfillDownloadPathFromGroup,
   buildInstallCatalog,
   defaultPackageKind,
   defaultPlatformId,
@@ -145,7 +146,31 @@ describe('buildInstallCatalog', () => {
     expect(allUrls).not.toContain('https://mega.nz/orphan');
   });
 
-  it('normalizes omitted edition/platform/part/kindHint from older cached JSON', () => {
+  it('backfills platform/part/edition from legacy group when scraper fields null', () => {
+    const legacy = {
+      host: 'mega',
+      url: 'https://mega.nz/legacy',
+      text: 'mega',
+      group: 'Season 1-2 · Win/Linux · Part 1',
+    } as GameDownload;
+
+    expect(backfillDownloadPathFromGroup(legacy)).toEqual({
+      edition: 'Season 1-2',
+      platform: 'Win/Linux',
+      part: 1,
+      kindHint: 'split',
+    });
+
+    const catalog = buildInstallCatalog([legacy]);
+    expect(catalog).toHaveLength(1);
+    expect(catalog[0]!.label).toBe('Win/Linux');
+    expect(catalog[0]!.seasons[0]).toMatchObject({
+      id: 'Season 1-2',
+      packages: [{ kind: 'splits', label: 'Splits (1 parts)' }],
+    });
+  });
+
+  it('backfills platform-only group as top-level full', () => {
     const legacy = {
       host: 'mega',
       url: 'https://mega.nz/legacy',
@@ -154,7 +179,11 @@ describe('buildInstallCatalog', () => {
     } as GameDownload;
 
     const catalog = buildInstallCatalog([legacy]);
-    expect(catalog).toEqual([]);
+    expect(catalog[0]!.seasons[0]).toMatchObject({
+      id: '__current__',
+      isTopLevel: true,
+      packages: [{ kind: 'full', label: 'Full' }],
+    });
   });
 
   it('treats missing part as full and missing edition as top-level current', () => {
@@ -173,6 +202,33 @@ describe('buildInstallCatalog', () => {
       isTopLevel: true,
       packages: [{ kind: 'full', label: 'Full' }],
     });
+  });
+
+  it('treats scraper topLevel named editions as isTopLevel', () => {
+    const catalog = buildInstallCatalog([
+      link({
+        host: 'mega',
+        url: 'https://mega.nz/archive',
+        edition: 'Archive',
+        platform: 'Win/Linux',
+        part: null,
+        kindHint: 'full',
+        topLevel: true,
+      }),
+      link({
+        host: 'mega',
+        url: 'https://mega.nz/s1',
+        edition: 'Season 1',
+        platform: 'Win/Linux',
+        part: null,
+        kindHint: 'full',
+      }),
+    ]);
+    expect(catalog[0]!.seasons.map((s) => [s.id, s.isTopLevel])).toEqual([
+      ['Archive', true],
+      ['Season 1', false],
+    ]);
+    expect(defaultSeasonId(catalog[0]!)).toBe('Archive');
   });
 });
 

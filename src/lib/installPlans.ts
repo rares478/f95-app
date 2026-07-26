@@ -1,4 +1,5 @@
 import { execute, query } from './db';
+import { withBundleAssignLock } from './installJobExtract';
 import type { SectionKind } from './installSections';
 
 export type PlanStatus = 'active' | 'completed' | string;
@@ -276,6 +277,27 @@ export async function markJobAssign(
       WHERE id = ?`,
     [status, opts?.exeId ?? null, jobId],
   );
+}
+
+/**
+ * Mark this job (and every bundle sibling when bundleId is set) assigned/skipped
+ * with the same exeId — mirrors auto-assign in useDownloads.
+ */
+export async function markJobAndBundleSiblingsAssign(
+  job: InstallJob,
+  status: AssignStatus,
+  opts?: { exeId?: string; errorMessage?: string | null },
+): Promise<void> {
+  if (job.bundleId == null) {
+    await markJobAssign(job.id, status, opts);
+    return;
+  }
+  await withBundleAssignLock(job.bundleId, async () => {
+    const siblings = await listJobsForBundle(job.bundleId!);
+    for (const sibling of siblings) {
+      await markJobAssign(sibling.id, status, opts);
+    }
+  });
 }
 
 export async function markPlanStatus(

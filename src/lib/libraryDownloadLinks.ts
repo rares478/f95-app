@@ -1,5 +1,6 @@
 import type { GameDownload, GameDetail } from '../types/game';
 import type { LibraryGame } from '../types/library';
+import { buildInstallCatalog } from './installCatalog';
 import * as library from './library';
 import * as ipc from './ipc';
 
@@ -31,8 +32,25 @@ export function targetLinksVersion(
   );
 }
 
+/** Pre-upgrade caches: links exist but lack structured platform (empty catalog). */
+export function linksLackStructuredPlatforms(links: GameDownload[]): boolean {
+  if (links.length === 0) return false;
+  // All lack platform → catalog empty without group backfill; force refetch.
+  if (links.every((l) => l.platform == null)) return true;
+  // Some platforms present but none usable for install catalog (and at least
+  // one link still lacks platform — partial upgrade / corrupt cache).
+  if (
+    links.some((l) => l.platform == null) &&
+    buildInstallCatalog(links).length === 0
+  ) {
+    return true;
+  }
+  return false;
+}
+
 export function linksAreStale(game: LibraryGame, intent: LinkIntent): boolean {
   if (!game.downloadLinks || game.downloadLinks.length === 0) return true;
+  if (linksLackStructuredPlatforms(game.downloadLinks)) return true;
   const target = targetLinksVersion(game, intent);
   if (!target) return false;
   const stamped = game.downloadLinksVersion?.trim();

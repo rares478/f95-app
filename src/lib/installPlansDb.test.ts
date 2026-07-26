@@ -407,6 +407,97 @@ describe('installPlans DB façade', () => {
     });
   });
 
+  it('markJobAndBundleSiblingsAssign marks every sibling with the same status/exeId', async () => {
+    const bundleId = 'bbbbbbbb-bbbb-bbbb-bbbb-bbbbbbbbbbbb';
+    const jobA = {
+      id: 'j1',
+      planId: 'p1',
+      sectionLabel: 'Splits',
+      sectionKind: 'current_os' as const,
+      sourceUrl: 'https://example.com/p1',
+      host: 'mega',
+      downloadId: 10,
+      extractPath: 'D:/games/Splits',
+      exeId: null,
+      assignStatus: 'pending' as const,
+      sortOrder: 1,
+      errorMessage: null,
+      bundleId,
+    };
+    query.mockResolvedValueOnce([
+      {
+        id: 'j1',
+        plan_id: 'p1',
+        section_label: 'Splits',
+        section_kind: 'current_os',
+        source_url: 'https://example.com/p1',
+        host: 'mega',
+        download_id: 10,
+        extract_path: 'D:/games/Splits',
+        exe_id: null,
+        assign_status: 'pending',
+        sort_order: 1,
+        error_message: null,
+        bundle_id: bundleId,
+      },
+      {
+        id: 'j2',
+        plan_id: 'p1',
+        section_label: 'Splits',
+        section_kind: 'current_os',
+        source_url: 'https://example.com/p2',
+        host: 'mega',
+        download_id: 11,
+        extract_path: 'D:/games/Splits',
+        exe_id: null,
+        assign_status: 'pending',
+        sort_order: 2,
+        error_message: null,
+        bundle_id: bundleId,
+      },
+    ]);
+
+    await installPlans.markJobAndBundleSiblingsAssign(jobA, 'assigned', {
+      exeId: 'exe-1',
+    });
+
+    const assignUpdates = execute.mock.calls.filter((c) =>
+      String(c[0]).includes('assign_status'),
+    );
+    expect(assignUpdates).toHaveLength(2);
+    expect(assignUpdates.map((c) => c[1])).toEqual([
+      ['assigned', 'exe-1', 'j1'],
+      ['assigned', 'exe-1', 'j2'],
+    ]);
+  });
+
+  it('markJobAndBundleSiblingsAssign marks only the job when bundleId is null', async () => {
+    const job = {
+      id: 'j1',
+      planId: 'p1',
+      sectionLabel: 'Windows',
+      sectionKind: 'current_os' as const,
+      sourceUrl: 'https://example.com/a',
+      host: 'mega',
+      downloadId: 10,
+      extractPath: 'D:/games/Win',
+      exeId: null,
+      assignStatus: 'pending' as const,
+      sortOrder: 0,
+      errorMessage: null,
+      bundleId: null,
+    };
+
+    await installPlans.markJobAndBundleSiblingsAssign(job, 'skipped');
+
+    expect(query).not.toHaveBeenCalled();
+    const assignUpdates = execute.mock.calls.filter((c) =>
+      String(c[0]).includes('assign_status'),
+    );
+    expect(assignUpdates).toHaveLength(1);
+    expect(assignUpdates[0]![1]).toEqual(['skipped', null, 'j1']);
+  });
+
   it('bundleExtractReady requires all extractPath set and none failed', () => {
     const base = {
       planId: 'p1',

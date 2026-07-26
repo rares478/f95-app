@@ -128,30 +128,37 @@ export function bundleAlreadyAssigned(
   return jobs.some((j) => j.assignStatus === 'assigned');
 }
 
-/** Serialize assign-once per bundle so concurrent finishing extracts cannot double-assign. */
-const bundleAssignLocks = new Map<string, Promise<void>>();
-
-export async function withBundleAssignLock<T>(
-  bundleId: string,
-  fn: () => Promise<T>,
-): Promise<T> {
-  const prev = bundleAssignLocks.get(bundleId) ?? Promise.resolve();
-  let release!: () => void;
-  const gate = new Promise<void>((resolve) => {
-    release = resolve;
-  });
-  const next = prev.then(() => gate);
-  bundleAssignLocks.set(bundleId, next);
-  await prev;
-  try {
-    return await fn();
-  } finally {
-    release();
-    if (bundleAssignLocks.get(bundleId) === next) {
-      bundleAssignLocks.delete(bundleId);
+/** Serialize assign-once / extract-once per bundle so concurrent finishes cannot race. */
+function createBundleLock() {
+  const locks = new Map<string, Promise<void>>();
+  return async function withBundleLock<T>(
+    bundleId: string,
+    fn: () => Promise<T>,
+  ): Promise<T> {
+    const prev = locks.get(bundleId) ?? Promise.resolve();
+    let release!: () => void;
+    const gate = new Promise<void>((resolve) => {
+      release = resolve;
+    });
+    const next = prev.then(() => gate);
+    locks.set(bundleId, next);
+    await prev;
+    try {
+      return await fn();
+    } finally {
+      release();
+      if (locks.get(bundleId) === next) {
+        locks.delete(bundleId);
+      }
     }
-  }
+  };
 }
+
+/** Serialize assign-once per bundle so concurrent finishing extracts cannot double-assign. */
+export const withBundleAssignLock = createBundleLock();
+
+/** Serialize extracts for the same bundleId (shared dest folder). */
+export const withBundleExtractLock = createBundleLock();
 
 export const INSTALL_NEEDS_ASSIGN_EVENT = 'install:needs-assign';
 

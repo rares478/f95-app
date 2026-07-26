@@ -99,6 +99,7 @@ describe('resolveDownloadPath', () => {
       edition: 'Old builds',
       platform: 'Win/Linux',
       kindHint: 'full',
+      topLevel: false,
     });
     expect(pathFor('after-spoiler-win')).toMatchObject({
       edition: 'Archive',
@@ -106,6 +107,21 @@ describe('resolveDownloadPath', () => {
       part: null,
       kindHint: 'full',
       group: 'Archive · Win/Linux',
+      topLevel: true,
+    });
+  });
+
+  it('marks unnamed Current as topLevel', () => {
+    expect(pathFor('s3-win-full')).toMatchObject({
+      edition: null,
+      topLevel: true,
+    });
+  });
+
+  it('marks spoiler seasons as not topLevel', () => {
+    expect(pathFor('s12-win-full')).toMatchObject({
+      edition: 'Season 1 - 2',
+      topLevel: false,
     });
   });
 

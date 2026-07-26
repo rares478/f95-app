@@ -10,6 +10,7 @@ import {
   shortJobId,
   shouldAutoExtractDownload,
   withBundleAssignLock,
+  withBundleExtractLock,
 } from './installJobExtract';
 
 describe('sanitizePathSegment', () => {
@@ -196,6 +197,42 @@ describe('withBundleAssignLock', () => {
     });
     await Promise.all([p1, p2]);
     expect(b2StartedBeforeB1Finished).toBe(true);
+  });
+});
+
+describe('withBundleExtractLock', () => {
+  it('serializes concurrent extracts for the same bundleId', async () => {
+    const order: number[] = [];
+    await Promise.all([
+      withBundleExtractLock('b1', async () => {
+        order.push(1);
+        await new Promise((r) => setTimeout(r, 20));
+        order.push(2);
+      }),
+      withBundleExtractLock('b1', async () => {
+        order.push(3);
+        order.push(4);
+      }),
+    ]);
+    expect(order).toEqual([1, 2, 3, 4]);
+  });
+
+  it('does not share queue with withBundleAssignLock', async () => {
+    let extractStartedWhileAssignHeld = false;
+    let releaseAssign!: () => void;
+    const assignGate = new Promise<void>((r) => {
+      releaseAssign = r;
+    });
+
+    const assignP = withBundleAssignLock('same', async () => {
+      await assignGate;
+    });
+    const extractP = withBundleExtractLock('same', async () => {
+      extractStartedWhileAssignHeld = true;
+      releaseAssign();
+    });
+    await Promise.all([assignP, extractP]);
+    expect(extractStartedWhileAssignHeld).toBe(true);
   });
 });
 
