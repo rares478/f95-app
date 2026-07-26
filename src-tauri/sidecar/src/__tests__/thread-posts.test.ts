@@ -28,4 +28,13 @@ describe('parseThreadPostsPage', () => {
     expect(page.posts.map((p) => p.postId)).toEqual(['3']);
     expect(page.hasMore).toBe(false);
   });
+
+  it('hasMore true when next-jump exists even if visible page nums max at current', () => {
+    const page = parseThreadPostsPage(fix('thread-page-2-truncated-nav.html'), {
+      threadId: '100',
+      page: 2,
+    });
+    expect(page.totalPages).toBe(2);
+    expect(page.hasMore).toBe(true);
+  });
 });

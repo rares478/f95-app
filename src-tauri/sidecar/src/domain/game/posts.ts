@@ -79,10 +79,9 @@ export function parseThreadPostsPage(
     .map((el) => parseInt($(el).text().trim(), 10))
     .filter((n) => Number.isFinite(n) && n > 0);
   const totalPages = pageNums.length ? Math.max(...pageNums) : null;
+  const hasNextJump = $('.pageNav-jump--next').length > 0;
   const hasMore =
-    totalPages != null
-      ? opts.page < totalPages
-      : $('.pageNav-jump--next').length > 0;
+    hasNextJump || (totalPages != null && opts.page < totalPages);
 
   return {
     threadId: opts.threadId,
