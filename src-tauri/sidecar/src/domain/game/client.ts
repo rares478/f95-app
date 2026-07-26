@@ -713,7 +713,7 @@ function partFromText(raw: string): number | null {
 }
 
 const AUX_ROW_RE =
-  /^(patches?|extras?|translations?|mods?)\b/i;
+  /^(patch(?:es)?|extras?|translations?|mods?)\b/i;
 
 function isAuxRowLabel(raw: string): boolean {
   return AUX_ROW_RE.test(cleanText(raw).replace(/:\s*$/, ''));
@@ -817,6 +817,10 @@ function previousSignificantSiblingText(
       const t = cleanText(prev.data);
       if (t) return t;
     } else if (isElement(prev)) {
+      if ($(prev).is(SPOILER_SEL)) {
+        prev = prev.prev ?? null;
+        continue;
+      }
       const tag = prev.tagName?.toLowerCase();
       if (tag === 'br') {
         prev = prev.prev ?? null;
@@ -851,12 +855,16 @@ function resolveSpoilerEdition(
   splitSpoiler: boolean;
   titles: string[];
 } {
+  // Outermost → innermost so a season edition wins over nested split titles.
   const spoilers = $(el).parents(SPOILER_SEL).toArray().reverse();
   let edition: string | null = null;
+  let outerSplitEdition: string | null = null;
   let splitSpoiler = false;
   const titles: string[] = [];
 
-  for (const spoiler of spoilers) {
+  for (let i = 0; i < spoilers.length; i++) {
+    const spoiler = spoilers[i]!;
+    const isOutermost = i === 0;
     const buttonTitle = spoilerButtonTitle($, spoiler);
     let title = buttonTitle;
     let fromFallback = false;
@@ -874,11 +882,19 @@ function resolveSpoilerEdition(
       splitSpoiler = true;
     }
     if (!title || /^spoiler$/i.test(title)) continue;
-    // Split spoiler button titles are not editions; preceding-text
-    // fallbacks (e.g. "Season 3 splits") still may be.
-    if (!fromFallback && /split/i.test(title)) continue;
+    // Inner split titles must not replace an outer season. Outer-only
+    // /split/i titles become edition when no non-split edition is found
+    // (fromFallback titles like "Season 3 splits" already qualify above).
+    if (!fromFallback && /split/i.test(title)) {
+      if (isOutermost && !outerSplitEdition) {
+        outerSplitEdition = cleanText(title);
+      }
+      continue;
+    }
     if (!edition) edition = cleanText(title);
   }
+
+  if (!edition && outerSplitEdition) edition = outerSplitEdition;
 
   return { edition, splitSpoiler, titles };
 }
@@ -894,8 +910,10 @@ function nearestTopLevelEdition(
     while (prev) {
       if (isElement(prev)) {
         if ($(prev).is(SPOILER_SEL)) {
-          // Prior spoiler / its intro text belongs to that block, not this row.
-          return null;
+          // Skip prior spoiler blocks; keep walking for an earlier heading.
+          prev = prev.prev ?? null;
+          hops++;
+          continue;
         }
         const tag = prev.tagName?.toLowerCase();
         if (tag === 'b' || tag === 'strong' || /^h[1-6]$/.test(tag)) {
@@ -946,8 +964,9 @@ function inferKindHint(opts: {
   platform: string | null;
 }): NonNullable<GameDownload['kindHint']> {
   const blob = opts.labels.join(' ');
-  if (/patch/i.test(blob)) return 'patch';
-  if (/extra|translation|mod/i.test(blob)) return 'extra';
+  // Word-bounded, aligned with AUX_ROW_RE / isAuxRowLabel.
+  if (/\bpatch(?:es)?\b/i.test(blob)) return 'patch';
+  if (/\b(extras?|translations?|mods?)\b/i.test(blob)) return 'extra';
   if (opts.part != null || opts.splitSpoiler) return 'split';
   if (opts.platform != null) return 'full';
   return 'other';

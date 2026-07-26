@@ -83,4 +83,38 @@ describe('resolveDownloadPath', () => {
       kindHint: 'extra',
     });
   });
+
+  it('uses outer-only SPLIT spoiler title as edition', () => {
+    expect(pathFor('outer-split-p1')).toMatchObject({
+      edition: 'SPLIT-S3',
+      platform: 'Win/Linux',
+      part: 1,
+      kindHint: 'split',
+      group: 'SPLIT-S3 · Win/Linux · Part 1',
+    });
+  });
+
+  it('skips prior spoilers when resolving top-level edition', () => {
+    expect(pathFor('archive-spoiler-win')).toMatchObject({
+      edition: 'Old builds',
+      platform: 'Win/Linux',
+      kindHint: 'full',
+    });
+    expect(pathFor('after-spoiler-win')).toMatchObject({
+      edition: 'Archive',
+      platform: 'Win/Linux',
+      part: null,
+      kindHint: 'full',
+      group: 'Archive · Win/Linux',
+    });
+  });
+
+  it('does not treat dispatch/modern substrings as patch/extra', () => {
+    const dispatch = pathFor('dispatch-notes');
+    expect(dispatch.kindHint).not.toBe('patch');
+    expect(dispatch.kindHint).not.toBe('extra');
+    const modern = pathFor('modern-build');
+    expect(modern.kindHint).not.toBe('patch');
+    expect(modern.kindHint).not.toBe('extra');
+  });
 });
