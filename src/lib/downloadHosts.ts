@@ -9,6 +9,8 @@ export const STREAMABLE_HOSTS = new Set([
   'gdrive',
   'workupload',
   'mixdrop',
+  'akirabox',
+  'vikingfile',
 ]);
 
 export const HOST_COLORS: Record<string, string> = {
@@ -22,6 +24,8 @@ export const HOST_COLORS: Record<string, string> = {
   datanodes: '#2a8aa8',
   buzzheavier: '#a87a2a',
   gdrive: '#4285f4',
+  akirabox: '#5a6a8a',
+  vikingfile: '#6a5a4a',
   bunkr: '#8a3a3a',
   cyberfile: '#6f4d8a',
   cyberdrop: '#8a4d6f',

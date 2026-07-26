@@ -17,6 +17,8 @@ const DEFAULT_PREFERRED_ORDER = [
   'gofile',
   'buzzheavier',
   'datanodes',
+  'akirabox',
+  'vikingfile',
   'mediafire',
   'uploadhaven',
   'workupload',
