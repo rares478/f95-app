@@ -58,8 +58,12 @@ export interface GameDownload {
   url: string;
   /** Inner text of the anchor (often the host name in caps). */
   text: string;
-  /** Nearest preceding section label (e.g. "Win/Linux", "Collection", "08-10"). */
+  /** Composite display path, e.g. "Season 1-2 · Win/Linux · Part 1". */
   group: string | null;
+  edition: string | null;
+  platform: string | null;
+  part: number | null;
+  kindHint: 'full' | 'split' | 'patch' | 'extra' | 'other' | null;
 }
 export interface SocialLink {
   host: string;
@@ -591,6 +595,10 @@ function collectLinks(
         url,
         text: text || info.host,
         group: nearestDownloadGroupLabel($, el),
+        edition: null,
+        platform: null,
+        part: null,
+        kindHint: null,
       });
     } else if (info.category === 'social') {
       if (seenSocial.has(url)) return;
