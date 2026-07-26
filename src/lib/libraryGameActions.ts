@@ -111,7 +111,21 @@ export async function pickExeFor(
     ],
   });
   if (typeof selected !== 'string') return;
-  await library.setExe(game.threadId, selected);
+  const filename = selected.replace(/^.*[/\\]/, '');
+  const label = await dialog.prompt(deps.t('libdetail.exe.labelPrompt'), {
+    title: deps.t('libdetail.exe.labelTitle'),
+    defaultValue: filename,
+  });
+  if (label === null) return;
+  try {
+    await library.addExe(game.threadId, selected, label);
+  } catch (err) {
+    if (err instanceof Error && err.message === 'DUPLICATE_EXE_PATH') {
+      await dialog.alert(deps.t('libdetail.exe.duplicate'), { kind: 'warning' });
+      return;
+    }
+    throw err;
+  }
   await deps.onReload?.();
 }
 

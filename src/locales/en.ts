@@ -614,6 +614,10 @@ const en: Record<string, string> = {
   'libdetail.action.switchExe': 'Switch .exe',
   'libdetail.action.setExe': 'Point to .exe',
   'libdetail.action.pickExeTitle': 'Select the executable for "{title}"',
+  'libdetail.exe.labelTitle': 'Executable label',
+  'libdetail.exe.labelPrompt':
+    'Optional display name for this executable. Clear the field to use the filename.',
+  'libdetail.exe.duplicate': 'That executable is already registered for this game.',
   'libdetail.action.checkUpdate': 'Check for update',
   'libdetail.action.openViewer': 'Open viewer',
   'libdetail.category.games': 'Game',

@@ -75,12 +75,9 @@ export function AppDialogProvider({ children }: { children: React.ReactNode }) {
 
   function finishPrompt(ok: boolean) {
     if (current?.type !== 'prompt') return;
-    if (ok) {
-      const trimmed = promptValue.trim();
-      current.resolve(trimmed || null);
-    } else {
-      current.resolve(null);
-    }
+    // OK with empty → '' (callers that require a value still treat falsy as abort).
+    // Cancel → null so optional prompts (e.g. exe label) can distinguish clear vs cancel.
+    current.resolve(ok ? promptValue.trim() : null);
     dequeue();
   }
 
