@@ -158,6 +158,46 @@ describe('library multi-exe façade', () => {
     expect(gameUpdate![1]).toEqual(['D:/s2/new.exe', 'D:/s2', 't1']);
   });
 
+  it('setExe rejects path colliding with a sibling (DUPLICATE_EXE_PATH)', async () => {
+    const a: LibraryGameExe = {
+      id: 'a',
+      threadId: 't1',
+      exePath: 'D:/s1/game.exe',
+      installPath: 'D:/s1',
+      label: 'Season 1',
+      sortOrder: 0,
+      isDefault: true,
+      lastLaunchedAt: null,
+      createdAt: '2026-01-01T00:00:00.000Z',
+    };
+    const b: LibraryGameExe = {
+      id: 'b',
+      threadId: 't1',
+      exePath: 'D:/s2/game.exe',
+      installPath: 'D:/s2',
+      label: 'Season 2',
+      sortOrder: 1,
+      isDefault: false,
+      lastLaunchedAt: '2026-06-01T00:00:00.000Z',
+      createdAt: '2026-02-01T00:00:00.000Z',
+    };
+
+    // listExes only — must not UPDATE after duplicate check
+    query.mockResolvedValueOnce([toDbRow(a), toDbRow(b)]);
+
+    await expect(library.setExe('t1', 'D:/s1/game.exe')).rejects.toThrow(
+      'DUPLICATE_EXE_PATH',
+    );
+
+    expect(
+      execute.mock.calls.some(
+        (c) =>
+          String(c[0]).includes('UPDATE library_game_exes') &&
+          String(c[0]).includes('exe_path'),
+      ),
+    ).toBe(false);
+  });
+
   it('clearExe deletes children and clears game fields', async () => {
     await library.clearExe('t1');
 
