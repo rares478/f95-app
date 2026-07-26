@@ -14,6 +14,10 @@ const link: GameDownload = {
   url: 'https://example.com/a',
   text: 'Mega',
   group: 'Win',
+  edition: null,
+  platform: null,
+  part: null,
+  kindHint: null,
 };
 
 function detail(over: Partial<GameDetail> = {}): GameDetail {

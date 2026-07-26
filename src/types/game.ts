@@ -12,8 +12,12 @@ export interface GameDownload {
   host: string;
   url: string;
   text: string;
-  /** Nearest preceding section label (e.g. "Win/Linux", "Collection", "08-10"). */
+  /** Composite display path, e.g. "Season 1-2 · Win/Linux · Part 1". */
   group: string | null;
+  edition: string | null;
+  platform: string | null;
+  part: number | null;
+  kindHint: 'full' | 'split' | 'patch' | 'extra' | 'other' | null;
 }
 
 export interface SocialLink {

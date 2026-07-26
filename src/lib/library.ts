@@ -90,6 +90,10 @@ function parseDownloadLinksJson(raw: string | null | undefined): GameDownload[] 
       url: x.url,
       text: x.text,
       group: x.group ?? null,
+      edition: x.edition ?? null,
+      platform: x.platform ?? null,
+      part: typeof x.part === 'number' ? x.part : null,
+      kindHint: x.kindHint ?? null,
     }));
   } catch {
     return [];

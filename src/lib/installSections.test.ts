@@ -9,6 +9,10 @@ import type { GameDownload } from '../types/game';
 const link = (over: Partial<GameDownload> & Pick<GameDownload, 'host' | 'url'>): GameDownload => ({
   text: over.host,
   group: null,
+  edition: null,
+  platform: null,
+  part: null,
+  kindHint: null,
   ...over,
 });
 
