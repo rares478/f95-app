@@ -735,7 +735,6 @@ const en: Record<string, string> = {
   'modal.assign.jobMissing': 'Install job not found.',
   'modal.assign.failed': 'Could not assign: {error}',
   'install.wizard.title': 'Install {title}',
-  'install.wizard.chooseParts': 'Choose what to install',
   'install.wizard.choosePlatform': 'Choose platform',
   'install.wizard.chooseSeason': 'Choose season',
   'install.wizard.choosePackage': 'Choose package',
