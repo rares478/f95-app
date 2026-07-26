@@ -891,6 +891,51 @@ const de: Record<string, string> = {
   'error.download.generic': 'Download: {detail}',
   'error.download.shaMismatch': 'SHA-256 stimmt nicht — erwartet {expected}, erhalten {actual}. Datei verworfen.',
 
+  // Captcha / extract / launch / overlay / FS / shortcuts
+  'error.extract.failed': 'Extraktion fehlgeschlagen: {detail}',
+  'error.extract.unsupported': 'Nicht unterstütztes Archivformat: .{ext}',
+  'error.captcha.windowClosed':
+    'Verifizierungsfenster ist nicht geöffnet — klicke zuerst auf Verifizierung öffnen.',
+  'error.captcha.unsupportedHost': 'In-App-Verifizierung ist für {host} nicht verfügbar',
+  'error.captcha.invalidUrl': 'Ungültige URL: {detail}',
+  'error.captcha.invalidMixdropUrl': 'Ungültige MixDrop-URL',
+  'error.captcha.sessionMissing':
+    'Sitzung nicht gefunden. Im Verifizierungsfenster auf DOWNLOAD klicken, ggf. Google reCAPTCHA lösen, dann Continue download.',
+  'error.captcha.createFailed': 'Verifizierungsfenster konnte nicht geöffnet werden: {detail}',
+  'error.launch.exeMissing': 'Executable nicht gefunden: {path}',
+  'error.launch.alreadyRunning': 'Spiel läuft bereits.',
+  'error.launch.notRunning': 'Spiel läuft nicht.',
+  'error.launch.spawnFailed': 'Spiel konnte nicht gestartet werden: {detail}',
+  'error.overlay.windowMissing': 'Overlay-Fenster nicht gefunden. Starte F95 App neu.',
+  'error.overlay.openFailed':
+    'Overlay-Fenster konnte nicht geöffnet werden. Schließe und öffne F95 App erneut.',
+  'error.overlay.initFailed':
+    'Das Overlay-Fenster wurde nicht korrekt gestartet. Schließe und öffne F95 App erneut.',
+  'error.overlay.minimized': 'Das Spiel ist minimiert — stelle das Spielfenster wieder her.',
+  'error.overlay.noGameRunning':
+    'Kein Spiel läuft — starte ein Spiel, um das Overlay zu nutzen.',
+  'error.overlay.gameWindowMissing': 'Spielfenster konnte nicht gefunden werden.',
+  'error.overlay.gameWindowPending':
+    'Das Spielfenster ist noch nicht erschienen — versuche, das Spiel zu fokussieren.',
+  'error.overlay.windowsOnly': 'Diese Overlay-Funktion erfordert Windows.',
+  'error.overlay.generic': 'Overlay: {detail}',
+  'error.fs.fileNotFound': 'Datei nicht gefunden: {path}',
+  'error.fs.archiveNoParent': 'Archiv hat kein übergeordnetes Verzeichnis.',
+  'error.fs.deletePathFilesOnly': 'delete_path akzeptiert nur Dateien, keine Ordner.',
+  'error.fs.pathNotFound': 'Pfad existiert nicht: {path}',
+  'error.fs.explorerFailed': 'Konnte nicht im Explorer öffnen: {detail}',
+  'error.fs.openFailed': 'Pfad konnte nicht geöffnet werden: {detail}',
+  'error.fs.unsupportedPlatform': 'Nicht unterstützte Plattform.',
+  'error.shortcut.windowsOnly': 'Verknüpfungen sind nur unter Windows verfügbar.',
+  'error.shortcut.noParent': 'Executable hat kein übergeordnetes Verzeichnis.',
+  'error.shortcut.invalidTitle': 'Ungültiger Titel für die Verknüpfung.',
+  'error.shortcut.createFailed':
+    'Verknüpfungen konnten nicht auf dem Desktop oder im Startmenü erstellt werden.',
+  'error.shortcut.failed': 'Verknüpfung konnte nicht erstellt werden: {detail}',
+  'error.shortcut.createdBoth': 'Verknüpfungen auf Desktop und Startmenü erstellt.',
+  'error.shortcut.createdDesktop': 'Verknüpfung auf dem Desktop erstellt.',
+  'error.shortcut.createdStartMenu': 'Verknüpfung im Startmenü erstellt.',
+
   'settings.theme.default.label': 'Standard',
   'settings.theme.default.desc': 'Dunkel mit rotem Akzent — das Original.',
   'settings.theme.dark.label': 'Dunkel (OLED)',

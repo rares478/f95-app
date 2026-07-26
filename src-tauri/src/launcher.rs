@@ -54,16 +54,18 @@ impl LauncherManager {
     ) -> Result<u32, AppError> {
         // Guard against double-launch.
         if self.inner.lock().await.contains_key(&thread_id) {
-            return Err(AppError::Other(format!(
-                "o jogo {thread_id} já está rodando"
-            )));
+            return Err(AppError::keyed_vars(
+                "error.launch.alreadyRunning",
+                json!({ "threadId": thread_id }),
+            ));
         }
 
         let exe = PathBuf::from(&exe_path);
         if !exe.exists() {
-            return Err(AppError::Other(format!(
-                "executável não encontrado: {exe_path}"
-            )));
+            return Err(AppError::keyed_vars(
+                "error.launch.exeMissing",
+                json!({ "path": exe_path }),
+            ));
         }
         // Most games look for resources relative to their own folder.
         let cwd = exe
@@ -80,9 +82,12 @@ impl LauncherManager {
             // even if our app crashes or is closed.
             .kill_on_drop(false);
 
-        let mut child = cmd
-            .spawn()
-            .map_err(|e| AppError::Other(format!("spawn falhou: {e}")))?;
+        let mut child = cmd.spawn().map_err(|e| {
+            AppError::keyed_vars(
+                "error.launch.spawnFailed",
+                json!({ "detail": e.to_string() }),
+            )
+        })?;
         let pid = child.id().unwrap_or(0);
         let started = Instant::now();
 
@@ -199,9 +204,10 @@ impl LauncherManager {
     pub async fn stop(&self, thread_id: &str) -> Result<(), AppError> {
         let mut map = self.inner.lock().await;
         let Some(rg) = map.get_mut(thread_id) else {
-            return Err(AppError::Other(format!(
-                "o jogo {thread_id} não está em execução"
-            )));
+            return Err(AppError::keyed_vars(
+                "error.launch.notRunning",
+                json!({ "threadId": thread_id }),
+            ));
         };
         // Sender is single-use; on a second Stop click it'll be None and we
         // just no-op (the waiter is already shutting down).

@@ -2,6 +2,7 @@ import { useEffect, useState } from 'react';
 import { listen, type UnlistenFn } from '@tauri-apps/api/event';
 import { getCurrentWindow } from '@tauri-apps/api/window';
 import { LocaleProvider, useT } from '../../lib/i18n';
+import { translateBackendMessage } from '../../lib/backendMessage';
 import * as ipc from '../../lib/ipc';
 import * as theme from '../../lib/theme';
 import '../../styles/overlay-hint.css';
@@ -17,6 +18,7 @@ interface OverlayErrorPayload {
 
 function OverlayErrorToast({ message }: { message: string }) {
   const { t } = useT();
+  const text = translateBackendMessage(message, t);
   return (
     <div className="overlay-hint-toast overlay-hint-toast--error" aria-live="assertive">
       <div className="overlay-hint-icon overlay-hint-icon--error" aria-hidden>
@@ -28,7 +30,7 @@ function OverlayErrorToast({ message }: { message: string }) {
       </div>
       <div className="overlay-hint-text">
         <strong className="overlay-hint-title">{t('overlay.error.title')}</strong>
-        <span className="overlay-hint-sub overlay-hint-error-msg">{message}</span>
+        <span className="overlay-hint-sub overlay-hint-error-msg">{text}</span>
       </div>
     </div>
   );

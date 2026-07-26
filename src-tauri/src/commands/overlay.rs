@@ -6,6 +6,8 @@ use crate::overlay_anchor::{self, start_follow, stop_follow};
 
 use serde::{Deserialize, Serialize};
 
+use serde_json::json;
+
 use std::sync::Mutex;
 use std::time::Duration;
 
@@ -21,16 +23,29 @@ fn overlay_log(app: Option<&AppHandle>, message: impl AsRef<str>) {
     }
 }
 
+/// Map technical overlay failures to stable locale keys for the toast / IPC.
 fn user_overlay_error(raw: &str) -> String {
-    let lower = raw.to_lowercase();
-    if lower.contains("não pôde ser inicializada") || lower.contains("não encontrada") {
-        "Não foi possível abrir a janela do overlay. Feche e abra o F95 App novamente.".into()
-    } else if lower.contains("minimizado") {
-        "O jogo está minimizado — restaure a janela do jogo.".into()
-    } else if lower.contains("janelas ativas") {
-        "A janela do overlay não iniciou corretamente. Feche e abra o F95 App novamente.".into()
+    let trimmed = raw.trim();
+    if trimmed.starts_with("error.") {
+        return trimmed.to_string();
+    }
+    let lower = trimmed.to_lowercase();
+    if lower.contains("could not be initialized")
+        || lower.contains("não pôde ser inicializada")
+        || lower.contains("not found")
+            && (lower.contains("window") || lower.contains("janela"))
+        || lower.contains("não encontrada")
+    {
+        "error.overlay.openFailed".into()
+    } else if lower.contains("minimized") || lower.contains("minimizado") {
+        "error.overlay.minimized".into()
+    } else if lower.contains("active windows") || lower.contains("janelas ativas") {
+        "error.overlay.initFailed".into()
     } else {
-        raw.to_string()
+        match serde_json::to_string(&json!({ "detail": trimmed })) {
+            Ok(payload) => format!("error.overlay.generic|{payload}"),
+            Err(_) => "error.overlay.generic".into(),
+        }
     }
 }
 
@@ -160,7 +175,7 @@ fn create_overlay_window_fallback(app: &AppHandle, label: &str) -> Result<(), Ap
             400.0,
             96.0,
         ),
-        other => return Err(AppError::Other(format!("label overlay desconhecido: {other}"))),
+        other => return Err(AppError::Other(format!("unknown overlay label: {other}"))),
     };
 
     overlay_log(
@@ -190,7 +205,7 @@ fn create_overlay_window_fallback(app: &AppHandle, label: &str) -> Result<(), Ap
             if build_error_is_duplicate(&err) {
                 Ok(())
             } else {
-                Err(AppError::Other(format!("criar janela {label}: {e}")))
+                Err(AppError::Other(format!("create window {label}: {e}")))
             }
         }
     }
@@ -251,7 +266,7 @@ fn ensure_overlay_window_built(app: &AppHandle, label: &str) -> Result<(), AppEr
         ),
     );
     Err(AppError::Other(format!(
-        "janela {label} não pôde ser inicializada (janelas ativas: {known:?})"
+        "window {label} could not be initialized (active windows: {known:?})"
     )))
 }
 
@@ -270,9 +285,7 @@ fn ensure_overlay_window(app: &AppHandle) -> Result<tauri::WebviewWindow, AppErr
     }
     ensure_overlay_window_built(app, OVERLAY_WINDOW_LABEL)?;
     webview_by_label(app, OVERLAY_WINDOW_LABEL).ok_or_else(|| {
-        AppError::Other(format!(
-            "janela {OVERLAY_WINDOW_LABEL} não encontrada — reinicie o F95 App"
-        ))
+        AppError::keyed("error.overlay.windowMissing")
     })
 }
 
@@ -282,9 +295,7 @@ fn ensure_hint_window(app: &AppHandle) -> Result<tauri::WebviewWindow, AppError>
     }
     ensure_overlay_window_built(app, OVERLAY_HINT_WINDOW_LABEL)?;
     webview_by_label(app, OVERLAY_HINT_WINDOW_LABEL).ok_or_else(|| {
-        AppError::Other(format!(
-            "janela {OVERLAY_HINT_WINDOW_LABEL} não encontrada — reinicie o F95 App"
-        ))
+        AppError::keyed("error.overlay.windowMissing")
     })
 }
 
@@ -575,7 +586,7 @@ fn place_hint_on_game(
 ) -> Result<(), AppError> {
     if let Some(hwnd) = game_match.hwnd.map(|h| windows::Win32::Foundation::HWND(h as _)) {
         if crate::game_window::is_minimized(hwnd) {
-            return Err(AppError::Other("O jogo está minimizado.".into()));
+            return Err(AppError::keyed("error.overlay.minimized"));
         }
     }
     let overlay_hwnd = window
@@ -759,9 +770,7 @@ async fn wait_for_game_hwnd(pid: u32, max_secs: u64) -> Result<crate::game_windo
             }
         }
         if std::time::Instant::now() >= deadline {
-            return Err(AppError::Other(
-                "A janela do jogo ainda não apareceu — tente focar o jogo.".into(),
-            ));
+            return Err(AppError::keyed("error.overlay.gameWindowPending"));
         }
         tokio::time::sleep(Duration::from_millis(300)).await;
     }
@@ -773,11 +782,7 @@ async fn resolve_overlay_pid(state: &AppState) -> Result<u32, AppError> {
 
     if running.is_empty() {
 
-        return Err(AppError::Other(
-
-            "Nenhum jogo em execução — inicie um jogo para usar o overlay.".into(),
-
-        ));
+        return Err(AppError::keyed("error.overlay.noGameRunning"));
 
     }
 
@@ -845,7 +850,7 @@ fn show_overlay_on_game(
                     == crate::game_window::OverlayAttachMode::MonitorFallback
                 {
                     Some(
-                        "Fullscreen exclusivo: overlay no monitor do jogo (pressione o atalho com o jogo em foco para melhor precisão)."
+                        "Exclusive fullscreen: overlay on the game monitor (press the hotkey with the game focused for best accuracy)."
                             .into(),
                     )
                 } else {
@@ -996,7 +1001,7 @@ pub async fn overlay_get_anchor_status(
 
             attach_mode: None,
 
-            message: Some("Nenhum jogo em execução.".into()),
+            message: Some("No game running.".into()),
 
         });
 
@@ -1030,7 +1035,7 @@ pub async fn overlay_get_anchor_status(
                 message: if attached {
                     None
                 } else {
-                    Some("Aguardando janela do jogo…".into())
+                    Some("Waiting for game window…".into())
                 },
             });
         }
@@ -1040,7 +1045,7 @@ pub async fn overlay_get_anchor_status(
             pid: Some(pid),
             game_rect: None,
             attach_mode: None,
-            message: Some("Janela do jogo ainda não detectada.".into()),
+            message: Some("Game window not detected yet.".into()),
         });
 
     }
@@ -1059,7 +1064,7 @@ pub async fn overlay_get_anchor_status(
 
         attach_mode: None,
 
-        message: Some("Ancoragem no jogo requer Windows.".into()),
+        message: Some("Game anchoring requires Windows.".into()),
 
     })
 
@@ -1265,20 +1270,30 @@ pub async fn overlay_sync_compact_from_window(
 ) -> Result<OverlayCompactGeom, AppError> {
     let window = app
         .get_webview_window(OVERLAY_WINDOW_LABEL)
-        .ok_or_else(|| AppError::Other("Janela do overlay não encontrada.".into()))?;
+        .ok_or_else(|| AppError::keyed("error.overlay.windowMissing"))?;
     let pos = window
         .outer_position()
-        .map_err(|e| AppError::Other(format!("outer_position: {e}")))?;
+        .map_err(|e| {
+            AppError::keyed_vars(
+                "error.overlay.generic",
+                json!({ "detail": format!("outer_position: {e}") }),
+            )
+        })?;
     let size = window
         .outer_size()
-        .map_err(|e| AppError::Other(format!("outer_size: {e}")))?;
+        .map_err(|e| {
+            AppError::keyed_vars(
+                "error.overlay.generic",
+                json!({ "detail": format!("outer_size: {e}") }),
+            )
+        })?;
 
     let pid = resolve_overlay_pid(&state).await?;
 
     #[cfg(windows)]
     {
         let game_match = crate::game_window::find_game_window_for_overlay(pid).ok_or_else(|| {
-            AppError::Other("Não foi possível localizar a janela do jogo.".into())
+            AppError::keyed("error.overlay.gameWindowMissing")
         })?;
         let base = game_match.rect;
         let geom = OverlayCompactGeom {
@@ -1299,9 +1314,7 @@ pub async fn overlay_sync_compact_from_window(
     #[cfg(not(windows))]
     {
         let _ = (pos, size, pid);
-        Err(AppError::Other(
-            "Reposicionar overlay compacto requer Windows.".into(),
-        ))
+        Err(AppError::keyed("error.overlay.windowsOnly"))
     }
 }
 
@@ -1407,9 +1420,7 @@ pub async fn show_game_hint_inner(
     #[cfg(not(windows))]
     {
         let _ = (app, state, title, hotkey, pid);
-        return Err(AppError::Other(
-            "Indicador no jogo requer Windows.".into(),
-        ));
+        return Err(AppError::keyed("error.overlay.windowsOnly"));
     }
 
     let payload = OverlayHintPayload {
@@ -1471,7 +1482,7 @@ pub fn schedule_launch_hint(app: AppHandle, thread_id: String, game_title: Strin
                 }
             }
         }
-        let title = title.unwrap_or_else(|| "Jogo".into());
+        let title = title.unwrap_or_else(|| "Game".into());
         let hotkey = state
             .overlay_registered_hotkey
             .lock()

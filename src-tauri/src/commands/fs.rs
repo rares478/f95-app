@@ -1,10 +1,13 @@
 use super::state::AppState;
 use crate::download::host::clean_download_filename;
 use crate::error::AppError;
+use crate::extraction::ExtractProgressFn;
 use fs4::available_space;
 use serde::Serialize;
+use serde_json::json;
 use std::path::PathBuf;
-use tauri::{AppHandle, Manager, State};
+use std::sync::Arc;
+use tauri::{AppHandle, Emitter, Manager, State};
 
 #[derive(Debug, Serialize)]
 pub struct ExtractResult {
@@ -19,20 +22,39 @@ pub struct ExtractResult {
 /// on a blocking thread so it doesn't block the Tokio runtime.
 #[tauri::command]
 pub async fn extract_archive(
+    app: AppHandle,
     archive_path: String,
     game_title: String,
+    download_id: Option<i64>,
 ) -> Result<ExtractResult, AppError> {
+    let bundled_root = app
+        .path()
+        .resource_dir()
+        .ok()
+        .map(|root| root.join("7zip"));
+    let bundled_7z = bundled_root.and_then(|dir| {
+        let primary = dir.join(if cfg!(windows) { "7z.exe" } else { "7z" });
+        if primary.is_file() {
+            return Some(primary);
+        }
+        let compat = dir.join(if cfg!(windows) { "7za.exe" } else { "7za" });
+        if compat.is_file() {
+            return Some(compat);
+        }
+        None
+    });
+    let progress = download_id.map(|id| make_extract_progress(app.clone(), id));
     let result = tokio::task::spawn_blocking(move || -> Result<ExtractResult, AppError> {
         let archive = PathBuf::from(&archive_path);
         if !archive.exists() {
-            return Err(AppError::Other(format!(
-                "arquivo não encontrado: {}",
-                archive.display()
-            )));
+            return Err(AppError::keyed_vars(
+                "error.fs.fileNotFound",
+                json!({ "path": archive.display().to_string() }),
+            ));
         }
         let parent = archive
             .parent()
-            .ok_or_else(|| AppError::Other("archive has no parent directory".into()))?;
+            .ok_or_else(|| AppError::keyed("error.fs.archiveNoParent"))?;
         let stem = archive
             .file_name()
             .and_then(|s| s.to_str())
@@ -45,7 +67,7 @@ pub async fn extract_archive(
             })
             .unwrap_or_else(|| "extracted".to_string());
         let dest = parent.join(stem);
-        crate::extraction::extract(&archive, &dest)?;
+        crate::extraction::extract(&archive, &dest, bundled_7z.as_deref(), progress)?;
         let exe = crate::extraction::find_main_exe(&dest, &game_title);
         Ok(ExtractResult {
             dest_dir: dest.to_string_lossy().into_owned(),
@@ -53,8 +75,26 @@ pub async fn extract_archive(
         })
     })
     .await
-    .map_err(|e| AppError::Other(format!("extract task join: {e}")))??;
+    .map_err(|e| {
+        AppError::keyed_vars(
+            "error.extract.failed",
+            json!({ "detail": format!("extract task join: {e}") }),
+        )
+    })??;
     Ok(result)
+}
+
+fn make_extract_progress(app: AppHandle, download_id: i64) -> ExtractProgressFn {
+    Arc::new(move |percent, eta_secs| {
+        let _ = app.emit(
+            "extract:progress",
+            serde_json::json!({
+                "id": download_id,
+                "percent": percent,
+                "etaSecs": eta_secs,
+            }),
+        );
+    })
 }
 
 /// Downscaled cached image for sidebar (thumb) or reader (display). GIF display uses the original file.
@@ -191,9 +231,7 @@ pub async fn delete_path(path: String) -> Result<(), AppError> {
             return Ok(());
         }
         if target.is_dir() {
-            return Err(AppError::Other(
-                "delete_path só aceita arquivos, não pastas".into(),
-            ));
+            return Err(AppError::keyed("error.fs.deletePathFilesOnly"));
         }
         std::fs::remove_file(&target).map_err(|e| AppError::Io(e.to_string()))
     })
@@ -262,10 +300,10 @@ pub fn reveal_in_explorer(path: String) -> Result<(), AppError> {
                 return spawn_explorer_open(parent);
             }
         }
-        return Err(AppError::Other(format!(
-            "path does not exist: {}",
-            p.display()
-        )));
+        return Err(AppError::keyed_vars(
+            "error.fs.pathNotFound",
+            json!({ "path": p.display().to_string() }),
+        ));
     }
 
     #[cfg(target_os = "windows")]
@@ -294,7 +332,12 @@ fn spawn_explorer_select(path: &std::path::Path) -> Result<(), AppError> {
     std::process::Command::new("explorer.exe")
         .arg(&arg)
         .spawn()
-        .map_err(|e| AppError::Other(format!("explorer.exe failed: {e}")))?;
+        .map_err(|e| {
+            AppError::keyed_vars(
+                "error.fs.explorerFailed",
+                json!({ "detail": e.to_string() }),
+            )
+        })?;
     Ok(())
 }
 
@@ -304,7 +347,12 @@ fn spawn_explorer_open(path: &std::path::Path) -> Result<(), AppError> {
         std::process::Command::new("explorer.exe")
             .arg(path.as_os_str())
             .spawn()
-            .map_err(|e| AppError::Other(format!("explorer.exe failed: {e}")))?;
+            .map_err(|e| {
+                AppError::keyed_vars(
+                    "error.fs.explorerFailed",
+                    json!({ "detail": e.to_string() }),
+                )
+            })?;
         return Ok(());
     }
     #[cfg(target_os = "macos")]
@@ -312,7 +360,12 @@ fn spawn_explorer_open(path: &std::path::Path) -> Result<(), AppError> {
         std::process::Command::new("open")
             .arg(path.as_os_str())
             .spawn()
-            .map_err(|e| AppError::Other(format!("open failed: {e}")))?;
+            .map_err(|e| {
+                AppError::keyed_vars(
+                    "error.fs.openFailed",
+                    json!({ "detail": e.to_string() }),
+                )
+            })?;
         return Ok(());
     }
     #[cfg(target_os = "linux")]
@@ -320,9 +373,14 @@ fn spawn_explorer_open(path: &std::path::Path) -> Result<(), AppError> {
         std::process::Command::new("xdg-open")
             .arg(path.as_os_str())
             .spawn()
-            .map_err(|e| AppError::Other(format!("xdg-open failed: {e}")))?;
+            .map_err(|e| {
+                AppError::keyed_vars(
+                    "error.fs.openFailed",
+                    json!({ "detail": e.to_string() }),
+                )
+            })?;
         return Ok(());
     }
     #[allow(unreachable_code)]
-    Err(AppError::Other("unsupported platform".into()))
+    Err(AppError::keyed("error.fs.unsupportedPlatform"))
 }
