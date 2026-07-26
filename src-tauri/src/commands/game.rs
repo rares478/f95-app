@@ -32,10 +32,11 @@ pub async fn thread_reply(
 #[tauri::command]
 pub async fn bbcode_preview(
     state: State<'_, AppState>,
+    thread_id: String,
     bb_code: String,
 ) -> Result<Value, AppError> {
     let client = ensure_sidecar(&state).await?;
-    client.bbcode_preview(&bb_code).await
+    client.bbcode_preview(&thread_id, &bb_code).await
 }
 
 #[tauri::command]

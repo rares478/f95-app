@@ -46,8 +46,10 @@ export function createGameHandlers(ctx: AppContext): Record<string, RpcHandler> 
       return ctx.getGame().reply(threadId, message);
     },
     bbcodePreview: async (p) => {
+      const threadId = String(p?.threadId ?? p?.thread_id ?? '');
       const bbCode = String(p?.bbCode ?? p?.bb_code ?? '');
-      return ctx.getGame().previewBbcode(bbCode);
+      if (!threadId) throw new RpcError(RPC_ERROR.INVALID_PARAMS, 'threadId required');
+      return ctx.getGame().previewBbcode(threadId, bbCode);
     },
     resolvePost: async (p) => {
       const postId = String(p?.postId ?? p?.post_id ?? '');

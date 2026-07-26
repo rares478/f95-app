@@ -202,8 +202,15 @@ export class GameClient {
     });
   }
 
-  async previewBbcode(bbCode: string): Promise<BbcodePreviewResult> {
+  async previewBbcode(
+    threadId: string,
+    bbCode: string,
+  ): Promise<BbcodePreviewResult> {
+    const id = String(threadId).trim();
     const text = String(bbCode ?? '');
+    if (!/^\d+$/.test(id)) {
+      throw new RpcError(RPC_ERROR.INVALID_PARAMS, 'threadId must be numeric');
+    }
     if (!text.trim()) {
       return { html: '' };
     }
@@ -242,9 +249,9 @@ export class GameClient {
     }
 
     const form = buildBbcodePreviewForm({
+      threadId: id,
       bbCode: text,
       xfToken,
-      requestUri: '/',
     });
     log(`[game] POST bbcode preview ${form.url}`);
     const res = await this.http.post(form.url, {
