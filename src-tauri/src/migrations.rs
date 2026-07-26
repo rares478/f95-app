@@ -178,3 +178,38 @@ ALTER TABLE library_games ADD COLUMN download_links_json TEXT;
 ALTER TABLE library_games ADD COLUMN download_links_version TEXT;
 ALTER TABLE library_games ADD COLUMN download_links_fetched_at TEXT;
 "#;
+
+/// v9: multiple executables per library game (separate season packs, etc.).
+/// Backfills one default row from existing `exe_path` / `install_path`.
+pub const V9_LIBRARY_GAME_EXES: &str = r#"
+CREATE TABLE library_game_exes (
+  id                TEXT PRIMARY KEY NOT NULL,
+  thread_id         TEXT NOT NULL,
+  exe_path          TEXT NOT NULL,
+  install_path      TEXT,
+  label             TEXT,
+  sort_order        INTEGER NOT NULL DEFAULT 0,
+  is_default        INTEGER NOT NULL DEFAULT 0,
+  last_launched_at  TEXT,
+  created_at        TEXT NOT NULL DEFAULT (datetime('now')),
+  FOREIGN KEY (thread_id) REFERENCES library_games(thread_id) ON DELETE CASCADE,
+  UNIQUE (thread_id, exe_path)
+);
+CREATE INDEX idx_library_game_exes_thread ON library_game_exes(thread_id);
+
+INSERT INTO library_game_exes (
+  id, thread_id, exe_path, install_path, label, sort_order, is_default, last_launched_at, created_at
+)
+SELECT
+  lower(hex(randomblob(16))),
+  thread_id,
+  exe_path,
+  install_path,
+  NULL,
+  0,
+  1,
+  last_played_at,
+  datetime('now')
+FROM library_games
+WHERE exe_path IS NOT NULL AND TRIM(exe_path) != '';
+"#;
