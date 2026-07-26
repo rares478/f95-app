@@ -20,6 +20,16 @@ pub async fn thread_posts(
 }
 
 #[tauri::command]
+pub async fn thread_reply(
+    state: State<'_, AppState>,
+    thread_id: String,
+    message: String,
+) -> Result<Value, AppError> {
+    let client = ensure_sidecar(&state).await?;
+    client.thread_reply(&thread_id, &message).await
+}
+
+#[tauri::command]
 pub async fn resolve_post(
     state: State<'_, AppState>,
     post_id: String,

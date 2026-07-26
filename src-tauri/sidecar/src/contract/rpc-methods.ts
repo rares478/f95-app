@@ -47,6 +47,10 @@ export const RPC_METHODS = {
     params: { threadId: 'string', page: 'number?' },
     result: 'unknown',
   },
+  threadReply: {
+    params: { threadId: 'string', message: 'string' },
+    result: { threadId: 'string', postId: 'string|null', page: 'number|null' },
+  },
   resolvePost: {
     params: { postId: 'string' },
     result: { threadId: 'string', postId: 'string' },
