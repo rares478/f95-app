@@ -18,6 +18,8 @@ export interface GameDownload {
   platform: string | null;
   part: number | null;
   kindHint: 'full' | 'split' | 'patch' | 'extra' | 'other' | null;
+  /** True when edition is Current (null) or a named heading outside spoilers. */
+  topLevel?: boolean;
 }
 
 export interface SocialLink {

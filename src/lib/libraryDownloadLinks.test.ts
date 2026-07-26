@@ -20,6 +20,13 @@ const link: GameDownload = {
   kindHint: null,
 };
 
+const structuredLink: GameDownload = {
+  ...link,
+  platform: 'Win/Linux',
+  kindHint: 'full',
+  group: 'Win/Linux',
+};
+
 function detail(over: Partial<GameDetail> = {}): GameDetail {
   return {
     threadId: '1',
@@ -90,7 +97,7 @@ describe('linksAreStale', () => {
     expect(
       linksAreStale(
         base({
-          downloadLinks: [link],
+          downloadLinks: [structuredLink],
           downloadLinksVersion: '1.0',
           currentVersion: null,
           availableVersion: null,
@@ -104,7 +111,7 @@ describe('linksAreStale', () => {
     expect(
       linksAreStale(
         base({
-          downloadLinks: [link],
+          downloadLinks: [structuredLink],
           downloadLinksVersion: '1.0',
           availableVersion: '1.1',
           installStatus: 'update_available',
@@ -118,7 +125,7 @@ describe('linksAreStale', () => {
     expect(
       linksAreStale(
         base({
-          downloadLinks: [link],
+          downloadLinks: [structuredLink],
           downloadLinksVersion: '1.1',
           availableVersion: '1.1',
         }),
@@ -131,8 +138,21 @@ describe('linksAreStale', () => {
     expect(
       linksAreStale(
         base({
-          downloadLinks: [link],
+          downloadLinks: [structuredLink],
           downloadLinksVersion: '0.9',
+          currentVersion: '1.0',
+        }),
+        'install',
+      ),
+    ).toBe(true);
+  });
+
+  it('is stale when cached links all lack platform (pre-upgrade path)', () => {
+    expect(
+      linksAreStale(
+        base({
+          downloadLinks: [link],
+          downloadLinksVersion: '1.0',
           currentVersion: '1.0',
         }),
         'install',
@@ -179,7 +199,34 @@ describe('ensureLinks', () => {
     expect(library.setDownloadLinks).toHaveBeenCalledWith('1', [link], '1.0');
   });
 
-  it('returns cached links without fetching when fresh', async () => {
+  it('returns cached links without fetching when fresh and structured', async () => {
+    const structured: GameDownload = {
+      ...link,
+      platform: 'Win/Linux',
+      kindHint: 'full',
+    };
+    const game = base({
+      downloadLinks: [structured],
+      downloadLinksVersion: '1.0',
+      currentVersion: '1.0',
+    });
+
+    const links = await ensureLinks(game, 'install');
+    expect(links).toEqual([structured]);
+    expect(ipc.gameDetail).not.toHaveBeenCalled();
+    expect(library.setDownloadLinks).not.toHaveBeenCalled();
+  });
+
+  it('refetches when cached links exist but all lack platform', async () => {
+    const refreshed: GameDownload = {
+      ...link,
+      platform: 'Win/Linux',
+      kindHint: 'full',
+    };
+    vi.mocked(ipc.gameDetail).mockResolvedValue(
+      detail({ downloads: [refreshed], version: '1.0' }),
+    );
+
     const game = base({
       downloadLinks: [link],
       downloadLinksVersion: '1.0',
@@ -187,8 +234,12 @@ describe('ensureLinks', () => {
     });
 
     const links = await ensureLinks(game, 'install');
-    expect(links).toEqual([link]);
-    expect(ipc.gameDetail).not.toHaveBeenCalled();
-    expect(library.setDownloadLinks).not.toHaveBeenCalled();
+    expect(links).toEqual([refreshed]);
+    expect(ipc.gameDetail).toHaveBeenCalledWith('1');
+    expect(library.setDownloadLinks).toHaveBeenCalledWith(
+      '1',
+      [refreshed],
+      '1.0',
+    );
   });
 });

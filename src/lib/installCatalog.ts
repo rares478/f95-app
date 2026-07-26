@@ -29,13 +29,64 @@ type NormalizedLink = GameDownload & {
   kindHint: GameDownload['kindHint'];
 };
 
+const OS_LABEL_RE =
+  /\b(win(?:dows)?(?:\s*\/\s*linux)?|linux|mac(?:os)?|android|ios|browser|all platforms?)\b/i;
+
+/**
+ * Parse legacy `group` ("Season 1-2 · Win/Linux · Part 1") when scraper
+ * structured fields are null — used as fallback in catalog normalize.
+ */
+export function backfillDownloadPathFromGroup(
+  link: GameDownload,
+): Partial<
+  Pick<GameDownload, 'edition' | 'platform' | 'part' | 'kindHint'>
+> {
+  const group = link.group?.trim();
+  if (!group) return {};
+
+  const bits = group
+    .split(/\s*·\s*/)
+    .map((s) => s.trim())
+    .filter(Boolean);
+
+  let edition: string | null = null;
+  let platform: string | null = null;
+  let part: number | null = null;
+
+  for (const bit of bits) {
+    const partMatch = bit.match(/^Part\s*(\d+)$/i);
+    if (partMatch) {
+      part = Number.parseInt(partMatch[1]!, 10);
+      continue;
+    }
+    if (OS_LABEL_RE.test(bit)) {
+      platform = bit;
+      continue;
+    }
+    if (!edition) edition = bit;
+  }
+
+  const out: Partial<
+    Pick<GameDownload, 'edition' | 'platform' | 'part' | 'kindHint'>
+  > = {};
+  if (link.platform == null && platform) out.platform = platform;
+  if (link.edition == null && edition) out.edition = edition;
+  if (link.part == null && part != null) out.part = part;
+  if (link.kindHint == null) {
+    if (part != null) out.kindHint = 'split';
+    else if (platform || edition) out.kindHint = 'full';
+  }
+  return out;
+}
+
 function normalizeLink(link: GameDownload): NormalizedLink {
+  const backfill = backfillDownloadPathFromGroup(link);
   return {
     ...link,
-    edition: link.edition ?? null,
-    platform: link.platform ?? null,
-    part: link.part ?? null,
-    kindHint: link.kindHint ?? null,
+    edition: link.edition ?? backfill.edition ?? null,
+    platform: link.platform ?? backfill.platform ?? null,
+    part: link.part ?? backfill.part ?? null,
+    kindHint: link.kindHint ?? backfill.kindHint ?? null,
   };
 }
 
@@ -116,7 +167,7 @@ export function buildInstallCatalog(links: GameDownload[]): InstallPlatform[] {
       season = {
         id: sid,
         label: seasonLabel(ed),
-        isTopLevel: ed == null,
+        isTopLevel: ed == null || link.topLevel === true,
         packages: [],
       };
       platform.seasons.push(season);

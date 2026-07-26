@@ -64,6 +64,8 @@ export interface GameDownload {
   platform: string | null;
   part: number | null;
   kindHint: 'full' | 'split' | 'patch' | 'extra' | 'other' | null;
+  /** True when edition is Current (null) or a named heading outside spoilers. */
+  topLevel?: boolean;
 }
 export interface SocialLink {
   host: string;
@@ -600,6 +602,7 @@ function collectLinks(
         platform: path.platform,
         part: path.part,
         kindHint: path.kindHint,
+        topLevel: path.topLevel,
       });
     } else if (info.category === 'social') {
       if (seenSocial.has(url)) return;
@@ -651,6 +654,8 @@ export type DownloadPath = {
   part: number | null;
   kindHint: NonNullable<GameDownload['kindHint']>;
   group: string | null;
+  /** True when edition is null (Current) or discovered outside spoilers. */
+  topLevel: boolean;
 };
 
 /**
@@ -669,9 +674,13 @@ export function resolveDownloadPath(
   } = resolveSpoilerEdition($, el);
 
   let edition = spoilerEdition;
+  let topLevel = false;
   if (!edition && !$(el).closest(SPOILER_SEL).length) {
     edition = nearestTopLevelEdition($, el);
+    if (edition) topLevel = true;
   }
+  // Unnamed Current (no edition) is always a top-level bucket.
+  if (!edition) topLevel = true;
 
   const labels = [...spoilerTitles, ...nearLabels];
   if (edition) labels.push(edition);
@@ -690,7 +699,7 @@ export function resolveDownloadPath(
   ].filter(Boolean) as string[];
   const group = groupBits.length ? groupBits.join(' · ') : null;
 
-  return { edition, platform, part, kindHint, group };
+  return { edition, platform, part, kindHint, group, topLevel };
 }
 
 function normalizeGroupLabel(raw: string): string | null {

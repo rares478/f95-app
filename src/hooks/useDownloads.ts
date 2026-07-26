@@ -20,6 +20,7 @@ import {
   pickBundleLeadJob,
   shouldAutoExtractDownload,
   withBundleAssignLock,
+  withBundleExtractLock,
 } from '../lib/installJobExtract';
 import {
   bundleExtractReady,
@@ -125,13 +126,20 @@ export async function runExtraction(
                 .map((j) => j.extractPath),
               jobCount: planJobs.length,
             });
-      const result = await ipc.extractArchive({
-        archivePath,
-        gameTitle: game.title,
-        downloadId: resolvedDownloadId,
-        destDir,
-      });
-      await markJobExtracted(linkedJob.id, result.destDir);
+      const runExtract = async () => {
+        const result = await ipc.extractArchive({
+          archivePath,
+          gameTitle: game.title,
+          downloadId: resolvedDownloadId,
+          destDir,
+        });
+        await markJobExtracted(linkedJob.id, result.destDir);
+        return result;
+      };
+      const result =
+        linkedJob.bundleId != null
+          ? await withBundleExtractLock(linkedJob.bundleId, runExtract)
+          : await runExtract();
 
       const dlSettings = await loadDownloadSettings();
 

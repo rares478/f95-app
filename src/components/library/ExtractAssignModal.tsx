@@ -14,7 +14,7 @@ import {
 } from '../../lib/libraryExes';
 import {
   findJob,
-  markJobAssign,
+  markJobAndBundleSiblingsAssign,
   recomputePlanStatus,
   type InstallJob,
 } from '../../lib/installPlans';
@@ -148,7 +148,7 @@ export function ExtractAssignModal({
     setBusy(true);
     try {
       const exe = await library.addExe(pending.threadId, exePath, label);
-      await markJobAssign(job.id, 'assigned', { exeId: exe.id });
+      await markJobAndBundleSiblingsAssign(job, 'assigned', { exeId: exe.id });
       await recomputePlanStatus(job.planId);
       await afterAssigned(exePath);
     } catch (err) {
@@ -171,7 +171,7 @@ export function ExtractAssignModal({
     try {
       const installPath = exeParentDir(exePath) || job.extractPath;
       await library.updateExePaths(replaceId, exePath, installPath);
-      await markJobAssign(job.id, 'assigned', { exeId: replaceId });
+      await markJobAndBundleSiblingsAssign(job, 'assigned', { exeId: replaceId });
       await recomputePlanStatus(job.planId);
       await afterAssigned(exePath);
     } catch (err) {
@@ -192,7 +192,7 @@ export function ExtractAssignModal({
     if (!job || busy) return;
     setBusy(true);
     try {
-      await markJobAssign(job.id, 'skipped');
+      await markJobAndBundleSiblingsAssign(job, 'skipped');
       await recomputePlanStatus(job.planId);
       await onDone();
     } catch (err) {
