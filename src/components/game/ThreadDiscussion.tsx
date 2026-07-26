@@ -120,6 +120,8 @@ export function ThreadDiscussion({
       } catch (err) {
         if (gen !== fetchGen.current) return;
         setError(formatIpcError(err));
+        // Unstick seek so Load more is not left disabled forever.
+        setFocusStatus((s) => (s === 'seeking' ? 'missing' : s));
       } finally {
         if (gen !== fetchGen.current) return;
         if (kind === 'initial') setLoading(false);
@@ -130,9 +132,10 @@ export function ThreadDiscussion({
   );
 
   useEffect(() => {
-    if (offline || !visible || page > 0 || loading) return;
+    // Gate on `error` so a failed page-1 fetch does not retry in a tight loop.
+    if (offline || !visible || page > 0 || loading || error) return;
     void appendPage(1, 'initial');
-  }, [offline, visible, page, loading, appendPage]);
+  }, [offline, visible, page, loading, error, appendPage]);
 
   useEffect(() => {
     if (offline || !focusPostId || focusStatus !== 'seeking') return;

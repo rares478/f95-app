@@ -37,4 +37,20 @@ describe('parseThreadPostsPage', () => {
     expect(page.totalPages).toBe(2);
     expect(page.hasMore).toBe(true);
   });
+
+  it('falls back to /posts/{id} href when data-content and id lack digits', () => {
+    const html = `
+      <html><body>
+        <article class="message">
+          <h4 class="message-name"><a>HrefOnly</a></h4>
+          <time class="u-dt" datetime="2020-01-03T00:00:00+0000">Jan 3</time>
+          <div class="message-body"><div class="bbWrapper"><p>via href</p></div></div>
+          <a href="/posts/99/">Permalink</a>
+        </article>
+      </body></html>`;
+    const page = parseThreadPostsPage(html, { threadId: '100', page: 2 });
+    expect(page.posts).toHaveLength(1);
+    expect(page.posts[0].postId).toBe('99');
+    expect(page.posts[0].author).toBe('HrefOnly');
+  });
 });
