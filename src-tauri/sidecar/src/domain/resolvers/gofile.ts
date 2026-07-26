@@ -62,10 +62,10 @@ export function parseGofileUrl(raw: string): ParsedGofileUrl {
   try {
     u = new URL(raw.trim());
   } catch {
-    throw new RpcError(RPC_ERROR.INVALID_PARAMS, `invalid GoFile URL: ${raw}`);
+    throw new RpcError(RPC_ERROR.INVALID_PARAMS, 'error.gofile.invalidUrl');
   }
   if (!/^(www\.)?gofile\.io$/i.test(u.hostname)) {
-    throw new RpcError(RPC_ERROR.INVALID_PARAMS, `not a GoFile URL: ${raw}`);
+    throw new RpcError(RPC_ERROR.INVALID_PARAMS, 'error.gofile.invalidUrl');
   }
   const segs = u.pathname.split('/').filter(Boolean);
   const idx = segs.findIndex((s) => s === 'd' || s === 'download');

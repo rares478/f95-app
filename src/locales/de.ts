@@ -781,6 +781,7 @@ const de: Record<string, string> = {
 
   // GoFile
   'error.gofile.missingId': 'GoFile-URL ohne Content-ID',
+  'error.gofile.invalidUrl': 'Ungültige GoFile-URL',
   'error.gofile.metaTimeout': 'GoFile: Zeitüberschreitung beim Warten auf Metadaten im Browser',
   'error.gofile.noButton': 'GoFile: Download-Button nicht gefunden — öffne den Link im Browser',
   'error.gofile.noCdn': 'GoFile: Download hat keine CDN-URL zurückgegeben',
@@ -798,6 +799,7 @@ const de: Record<string, string> = {
 
   // DataNodes
   'error.datanodes.missingCode': 'DataNodes-URL ohne Dateicode',
+  'error.datanodes.invalidUrl': 'Ungültige DataNodes-URL',
   'error.datanodes.notFound': 'DataNodes: Datei nicht gefunden oder abgelaufen',
   'error.datanodes.noButton': 'DataNodes: Download-Button nicht gefunden',
   'error.datanodes.needsAds': 'DataNodes: kostenloser Download erfordert Werbung im Browser. Lege einen API-Schlüssel unter Einstellungen → Hosts → DataNodes fest (datanodes.to/account).',
@@ -808,6 +810,7 @@ const de: Record<string, string> = {
 
   // Mixdrop
   'error.mixdrop.missingRef': 'MixDrop-URL ohne Dateireferenz',
+  'error.mixdrop.invalidUrl': 'Ungültige MixDrop-URL',
   'error.mixdrop.notFound': 'MixDrop: Datei nicht gefunden oder entfernt',
   'error.mixdrop.captcha': 'MixDrop erfordert reCAPTCHA-Verifizierung — öffne den Link im Browser zum Download',
   'error.mixdrop.generic': 'MixDrop: {detail}',
@@ -815,6 +818,7 @@ const de: Record<string, string> = {
 
   // Buzzheavier
   'error.buzzheavier.missingId': 'BuzzHeavier-URL ohne Datei-ID',
+  'error.buzzheavier.invalidUrl': 'Ungültige BuzzHeavier-URL',
   'error.buzzheavier.notFound': 'BuzzHeavier: Datei nicht gefunden oder abgelaufen',
   'error.buzzheavier.cloudflare': 'BuzzHeavier: Cloudflare wurde nicht gelöst — versuche es im Browser zu öffnen',
   'error.buzzheavier.folder': 'BuzzHeavier: Ordner-Links werden noch nicht unterstützt — nutze eine einzelne Datei',
@@ -825,6 +829,7 @@ const de: Record<string, string> = {
 
   // Workupload
   'error.workupload.missingId': 'WorkUpload-URL ohne Datei-ID',
+  'error.workupload.invalidUrl': 'Ungültige WorkUpload-URL',
   'error.workupload.challenge': 'WorkUpload erfordert Anti-Bot-Verifizierung — öffne den Link im Browser zum Download',
   'error.workupload.noCdn': 'WorkUpload: Download hat keine CDN-URL zurückgegeben',
   'error.workupload.notFound': 'WorkUpload: Datei nicht gefunden oder abgelaufen',
@@ -879,10 +884,32 @@ const de: Record<string, string> = {
   'error.host.datanodesBadKey':
     'Ungültiger oder abgelaufener API-Schlüssel. Erzeuge einen neuen auf der DataNodes-Kontoseite.',
   'error.host.datanodesResponse': 'DataNodes antwortete: {detail} (HTTP {http})',
+  'error.host.buzzheavierEmptyId': 'Account-ID ist leer.',
+  'error.host.buzzheavierBadId': 'Ungültige Account-ID — prüfe buzzheavier.com/account',
+  'error.host.buzzheavierConnected': 'Konto verbunden ({email}).',
+  'error.host.buzzheavierOk': 'BuzzHeavier-Konto verbunden.',
 
   // MEGA
   'error.mega.badPassword': 'Ungültige E-Mail oder Passwort.',
   'error.mega.generic': 'MEGA: {detail}',
+  'error.mega.emptyUrl': 'MEGA: leere URL',
+  'error.mega.password': 'MEGA: passwortgeschützter Link — im Browser öffnen',
+  'error.mega.unrecognizedUrl':
+    'MEGA: unbekanntes URL-Format — erwartet https://mega.nz/file/... oder /folder/...',
+  'error.mega.normalizeFailed':
+    'MEGA: URL konnte nicht normalisiert werden — stelle sicher, dass der Link den Schlüssel (#...) enthält',
+  'error.mega.invalidUrl':
+    'MEGA: ungültiges URL-Format — Link muss https://mega.nz/file/... oder /folder/... sein',
+
+  // Library install move
+  'error.mover.oldMissing': 'Alte Installation existiert nicht: {path}',
+  'error.mover.destLibMissing': 'Zielbibliothek existiert nicht: {path}',
+  'error.mover.alreadyThere': 'Installation ist bereits in dieser Bibliothek.',
+  'error.mover.noFolderName': 'Alte Installation hat keinen Ordnernamen.',
+  'error.mover.destExists': 'Ziel existiert bereits: {path}',
+  'error.mover.alreadyMoving': 'Dieses Spiel wird bereits verschoben.',
+  'error.mover.destAppeared': 'Ziel erschien während des Verschiebens: {path}',
+  'error.mover.failed': 'Verschieben fehlgeschlagen: {detail}',
 
   // Shared download manager
   'error.download.choiceExpired': 'Dateiauswahl abgelaufen — klicke auf Erneut versuchen beim Download',

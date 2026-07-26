@@ -787,6 +787,7 @@ const en: Record<string, string> = {
 
   // GoFile
   'error.gofile.missingId': 'GoFile URL missing content id',
+  'error.gofile.invalidUrl': 'Invalid GoFile URL',
   'error.gofile.metaTimeout': 'GoFile: timed out waiting for metadata in browser',
   'error.gofile.noButton': 'GoFile: download button not found — open the link in browser',
   'error.gofile.noCdn': 'GoFile: download did not return CDN URL',
@@ -804,6 +805,7 @@ const en: Record<string, string> = {
 
   // DataNodes
   'error.datanodes.missingCode': 'DataNodes URL missing file code',
+  'error.datanodes.invalidUrl': 'Invalid DataNodes URL',
   'error.datanodes.notFound': 'DataNodes: file not found or expired',
   'error.datanodes.noButton': 'DataNodes: download button not found',
   'error.datanodes.needsAds': 'DataNodes: free download requires ads in the browser. Set an API key in Settings → Hosts → DataNodes (datanodes.to/account).',
@@ -814,6 +816,7 @@ const en: Record<string, string> = {
 
   // Mixdrop
   'error.mixdrop.missingRef': 'MixDrop URL missing file ref',
+  'error.mixdrop.invalidUrl': 'Invalid MixDrop URL',
   'error.mixdrop.notFound': 'MixDrop: file not found or removed',
   'error.mixdrop.captcha': 'MixDrop requires reCAPTCHA verification — open the link in browser to download',
   'error.mixdrop.generic': 'MixDrop: {detail}',
@@ -821,6 +824,7 @@ const en: Record<string, string> = {
 
   // Buzzheavier
   'error.buzzheavier.missingId': 'BuzzHeavier URL missing file id',
+  'error.buzzheavier.invalidUrl': 'Invalid BuzzHeavier URL',
   'error.buzzheavier.notFound': 'BuzzHeavier: file not found or expired',
   'error.buzzheavier.cloudflare': 'BuzzHeavier: Cloudflare was not solved — try opening in browser',
   'error.buzzheavier.folder': 'BuzzHeavier: folder links are not supported yet — use a single file',
@@ -831,6 +835,7 @@ const en: Record<string, string> = {
 
   // Workupload
   'error.workupload.missingId': 'WorkUpload URL missing file id',
+  'error.workupload.invalidUrl': 'Invalid WorkUpload URL',
   'error.workupload.challenge': 'WorkUpload requires anti-bot verification — open the link in browser to download',
   'error.workupload.noCdn': 'WorkUpload: download did not return CDN URL',
   'error.workupload.notFound': 'WorkUpload: file not found or expired',
@@ -885,10 +890,32 @@ const en: Record<string, string> = {
   'error.host.datanodesBadKey':
     'Invalid or expired API key. Generate a new one on the DataNodes account page.',
   'error.host.datanodesResponse': 'DataNodes responded: {detail} (HTTP {http})',
+  'error.host.buzzheavierEmptyId': 'Account ID is empty.',
+  'error.host.buzzheavierBadId': 'Invalid Account ID — check buzzheavier.com/account',
+  'error.host.buzzheavierConnected': 'Account connected ({email}).',
+  'error.host.buzzheavierOk': 'BuzzHeavier account connected.',
 
   // MEGA
   'error.mega.badPassword': 'Invalid email or password.',
   'error.mega.generic': 'MEGA: {detail}',
+  'error.mega.emptyUrl': 'MEGA: empty URL',
+  'error.mega.password': 'MEGA: password-protected link — open in browser',
+  'error.mega.unrecognizedUrl':
+    'MEGA: unrecognized URL format — expected https://mega.nz/file/... or /folder/...',
+  'error.mega.normalizeFailed':
+    'MEGA: could not normalize URL — make sure the link includes the key (#...)',
+  'error.mega.invalidUrl':
+    'MEGA: invalid URL format — link must be https://mega.nz/file/... or /folder/...',
+
+  // Library install move
+  'error.mover.oldMissing': 'Old install does not exist: {path}',
+  'error.mover.destLibMissing': 'Destination library does not exist: {path}',
+  'error.mover.alreadyThere': 'Install is already in that library.',
+  'error.mover.noFolderName': 'Old install has no folder name.',
+  'error.mover.destExists': 'Destination already exists: {path}',
+  'error.mover.alreadyMoving': 'This game is already being moved.',
+  'error.mover.destAppeared': 'Destination appeared during move: {path}',
+  'error.mover.failed': 'Move failed: {detail}',
 
   // Shared download manager
   'error.download.choiceExpired': 'File choice expired — click Retry on the download',

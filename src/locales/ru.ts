@@ -781,6 +781,7 @@ const ru: Record<string, string> = {
 
   // GoFile
   'error.gofile.missingId': 'В URL GoFile отсутствует content id',
+  'error.gofile.invalidUrl': 'Неверный URL GoFile',
   'error.gofile.metaTimeout': 'GoFile: истекло время ожидания метаданных в браузере',
   'error.gofile.noButton': 'GoFile: кнопка скачивания не найдена — откройте ссылку в браузере',
   'error.gofile.noCdn': 'GoFile: загрузка не вернула CDN URL',
@@ -798,6 +799,7 @@ const ru: Record<string, string> = {
 
   // DataNodes
   'error.datanodes.missingCode': 'В URL DataNodes отсутствует file code',
+  'error.datanodes.invalidUrl': 'Неверный URL DataNodes',
   'error.datanodes.notFound': 'DataNodes: файл не найден или истёк',
   'error.datanodes.noButton': 'DataNodes: кнопка скачивания не найдена',
   'error.datanodes.needsAds': 'DataNodes: бесплатная загрузка требует рекламу в браузере. Укажите API-ключ в Настройки → Хосты → DataNodes (datanodes.to/account).',
@@ -808,6 +810,7 @@ const ru: Record<string, string> = {
 
   // Mixdrop
   'error.mixdrop.missingRef': 'В URL MixDrop отсутствует file ref',
+  'error.mixdrop.invalidUrl': 'Неверный URL MixDrop',
   'error.mixdrop.notFound': 'MixDrop: файл не найден или удалён',
   'error.mixdrop.captcha': 'MixDrop требует проверку reCAPTCHA — откройте ссылку в браузере для скачивания',
   'error.mixdrop.generic': 'MixDrop: {detail}',
@@ -815,6 +818,7 @@ const ru: Record<string, string> = {
 
   // Buzzheavier
   'error.buzzheavier.missingId': 'В URL BuzzHeavier отсутствует file id',
+  'error.buzzheavier.invalidUrl': 'Неверный URL BuzzHeavier',
   'error.buzzheavier.notFound': 'BuzzHeavier: файл не найден или истёк',
   'error.buzzheavier.cloudflare': 'BuzzHeavier: Cloudflare не пройден — попробуйте открыть в браузере',
   'error.buzzheavier.folder': 'BuzzHeavier: ссылки на папки пока не поддерживаются — используйте один файл',
@@ -825,6 +829,7 @@ const ru: Record<string, string> = {
 
   // Workupload
   'error.workupload.missingId': 'В URL WorkUpload отсутствует file id',
+  'error.workupload.invalidUrl': 'Неверный URL WorkUpload',
   'error.workupload.challenge': 'WorkUpload требует антибот-проверку — откройте ссылку в браузере для скачивания',
   'error.workupload.noCdn': 'WorkUpload: загрузка не вернула CDN URL',
   'error.workupload.notFound': 'WorkUpload: файл не найден или истёк',
@@ -879,10 +884,32 @@ const ru: Record<string, string> = {
   'error.host.datanodesBadKey':
     'Неверный или истёкший API-ключ. Создайте новый на странице аккаунта DataNodes.',
   'error.host.datanodesResponse': 'DataNodes ответил: {detail} (HTTP {http})',
+  'error.host.buzzheavierEmptyId': 'Account ID пуст.',
+  'error.host.buzzheavierBadId': 'Неверный Account ID — проверьте buzzheavier.com/account',
+  'error.host.buzzheavierConnected': 'Аккаунт подключён ({email}).',
+  'error.host.buzzheavierOk': 'Аккаунт BuzzHeavier подключён.',
 
   // MEGA
   'error.mega.badPassword': 'Неверный e-mail или пароль.',
   'error.mega.generic': 'MEGA: {detail}',
+  'error.mega.emptyUrl': 'MEGA: пустой URL',
+  'error.mega.password': 'MEGA: ссылка защищена паролем — откройте в браузере',
+  'error.mega.unrecognizedUrl':
+    'MEGA: нераспознанный формат URL — ожидается https://mega.nz/file/... или /folder/...',
+  'error.mega.normalizeFailed':
+    'MEGA: не удалось нормализовать URL — убедитесь, что ссылка содержит ключ (#...)',
+  'error.mega.invalidUrl':
+    'MEGA: неверный формат URL — ссылка должна быть https://mega.nz/file/... или /folder/...',
+
+  // Library install move
+  'error.mover.oldMissing': 'Старая установка не существует: {path}',
+  'error.mover.destLibMissing': 'Целевая библиотека не существует: {path}',
+  'error.mover.alreadyThere': 'Установка уже находится в этой библиотеке.',
+  'error.mover.noFolderName': 'У старой установки нет имени папки.',
+  'error.mover.destExists': 'Назначение уже существует: {path}',
+  'error.mover.alreadyMoving': 'Эта игра уже перемещается.',
+  'error.mover.destAppeared': 'Назначение появилось во время перемещения: {path}',
+  'error.mover.failed': 'Ошибка перемещения: {detail}',
 
   // Shared download manager
   'error.download.choiceExpired': 'Выбор файла истёк — нажмите Повторить у загрузки',

@@ -22,10 +22,10 @@ export function parseWorkuploadUrl(raw: string): ParsedWorkuploadUrl {
   try {
     u = new URL(raw.trim());
   } catch {
-    throw new RpcError(RPC_ERROR.INVALID_PARAMS, `invalid WorkUpload URL: ${raw}`);
+    throw new RpcError(RPC_ERROR.INVALID_PARAMS, 'error.workupload.invalidUrl');
   }
   if (!/^(www\.)?workupload\.com$/i.test(u.hostname)) {
-    throw new RpcError(RPC_ERROR.INVALID_PARAMS, `not a WorkUpload URL: ${raw}`);
+    throw new RpcError(RPC_ERROR.INVALID_PARAMS, 'error.workupload.invalidUrl');
   }
   const segs = u.pathname.split('/').filter(Boolean);
   const fileIdx = segs.findIndex((s) => s.toLowerCase() === 'file');
@@ -34,7 +34,7 @@ export function parseWorkuploadUrl(raw: string): ParsedWorkuploadUrl {
   }
   const fileId = segs[fileIdx + 1];
   if (!/^[a-zA-Z0-9_-]{4,64}$/.test(fileId)) {
-    throw new RpcError(RPC_ERROR.INVALID_PARAMS, `invalid WorkUpload file id: ${fileId}`);
+    throw new RpcError(RPC_ERROR.INVALID_PARAMS, 'error.workupload.invalidUrl');
   }
   const nameSeg = segs[fileIdx + 2];
   const fileName = nameSeg ? decodeURIComponent(nameSeg) : null;

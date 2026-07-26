@@ -17,10 +17,10 @@ export function parseDatanodesUrl(raw: string): ParsedDatanodesUrl {
   try {
     u = new URL(raw.trim());
   } catch {
-    throw new RpcError(RPC_ERROR.INVALID_PARAMS, `invalid DataNodes URL: ${raw}`);
+    throw new RpcError(RPC_ERROR.INVALID_PARAMS, 'error.datanodes.invalidUrl');
   }
   if (!/^(www\.)?datanodes\.to$/i.test(u.hostname)) {
-    throw new RpcError(RPC_ERROR.INVALID_PARAMS, `not a DataNodes URL: ${raw}`);
+    throw new RpcError(RPC_ERROR.INVALID_PARAMS, 'error.datanodes.invalidUrl');
   }
   const segs = u.pathname.split('/').filter(Boolean);
   const isCode = (s: string) =>

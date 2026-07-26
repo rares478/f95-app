@@ -51,10 +51,10 @@ export function parseMixdropUrl(raw: string): ParsedMixdropUrl {
   try {
     u = new URL(raw.trim());
   } catch {
-    throw new RpcError(RPC_ERROR.INVALID_PARAMS, `invalid MixDrop URL: ${raw}`);
+    throw new RpcError(RPC_ERROR.INVALID_PARAMS, 'error.mixdrop.invalidUrl');
   }
   if (!HOST_RE.test(u.hostname)) {
-    throw new RpcError(RPC_ERROR.INVALID_PARAMS, `not a MixDrop URL: ${raw}`);
+    throw new RpcError(RPC_ERROR.INVALID_PARAMS, 'error.mixdrop.invalidUrl');
   }
   const segs = u.pathname.split('/').filter(Boolean);
   const idx = segs.findIndex((s) => s === 'f' || s === 'e');

@@ -66,13 +66,11 @@ pub fn is_protected_link(url: &str) -> bool {
 pub fn normalize_mega_public_url(raw: &str) -> Result<String, AppError> {
     let trimmed = raw.trim();
     if trimmed.is_empty() {
-        return Err(AppError::Other("mega: empty URL".into()));
+        return Err(AppError::keyed("error.mega.emptyUrl"));
     }
 
     if is_protected_link(trimmed) {
-        return Err(AppError::Other(
-            "mega: password-protected link — open in browser".into(),
-        ));
+        return Err(AppError::keyed("error.mega.password"));
     }
 
     let with_scheme = if trimmed.contains("://") {
@@ -87,9 +85,7 @@ pub fn normalize_mega_public_url(raw: &str) -> Result<String, AppError> {
     {
         format!("https://mega.nz/{trimmed}")
     } else {
-        return Err(AppError::Other(format!(
-            "mega: unrecognized URL format — expected https://mega.nz/file/... or /folder/..."
-        )));
+        return Err(AppError::keyed("error.mega.unrecognizedUrl"));
     };
 
     if let Some(converted) = convert_legacy_hash_url(&with_scheme) {
@@ -100,9 +96,7 @@ pub fn normalize_mega_public_url(raw: &str) -> Result<String, AppError> {
         return Ok(converted);
     }
 
-    Err(AppError::Other(format!(
-        "mega: could not normalize URL — make sure the link includes the key (#...)"
-    )))
+    Err(AppError::keyed("error.mega.normalizeFailed"))
 }
 
 /// Fetch nodes from a public MEGA link and summarize what will be downloaded.
@@ -341,11 +335,11 @@ fn sanitize_segment(s: &str) -> String {
 
 fn map_mega_err(e: mega::Error) -> AppError {
     match e {
-        mega::Error::InvalidPublicUrlFormat => AppError::Other(
-            "mega: invalid URL format — link must be https://mega.nz/file/... or /folder/..."
-                .into(),
+        mega::Error::InvalidPublicUrlFormat => AppError::keyed("error.mega.invalidUrl"),
+        other => AppError::keyed_vars(
+            "error.mega.generic",
+            json!({ "detail": other.to_string() }),
         ),
-        other => AppError::Other(format!("mega: {other}")),
     }
 }
 

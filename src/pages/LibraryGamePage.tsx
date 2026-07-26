@@ -44,6 +44,7 @@ import { useLibraryInstallFlow } from '../hooks/useLibraryInstallFlow';
 import { useDownloads } from '../contexts/Downloads';
 import { inFlightLibraryStatus } from '../lib/downloadLibrarySync';
 import { useT } from '../lib/i18n';
+import { translateBackendMessage } from '../lib/backendMessage';
 import { formatIpcError } from '../lib/ipcError';
 import type { GameDetail } from '../types/game';
 import type { LibraryGame } from '../types/library';
@@ -388,7 +389,9 @@ export function LibraryGamePage() {
   async function onMoveClosed(reason: 'cancelled' | 'error', message?: string) {
     setMoveInFlight(null);
     if (reason === 'error' && message) {
-      await dialog.alert(t('libdetail.move.error', { error: message }), { kind: 'error' });
+      await dialog.alert(t('libdetail.move.error', { error: translateBackendMessage(message, t) }), {
+        kind: 'error',
+      });
     }
   }
 
@@ -836,4 +839,3 @@ function Shell({
     </GameDetailShell>
   );
 }
-

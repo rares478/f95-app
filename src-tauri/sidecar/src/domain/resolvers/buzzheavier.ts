@@ -13,7 +13,7 @@ export function normalizeBuzzheavierUrl(raw: string): string {
   try {
     u = new URL(raw.trim());
   } catch {
-    throw new RpcError(RPC_ERROR.INVALID_PARAMS, `invalid BuzzHeavier URL: ${raw}`);
+    throw new RpcError(RPC_ERROR.INVALID_PARAMS, 'error.buzzheavier.invalidUrl');
   }
   const host = u.hostname.toLowerCase();
   const ok =
@@ -26,7 +26,7 @@ export function normalizeBuzzheavierUrl(raw: string): string {
     host === 'fuckingfast.co' ||
     host === 'www.fuckingfast.co';
   if (!ok) {
-    throw new RpcError(RPC_ERROR.INVALID_PARAMS, `not a BuzzHeavier URL: ${raw}`);
+    throw new RpcError(RPC_ERROR.INVALID_PARAMS, 'error.buzzheavier.invalidUrl');
   }
   const parts = u.pathname.split('/').filter(Boolean);
   if (parts.length === 0) {
@@ -34,7 +34,7 @@ export function normalizeBuzzheavierUrl(raw: string): string {
   }
   const id = parts[0].replace(/\/download$/, '');
   if (!/^[a-zA-Z0-9]{8,32}$/.test(id)) {
-    throw new RpcError(RPC_ERROR.INVALID_PARAMS, `invalid BuzzHeavier file id: ${id}`);
+    throw new RpcError(RPC_ERROR.INVALID_PARAMS, 'error.buzzheavier.invalidUrl');
   }
   return `${CANONICAL}/${id}`;
 }

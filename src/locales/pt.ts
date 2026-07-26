@@ -786,6 +786,7 @@ const pt: Record<string, string> = {
 
   // GoFile
   'error.gofile.missingId': 'URL do GoFile sem content id',
+  'error.gofile.invalidUrl': 'URL do GoFile inválida',
   'error.gofile.metaTimeout': 'GoFile: tempo esgotado ao aguardar metadados no navegador',
   'error.gofile.noButton': 'GoFile: botão de download não encontrado — abra o link no navegador',
   'error.gofile.noCdn': 'GoFile: o download não retornou URL CDN',
@@ -803,6 +804,7 @@ const pt: Record<string, string> = {
 
   // DataNodes
   'error.datanodes.missingCode': 'URL do DataNodes sem file code',
+  'error.datanodes.invalidUrl': 'URL do DataNodes inválida',
   'error.datanodes.notFound': 'DataNodes: arquivo não encontrado ou expirado',
   'error.datanodes.noButton': 'DataNodes: botão de download não encontrado',
   'error.datanodes.needsAds': 'DataNodes: o download gratuito exige anúncios no navegador. Defina uma chave de API em Configurações → Hosts → DataNodes (datanodes.to/account).',
@@ -813,6 +815,7 @@ const pt: Record<string, string> = {
 
   // Mixdrop
   'error.mixdrop.missingRef': 'URL do MixDrop sem file ref',
+  'error.mixdrop.invalidUrl': 'URL do MixDrop inválida',
   'error.mixdrop.notFound': 'MixDrop: arquivo não encontrado ou removido',
   'error.mixdrop.captcha': 'MixDrop exige verificação reCAPTCHA — abra o link no navegador para baixar',
   'error.mixdrop.generic': 'MixDrop: {detail}',
@@ -820,6 +823,7 @@ const pt: Record<string, string> = {
 
   // Buzzheavier
   'error.buzzheavier.missingId': 'URL do BuzzHeavier sem file id',
+  'error.buzzheavier.invalidUrl': 'URL do BuzzHeavier inválida',
   'error.buzzheavier.notFound': 'BuzzHeavier: arquivo não encontrado ou expirado',
   'error.buzzheavier.cloudflare': 'BuzzHeavier: Cloudflare não foi resolvido — tente abrir no navegador',
   'error.buzzheavier.folder': 'BuzzHeavier: links de pasta ainda não são suportados — use um arquivo único',
@@ -830,6 +834,7 @@ const pt: Record<string, string> = {
 
   // Workupload
   'error.workupload.missingId': 'URL do WorkUpload sem file id',
+  'error.workupload.invalidUrl': 'URL do WorkUpload inválida',
   'error.workupload.challenge': 'WorkUpload exige verificação anti-bot — abra o link no navegador para baixar',
   'error.workupload.noCdn': 'WorkUpload: o download não retornou URL CDN',
   'error.workupload.notFound': 'WorkUpload: arquivo não encontrado ou expirado',
@@ -884,10 +889,32 @@ const pt: Record<string, string> = {
   'error.host.datanodesBadKey':
     'Chave de API inválida ou expirada. Gere uma nova na página da conta DataNodes.',
   'error.host.datanodesResponse': 'DataNodes respondeu: {detail} (HTTP {http})',
+  'error.host.buzzheavierEmptyId': 'Account ID está vazio.',
+  'error.host.buzzheavierBadId': 'Account ID inválido — confira em buzzheavier.com/account',
+  'error.host.buzzheavierConnected': 'Conta conectada ({email}).',
+  'error.host.buzzheavierOk': 'Conta BuzzHeavier conectada.',
 
   // MEGA
   'error.mega.badPassword': 'E-mail ou senha inválidos.',
   'error.mega.generic': 'MEGA: {detail}',
+  'error.mega.emptyUrl': 'MEGA: URL vazia',
+  'error.mega.password': 'MEGA: link protegido por senha — abra no navegador',
+  'error.mega.unrecognizedUrl':
+    'MEGA: formato de URL não reconhecido — esperado https://mega.nz/file/... ou /folder/...',
+  'error.mega.normalizeFailed':
+    'MEGA: não foi possível normalizar a URL — confira se o link inclui a chave (#...)',
+  'error.mega.invalidUrl':
+    'MEGA: formato de URL inválido — o link deve ser https://mega.nz/file/... ou /folder/...',
+
+  // Library install move
+  'error.mover.oldMissing': 'Install antigo não existe: {path}',
+  'error.mover.destLibMissing': 'Biblioteca de destino não existe: {path}',
+  'error.mover.alreadyThere': 'O install já está nessa biblioteca.',
+  'error.mover.noFolderName': 'Install antigo sem nome de pasta.',
+  'error.mover.destExists': 'Destino já existe: {path}',
+  'error.mover.alreadyMoving': 'Este jogo já está sendo movido.',
+  'error.mover.destAppeared': 'Destino apareceu durante a movimentação: {path}',
+  'error.mover.failed': 'Falha ao mover: {detail}',
 
   // Shared download manager
   'error.download.choiceExpired': 'Escolha de arquivo expirada — clique em Tentar de novo no download',
