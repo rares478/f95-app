@@ -10,6 +10,7 @@
 
 use crate::error::AppError;
 use serde_json::json;
+use std::ffi::OsString;
 use std::fs;
 use std::io::{self, BufWriter, Read, Write};
 use std::path::{Path, PathBuf};
@@ -69,8 +70,14 @@ fn extract_in_process(
     }
 }
 
-/// Run `7z x` with multithreading enabled. 7-Zip exit code 1 is a warning
-/// (e.g. locked temp files) and is treated as success.
+/// Run `7z x` with multithreading enabled.
+///
+/// Exit code 1 is a warning (non-fatal) and is treated as success.
+/// Exit code 2 is normally fatal, but 7-Zip also returns 2 when it cannot
+/// overwrite one or more existing files that are locked by another process —
+/// even after successfully extracting everything else. Re-extracts into an
+/// existing game folder hit this often; we treat lock-only failures as success
+/// when the destination already has extracted files.
 fn extract_with_7z(
     exe: &Path,
     archive: &Path,
@@ -79,11 +86,14 @@ fn extract_with_7z(
     start: Instant,
 ) -> Result<(), AppError> {
     fs::create_dir_all(dest).map_err(io_err)?;
-    // `-o` must be glued to the path with no space between them.
-    let out_arg = format!("-o{}", dest.display());
-    let mut child = Command::new(exe)
-        .arg("x")
+    // `-o` must be glued to the path with no space; keep raw OsStr so Unicode
+    // install paths are not lossily mangled via Display.
+    let mut out_arg = OsString::from("-o");
+    out_arg.push(dest.as_os_str());
+    let mut cmd = Command::new(exe);
+    cmd.arg("x")
         .arg("-y")
+        .arg("-aoa")
         .arg("-mmt=on")
         .arg("-bsp1")
         .arg("-bso0")
@@ -91,14 +101,20 @@ fn extract_with_7z(
         .arg(&out_arg)
         .arg(archive)
         .stdout(Stdio::piped())
-        .stderr(Stdio::piped())
-        .spawn()
-        .map_err(|e| {
-            AppError::keyed_vars(
-                "error.extract.failed",
-                json!({ "detail": format!("7z spawn ({}): {e}", exe.display()) }),
-            )
-        })?;
+        .stderr(Stdio::piped());
+    // Avoid a flashing console window when the GUI host spawns 7za.
+    #[cfg(windows)]
+    {
+        use std::os::windows::process::CommandExt;
+        const CREATE_NO_WINDOW: u32 = 0x0800_0000;
+        cmd.creation_flags(CREATE_NO_WINDOW);
+    }
+    let mut child = cmd.spawn().map_err(|e| {
+        AppError::keyed_vars(
+            "error.extract.failed",
+            json!({ "detail": format!("7z spawn ({}): {e}", exe.display()) }),
+        )
+    })?;
 
     let stdout = child.stdout.take().ok_or_else(|| {
         AppError::keyed_vars(
@@ -117,7 +133,7 @@ fn extract_with_7z(
     let stdout_handle = thread::spawn(move || {
         read_7z_progress(stdout, progress_stdout, start);
     });
-    let stderr_handle = thread::spawn(move || drain_stream(stderr));
+    let stderr_handle = thread::spawn(move || read_stream_to_string(stderr));
 
     let status = child.wait().map_err(|e| {
         AppError::keyed_vars(
@@ -126,16 +142,36 @@ fn extract_with_7z(
         )
     })?;
     stdout_handle.join().ok();
-    stderr_handle.join().ok();
+    let stderr_text = stderr_handle.join().unwrap_or_default();
 
     let code = status.code().unwrap_or(2);
-    if code >= 2 {
-        return Err(AppError::keyed_vars(
-            "error.extract.failed",
-            json!({ "detail": format!("7z exit {code}") }),
-        ));
+    if code < 2 {
+        return Ok(());
     }
-    Ok(())
+
+    // Locked overwrite during re-extract: files are on disk, 7-Zip still exits 2.
+    if is_lock_only_extract_failure(&stderr_text) && dest_has_any_file(dest) {
+        eprintln!(
+            "[extract] 7z exit {code} with lock-only overwrite errors; treating as success. stderr:\n{stderr_text}"
+        );
+        return Ok(());
+    }
+
+    let detail = if stderr_text.trim().is_empty() {
+        format!("7z exit {code}")
+    } else {
+        let trimmed = stderr_text.trim();
+        let short = if trimmed.len() > 500 {
+            format!("{}…", &trimmed[..500])
+        } else {
+            trimmed.to_string()
+        };
+        format!("7z exit {code}: {short}")
+    };
+    Err(AppError::keyed_vars(
+        "error.extract.failed",
+        json!({ "detail": detail }),
+    ))
 }
 
 fn read_7z_progress<R: Read + Send + 'static>(
@@ -182,6 +218,79 @@ fn read_7z_progress<R: Read + Send + 'static>(
 fn drain_stream<R: Read + Send + 'static>(mut reader: R) {
     let mut buf = [0u8; 4096];
     while reader.read(&mut buf).unwrap_or(0) > 0 {}
+}
+
+fn read_stream_to_string<R: Read + Send + 'static>(mut reader: R) -> String {
+    let mut buf = Vec::new();
+    let _ = reader.read_to_end(&mut buf);
+    String::from_utf8_lossy(&buf).into_owned()
+}
+
+/// True when 7-Zip's stderr only reports output-file lock/overwrite problems
+/// (files in use), not archive-level failures.
+fn is_lock_only_extract_failure(stderr: &str) -> bool {
+    let text = stderr.trim();
+    if text.is_empty() {
+        return false;
+    }
+    let lower = text.to_ascii_lowercase();
+    if lower.contains("can not open the file as archive")
+        || lower.contains("cannot open the file as archive")
+        || lower.contains("is not archive")
+        || lower.contains("wrong password")
+        || lower.contains("unsupported method")
+    {
+        return false;
+    }
+
+    let mut saw_error = false;
+    for line in text.lines() {
+        let l = line.trim();
+        if l.is_empty() {
+            continue;
+        }
+        let ll = l.to_ascii_lowercase();
+        if !(ll.starts_with("error:") || ll.starts_with("error :") || ll.starts_with("system error:"))
+        {
+            continue;
+        }
+        saw_error = true;
+        let lockish = ll.contains("cannot delete output file")
+            || ll.contains("cannot open output file")
+            || ll.contains("cannot create output file")
+            || ll.contains("being used by another process")
+            || ll.contains("access is denied")
+            || ll.contains("process cannot access the file");
+        if !lockish {
+            return false;
+        }
+    }
+    saw_error
+}
+
+fn dest_has_any_file(dest: &Path) -> bool {
+    fn walk(dir: &Path, depth: u8) -> bool {
+        if depth > 12 {
+            return false;
+        }
+        let Ok(entries) = fs::read_dir(dir) else {
+            return false;
+        };
+        for entry in entries.flatten() {
+            let path = entry.path();
+            let Ok(ft) = entry.file_type() else {
+                continue;
+            };
+            if ft.is_file() {
+                return true;
+            }
+            if ft.is_dir() && walk(&path, depth + 1) {
+                return true;
+            }
+        }
+        false
+    }
+    walk(dest, 0)
 }
 
 fn last_percent_in(text: &str) -> Option<u8> {
@@ -517,5 +626,26 @@ mod tests {
         assert_eq!(compute_eta(elapsed, 50), Some(30));
         assert_eq!(compute_eta(elapsed, 0), None);
         assert_eq!(compute_eta(elapsed, 100), None);
+    }
+
+    #[test]
+    fn lock_only_stderr_is_soft_failure() {
+        let stderr = "ERROR: Cannot delete output file : The process cannot access the file because it is being used by another process. : C:\\games\\Game.exe\n";
+        assert!(is_lock_only_extract_failure(stderr));
+    }
+
+    #[test]
+    fn archive_open_stderr_is_hard_failure() {
+        let stderr = "ERROR: Can not open the file as archive\n";
+        assert!(!is_lock_only_extract_failure(stderr));
+    }
+
+    #[test]
+    fn mixed_lock_and_hard_error_is_hard_failure() {
+        let stderr = "\
+ERROR: Cannot delete output file : The process cannot access the file because it is being used by another process. : C:\\a.exe
+ERROR: Can not open the file as archive
+";
+        assert!(!is_lock_only_extract_failure(stderr));
     }
 }
