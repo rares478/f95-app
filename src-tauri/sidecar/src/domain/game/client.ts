@@ -7,6 +7,11 @@ import { classifyHost } from './hosts';
 import { assertNotCloudflareChallenge } from '../../shared/cloudflare';
 import { F95_BASE } from '../../shared/constants';
 import { absoluteUrl, cleanText, normalizeOpHtml } from './htmlNormalize';
+import {
+  extractPostIdFromFinal,
+  parseThreadPostsPage,
+  type ThreadPostsPage,
+} from './posts';
 
 const BASE = F95_BASE;
 
@@ -71,6 +76,12 @@ const FIELD_LABELS = new Set([
 export class GameClient {
   constructor(private readonly http: BrowserClient) {}
 
+  threadPageUrl(threadId: string, page: number): string {
+    const base = normalizeThreadUrl(threadId); // ends with /threads/{id}/
+    if (page <= 1) return base;
+    return `${base.replace(/\/$/, '')}/page-${page}`;
+  }
+
   async getDetail(threadIdOrUrl: string): Promise<GameDetail> {
     const url = normalizeThreadUrl(threadIdOrUrl);
     log(`[game] GET ${url}`);
@@ -86,9 +97,69 @@ export class GameClient {
     }
     return parseThread(res.body, res.url || url);
   }
+
+  async getPosts(threadId: string, page = 1): Promise<ThreadPostsPage> {
+    const id = String(threadId).trim();
+    if (!/^\d+$/.test(id)) {
+      throw new RpcError(RPC_ERROR.INVALID_PARAMS, 'threadId must be numeric');
+    }
+    const url = this.threadPageUrl(id, page);
+    log(`[game] GET posts ${url}`);
+    const res = await this.http.get(url);
+    assertNotCloudflareChallenge(res.body, res.headers, {
+      message: 'Cloudflare challenge encountered on thread posts fetch',
+    });
+    if (res.status >= 400) {
+      throw new RpcError(
+        RPC_ERROR.INTERNAL,
+        `thread posts HTTP ${res.status} for ${url}`,
+      );
+    }
+    return parseThreadPostsPage(res.body, { threadId: id, page });
+  }
+
+  async resolvePost(
+    postId: string,
+  ): Promise<{ threadId: string; postId: string }> {
+    const id = String(postId).trim();
+    if (!/^\d+$/.test(id)) {
+      throw new RpcError(RPC_ERROR.INVALID_PARAMS, 'postId must be numeric');
+    }
+    const url = `${BASE}/posts/${id}/`;
+    log(`[game] GET resolve post ${url}`);
+    const res = await this.http.get(url);
+    assertNotCloudflareChallenge(res.body, res.headers, {
+      message: 'Cloudflare challenge encountered on post resolve',
+    });
+    if (res.status >= 400) {
+      throw new RpcError(
+        RPC_ERROR.INTERNAL,
+        `resolve post HTTP ${res.status} for ${url}`,
+      );
+    }
+    const finalUrl = res.url || url;
+    const threadId = extractThreadId(finalUrl);
+    const resolvedPost = extractPostIdFromFinal(finalUrl) ?? id;
+    if (threadId) return { threadId, postId: resolvedPost };
+
+    // Fallback: scrape canonical thread link from HTML
+    const $ = cheerio.load(res.body);
+    const href =
+      $('link[rel="canonical"]').attr('href') ||
+      $('a[href*="/threads/"]').first().attr('href') ||
+      '';
+    const fromHtml = extractThreadId(href);
+    if (!fromHtml) {
+      throw new RpcError(
+        RPC_ERROR.INTERNAL,
+        `could not resolve thread for post ${id}`,
+      );
+    }
+    return { threadId: fromHtml, postId: id };
+  }
 }
 
-function normalizeThreadUrl(input: string): string {
+export function normalizeThreadUrl(input: string): string {
   const s = String(input).trim();
   if (/^https?:\/\//i.test(s)) return s;
   if (!/^\d+$/.test(s)) {
@@ -103,6 +174,12 @@ function normalizeThreadUrl(input: string): string {
 function parseThread(html: string, finalUrl: string): GameDetail {
   const $ = cheerio.load(html);
   const threadId = extractThreadId(finalUrl);
+  if (!threadId) {
+    throw new RpcError(
+      RPC_ERROR.INTERNAL,
+      `cannot extract thread id from ${finalUrl}`,
+    );
+  }
 
   // -- Title + prefixes --
   const titleNode = $('.p-title-value').first();
@@ -190,12 +267,9 @@ function parseThread(html: string, finalUrl: string): GameDetail {
   };
 }
 
-function extractThreadId(url: string): string {
+export function extractThreadId(url: string): string | null {
   const m = url.match(/\/threads\/(?:[^/]*?\.)?(\d+)\/?/);
-  if (!m) {
-    throw new RpcError(RPC_ERROR.INTERNAL, `cannot extract thread id from ${url}`);
-  }
-  return m[1];
+  return m ? m[1] : null;
 }
 
 function splitBracketedTitle(raw: string): {

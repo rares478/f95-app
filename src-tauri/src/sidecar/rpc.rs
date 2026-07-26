@@ -133,6 +133,18 @@ impl SidecarClient {
             .await
     }
 
+    pub async fn thread_posts(&self, thread_id: &str, page: u32) -> Result<Value, AppError> {
+        self.inner
+            .call("threadPosts", json!({ "threadId": thread_id, "page": page }))
+            .await
+    }
+
+    pub async fn resolve_post(&self, post_id: &str) -> Result<Value, AppError> {
+        self.inner
+            .call("resolvePost", json!({ "postId": post_id }))
+            .await
+    }
+
     pub async fn get_following(&self) -> Result<Value, AppError> {
         self.inner.call("getFollowing", json!({})).await
     }

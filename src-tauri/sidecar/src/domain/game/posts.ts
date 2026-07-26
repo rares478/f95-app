@@ -39,6 +39,14 @@ function parsePostId($el: cheerio.Cheerio<Element>): string | null {
   return m2 ? m2[1] : null;
 }
 
+/** Post id from `/posts/{id}`, `#post-{id}`, or `/post-{id}` in a final/redirect URL. */
+export function extractPostIdFromFinal(url: string): string | null {
+  const posts = url.match(/\/posts\/(\d+)/);
+  if (posts) return posts[1];
+  const anchor = url.match(/(?:#post-|\/post-)(\d+)/i);
+  return anchor ? anchor[1] : null;
+}
+
 export function parseThreadPostsPage(
   html: string,
   opts: { threadId: string; page: number },

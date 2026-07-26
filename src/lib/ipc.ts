@@ -3,6 +3,7 @@ import type { ProfileDto } from '../types';
 import type { SamFilters, SamOptionsResult, SamPage, SamTag } from '../types/sam';
 import type { SamCategory } from '../types/sam';
 import type { GameDetail } from '../types/game';
+import type { ResolvePostResult, ThreadPostsPage } from '../types/threadPosts';
 import type { CbzPreviewResult, InstallMediaIndex } from '../types/media';
 import type { F95AlertsListResult, F95AlertsPopupResult } from '../types/alerts';
 import type { FollowedUser } from '../types/social';
@@ -59,6 +60,14 @@ export async function samOptions(category: SamCategory): Promise<SamOptionsResul
 
 export async function gameDetail(threadId: string): Promise<GameDetail> {
   return invoke<GameDetail>('game_detail', { threadId });
+}
+
+export async function threadPosts(threadId: string, page = 1): Promise<ThreadPostsPage> {
+  return invoke<ThreadPostsPage>('thread_posts', { threadId, page });
+}
+
+export async function resolvePost(postId: string): Promise<ResolvePostResult> {
+  return invoke<ResolvePostResult>('resolve_post', { postId });
 }
 
 export async function getFollowing(): Promise<FollowedUser[]> {

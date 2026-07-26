@@ -29,6 +29,20 @@ export function createGameHandlers(ctx: AppContext): Record<string, RpcHandler> 
       }
       return ctx.getGame().getDetail(id);
     },
+    threadPosts: async (p) => {
+      const threadId = String(p?.threadId ?? p?.thread_id ?? '');
+      const page = Number(p?.page ?? 1);
+      if (!threadId) throw new RpcError(RPC_ERROR.INVALID_PARAMS, 'threadId required');
+      if (!Number.isFinite(page) || page < 1) {
+        throw new RpcError(RPC_ERROR.INVALID_PARAMS, 'page must be >= 1');
+      }
+      return ctx.getGame().getPosts(threadId, page);
+    },
+    resolvePost: async (p) => {
+      const postId = String(p?.postId ?? p?.post_id ?? '');
+      if (!postId) throw new RpcError(RPC_ERROR.INVALID_PARAMS, 'postId required');
+      return ctx.getGame().resolvePost(postId);
+    },
     getFollowing: async () => ctx.getSocial().getFollowing(),
   };
 }
