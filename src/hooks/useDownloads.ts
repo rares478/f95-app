@@ -15,9 +15,11 @@ import { defaultExeLabel, shouldAutoAssign } from '../lib/installAssign';
 import {
   buildBundleExtractDest,
   buildJobExtractDest,
+  bundleAlreadyAssigned,
   emitInstallNeedsAssign,
   pickBundleLeadJob,
   shouldAutoExtractDownload,
+  withBundleAssignLock,
 } from '../lib/installJobExtract';
 import {
   bundleExtractReady,
@@ -142,54 +144,74 @@ export async function runExtraction(
             await library.setStatus(threadId, 'not_installed');
           }
         } else {
-          const lead = pickBundleLeadJob(siblings) ?? linkedJob;
-          if (
-            shouldAutoAssign({
-              jobCount: 1,
-              sectionKind: lead.sectionKind,
-              exePath: result.exePath,
-            }) &&
-            result.exePath
-          ) {
-            const exe = await library.addExe(
-              threadId,
-              result.exePath,
-              defaultExeLabel(lead.sectionLabel, result.exePath),
-            );
-            for (const sibling of siblings) {
-              await markJobAssign(sibling.id, 'assigned', { exeId: exe.id });
-            }
-            await recomputePlanStatus(linkedJob.planId);
+          // Claimed lead under lock: only one finishing extract assigns/emits for the lead.
+          await withBundleAssignLock(linkedJob.bundleId, async () => {
+            const lockedSiblings = await listJobsForBundle(linkedJob.bundleId!);
+            if (!bundleExtractReady(lockedSiblings)) return;
+            if (bundleAlreadyAssigned(lockedSiblings)) return;
 
-            if (gameVersion) {
-              await library.applyVersion(threadId, gameVersion);
+            const lead = pickBundleLeadJob(lockedSiblings) ?? linkedJob;
+
+            const sharedDest = result.destDir;
+            let exePath = result.exePath ?? null;
+            try {
+              const found = await ipc.findMainExe({
+                root: sharedDest,
+                gameTitle: game.title,
+              });
+              if (found) exePath = found;
+            } catch (err) {
+              console.warn('[extract] findMainExe on shared dest failed', err);
             }
 
-            if (dlSettings.createShortcuts) {
-              try {
-                await ipc.createGameShortcuts({
-                  exePath: result.exePath,
-                  title: game.title,
-                });
-              } catch (err) {
-                console.warn('[extract] failed to create shortcuts', err);
+            if (
+              shouldAutoAssign({
+                jobCount: 1,
+                sectionKind: lead.sectionKind,
+                exePath,
+              }) &&
+              exePath
+            ) {
+              const exe = await library.addExe(
+                threadId,
+                exePath,
+                defaultExeLabel(lead.sectionLabel, exePath),
+              );
+              for (const sibling of lockedSiblings) {
+                await markJobAssign(sibling.id, 'assigned', { exeId: exe.id });
               }
-            }
-          } else {
-            await markJobAssign(lead.id, 'pending', { errorMessage: null });
-            await recomputePlanStatus(linkedJob.planId);
-            if (wasInstalled) {
-              await library.setStatus(threadId, previousStatus);
+              await recomputePlanStatus(linkedJob.planId);
+
+              if (gameVersion) {
+                await library.applyVersion(threadId, gameVersion);
+              }
+
+              if (dlSettings.createShortcuts) {
+                try {
+                  await ipc.createGameShortcuts({
+                    exePath,
+                    title: game.title,
+                  });
+                } catch (err) {
+                  console.warn('[extract] failed to create shortcuts', err);
+                }
+              }
             } else {
-              await library.setStatus(threadId, 'not_installed');
+              await markJobAssign(lead.id, 'pending', { errorMessage: null });
+              await recomputePlanStatus(linkedJob.planId);
+              if (wasInstalled) {
+                await library.setStatus(threadId, previousStatus);
+              } else {
+                await library.setStatus(threadId, 'not_installed');
+              }
+              emitInstallNeedsAssign({
+                jobId: lead.id,
+                planId: lead.planId,
+                threadId,
+                exePath,
+              });
             }
-            emitInstallNeedsAssign({
-              jobId: lead.id,
-              planId: lead.planId,
-              threadId,
-              exePath: result.exePath,
-            });
-          }
+          });
         }
       } else if (
         shouldAutoAssign({
