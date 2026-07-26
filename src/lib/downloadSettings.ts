@@ -12,7 +12,7 @@ export const DEFAULT_DOWNLOAD_SETTINGS: DownloadSettings = {
   autoExtract: true,
   speedInMbps: false,
   deleteArchiveAfterExtract: false,
-  createShortcuts: true,
+  createShortcuts: false,
 };
 
 export async function loadDownloadSettings(): Promise<DownloadSettings> {

@@ -4,7 +4,7 @@ import { useParams, useNavigate, useSearchParams } from 'react-router-dom';
 import { parseSamCategory } from '../constants/samCategories';
 import DOMPurify from 'dompurify';
 import { openUrl } from '@tauri-apps/plugin-opener';
-import { gameDetail } from '../lib/ipc';
+import * as ipc from '../lib/ipc';
 import { dialog } from '../lib/dialog';
 import * as library from '../lib/library';
 import { saveLinksFromDetail } from '../lib/libraryDownloadLinks';
@@ -34,13 +34,18 @@ import {
   GameDetailBtnSecondary,
   PrefixPill,
 } from '../components/game/GameDetailLayout';
+import { MoreLikeThis } from '../components/game/MoreLikeThis';
 import { OfflineGate } from '../components/OfflineGate';
 import { useContextMenu } from '../components/contextMenu';
 import { useOffline } from '../contexts/Offline';
+import { useStoreFilters } from '../contexts/StoreFilters';
+import { useTagCatalog } from '../contexts/TagCatalogContext';
 import { buildStoreMenu } from '../lib/contextMenus/buildStoreMenu';
 import { useT } from '../lib/i18n';
 import { formatIpcError } from '../lib/ipcError';
-import type { GameDetail, GamePrefix } from '../types/game';
+import { findSamTagByNameOrSlug } from '../lib/tagCatalog';
+import type { GameDetail, GamePrefix, GameTag } from '../types/game';
+import type { SamTag } from '../types/sam';
 
 type State =
   | { kind: 'loading' }
@@ -77,6 +82,8 @@ function GameDetailPageInner() {
   const { t } = useT();
   const { isOffline } = useOffline();
   const { openMenuAt } = useContextMenu();
+  const { catalog } = useTagCatalog();
+  const { filterByTag } = useStoreFilters();
   const [state, setState] = useState<State>({ kind: 'loading' });
   const [inLibrary, setInLibrary] = useState(false);
   const [adding, setAdding] = useState(false);
@@ -117,7 +124,8 @@ function GameDetailPageInner() {
     if (!threadId) return;
     let cancelled = false;
     setState({ kind: 'loading' });
-    gameDetail(threadId)
+    ipc
+      .gameDetail(threadId)
       .then((data) => {
         if (cancelled) return;
         setState({ kind: 'ready', data });
@@ -152,6 +160,35 @@ function GameDetailPageInner() {
     },
     [],
   );
+
+  async function resolveSamTag(tag: GameTag): Promise<SamTag | null> {
+    const local = findSamTagByNameOrSlug(catalog, tag);
+    if (local) return local;
+    try {
+      const results = await ipc.samTagSearch(category, tag.name);
+      const nameLc = tag.name.trim().toLowerCase();
+      const slugLc = tag.slug.trim().toLowerCase();
+      return (
+        results.find((r) => r.name.trim().toLowerCase() === nameLc) ??
+        results.find((r) => r.name.trim().toLowerCase().replace(/[^a-z0-9]+/g, '-') === slugLc) ??
+        results[0] ??
+        null
+      );
+    } catch (err) {
+      console.warn('[gamedetail] tag search failed', err);
+      return null;
+    }
+  }
+
+  async function onTagClick(tag: GameTag) {
+    const sam = await resolveSamTag(tag);
+    if (!sam) {
+      await dialog.alert(t('gamedetail.tag.notFound', { name: tag.name }), { kind: 'info' });
+      return;
+    }
+    filterByTag(sam, category);
+    navigate('/store');
+  }
 
   async function onAddToLibrary() {
     if (state.kind !== 'ready' || adding) return;
@@ -236,6 +273,21 @@ function GameDetailPageInner() {
         }
         title={g.title}
         meta={buildHeroMeta(g, t)}
+        tags={
+          g.tags.length > 0 ? (
+            <GameDetailTagList>
+              {g.tags.map((tag) => (
+                <GameDetailTag
+                  key={tag.slug}
+                  title={t('gamedetail.tag.filterBy', { name: tag.name })}
+                  onClick={() => void onTagClick(tag)}
+                >
+                  {tag.name}
+                </GameDetailTag>
+              ))}
+            </GameDetailTagList>
+          ) : undefined
+        }
         actions={
           <>
             {inLibrary ? (
@@ -293,16 +345,6 @@ function GameDetailPageInner() {
             </GameDetailSection>
           )}
 
-          {g.tags.length > 0 && (
-            <GameDetailSection title={t('gamedetail.section.tags')}>
-              <GameDetailTagList>
-                {g.tags.map((tag) => (
-                  <GameDetailTag key={tag.slug}>{tag.name}</GameDetailTag>
-                ))}
-              </GameDetailTagList>
-            </GameDetailSection>
-          )}
-
           <GameDetailSection title={t('gamedetail.section.about')}>
             <GameDescription
               html={sanitized}
@@ -340,6 +382,8 @@ function GameDetailPageInner() {
           </GameDetailSection>
         </GameDetailAside>
       </GameDetailBody>
+
+      <MoreLikeThis threadId={g.threadId} category={category} tags={g.tags} />
     </GameDetailShell>
   );
 }

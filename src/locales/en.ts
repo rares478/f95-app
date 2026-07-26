@@ -60,6 +60,11 @@ const en: Record<string, string> = {
   'gamedetail.section.screenshots': 'Screenshots',
   'gamedetail.section.about': 'About',
   'gamedetail.section.tags': 'Tags',
+  'gamedetail.tag.filterBy': 'Filter store by “{name}”',
+  'gamedetail.tag.notFound': 'Could not find tag “{name}” in the store catalog.',
+  'gamedetail.section.moreLikeThis': 'More like this',
+  'gamedetail.moreLikeThis.empty': 'No similar games found.',
+  'gamedetail.moreLikeThis.failed': 'Could not load similar games: {error}',
   'gamedetail.section.info': 'Information',
   'gamedetail.action.addToLibrary': 'Add to library',
   'gamedetail.action.adding': 'Adding…',
@@ -198,6 +203,7 @@ const en: Record<string, string> = {
   'store.openInBrowser': 'Open on F95Zone',
   'store.addToLibrary': 'Add to library',
   'store.openInLibrary': 'Open in library',
+  'store.badge.inLibrary': 'In library',
   'store.adding': 'Adding…',
 
   // ─── Downloads page ─────────────────────────────────────────────────────

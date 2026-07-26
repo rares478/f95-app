@@ -38,6 +38,8 @@ interface HeroProps {
   badges?: React.ReactNode;
   title: string;
   meta?: React.ReactNode;
+  /** Content under meta chips (e.g. genre tags). */
+  tags?: React.ReactNode;
   actions?: React.ReactNode;
 }
 
@@ -47,6 +49,7 @@ export function GameDetailHero({
   badges,
   title,
   meta,
+  tags,
   actions,
 }: HeroProps) {
   const art = coverUrl ?? bannerUrl;
@@ -84,6 +87,7 @@ export function GameDetailHero({
             {badges && <div className="game-detail-badges">{badges}</div>}
             <h1 className="game-detail-title">{title}</h1>
             {meta && <div className="game-detail-meta">{meta}</div>}
+            {tags && <div className="game-detail-hero-tags">{tags}</div>}
           </div>
         </div>
         {actions && <div className="game-detail-actions">{actions}</div>}
@@ -398,6 +402,26 @@ export function GameDetailTagList({ children }: { children: React.ReactNode }) {
   return <div className="game-detail-tags">{children}</div>;
 }
 
-export function GameDetailTag({ children }: { children: React.ReactNode }) {
+export function GameDetailTag({
+  children,
+  onClick,
+  title,
+}: {
+  children: React.ReactNode;
+  onClick?: () => void;
+  title?: string;
+}) {
+  if (onClick) {
+    return (
+      <button
+        type="button"
+        className="game-detail-tag game-detail-tag--clickable"
+        onClick={onClick}
+        title={title}
+      >
+        {children}
+      </button>
+    );
+  }
   return <span className="game-detail-tag">{children}</span>;
 }

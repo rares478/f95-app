@@ -58,6 +58,11 @@ const pt: Record<string, string> = {
   'gamedetail.section.screenshots': 'Screenshots',
   'gamedetail.section.about': 'Sobre o jogo',
   'gamedetail.section.tags': 'Tags',
+  'gamedetail.tag.filterBy': 'Filtrar a loja por “{name}”',
+  'gamedetail.tag.notFound': 'Não foi possível encontrar a tag “{name}” no catálogo da loja.',
+  'gamedetail.section.moreLikeThis': 'Mais como este',
+  'gamedetail.moreLikeThis.empty': 'Nenhum jogo semelhante encontrado.',
+  'gamedetail.moreLikeThis.failed': 'Não foi possível carregar jogos semelhantes: {error}',
   'gamedetail.section.info': 'Informações',
   'gamedetail.action.addToLibrary': 'Adicionar à biblioteca',
   'gamedetail.action.adding': 'Adicionando…',
@@ -197,6 +202,7 @@ const pt: Record<string, string> = {
   'store.openInBrowser': 'Abrir no F95Zone',
   'store.addToLibrary': 'Adicionar à biblioteca',
   'store.openInLibrary': 'Abrir na biblioteca',
+  'store.badge.inLibrary': 'Na biblioteca',
   'store.adding': 'Adicionando…',
 
   // ─── Downloads ──────────────────────────────────────────────────────────

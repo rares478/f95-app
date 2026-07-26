@@ -1,5 +1,6 @@
 import { parseSamCategory } from '../constants/samCategories';
 import { execute, query } from './db';
+import { markThreadInLibrary, markThreadNotInLibrary } from './libraryMembership';
 import type {
   InstallStatus,
   LibraryFilter,
@@ -121,6 +122,7 @@ export async function add(input: AddInput): Promise<void> {
       input.currentVersion,
     ],
   );
+  markThreadInLibrary(input.threadId);
 }
 
 /**
@@ -199,6 +201,7 @@ export async function applyVersion(
 
 export async function remove(threadId: string): Promise<void> {
   await execute(`DELETE FROM library_games WHERE thread_id = ?`, [threadId]);
+  markThreadNotInLibrary(threadId);
 }
 
 export async function get(threadId: string): Promise<LibraryGame | null> {

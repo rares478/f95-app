@@ -48,3 +48,44 @@
 .game-detail-cover-img {
   object-fit: cover;
 }
+
+.game-detail-hero-tags {
+  margin-top: 10px;
+}
+
+.game-detail-hero-tags .game-detail-tags {
+  margin: 0;
+}
+
+button.game-detail-tag--clickable {
+  font: inherit;
+  cursor: pointer;
+  font-family: inherit;
+}
+
+.game-detail-more-like {
+  padding: 8px 32px 24px;
+}
+
+.game-detail-more-like .game-detail-section-title {
+  margin-bottom: 16px;
+}
+
+.game-detail-more-like-sentinel {
+  height: 1px;
+  width: 100%;
+  pointer-events: none;
+}
+
+.game-detail-more-like-empty {
+  font-size: 13px;
+  color: var(--text-muted);
+  padding: 12px 0 8px;
+}
+
+@media (max-width: 960px) {
+  .game-detail-more-like {
+    padding-left: 20px;
+    padding-right: 20px;
+  }
+}
