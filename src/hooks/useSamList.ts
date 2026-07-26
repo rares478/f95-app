@@ -1,6 +1,7 @@
 import { useCallback, useEffect, useRef, useState } from 'react';
 import { samList } from '../lib/ipc';
 import { execute } from '../lib/db';
+import { formatIpcError } from '../lib/ipcError';
 import type { SamFilters, SamGameCard, SamPage } from '../types/sam';
 
 export interface SamListState {
@@ -72,7 +73,7 @@ export function useSamList(filters: SamFilters): SamListState & {
         cacheItems(result.items).catch(() => undefined);
       } catch (err) {
         if (reqIdRef.current !== myId) return;
-        setError(formatError(err));
+        setError(formatIpcError(err));
       } finally {
         if (reqIdRef.current === myId) setLoading(false);
       }
@@ -185,9 +186,3 @@ async function cacheItems(items: SamGameCard[]): Promise<void> {
   }
 }
 
-function formatError(err: unknown): string {
-  if (err && typeof err === 'object' && 'message' in err) {
-    return String((err as { message: string }).message);
-  }
-  return String(err);
-}

@@ -12,15 +12,9 @@ import {
 } from '../lib/archives';
 import { dialog } from '../lib/dialog';
 import { tStandalone } from '../lib/i18n';
+import { formatIpcError } from '../lib/ipcError';
 import type { DownloadProgress, DownloadRow } from '../types/download';
 import type { LibraryGame } from '../types/library';
-
-function formatError(err: unknown): string {
-  if (err && typeof err === 'object' && 'message' in err) {
-    return String((err as { message: string }).message);
-  }
-  return String(err);
-}
 
 function archivePathsFromDone(payload: DonePayload): string[] {
   if (payload.filePaths && payload.filePaths.length > 0) {
@@ -284,7 +278,7 @@ export function useDownloads(options?: UseDownloadsOptions): {
       } catch (err) {
         console.error('[extract] auto failed', err);
         await dialog.alert(
-          tStandalone('dllist.extract.failed', { error: formatError(err) }),
+          tStandalone('dllist.extract.failed', { error: formatIpcError(err) }),
           { kind: 'error' },
         );
       } finally {

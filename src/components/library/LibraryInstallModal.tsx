@@ -14,6 +14,7 @@ import {
 } from '../../lib/downloadHosts';
 import { useOffline } from '../../contexts/Offline';
 import { useT } from '../../lib/i18n';
+import { formatIpcError } from '../../lib/ipcError';
 import { dialog } from '../../lib/dialog';
 import { InstallLocationModal } from '../InstallLocationModal';
 
@@ -73,7 +74,7 @@ export function LibraryInstallModal({
       onStarted?.();
       onClose();
     } catch (err) {
-      await dialog.alert(t('dl.start.failed', { error: formatError(err) }), { kind: 'error' });
+      await dialog.alert(t('dl.start.failed', { error: formatIpcError(err) }), { kind: 'error' });
     } finally {
       setBusyUrl(null);
     }
@@ -183,13 +184,6 @@ export function LibraryInstallModal({
       />
     </>
   );
-}
-
-function formatError(err: unknown): string {
-  if (err && typeof err === 'object' && 'message' in err) {
-    return String((err as { message: string }).message);
-  }
-  return String(err);
 }
 
 const overlayStyle: React.CSSProperties = {

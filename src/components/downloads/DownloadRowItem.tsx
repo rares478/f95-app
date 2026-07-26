@@ -2,6 +2,7 @@ import { Link } from 'react-router-dom';
 import { openUrl } from '@tauri-apps/plugin-opener';
 import { useState } from 'react';
 import { useT } from '../../lib/i18n';
+import { translateBackendMessage } from '../../lib/backendMessage';
 import { useDownloadSettings } from '../../contexts/DownloadSettings';
 import { formatDownloadSpeed } from '../../lib/downloadSettings';
 import { isArchivePath, cleanDownloadFileName } from '../../lib/archives';
@@ -163,7 +164,9 @@ export function DownloadHistoryRow({
       <span className="dl-history-col dl-history-date">{date ?? '—'}</span>
 
       {row.errorMessage && row.state === 'failed' && (
-        <div className="dl-history-error">{row.errorMessage}</div>
+        <div className="dl-history-error">
+          {translateBackendMessage(row.errorMessage, t)}
+        </div>
       )}
 
       <div className="dl-history-actions">

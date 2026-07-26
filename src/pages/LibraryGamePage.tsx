@@ -44,6 +44,7 @@ import { useLibraryInstallFlow } from '../hooks/useLibraryInstallFlow';
 import { useDownloads } from '../contexts/Downloads';
 import { inFlightLibraryStatus } from '../lib/downloadLibrarySync';
 import { useT } from '../lib/i18n';
+import { formatIpcError } from '../lib/ipcError';
 import type { GameDetail } from '../types/game';
 import type { LibraryGame } from '../types/library';
 import type { PlaySession } from '../types/session';
@@ -111,7 +112,7 @@ export function LibraryGamePage() {
         setCurrentLibId(undefined);
       }
     } catch (err) {
-      setState({ kind: 'error', message: formatError(err) });
+      setState({ kind: 'error', message: formatIpcError(err) });
     }
   }, [threadId]);
 
@@ -301,7 +302,7 @@ export function LibraryGamePage() {
       await launch(g);
       await reload();
     } catch (err) {
-      await dialog.alert(t('libdetail.play.failed', { error: formatError(err) }));
+      await dialog.alert(t('libdetail.play.failed', { error: formatIpcError(err) }));
     } finally {
       setLaunching(false);
     }
@@ -311,7 +312,7 @@ export function LibraryGamePage() {
     try {
       await ipc.stopGame(g.threadId);
     } catch (err) {
-      await dialog.alert(t('libdetail.stop.failed', { error: formatError(err) }));
+      await dialog.alert(t('libdetail.stop.failed', { error: formatIpcError(err) }));
     }
   }
 
@@ -331,7 +332,7 @@ export function LibraryGamePage() {
         await dialog.alert(t('libdetail.update.uptodate'));
       }
     } catch (err) {
-      await dialog.alert(t('libdetail.update.generic', { error: formatError(err) }));
+      await dialog.alert(t('libdetail.update.generic', { error: formatIpcError(err) }));
     }
   }
 
@@ -364,7 +365,7 @@ export function LibraryGamePage() {
         totalBytes: result.totalBytes,
       });
     } catch (err) {
-      await dialog.alert(t('libdetail.move.failed', { error: formatError(err) }));
+      await dialog.alert(t('libdetail.move.failed', { error: formatIpcError(err) }));
     }
   }
 
@@ -435,7 +436,7 @@ export function LibraryGamePage() {
         await dialog.alert(t('libdetail.uninstall.outsideLibrary'));
       }
     } catch (err) {
-      await dialog.alert(t('libdetail.uninstall.failed', { error: formatError(err) }));
+      await dialog.alert(t('libdetail.uninstall.failed', { error: formatIpcError(err) }));
     } finally {
       setUninstalling(false);
     }
@@ -836,9 +837,3 @@ function Shell({
   );
 }
 
-function formatError(err: unknown): string {
-  if (err && typeof err === 'object' && 'message' in err) {
-    return String((err as { message: string }).message);
-  }
-  return String(err);
-}

@@ -9,6 +9,7 @@ import { useOffline } from '../contexts/Offline';
 import { useLibraryGameActions } from '../hooks/useLibraryGameActions';
 import { useLibraryInstallFlow } from '../hooks/useLibraryInstallFlow';
 import { useDownloads } from '../contexts/Downloads';
+import { formatIpcError } from '../lib/ipcError';
 import { useT } from '../lib/i18n';
 import { dialog } from '../lib/dialog';
 import * as library from '../lib/library';
@@ -84,7 +85,7 @@ export function LibraryPage() {
       });
       setItems(games);
     } catch (err) {
-      setError(formatError(err));
+      setError(formatIpcError(err));
     } finally {
       setLoading(false);
     }
@@ -127,13 +128,6 @@ export function LibraryPage() {
     onInstallOrUpdate: installFlow.beginInstallOrUpdate,
   });
 
-  function formatErr(err: unknown): string {
-    if (err && typeof err === 'object' && 'message' in err) {
-      return String((err as { message: string }).message);
-    }
-    return String(err);
-  }
-
   const { isOffline } = useOffline();
 
   async function onCheckUpdates() {
@@ -147,7 +141,7 @@ export function LibraryPage() {
     try {
       games = await library.list({});
     } catch (err) {
-      await dialog.alert(formatErr(err), { kind: 'error' });
+      await dialog.alert(formatIpcError(err), { kind: 'error' });
       return;
     }
     if (games.length === 0) return;
@@ -297,13 +291,6 @@ function EmptyState({ status, category }: { status: StatusFilter; category: SamC
       </p>
     </div>
   );
-}
-
-function formatError(err: unknown): string {
-  if (err && typeof err === 'object' && 'message' in err) {
-    return String((err as { message: string }).message);
-  }
-  return String(err);
 }
 
 const pageStyle: React.CSSProperties = {

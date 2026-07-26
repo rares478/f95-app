@@ -14,6 +14,7 @@ import {
 } from '../../lib/downloadHosts';
 import { useOffline } from '../../contexts/Offline';
 import { useT } from '../../lib/i18n';
+import { formatIpcError } from '../../lib/ipcError';
 import { dialog } from '../../lib/dialog';
 import { InstallLocationModal } from '../InstallLocationModal';
 import type { InstallLibraryWithDisk } from '../../types/install-library';
@@ -79,7 +80,7 @@ export function DownloadLinks({ game, downloads: items, social, embedded }: Prop
         platformGroup: download.group,
       });
     } catch (err) {
-      await dialog.alert(t('dl.start.failed', { error: formatError(err) }), { kind: 'error' });
+      await dialog.alert(t('dl.start.failed', { error: formatIpcError(err) }), { kind: 'error' });
     } finally {
       setBusyUrl(null);
     }
@@ -200,11 +201,4 @@ export function DownloadLinks({ game, downloads: items, social, embedded }: Prop
       />
     </>
   );
-}
-
-function formatError(err: unknown): string {
-  if (err && typeof err === 'object' && 'message' in err) {
-    return String((err as { message: string }).message);
-  }
-  return String(err);
 }

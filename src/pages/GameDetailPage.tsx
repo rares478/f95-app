@@ -39,6 +39,7 @@ import { useContextMenu } from '../components/contextMenu';
 import { useOffline } from '../contexts/Offline';
 import { buildStoreMenu } from '../lib/contextMenus/buildStoreMenu';
 import { useT } from '../lib/i18n';
+import { formatIpcError } from '../lib/ipcError';
 import type { GameDetail, GamePrefix } from '../types/game';
 
 type State =
@@ -123,7 +124,7 @@ function GameDetailPageInner() {
       })
       .catch((err) => {
         if (cancelled) return;
-        setState({ kind: 'error', message: formatError(err) });
+        setState({ kind: 'error', message: formatIpcError(err) });
       });
     library
       .isInLibrary(threadId)
@@ -171,7 +172,7 @@ function GameDetailPageInner() {
       }
       setInLibrary(true);
     } catch (err) {
-      await dialog.alert(formatError(err), { kind: 'error' });
+      await dialog.alert(formatIpcError(err), { kind: 'error' });
     } finally {
       setAdding(false);
     }
@@ -437,11 +438,4 @@ function normalizeDetailPrefixes(
     out.push(p);
   }
   return out;
-}
-
-function formatError(err: unknown): string {
-  if (err && typeof err === 'object' && 'message' in err) {
-    return String((err as { message: string }).message);
-  }
-  return String(err);
 }

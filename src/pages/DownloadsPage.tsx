@@ -16,6 +16,7 @@ import { useOffline } from '../contexts/Offline';
 import { buildDownloadMenu } from '../lib/contextMenus/buildDownloadMenu';
 import type { DownloadMenuCallbacks } from '../lib/contextMenus/buildDownloadMenu';
 import { useT } from '../lib/i18n';
+import { formatIpcError } from '../lib/ipcError';
 import type { DownloadRow } from '../types/download';
 import { formatBytes } from '../types/download';
 
@@ -120,7 +121,7 @@ export function DownloadsPage() {
       });
       await reload();
     } catch (err) {
-      await dialog.alert(t('downloads.captcha.failed', { error: formatError(err) }), {
+      await dialog.alert(t('downloads.captcha.failed', { error: formatIpcError(err) }), {
         kind: 'error',
       });
     }
@@ -164,7 +165,7 @@ export function DownloadsPage() {
       await ipc.revealInExplorer(row.destPath);
     } catch (err) {
       console.warn('[reveal] failed', err);
-      await dialog.alert(t('dllist.reveal.failed', { error: formatError(err) }), { kind: 'error' });
+      await dialog.alert(t('dllist.reveal.failed', { error: formatIpcError(err) }), { kind: 'error' });
     }
   }
 
@@ -174,7 +175,7 @@ export function DownloadsPage() {
       await runExtraction(row.threadId, row.destPath, row.gameVersion);
       await reload();
     } catch (err) {
-      await dialog.alert(t('dllist.extract.failed', { error: formatError(err) }), { kind: 'error' });
+      await dialog.alert(t('dllist.extract.failed', { error: formatIpcError(err) }), { kind: 'error' });
     }
   }
 
@@ -364,9 +365,3 @@ function SummaryItem({
   );
 }
 
-function formatError(err: unknown): string {
-  if (err && typeof err === 'object' && 'message' in err) {
-    return String((err as { message: string }).message);
-  }
-  return String(err);
-}

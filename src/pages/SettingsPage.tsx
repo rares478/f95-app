@@ -298,7 +298,7 @@ export function SettingsPage({ onLoggedOut: _onLoggedOut }: Props) {
       setGofileSaved({ token: tokenNext || null, accountId: accountNext || null });
       setGofileVerify({ state: 'idle' });
     } catch (err) {
-      await dialog.alert(formatError(err), { kind: 'error' });
+      await dialog.alert(formatIpcError(err), { kind: 'error' });
     } finally {
       setBusy(null);
     }
@@ -317,7 +317,7 @@ export function SettingsPage({ onLoggedOut: _onLoggedOut }: Props) {
       setGofileSaved({ token: null, accountId: null });
       setGofileVerify({ state: 'idle' });
     } catch (err) {
-      await dialog.alert(formatError(err), { kind: 'error' });
+      await dialog.alert(formatIpcError(err), { kind: 'error' });
     } finally {
       setBusy(null);
     }
@@ -335,7 +335,7 @@ export function SettingsPage({ onLoggedOut: _onLoggedOut }: Props) {
     } catch (err) {
       setGofileVerify({
         state: 'done',
-        result: { valid: false, tier: null, message: formatError(err) },
+        result: { valid: false, tier: null, message: formatIpcError(err) },
       });
     }
   }
@@ -372,7 +372,7 @@ export function SettingsPage({ onLoggedOut: _onLoggedOut }: Props) {
         setMegaNeedsMfa(true);
         await dialog.alert(t('settings.hosts.megaMfaRequired'), { kind: 'warning' });
       } else {
-        await dialog.alert(formatError(err), { kind: 'error' });
+        await dialog.alert(formatIpcError(err), { kind: 'error' });
       }
     } finally {
       setBusy(null);
@@ -395,7 +395,7 @@ export function SettingsPage({ onLoggedOut: _onLoggedOut }: Props) {
       setMegaEmail('');
       setMegaVerify({ state: 'idle' });
     } catch (err) {
-      await dialog.alert(formatError(err), { kind: 'error' });
+      await dialog.alert(formatIpcError(err), { kind: 'error' });
     } finally {
       setBusy(null);
     }
@@ -413,7 +413,7 @@ export function SettingsPage({ onLoggedOut: _onLoggedOut }: Props) {
     } catch (err) {
       setMegaVerify({
         state: 'done',
-        result: { valid: false, message: formatError(err) },
+        result: { valid: false, message: formatIpcError(err) },
       });
     }
   }
@@ -442,7 +442,7 @@ export function SettingsPage({ onLoggedOut: _onLoggedOut }: Props) {
         result: { valid: true, isPro: r.isPro, message: r.message, email: r.email },
       });
     } catch (err) {
-      await dialog.alert(formatError(err), { kind: 'error' });
+      await dialog.alert(formatIpcError(err), { kind: 'error' });
     } finally {
       setBusy(null);
     }
@@ -464,7 +464,7 @@ export function SettingsPage({ onLoggedOut: _onLoggedOut }: Props) {
       setUhEmail('');
       setUhVerify({ state: 'idle' });
     } catch (err) {
-      await dialog.alert(formatError(err), { kind: 'error' });
+      await dialog.alert(formatIpcError(err), { kind: 'error' });
     } finally {
       setBusy(null);
     }
@@ -491,7 +491,7 @@ export function SettingsPage({ onLoggedOut: _onLoggedOut }: Props) {
     } catch (err) {
       setUhVerify({
         state: 'done',
-        result: { valid: false, isPro: false, message: formatError(err) },
+        result: { valid: false, isPro: false, message: formatIpcError(err) },
       });
     }
   }
@@ -505,7 +505,7 @@ export function SettingsPage({ onLoggedOut: _onLoggedOut }: Props) {
       setBhSaved(next || null);
       setBhVerify({ state: 'idle' });
     } catch (err) {
-      await dialog.alert(formatError(err), { kind: 'error' });
+      await dialog.alert(formatIpcError(err), { kind: 'error' });
     } finally {
       setBusy(null);
     }
@@ -520,7 +520,7 @@ export function SettingsPage({ onLoggedOut: _onLoggedOut }: Props) {
       setBhSaved(null);
       setBhVerify({ state: 'idle' });
     } catch (err) {
-      await dialog.alert(formatError(err), { kind: 'error' });
+      await dialog.alert(formatIpcError(err), { kind: 'error' });
     } finally {
       setBusy(null);
     }
@@ -544,7 +544,7 @@ export function SettingsPage({ onLoggedOut: _onLoggedOut }: Props) {
     } catch (err) {
       setBhVerify({
         state: 'done',
-        result: { valid: false, message: formatError(err) },
+        result: { valid: false, message: formatIpcError(err) },
       });
     }
   }
@@ -558,7 +558,7 @@ export function SettingsPage({ onLoggedOut: _onLoggedOut }: Props) {
       setDnSaved(next || null);
       setDnVerify({ state: 'idle' });
     } catch (err) {
-      await dialog.alert(formatError(err), { kind: 'error' });
+      await dialog.alert(formatIpcError(err), { kind: 'error' });
     } finally {
       setBusy(null);
     }
@@ -573,7 +573,7 @@ export function SettingsPage({ onLoggedOut: _onLoggedOut }: Props) {
       setDnSaved(null);
       setDnVerify({ state: 'idle' });
     } catch (err) {
-      await dialog.alert(formatError(err), { kind: 'error' });
+      await dialog.alert(formatIpcError(err), { kind: 'error' });
     } finally {
       setBusy(null);
     }
@@ -591,7 +591,7 @@ export function SettingsPage({ onLoggedOut: _onLoggedOut }: Props) {
     } catch (err) {
       setDnVerify({
         state: 'done',
-        result: { valid: false, message: formatError(err) },
+        result: { valid: false, message: formatIpcError(err) },
       });
     }
   }
@@ -677,7 +677,7 @@ export function SettingsPage({ onLoggedOut: _onLoggedOut }: Props) {
       await libraries.add({ label: '', path: picked });
       await refreshLibs();
     } catch (err) {
-      await dialog.alert(formatError(err), { kind: 'error' });
+      await dialog.alert(formatIpcError(err), { kind: 'error' });
     } finally {
       setBusy(null);
     }
@@ -689,7 +689,7 @@ export function SettingsPage({ onLoggedOut: _onLoggedOut }: Props) {
       await libraries.setDefault(id);
       await refreshLibs();
     } catch (err) {
-      await dialog.alert(formatError(err), { kind: 'error' });
+      await dialog.alert(formatIpcError(err), { kind: 'error' });
     } finally {
       setBusy(null);
     }
@@ -706,7 +706,7 @@ export function SettingsPage({ onLoggedOut: _onLoggedOut }: Props) {
       await libraries.remove(lib.id);
       await refreshLibs();
     } catch (err) {
-      await dialog.alert(formatError(err), { kind: 'error' });
+      await dialog.alert(formatIpcError(err), { kind: 'error' });
     } finally {
       setBusy(null);
     }
@@ -723,18 +723,12 @@ export function SettingsPage({ onLoggedOut: _onLoggedOut }: Props) {
       await libraries.setLabel(lib.id, next.trim());
       await refreshLibs();
     } catch (err) {
-      await dialog.alert(formatError(err), { kind: 'error' });
+      await dialog.alert(formatIpcError(err), { kind: 'error' });
     } finally {
       setBusy(null);
     }
   }
 
-  function formatError(err: unknown): string {
-    if (err && typeof err === 'object' && 'message' in err) {
-      return String((err as { message: string }).message);
-    }
-    return String(err);
-  }
 
   function isBackendError(err: unknown): err is { code: string; message: string } {
     return (
@@ -783,7 +777,7 @@ export function SettingsPage({ onLoggedOut: _onLoggedOut }: Props) {
       await ipc.restartToLogin();
     } catch (err) {
       console.error('[logout] failed', err);
-      await dialog.alert(t('settings.account.logoutFailed', { error: formatError(err) }), {
+      await dialog.alert(t('settings.account.logoutFailed', { error: formatIpcError(err) }), {
         kind: 'error',
       });
     } finally {

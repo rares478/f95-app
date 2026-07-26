@@ -9,6 +9,7 @@ import { useContextMenu } from '../components/contextMenu';
 import { useOffline } from '../contexts/Offline';
 import { buildNewsActivityMenu } from '../lib/contextMenus/buildNewsMenu';
 import { useT } from '../lib/i18n';
+import { formatIpcError } from '../lib/ipcError';
 import { RssFeedSection } from '../components/news/RssFeedSection';
 import { NewsPageSkeleton } from '../components/ui/NewsPageSkeleton';
 import { Spinner } from '../components/ui/Spinner';
@@ -100,7 +101,7 @@ export function NewsPage() {
     try {
       games = await library.list({});
     } catch (err) {
-      await dialog.alert(formatError(err), { kind: 'error' });
+      await dialog.alert(formatIpcError(err), { kind: 'error' });
       return;
     }
     if (games.length === 0) return;
@@ -123,13 +124,6 @@ export function NewsPage() {
         await dialog.alert(t('library.updates.none'), { kind: 'info' });
       }
     }
-  }
-
-  function formatError(err: unknown): string {
-    if (err && typeof err === 'object' && 'message' in err) {
-      return String((err as { message: string }).message);
-    }
-    return String(err);
   }
 
   return (
