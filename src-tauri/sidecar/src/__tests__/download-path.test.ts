@@ -134,3 +134,55 @@ describe('resolveDownloadPath', () => {
     expect(modern.kindHint).not.toBe('extra');
   });
 });
+
+describe('resolveDownloadPath — Eternum real markup', () => {
+  const eternumHtml = readFileSync(
+    join(__dirname, 'fixtures', 'download-path-eternum-real.html'),
+    'utf8',
+  );
+
+  function eternumPath(urlFragment: string) {
+    const $ = cheerio.load(eternumHtml);
+    const el = $(`a[href*="${urlFragment}"]`).get(0) as Element | undefined;
+    if (!el) throw new Error(`missing link ${urlFragment}`);
+    return resolveDownloadPath($, el);
+  }
+
+  it('keeps top-level full builds as Current Win/Linux (not Fan Signatures)', () => {
+    expect(eternumPath('Eternum-0.9.5-pc.zip')).toMatchObject({
+      edition: null,
+      platform: 'Win/Linux',
+      part: null,
+      kindHint: 'full',
+      group: 'Win/Linux',
+      topLevel: true,
+    });
+  });
+
+  it('reads Splits from preceding bold when button title is Spoiler', () => {
+    expect(eternumPath('Eternum-0.9.5-pc.zip.part1.rar')).toMatchObject({
+      edition: 'Splits',
+      platform: 'Win/Linux',
+      part: 1,
+      kindHint: 'split',
+      group: 'Splits · Win/Linux · Part 1',
+    });
+  });
+
+  it('does not mislabel Win/Linux parts as Android', () => {
+    expect(eternumPath('Eternum-0.9.5-pc.zip.part2.rar').platform).toBe('Win/Linux');
+    expect(eternumPath('Eternum-0.9.5-mac.zip.part1.rar')).toMatchObject({
+      platform: 'Mac',
+      part: 1,
+      edition: 'Splits',
+    });
+  });
+
+  it('labels soundtrack spoiler from preceding version heading', () => {
+    expect(eternumPath('ost-win')).toMatchObject({
+      edition: 'v0.8.5 (Original Soundtrack)',
+      platform: 'Win/Linux',
+      part: null,
+    });
+  });
+});

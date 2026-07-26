@@ -37,6 +37,8 @@ const PATTERNS: Pattern[] = [
   { host: 'dropbox',       regex: /^(www\.)?dropbox\.com$/i,                                category: 'direct' },
   { host: 'gdrive',        regex: /^(drive|docs)\.google\.com$/i,                           category: 'direct' },
   { host: 'pcloud',        regex: /^(my\.|www\.)?pcloud\.com$|^u\.pcloud\.link$/i,          category: 'direct' },
+  { host: 'akirabox',      regex: /^(www\.)?akirabox\.com$/i,                               category: 'direct' },
+  { host: 'vikingfile',    regex: /^(www\.)?vikingfile\.com$/i,                             category: 'direct' },
   // social / creator pages (linked from threads but not downloads)
   { host: 'patreon',       regex: /^(www\.)?patreon\.com$/i,                                category: 'social' },
   { host: 'subscribestar', regex: /^(www\.)?subscribestar\.(adult|com)$/i,                  category: 'social' },

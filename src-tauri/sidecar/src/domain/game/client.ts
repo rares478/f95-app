@@ -728,6 +728,17 @@ function isAuxRowLabel(raw: string): boolean {
   return AUX_ROW_RE.test(cleanText(raw).replace(/:\s*$/, ''));
 }
 
+function sameSpoilerOrNone(
+  $: cheerio.CheerioAPI,
+  linkEl: Element,
+  candidate: cheerio.Cheerio<Element>,
+): boolean {
+  const linkSpoiler = $(linkEl).closest(SPOILER_SEL).get(0) ?? null;
+  const candSpoiler = candidate.closest(SPOILER_SEL).get(0) ?? null;
+  // Allow labels in the same spoiler (or both outside). Block prior/other spoilers.
+  return candSpoiler === linkSpoiler;
+}
+
 function nearestPlatformAndPart(
   $: cheerio.CheerioAPI,
   el: Element,
@@ -740,7 +751,8 @@ function nearestPlatformAndPart(
     const t = cleanText(raw);
     if (!t) return false;
     labels.push(t);
-    if (part == null && platform == null) {
+    // Part may share a label with platform ("Win/Linux Part 1") — set both.
+    if (part == null) {
       const p = partFromText(t);
       if (p != null) part = p;
     }
@@ -770,12 +782,15 @@ function nearestPlatformAndPart(
         }
         const tag = prev.tagName?.toLowerCase();
         if (tag === 'b' || tag === 'strong') {
-          if (considerLabel($(prev).text())) {
+          if (sameSpoilerOrNone($, el, $(prev)) && considerLabel($(prev).text())) {
             return { platform, part, labels };
           }
         } else {
           const inner = $(prev).find('b, strong').last();
-          if (inner.length && !inner.closest(SPOILER_SEL).length) {
+          // Same-spoiler labels are OK (XF wraps Win/Linux in spans inside the
+          // splits spoiler). Only reject bold text that lives in a *different*
+          // spoiler than the link.
+          if (inner.length && sameSpoilerOrNone($, el, inner)) {
             if (considerLabel(inner.text())) {
               return { platform, part, labels };
             }
@@ -816,16 +831,39 @@ function spoilerButtonTitle(
   );
 }
 
+/** Headings that can name an edition (season/version/splits). Plain UI labels like
+ * "Fan Signatures" must not become top-level editions for Win/Linux rows. */
+const EDITION_NAME_RE =
+  /\b(season|episode|ep\.?\s*\d|chapter|ch\.?\s*\d|act\b|interlude|archive|collection|volume|vol\.?\b|splits?|v\d)/i;
+
+function looksLikeEditionName(raw: string): boolean {
+  const t = cleanText(raw).replace(/^\*+\s*/, '');
+  if (!t || t.length > 120) return false;
+  if (/^downloads?$/i.test(t)) return false;
+  if (OS_LABEL_RE.test(t) && !EDITION_NAME_RE.test(t)) return false;
+  if (isAuxRowLabel(t)) return false;
+  return EDITION_NAME_RE.test(t);
+}
+
+function cleanEditionLabel(raw: string): string | null {
+  const t = cleanText(raw)
+    .replace(/^\*+\s*/, '')
+    .replace(/:\s*$/, '')
+    .trim();
+  if (!t) return null;
+  return normalizeGroupLabel(t) ?? t;
+}
+
 function previousSignificantSiblingText(
   $: cheerio.CheerioAPI,
   spoiler: Element,
 ): string | null {
+  // Prefer a short bold/strong edition label (e.g. <b>Splits</b> before a
+  // generic "Spoiler" button) over long intro paragraphs.
   let prev: AnyNode | null = (spoiler as AnyNode).prev ?? null;
+  let fallback: string | null = null;
   while (prev) {
-    if (isText(prev)) {
-      const t = cleanText(prev.data);
-      if (t) return t;
-    } else if (isElement(prev)) {
+    if (isElement(prev)) {
       if ($(prev).is(SPOILER_SEL)) {
         prev = prev.prev ?? null;
         continue;
@@ -835,25 +873,42 @@ function previousSignificantSiblingText(
         prev = prev.prev ?? null;
         continue;
       }
+
+      const bold = $(prev).is('b, strong')
+        ? $(prev)
+        : $(prev).find('b, strong').last();
+      if (bold.length) {
+        const bt = cleanText(bold.text());
+        if (looksLikeEditionName(bt)) {
+          return cleanEditionLabel(bt);
+        }
+      }
+
       const t = cleanText($(prev).text());
       if (!t) {
         prev = prev.prev ?? null;
         continue;
       }
-      if (
-        tag === 'b' ||
-        tag === 'strong' ||
-        tag === 'p' ||
-        /^h[1-6]$/.test(tag)
-      ) {
-        if (t.length <= 120) return t;
-      } else if (t.length <= 80) {
-        return t;
+      if (looksLikeEditionName(t) && t.length <= 120) {
+        return cleanEditionLabel(t);
       }
+      if (
+        !fallback &&
+        (tag === 'b' ||
+          tag === 'strong' ||
+          tag === 'p' ||
+          /^h[1-6]$/.test(tag)) &&
+        t.length <= 80
+      ) {
+        fallback = cleanEditionLabel(t);
+      }
+    } else if (isText(prev)) {
+      const t = cleanText(prev.data);
+      if (t && looksLikeEditionName(t)) return cleanEditionLabel(t);
     }
     prev = prev.prev ?? null;
   }
-  return null;
+  return fallback;
 }
 
 function resolveSpoilerEdition(
@@ -896,11 +951,11 @@ function resolveSpoilerEdition(
     // (fromFallback titles like "Season 3 splits" already qualify above).
     if (!fromFallback && /split/i.test(title)) {
       if (isOutermost && !outerSplitEdition) {
-        outerSplitEdition = cleanText(title);
+        outerSplitEdition = cleanEditionLabel(title);
       }
       continue;
     }
-    if (!edition) edition = cleanText(title);
+    if (!edition) edition = cleanEditionLabel(title);
   }
 
   if (!edition && outerSplitEdition) edition = outerSplitEdition;
@@ -928,20 +983,23 @@ function nearestTopLevelEdition(
         if (tag === 'b' || tag === 'strong' || /^h[1-6]$/.test(tag)) {
           const raw = cleanText($(prev).text());
           if (raw) {
+            // Hit the Download section header — stop; OS rows above it have no edition.
+            if (/^downloads?$/i.test(raw.replace(/:\s*$/, ''))) return null;
             if (isAuxRowLabel(raw)) return null;
-            if (!OS_LABEL_RE.test(raw)) {
-              const label = normalizeGroupLabel(raw);
+            if (!OS_LABEL_RE.test(raw) && looksLikeEditionName(raw)) {
+              const label = cleanEditionLabel(raw);
               if (label) return label;
             }
           }
         } else {
           const inner = $(prev).find('b, strong').last();
-          if (inner.length && !inner.closest(SPOILER_SEL).length) {
+          if (inner.length && sameSpoilerOrNone($, el, inner)) {
             const raw = cleanText(inner.text());
             if (raw) {
+              if (/^downloads?$/i.test(raw.replace(/:\s*$/, ''))) return null;
               if (isAuxRowLabel(raw)) return null;
-              if (!OS_LABEL_RE.test(raw)) {
-                const label = normalizeGroupLabel(raw);
+              if (!OS_LABEL_RE.test(raw) && looksLikeEditionName(raw)) {
+                const label = cleanEditionLabel(raw);
                 if (label) return label;
               }
             }
@@ -952,9 +1010,12 @@ function nearestTopLevelEdition(
           /(?:^|[\s])((?:[\w][\w /_.+-]{0,40}))\s*:\s*$/,
         );
         if (colon && !OS_LABEL_RE.test(colon[1])) {
+          if (/^downloads?$/i.test(colon[1])) return null;
           if (isAuxRowLabel(colon[1])) return null;
-          const label = normalizeGroupLabel(colon[1]);
-          if (label) return label;
+          if (looksLikeEditionName(colon[1])) {
+            const label = cleanEditionLabel(colon[1]);
+            if (label) return label;
+          }
         }
       }
       prev = prev.prev ?? null;
