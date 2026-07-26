@@ -8,9 +8,9 @@ import { useOffline } from '../contexts/Offline';
 import { useT } from '../lib/i18n';
 import { formatDownloadSpeed } from '../lib/downloadSettings';
 import type { DownloadProgress, DownloadRow } from '../types/download';
-import { formatBytes, stateKey } from '../types/download';
+import { formatBytes, formatDuration, stateKey } from '../types/download';
 
-const ACTIVE_STATES = new Set(['pending', 'resolving', 'downloading']);
+const ACTIVE_STATES = new Set(['pending', 'resolving', 'downloading', 'extracting']);
 
 function displayName(
   row: DownloadRow,
@@ -28,6 +28,9 @@ function progressPct(
   row: DownloadRow,
   progress: DownloadProgress | undefined,
 ): number | null {
+  if (row.state === 'extracting') {
+    return progress?.extractPercent ?? null;
+  }
   const liveBytes = progress?.bytes ?? row.bytesDone;
   const liveTotal = progress?.total ?? row.bytesTotal;
   if (!liveTotal || liveTotal <= 0) return null;
@@ -94,6 +97,7 @@ export function StatusBar() {
     ? (primaryProgress?.total ?? primary.bytesTotal)
     : null;
   const speedBps = primaryProgress?.speedBps ?? 0;
+  const extractEtaSecs = primaryProgress?.extractEtaSecs ?? null;
 
   return (
     <footer style={barStyle} className="status-bar">
@@ -101,7 +105,7 @@ export function StatusBar() {
         {primary ? (
           <>
             <span style={downloadIconWrap} aria-hidden>
-              <DownloadIcon active={primary.state === 'downloading'} />
+              <DownloadIcon active={primary.state === 'downloading' || primary.state === 'extracting'} />
             </span>
             <span style={downloadTextWrap}>
               <span style={downloadLabelStyle}>
@@ -110,20 +114,36 @@ export function StatusBar() {
                       name: displayName(primary, titles),
                       pct: pct !== null ? pct.toFixed(0) : '—',
                     })
-                  : t('statusbar.resolving', {
-                      name: displayName(primary, titles),
-                      state: t(stateKey(primary.state)),
-                    })}
+                  : primary.state === 'extracting'
+                    ? t('statusbar.extracting', {
+                        name: displayName(primary, titles),
+                        pct: pct !== null ? pct.toFixed(0) : '—',
+                      })
+                    : t('statusbar.resolving', {
+                        name: displayName(primary, titles),
+                        state: t(stateKey(primary.state)),
+                      })}
                 {extraCount > 0 &&
                   ` ${t('statusbar.more', { count: extraCount })}`}
               </span>
-              {(primary.state === 'downloading' || pct !== null) && (
+              {(primary.state === 'downloading' || primary.state === 'extracting' || pct !== null) && (
                 <span style={downloadMetaStyle}>
-                  {formatBytes(liveBytes)}
-                  {liveTotal ? ` / ${formatBytes(liveTotal)}` : ''}
-                  {speedBps > 0
-                    ? ` · ${formatDownloadSpeed(speedBps, dlSettings.speedInMbps)}`
-                    : ''}
+                  {primary.state === 'extracting' ? (
+                    <>
+                      {t('downloads.action.extracting')}
+                      {extractEtaSecs != null && extractEtaSecs > 0 && (
+                        <> · {t('dllist.meta.eta', { eta: formatDuration(extractEtaSecs) })}</>
+                      )}
+                    </>
+                  ) : (
+                    <>
+                      {formatBytes(liveBytes)}
+                      {liveTotal ? ` / ${formatBytes(liveTotal)}` : ''}
+                      {speedBps > 0
+                        ? ` · ${formatDownloadSpeed(speedBps, dlSettings.speedInMbps)}`
+                        : ''}
+                    </>
+                  )}
                 </span>
               )}
             </span>

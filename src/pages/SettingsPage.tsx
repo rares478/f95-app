@@ -1958,8 +1958,11 @@ export function SettingsPage({ onLoggedOut: _onLoggedOut }: Props) {
                         </div>
                         {!overlayHotkeyOk && (
                           <p className="settings-card-hint settings-hotkey-warn">
-                            {getOverlayHotkeyRegistrationMessage() ??
-                              t('settings.experimental.hotkeyConflict')}
+                            {(() => {
+                              const raw = getOverlayHotkeyRegistrationMessage();
+                              if (!raw) return t('settings.experimental.hotkeyConflict');
+                              return translateBackendMessage(raw, t);
+                            })()}
                           </p>
                         )}
                         {overlayHotkeyOk &&

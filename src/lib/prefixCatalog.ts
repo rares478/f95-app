@@ -1,4 +1,5 @@
 import type { SamPrefixGroup } from '../types/sam';
+import { decodeHtmlEntities } from './htmlEntities';
 
 export interface PrefixMeta {
   id: number;
@@ -14,9 +15,9 @@ export function buildPrefixCatalog(groups: SamPrefixGroup[]): Map<number, Prefix
     for (const p of group.prefixes) {
       map.set(p.id, {
         id: p.id,
-        name: p.name,
+        name: decodeHtmlEntities(p.name),
         groupId: group.id,
-        groupName: group.name,
+        groupName: decodeHtmlEntities(group.name),
         cssClass: p.cssClass,
       });
     }

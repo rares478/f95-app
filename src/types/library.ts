@@ -9,6 +9,9 @@ export type InstallStatus =
   | 'update_available'
   | 'error';
 
+/** UI-only overlay from live download rows (not stored in SQLite). */
+export type LibraryDisplayStatus = InstallStatus | 'needs_attention';
+
 export interface LibraryGame {
   threadId: string;
   category: SamCategory;
@@ -44,16 +47,18 @@ export type LibrarySort = 'added' | 'title' | 'last_played' | 'playtime';
  * `t()` (`t(statusKey(s))`). Kept as a key indirection so the function
  * itself stays pure and locale-agnostic.
  */
-export function statusKey(s: InstallStatus): string {
+export function statusKey(s: LibraryDisplayStatus): string {
   return `status.${s}`;
 }
 
-export function statusColor(s: InstallStatus): string {
+export function statusColor(s: LibraryDisplayStatus): string {
   switch (s) {
     case 'installed':
       return 'var(--status-success)';
     case 'downloading':
       return 'var(--status-warning)';
+    case 'needs_attention':
+      return 'var(--accent-strong)';
     case 'extracting':
       return '#b07fc7';
     case 'update_available':

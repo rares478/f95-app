@@ -18,6 +18,7 @@
 
 use crate::error::AppError;
 use serde::Serialize;
+use serde_json::json;
 use std::ffi::OsStr;
 use std::fs;
 use std::path::{Path, PathBuf};
@@ -57,16 +58,16 @@ pub struct MigrationResult {
 /// doesn't lose the user's progress.
 pub fn migrate(old_root: &Path, new_root: &Path) -> Result<MigrationResult, AppError> {
     if !old_root.exists() {
-        return Err(AppError::Other(format!(
-            "diretório de origem não existe: {}",
-            old_root.display()
-        )));
+        return Err(AppError::keyed_vars(
+            "error.save.sourceMissing",
+            json!({ "path": old_root.display().to_string() }),
+        ));
     }
     if !new_root.exists() {
-        return Err(AppError::Other(format!(
-            "diretório de destino não existe: {}",
-            new_root.display()
-        )));
+        return Err(AppError::keyed_vars(
+            "error.save.destMissing",
+            json!({ "path": new_root.display().to_string() }),
+        ));
     }
 
     let mut result = MigrationResult {
@@ -129,7 +130,12 @@ fn copy_dir_merge(src: &Path, dst: &Path) -> Result<u64, AppError> {
     for entry in WalkDir::new(src) {
         let entry = match entry {
             Ok(e) => e,
-            Err(e) => return Err(AppError::Other(format!("walk: {e}"))),
+            Err(e) => {
+                return Err(AppError::keyed_vars(
+                    "error.save.walkFailed",
+                    json!({ "detail": e.to_string() }),
+                ))
+            }
         };
         let src_path = entry.path();
         let rel = match src_path.strip_prefix(src) {

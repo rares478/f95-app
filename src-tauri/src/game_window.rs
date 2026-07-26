@@ -1,6 +1,8 @@
 //! Resolve and track the game window for overlay anchoring (Windows).
 //! Supports windowed, borderless, foreground capture, and exclusive-fullscreen fallbacks.
 
+#[cfg(not(windows))]
+use crate::error::AppError;
 use serde::Serialize;
 
 #[derive(Debug, Clone, Copy, PartialEq, Eq, Serialize)]
@@ -36,6 +38,8 @@ pub const OVERLAY_HINT_HEIGHT: i32 = 96;
 #[cfg(windows)]
 mod win {
     use super::{GameWindowMatch, OverlayAttachMode, ScreenRect};
+    use crate::error::AppError;
+    use serde_json::json;
     use std::sync::Mutex;
     use windows::core::BOOL;
     use windows::Win32::Foundation::{HWND, LPARAM, POINT, RECT};
@@ -556,9 +560,9 @@ mod win {
         layout: PlaceLayout<'_>,
     ) -> Result<(), String> {
         if layout.display_mode == "compact" {
-            let (x, y, w, h) = layout
-                .compact_geom
-                .ok_or_else(|| "geometria compacta ausente".to_string())?;
+            let (x, y, w, h) = layout.compact_geom.ok_or_else(|| {
+                AppError::keyed("error.overlay.compactGeomMissing").to_string()
+            })?;
             let rect = compact_screen_rect(base, (x, y, w, h));
             unsafe {
                 SetWindowPos(
@@ -570,7 +574,13 @@ mod win {
                     rect.height,
                     SWP_SHOWWINDOW | SWP_NOACTIVATE,
                 )
-                .map_err(|e| format!("SetWindowPos compact: {e}"))?;
+                .map_err(|e| {
+                    AppError::keyed_vars(
+                        "error.overlay.setWindowPos",
+                        json!({ "detail": e.to_string() }),
+                    )
+                    .to_string()
+                })?;
             }
         } else {
             unsafe {
@@ -583,7 +593,13 @@ mod win {
                     base.height,
                     SWP_SHOWWINDOW | SWP_NOACTIVATE,
                 )
-                .map_err(|e| format!("SetWindowPos: {e}"))?;
+                .map_err(|e| {
+                    AppError::keyed_vars(
+                        "error.overlay.setWindowPos",
+                        json!({ "detail": e.to_string() }),
+                    )
+                    .to_string()
+                })?;
             }
         }
         Ok(())
@@ -701,7 +717,13 @@ mod win {
                 screen_rect.height,
                 flags,
             )
-            .map_err(|e| format!("SetWindowPos hint: {e}"))?;
+            .map_err(|e| {
+                AppError::keyed_vars(
+                    "error.overlay.setWindowPos",
+                    json!({ "detail": e.to_string() }),
+                )
+                .to_string()
+            })?;
         }
         Ok(())
     }
@@ -1022,7 +1044,7 @@ pub fn place_overlay(
     _display_mode: &str,
     _compact_geom: Option<(f64, f64, f64, f64)>,
 ) -> Result<(), String> {
-    Err("overlay no jogo só está disponível no Windows".into())
+    Err(AppError::keyed("error.overlay.windowsOnly").to_string())
 }
 
 #[cfg(not(windows))]

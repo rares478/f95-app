@@ -55,7 +55,7 @@ export async function create(input: CreateInput): Promise<DownloadRow> {
   const existing = await query<DbRow>(
     `SELECT * FROM downloads
        WHERE thread_id = ? AND source_url = ?
-         AND state IN ('pending','resolving','awaiting_choice','downloading')
+        AND state IN ('pending','resolving','awaiting_choice','downloading','extracting')
        LIMIT 1`,
     [input.threadId, input.sourceUrl],
   );
@@ -206,6 +206,45 @@ export async function markDone(
             finished_at = datetime('now')
         WHERE id = ?`,
     [args.bytes, args.filePath, id],
+  );
+}
+
+export async function markExtracting(
+  threadId: string,
+  archivePath: string,
+): Promise<void> {
+  await execute(
+    `UPDATE downloads
+        SET state = 'extracting'
+        WHERE thread_id = ? AND dest_path = ? AND state = 'completed'`,
+    [threadId, archivePath],
+  );
+}
+
+export async function markExtracted(
+  threadId: string,
+  archivePath: string,
+): Promise<void> {
+  await execute(
+    `UPDATE downloads
+        SET state = 'completed'
+        WHERE thread_id = ? AND dest_path = ? AND state = 'extracting'`,
+    [threadId, archivePath],
+  );
+}
+
+export async function markExtractFailed(
+  threadId: string,
+  archivePath: string,
+  message: string,
+): Promise<void> {
+  await execute(
+    `UPDATE downloads
+        SET state = 'failed',
+            error_message = ?,
+            finished_at = datetime('now')
+        WHERE thread_id = ? AND dest_path = ? AND state = 'extracting'`,
+    [message, threadId, archivePath],
   );
 }
 

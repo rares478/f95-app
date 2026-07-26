@@ -1,5 +1,6 @@
 import bundledTagMap from '../data/f95-tag-map.json';
 import type { SamTag } from '../types/sam';
+import { decodeHtmlEntities } from './htmlEntities';
 
 export type TagCatalog = Map<number, string>;
 
@@ -11,7 +12,7 @@ export function buildTagCatalogFromRecord(
   for (const [key, name] of Object.entries(record)) {
     const id = Number(key);
     if (Number.isFinite(id) && name.trim()) {
-      map.set(id, name.trim());
+      map.set(id, decodeHtmlEntities(name.trim()));
     }
   }
   return map;

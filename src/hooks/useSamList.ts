@@ -15,6 +15,7 @@ export interface SamListState {
 }
 
 const PAGE_SIZE = 15;
+const SESSION_PREFIX = 'f95-app:sam-list:';
 
 export function useSamList(filters: SamFilters): SamListState & {
   loadMore: () => void;
@@ -42,8 +43,14 @@ export function useSamList(filters: SamFilters): SamListState & {
     order: filters.order,
     rows: filters.rows ?? PAGE_SIZE,
   });
+  const sessionKey = `${SESSION_PREFIX}${filterKey}`;
 
   const reqIdRef = useRef(0);
+  const restoredRef = useRef(false);
+
+  useEffect(() => {
+    restoredRef.current = false;
+  }, [sessionKey]);
 
   const fetchPage = useCallback(
     async (target: number, append: boolean) => {
@@ -82,8 +89,30 @@ export function useSamList(filters: SamFilters): SamListState & {
     [filterKey],
   );
 
-  // Reload when filters change (debounced for search).
   useEffect(() => {
+    if (restoredRef.current) return;
+    restoredRef.current = true;
+    const snapshot = loadSessionSnapshot(sessionKey);
+    if (!snapshot) return;
+    setItems(snapshot.items);
+    setPage(snapshot.page);
+    setTotalPages(snapshot.totalPages);
+    setTotalRows(snapshot.totalRows);
+  }, [sessionKey]);
+
+  useEffect(() => {
+    saveSessionSnapshot(sessionKey, {
+      items,
+      page,
+      totalPages,
+      totalRows,
+    });
+  }, [sessionKey, items, page, totalPages, totalRows]);
+
+  // Reload when filters change (debounced for search), unless hydrated from session.
+  useEffect(() => {
+    const snapshot = loadSessionSnapshot(sessionKey);
+    if (snapshot && snapshot.items.length > 0) return;
     const isSearch = (filters.search ?? '').length > 0;
     const t = setTimeout(
       () => {
@@ -114,10 +143,11 @@ export function useSamList(filters: SamFilters): SamListState & {
   );
 
   const reload = useCallback(() => {
+    clearSessionSnapshot(sessionKey);
     setItems([]);
     setPage(0);
     fetchPage(1, false);
-  }, [fetchPage]);
+  }, [fetchPage, sessionKey]);
 
   return {
     items,
@@ -142,6 +172,46 @@ function dedup(items: SamGameCard[]): SamGameCard[] {
     out.push(it);
   }
   return out;
+}
+
+interface SessionSnapshot {
+  items: SamGameCard[];
+  page: number;
+  totalPages: number;
+  totalRows: number;
+}
+
+function loadSessionSnapshot(key: string): SessionSnapshot | null {
+  try {
+    const raw = sessionStorage.getItem(key);
+    if (!raw) return null;
+    const parsed = JSON.parse(raw) as Partial<SessionSnapshot>;
+    if (!Array.isArray(parsed.items)) return null;
+    return {
+      items: parsed.items,
+      page: Math.max(0, Number(parsed.page ?? 0)),
+      totalPages: Math.max(1, Number(parsed.totalPages ?? 1)),
+      totalRows: Math.max(0, Number(parsed.totalRows ?? 0)),
+    };
+  } catch {
+    return null;
+  }
+}
+
+function saveSessionSnapshot(key: string, snapshot: SessionSnapshot): void {
+  try {
+    sessionStorage.setItem(key, JSON.stringify(snapshot));
+  } catch {
+    // ignore quota errors
+  }
+}
+
+function clearSessionSnapshot(key: string): void {
+  try {
+    sessionStorage.removeItem(key);
+  } catch {
+    // ignore storage errors
+  }
 }
 
 async function cacheItems(items: SamGameCard[]): Promise<void> {
@@ -185,4 +255,3 @@ async function cacheItems(items: SamGameCard[]): Promise<void> {
     );
   }
 }
-

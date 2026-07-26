@@ -6,7 +6,7 @@ import { usePrefixCatalog } from '../../contexts/PrefixCatalogContext';
 import { useTagCatalog } from '../../contexts/TagCatalogContext';
 import { useT } from '../../lib/i18n';
 import { Spinner } from '../ui/Spinner';
-import { loadStoredPrefixGroups } from '../../lib/prefixCatalogStorage';
+import { loadStoredPrefixGroups, sanitizePrefixGroups } from '../../lib/prefixCatalogStorage';
 import { fallbackPrefixGroupsForCategory } from '../../lib/fallbackPrefixGroups';
 import {
   clampFloatingMenuStyle,
@@ -25,7 +25,7 @@ import {
 const MAX_TAGS = 10;
 
 function resolvePrefixGroups(fromApi: SamPrefixGroup[], category: SamCategory): SamPrefixGroup[] {
-  if (fromApi.length > 0) return fromApi;
+  if (fromApi.length > 0) return sanitizePrefixGroups(fromApi);
   const stored = loadStoredPrefixGroups();
   if (stored.length > 0) return stored;
   return fallbackPrefixGroupsForCategory(category);
@@ -40,8 +40,10 @@ interface Props {
   onSort: (s: SamSort) => void;
   prefixFilter: Record<number, PrefixFilterMode>;
   onPrefixFilter: (next: Record<number, PrefixFilterMode>) => void;
-  selectedTags: SamTag[];
-  onSelectedTags: (tags: SamTag[]) => void;
+  includeTags: SamTag[];
+  onIncludeTags: (tags: SamTag[]) => void;
+  excludeTags: SamTag[];
+  onExcludeTags: (tags: SamTag[]) => void;
   tagMode: SamTagMode;
   onTagMode: (mode: SamTagMode) => void;
   onClearAll: () => void;
@@ -67,8 +69,10 @@ export function FilterSidebar(props: Props) {
     onSort,
     prefixFilter,
     onPrefixFilter,
-    selectedTags,
-    onSelectedTags,
+    includeTags,
+    onIncludeTags,
+    excludeTags,
+    onExcludeTags,
     tagMode,
     onTagMode,
     onClearAll,
@@ -206,31 +210,37 @@ export function FilterSidebar(props: Props) {
         title={t('filter.tags.title')}
         hint={t('filter.tags.hint', { max: MAX_TAGS })}
       >
-        <div className="store-filter-tag-mode">
-          <span className="store-filter-tag-mode-label">{t('filter.tags.mode')}</span>
-          <div className="store-filter-tag-mode-toggle" role="group">
-            <button
-              type="button"
-              className={tagMode === 'or' ? 'store-filter-tag-mode-active' : ''}
-              onClick={() => onTagMode('or')}
-            >
-              {t('filter.tags.or')}
-            </button>
-            <span className="store-filter-tag-mode-sep">/</span>
-            <button
-              type="button"
-              className={tagMode === 'and' ? 'store-filter-tag-mode-active' : ''}
-              onClick={() => onTagMode('and')}
-            >
-              {t('filter.tags.and')}
-            </button>
+        {includeTags.length > 1 && (
+          <div className="store-filter-tag-mode">
+            <span className="store-filter-tag-mode-label">{t('filter.tags.matchMode')}</span>
+            <div className="store-filter-tag-mode-toggle" role="group" aria-label={t('filter.tags.matchMode')}>
+              <button
+                type="button"
+                className={tagMode === 'or' ? 'store-filter-tag-mode-active' : ''}
+                onClick={() => onTagMode('or')}
+                title={t('filter.tags.orHint')}
+              >
+                {t('filter.tags.or')}
+              </button>
+              <span className="store-filter-tag-mode-sep">/</span>
+              <button
+                type="button"
+                className={tagMode === 'and' ? 'store-filter-tag-mode-active' : ''}
+                onClick={() => onTagMode('and')}
+                title={t('filter.tags.andHint')}
+              >
+                {t('filter.tags.and')}
+              </button>
+            </div>
           </div>
-        </div>
+        )}
         <TagFilterInput
           key={category}
           category={category}
-          selected={selectedTags}
-          onChange={onSelectedTags}
+          includeTags={includeTags}
+          onIncludeTags={onIncludeTags}
+          excludeTags={excludeTags}
+          onExcludeTags={onExcludeTags}
           max={MAX_TAGS}
         />
       </FilterSection>
@@ -341,15 +351,35 @@ function PrefixGroupSection({
   );
 }
 
+function tagMatchesQuery(name: string, q: string): boolean {
+  return name.toLowerCase().includes(q);
+}
+
+function sortTagsByQuery(tags: SamTag[], q: string): SamTag[] {
+  const ql = q.toLowerCase();
+  return [...tags].sort((a, b) => {
+    const an = a.name.toLowerCase();
+    const bn = b.name.toLowerCase();
+    const aStarts = an.startsWith(ql) ? 0 : 1;
+    const bStarts = bn.startsWith(ql) ? 0 : 1;
+    if (aStarts !== bStarts) return aStarts - bStarts;
+    return an.localeCompare(bn);
+  });
+}
+
 function TagFilterInput({
   category,
-  selected,
-  onChange,
+  includeTags,
+  onIncludeTags,
+  excludeTags,
+  onExcludeTags,
   max,
 }: {
   category: SamCategory;
-  selected: SamTag[];
-  onChange: (tags: SamTag[]) => void;
+  includeTags: SamTag[];
+  onIncludeTags: (tags: SamTag[]) => void;
+  excludeTags: SamTag[];
+  onExcludeTags: (tags: SamTag[]) => void;
   max: number;
 }) {
   const { t } = useT();
@@ -365,21 +395,28 @@ function TagFilterInput({
   const menuRef = useRef<HTMLUListElement | null>(null);
   const menuResizeObserverRef = useRef<ResizeObserver | null>(null);
 
-  const selectedIds = useMemo(() => new Set(selected.map((t) => t.id)), [selected]);
+  const filteredIds = useMemo(
+    () => new Set([...includeTags, ...excludeTags].map((tag) => tag.id)),
+    [includeTags, excludeTags],
+  );
+
+  const atIncludeMax = includeTags.length >= max;
+  const atExcludeMax = excludeTags.length >= max;
+  const atAnyMax = atIncludeMax && atExcludeMax;
 
   const localSuggestions = useMemo(() => {
     const q = query.trim().toLowerCase();
     if (!q) return [];
     const out: SamTag[] = [];
     for (const [id, name] of catalog) {
-      if (selectedIds.has(id)) continue;
-      if (name.toLowerCase().includes(q)) {
+      if (filteredIds.has(id)) continue;
+      if (tagMatchesQuery(name, q)) {
         out.push({ id, name });
-        if (out.length >= 24) break;
+        if (out.length >= 40) break;
       }
     }
-    return out;
-  }, [catalog, query, selectedIds]);
+    return sortTagsByQuery(out, q);
+  }, [catalog, query, filteredIds]);
 
   useEffect(() => {
     setQuery('');
@@ -389,39 +426,47 @@ function TagFilterInput({
 
   useEffect(() => {
     if (!open) return;
+
+    const q = query.trim().toLowerCase();
+
+    if (!q) {
+      const popular: SamTag[] = [];
+      const sorted = [...catalog.entries()].sort((a, b) => a[1].localeCompare(b[1]));
+      for (const [id, name] of sorted) {
+        if (filteredIds.has(id)) continue;
+        popular.push({ id, name });
+        if (popular.length >= 20) break;
+      }
+      setSuggestions(popular);
+      setLoading(false);
+      return;
+    }
+
+    setSuggestions(localSuggestions);
+    setLoading(localSuggestions.length === 0);
+
     const tmr = setTimeout(() => {
       setLoading(true);
       ipc
-        .samTagSearch(category, query)
+        .samTagSearch(category, q)
         .then((rows) => {
           const merged = new Map<number, SamTag>();
-          for (const tag of rows) {
-            if (!selectedIds.has(tag.id)) merged.set(tag.id, tag);
+          for (const tag of [...rows, ...localSuggestions]) {
+            if (filteredIds.has(tag.id)) continue;
+            if (!tagMatchesQuery(tag.name, q)) continue;
+            merged.set(tag.id, tag);
           }
-          for (const tag of localSuggestions) {
-            if (!merged.has(tag.id)) merged.set(tag.id, tag);
-          }
-          setSuggestions([...merged.values()].slice(0, 40));
+          setSuggestions(sortTagsByQuery([...merged.values()], q).slice(0, 40));
         })
         .catch((err) => {
           console.warn('[filter] tag search failed', err);
-          setSuggestions([]);
+          setSuggestions(localSuggestions);
         })
         .finally(() => setLoading(false));
-    }, query ? 220 : 0);
-    return () => clearTimeout(tmr);
-  }, [category, query, open, selectedIds, localSuggestions]);
+    }, 220);
 
-  useEffect(() => {
-    if (!open || query.trim()) return;
-    const popular: SamTag[] = [];
-    for (const [id, name] of catalog) {
-      if (selectedIds.has(id)) continue;
-      popular.push({ id, name });
-      if (popular.length >= 20) break;
-    }
-    setSuggestions(popular);
-  }, [open, query, catalog, selectedIds]);
+    return () => clearTimeout(tmr);
+  }, [category, query, open, filteredIds, localSuggestions, catalog]);
 
   const updateMenuPosition = useCallback(() => {
     const input = inputRef.current;
@@ -485,34 +530,69 @@ function TagFilterInput({
     return () => document.removeEventListener('mousedown', onDocClick);
   }, []);
 
-  function addTag(tag: SamTag) {
-    if (selected.length >= max || selectedIds.has(tag.id)) return;
-    onChange([...selected, tag]);
+  function addTag(tag: SamTag, mode: 'include' | 'exclude') {
+    if (filteredIds.has(tag.id)) return;
+    if (mode === 'include') {
+      if (atIncludeMax) return;
+      onExcludeTags(excludeTags.filter((t) => t.id !== tag.id));
+      onIncludeTags([...includeTags, tag]);
+    } else {
+      if (atExcludeMax) return;
+      onIncludeTags(includeTags.filter((t) => t.id !== tag.id));
+      onExcludeTags([...excludeTags, tag]);
+    }
     setQuery('');
     setOpen(false);
   }
 
-  function removeTag(id: number) {
-    onChange(selected.filter((t) => t.id !== id));
+  function removeIncludeTag(id: number) {
+    onIncludeTags(includeTags.filter((t) => t.id !== id));
+  }
+
+  function removeExcludeTag(id: number) {
+    onExcludeTags(excludeTags.filter((t) => t.id !== id));
   }
 
   return (
     <div className="store-filter-tags" ref={wrapRef}>
-      {selected.length > 0 && (
-        <div className="store-filter-tag-chips">
-          {selected.map((tag) => (
-            <span key={tag.id} className="store-filter-tag-chip">
-              {tag.name}
-              <button
-                type="button"
-                className="store-filter-tag-chip-remove"
-                aria-label={t('filter.tags.remove', { name: tag.name })}
-                onClick={() => removeTag(tag.id)}
-              >
-                ×
-              </button>
-            </span>
-          ))}
+      {includeTags.length > 0 && (
+        <div className="store-filter-tag-chip-group">
+          <span className="store-filter-tag-chip-label">{t('filter.prefix.include')}</span>
+          <div className="store-filter-tag-chips">
+            {includeTags.map((tag) => (
+              <span key={tag.id} className="store-filter-tag-chip store-filter-tag-chip--include">
+                {tag.name}
+                <button
+                  type="button"
+                  className="store-filter-tag-chip-remove"
+                  aria-label={t('filter.tags.remove', { name: tag.name })}
+                  onClick={() => removeIncludeTag(tag.id)}
+                >
+                  ×
+                </button>
+              </span>
+            ))}
+          </div>
+        </div>
+      )}
+      {excludeTags.length > 0 && (
+        <div className="store-filter-tag-chip-group">
+          <span className="store-filter-tag-chip-label">{t('filter.prefix.exclude')}</span>
+          <div className="store-filter-tag-chips">
+            {excludeTags.map((tag) => (
+              <span key={tag.id} className="store-filter-tag-chip store-filter-tag-chip--exclude">
+                {tag.name}
+                <button
+                  type="button"
+                  className="store-filter-tag-chip-remove"
+                  aria-label={t('filter.tags.remove', { name: tag.name })}
+                  onClick={() => removeExcludeTag(tag.id)}
+                >
+                  ×
+                </button>
+              </span>
+            ))}
+          </div>
         </div>
       )}
       <div className="store-filter-tag-input-wrap">
@@ -521,9 +601,9 @@ function TagFilterInput({
           type="text"
           className="store-filter-tag-input"
           value={query}
-          disabled={selected.length >= max}
+          disabled={atAnyMax}
           placeholder={
-            selected.length >= max
+            atAnyMax
               ? t('filter.tags.maxReached', { max })
               : t('filter.tags.placeholder')
           }
@@ -539,7 +619,9 @@ function TagFilterInput({
             }
             if (e.key === 'Enter' && suggestions[0]) {
               e.preventDefault();
-              addTag(suggestions[0]);
+              const mode = atIncludeMax ? 'exclude' : 'include';
+              if (mode === 'exclude' && atExcludeMax) return;
+              addTag(suggestions[0], mode);
             }
           }}
           aria-expanded={open}
@@ -557,6 +639,17 @@ function TagFilterInput({
                 (inputRef.current ? computeFloatingMenuStyle(inputRef.current) : undefined)
               }
             >
+              {query.trim() && (
+                <li className="store-filter-tag-suggestion-row store-filter-tag-suggestion-row-head" aria-hidden>
+                  <span className="store-filter-tag-suggestion-name" />
+                  <span className="store-filter-prefix-col-label" title={t('filter.prefix.include')}>
+                    ✓
+                  </span>
+                  <span className="store-filter-prefix-col-label" title={t('filter.prefix.exclude')}>
+                    ✕
+                  </span>
+                </li>
+              )}
               {loading && (
                 <li className="store-filter-tag-suggestion-muted store-filter-tag-suggestion-loading">
                   <Spinner size="sm" />
@@ -568,9 +661,33 @@ function TagFilterInput({
               )}
               {!loading &&
                 suggestions.map((tag) => (
-                  <li key={tag.id}>
-                    <button type="button" role="option" onClick={() => addTag(tag)}>
+                  <li key={tag.id} className="store-filter-tag-suggestion-row">
+                    <span className="store-filter-tag-suggestion-name" title={tag.name}>
                       {tag.name}
+                    </span>
+                    <button
+                      type="button"
+                      className={`store-filter-prefix-btn store-filter-prefix-include${
+                        atIncludeMax ? ' store-filter-prefix-btn-disabled' : ''
+                      }`}
+                      title={t('filter.prefix.include')}
+                      aria-label={`${t('filter.prefix.include')}: ${tag.name}`}
+                      disabled={atIncludeMax}
+                      onClick={() => addTag(tag, 'include')}
+                    >
+                      ✓
+                    </button>
+                    <button
+                      type="button"
+                      className={`store-filter-prefix-btn store-filter-prefix-exclude${
+                        atExcludeMax ? ' store-filter-prefix-btn-disabled' : ''
+                      }`}
+                      title={t('filter.prefix.exclude')}
+                      aria-label={`${t('filter.prefix.exclude')}: ${tag.name}`}
+                      disabled={atExcludeMax}
+                      onClick={() => addTag(tag, 'exclude')}
+                    >
+                      ✕
                     </button>
                   </li>
                 ))}

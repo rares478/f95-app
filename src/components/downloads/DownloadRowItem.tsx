@@ -6,9 +6,14 @@ import { translateBackendMessage } from '../../lib/backendMessage';
 import { useDownloadSettings } from '../../contexts/DownloadSettings';
 import { formatDownloadSpeed } from '../../lib/downloadSettings';
 import { isArchivePath, cleanDownloadFileName } from '../../lib/archives';
+import {
+  canChangeDownloadProvider,
+  hostNeedsApiKeyHint,
+} from '../../lib/downloadLibrarySync';
 import type { DownloadProgress, DownloadRow } from '../../types/download';
 import {
   formatBytes,
+  formatDuration,
   formatEta,
   stateKey,
 } from '../../types/download';
@@ -26,10 +31,13 @@ interface Props {
 export function DownloadActiveCard({ row, progress, game, onCancel, onContextMenu }: Props) {
   const { t } = useT();
   const { settings: dlSettings } = useDownloadSettings();
+  const isExtracting = row.state === 'extracting';
+  const extractPct = isExtracting ? (progress?.extractPercent ?? null) : null;
   const liveBytes = progress?.bytes ?? row.bytesDone;
   const liveTotal = progress?.total ?? row.bytesTotal;
-  const pct =
-    liveTotal && liveTotal > 0
+  const pct = isExtracting
+    ? extractPct
+    : liveTotal && liveTotal > 0
       ? Math.min(100, (liveBytes / liveTotal) * 100)
       : null;
   const displayTitle = game?.title ?? t('dl.thread', { id: row.threadId });
@@ -62,21 +70,41 @@ export function DownloadActiveCard({ row, progress, game, onCancel, onContextMen
         </div>
 
         <div className="dl-active-progress">
-          <div className="dl-active-progress-fill" style={{ width: `${pct ?? 0}%` }} />
+          <div
+            className="dl-active-progress-fill"
+            style={{ width: `${pct ?? (isExtracting ? 100 : 0)}%` }}
+          />
         </div>
 
         <div className="dl-active-footer">
           <span className="dl-meta-text">
-            {formatBytes(liveBytes)}
-            {liveTotal ? ` / ${formatBytes(liveTotal)}` : ''}
-            {progress && progress.speedBps > 0 && (
-              <> · {formatDownloadSpeed(progress.speedBps, dlSettings.speedInMbps)}</>
-            )}
-            {progress && progress.speedBps > 0 && liveTotal && (
-              <> · {t('dllist.meta.eta', { eta: formatEta(liveTotal - liveBytes, progress.speedBps) })}</>
+            {isExtracting ? (
+              <>
+                {t('downloads.action.extracting')}
+                {extractPct != null && <> · {extractPct}%</>}
+                {progress?.extractEtaSecs != null && progress.extractEtaSecs > 0 && (
+                  <>
+                    {' '}
+                    · {t('dllist.meta.eta', {
+                      eta: formatDuration(progress.extractEtaSecs),
+                    })}
+                  </>
+                )}
+              </>
+            ) : (
+              <>
+                {formatBytes(liveBytes)}
+                {liveTotal ? ` / ${formatBytes(liveTotal)}` : ''}
+                {progress && progress.speedBps > 0 && (
+                  <> · {formatDownloadSpeed(progress.speedBps, dlSettings.speedInMbps)}</>
+                )}
+                {progress && progress.speedBps > 0 && liveTotal && (
+                  <> · {t('dllist.meta.eta', { eta: formatEta(liveTotal - liveBytes, progress.speedBps) })}</>
+                )}
+              </>
             )}
           </span>
-          <button type="button" className="dl-link-btn" onClick={onCancel}>
+          <button type="button" className="dl-link-btn" onClick={onCancel} disabled={isExtracting}>
             {t('downloads.action.cancel')}
           </button>
         </div>
@@ -94,6 +122,7 @@ interface RowProps {
   onExtract: () => void;
   onOpenCaptcha?: () => void;
   onContinueCaptcha?: () => void;
+  onChangeProvider?: () => void;
   onContextMenu?: (e: React.MouseEvent) => void;
 }
 
@@ -107,6 +136,7 @@ export function DownloadHistoryRow({
   onExtract,
   onOpenCaptcha,
   onContinueCaptcha,
+  onChangeProvider,
   onContextMenu,
 }: RowProps) {
   const { t } = useT();
@@ -117,6 +147,10 @@ export function DownloadHistoryRow({
   const fileName = fileLabel(row, displayTitle);
   const size = formatBytes(row.bytesTotal ?? row.bytesDone);
   const captchaHost = supportsCaptchaWindow(row.host);
+  const showApiKeyHint =
+    row.state === 'needs_browser' && hostNeedsApiKeyHint(row.host);
+  const showChangeProvider =
+    !!onChangeProvider && canChangeDownloadProvider(row);
   const date = row.finishedAt
     ? new Date(row.finishedAt).toLocaleString(undefined, {
         day: '2-digit',
@@ -148,15 +182,25 @@ export function DownloadHistoryRow({
         </span>
       </div>
 
-      <span
-        className={`dl-history-col dl-pill dl-pill-${row.state}`}
-        title={t(stateKey(row.state))}
-      >
-        {row.state === 'needs_browser'
-          ? captchaHost
-            ? t('downloads.action.captchaShort')
-            : t('downloads.action.openBrowserShort')
-          : t(stateKey(row.state))}
+      <span className="dl-history-col dl-history-status">
+        <span
+          className={`dl-pill dl-pill-${row.state}`}
+          title={t(stateKey(row.state))}
+        >
+          {row.state === 'needs_browser'
+            ? captchaHost
+              ? t('downloads.action.captchaShort')
+              : t('downloads.action.openBrowserShort')
+            : t(stateKey(row.state))}
+        </span>
+        {showApiKeyHint && (
+          <span
+            className="dl-pill dl-pill-no-api-key"
+            title={t('downloads.hint.noApiKey.title')}
+          >
+            {t('downloads.hint.noApiKey')}
+          </span>
+        )}
       </span>
       <span className="dl-history-col dl-history-host">{row.host}</span>
       <span className="dl-history-col">{row.gameVersion ?? '—'}</span>
@@ -198,6 +242,16 @@ export function DownloadHistoryRow({
         {row.state === 'needs_browser' && !captchaHost && row.resolvedUrl && (
           <button type="button" className="dl-action-btn" onClick={() => openUrl(row.resolvedUrl!)}>
             {t('downloads.action.openBrowserShort')}
+          </button>
+        )}
+        {showChangeProvider && (
+          <button
+            type="button"
+            className="dl-action-btn dl-action-btn-accent"
+            onClick={onChangeProvider}
+            title={t('downloads.action.changeProvider.title')}
+          >
+            {t('downloads.action.changeProvider')}
           </button>
         )}
         {row.state === 'completed' && row.destPath && (

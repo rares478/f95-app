@@ -4,6 +4,7 @@ import { getCurrentWindow } from '@tauri-apps/api/window';
 import { listen } from '@tauri-apps/api/event';
 import { LoginWindow } from './components/LoginWindow';
 import { MainAppGate } from './components/MainAppGate';
+import { DownloadsProvider } from './contexts/Downloads';
 import { OfflineProvider } from './contexts/Offline';
 import { AppDialogProvider } from './components/AppDialogProvider';
 import { ContextMenuProvider } from './components/contextMenu';
@@ -20,6 +21,7 @@ import { startOverlayHotkeySync } from './lib/overlayHotkey';
 import type { ProfileDto } from './types';
 import './App.css';
 import './styles/store-filter.css';
+import './styles/sidebar.css';
 import './styles/offline.css';
 import './styles/context-menu.css';
 import './styles/notifications.css';
@@ -151,10 +153,10 @@ function App() {
           <OfflineProvider>
             <MainAppGate>
               {({ profile, onLoggedOut }) => (
-                <>
+                <DownloadsProvider>
                   <RouterRoot profile={profile} onLoggedOut={onLoggedOut} />
                   <DevDebugConsole />
-                </>
+                </DownloadsProvider>
               )}
             </MainAppGate>
           </OfflineProvider>

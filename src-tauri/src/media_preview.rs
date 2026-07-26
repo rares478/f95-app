@@ -2,6 +2,7 @@
 
 use crate::error::AppError;
 use image::GenericImageView;
+use serde_json::json;
 use sha2::{Digest, Sha256};
 use std::fs;
 use std::path::{Path, PathBuf};
@@ -12,13 +13,18 @@ const DISPLAY_MAX: u32 = 1920;
 const DISPLAY_SKIP_BYTES: u64 = 3 * 1024 * 1024;
 const THUMB_SKIP_BYTES: u64 = 400 * 1024;
 
+fn io_err(e: impl ToString) -> AppError {
+    AppError::keyed_vars("error.media.io", json!({ "detail": e.to_string() }))
+}
+
 fn max_edge_for_variant(variant: &str) -> Result<u32, AppError> {
     match variant {
         "thumb" => Ok(THUMB_MAX),
         "display" => Ok(DISPLAY_MAX),
-        _ => Err(AppError::Other(format!(
-            "variant inválido: {variant} (use thumb ou display)"
-        ))),
+        _ => Err(AppError::keyed_vars(
+            "error.media.invalidVariant",
+            json!({ "variant": variant }),
+        )),
     }
 }
 
@@ -29,10 +35,10 @@ pub fn resolve_preview(
     cache_root: &Path,
 ) -> Result<String, AppError> {
     if !source.is_file() {
-        return Err(AppError::Other(format!(
-            "arquivo não encontrado: {}",
-            source.display()
-        )));
+        return Err(AppError::keyed_vars(
+            "error.fs.fileNotFound",
+            json!({ "path": source.display().to_string() }),
+        ));
     }
 
     let ext = source
@@ -45,7 +51,7 @@ pub fn resolve_preview(
         return Ok(source.to_string_lossy().into_owned());
     }
 
-    let meta = fs::metadata(source).map_err(|e| AppError::Other(e.to_string()))?;
+    let meta = fs::metadata(source).map_err(io_err)?;
     let file_size = meta.len();
 
     if variant == "display" && file_size <= DISPLAY_SKIP_BYTES {
@@ -69,10 +75,12 @@ pub fn resolve_preview(
     }
 
     if let Some(parent) = cache_path.parent() {
-        fs::create_dir_all(parent).map_err(|e| AppError::Other(e.to_string()))?;
+        fs::create_dir_all(parent).map_err(io_err)?;
     }
 
-    let img = image::open(source).map_err(|e| AppError::Other(format!("imagem: {e}")))?;
+    let img = image::open(source).map_err(|e| {
+        AppError::keyed_vars("error.media.imageFailed", json!({ "detail": e.to_string() }))
+    })?;
     let (w, h) = img.dimensions();
 
     if w <= max_edge && h <= max_edge {
@@ -82,7 +90,7 @@ pub fn resolve_preview(
     let preview = img.thumbnail(max_edge, max_edge);
     let rgb = preview.to_rgb8();
     let quality = if variant == "thumb" { 72 } else { 82 };
-    let mut out = fs::File::create(&cache_path).map_err(|e| AppError::Other(e.to_string()))?;
+    let mut out = fs::File::create(&cache_path).map_err(io_err)?;
     let mut encoder = image::codecs::jpeg::JpegEncoder::new_with_quality(&mut out, quality);
     encoder
         .encode(
@@ -91,7 +99,9 @@ pub fn resolve_preview(
             rgb.height(),
             image::ExtendedColorType::Rgb8,
         )
-        .map_err(|e| AppError::Other(format!("jpeg encode: {e}")))?;
+        .map_err(|e| {
+            AppError::keyed_vars("error.media.jpegEncode", json!({ "detail": e.to_string() }))
+        })?;
 
     Ok(cache_path.to_string_lossy().into_owned())
 }

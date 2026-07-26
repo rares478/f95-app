@@ -5,7 +5,7 @@ import * as ipc from './ipc';
 import * as library from './library';
 import * as downloads from './downloads';
 import * as updates from './updates';
-import { IN_FLIGHT_DOWNLOAD_STATES } from './downloadLibrarySync';
+import { inFlightLibraryStatus } from './downloadLibrarySync';
 import * as uninstall from './uninstall';
 import { dialog } from './dialog';
 import { formatIpcError } from './ipcError';
@@ -48,9 +48,12 @@ export async function playOrStop(
     return;
   }
   const dlRows = await downloads.listByThread(game.threadId);
-  if (dlRows.some((row) => IN_FLIGHT_DOWNLOAD_STATES.has(row.state))) {
+  const inFlight = inFlightLibraryStatus(dlRows, game.threadId);
+  if (inFlight === 'needs_attention') {
+    navigate('/downloads');
     return;
   }
+  if (inFlight) return;
   if (game.installStatus === 'installed' && game.installPath && game.category !== 'games') {
     navigate(`/library/game/${game.threadId}/view`);
     return;
@@ -71,7 +74,11 @@ export async function playOrStop(
     }
     return;
   }
-  if (game.installStatus === 'not_installed' && game.category === 'games') {
+  if (
+    (game.installStatus === 'not_installed' ||
+      (game.installStatus === 'error' && !game.installPath && !game.exePath)) &&
+    game.category === 'games'
+  ) {
     if (deps.onInstallOrUpdate) {
       await deps.onInstallOrUpdate(game);
     } else {

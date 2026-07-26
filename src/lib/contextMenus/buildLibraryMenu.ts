@@ -47,7 +47,11 @@ function primaryLabel(
       };
     case 'downloading':
     case 'extracting':
+      return { label: '', disabled: true, hidden: true };
     case 'error':
+      if (game.category === 'games' && !game.installPath && !game.exePath) {
+        return { label: t('contextMenu.install'), disabled: false, hidden: false };
+      }
       return { label: '', disabled: true, hidden: true };
     case 'not_installed':
     default:

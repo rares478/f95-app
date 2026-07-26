@@ -19,6 +19,7 @@
   "dependencies": {
     "browser-rest-api": "file:../../../browser-api",
     "cheerio": "^1.0.0",
+    "f95-app": "file:../..",
     "fast-xml-parser": "^5.8.0",
     "playwright": "^1.60.0"
   },

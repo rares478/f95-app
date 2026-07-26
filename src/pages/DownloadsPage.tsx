@@ -19,6 +19,11 @@ import { useT } from '../lib/i18n';
 import { formatIpcError } from '../lib/ipcError';
 import type { DownloadRow } from '../types/download';
 import { formatBytes } from '../types/download';
+import { useLibraryInstallFlow } from '../hooks/useLibraryInstallFlow';
+import {
+  canChangeDownloadProvider,
+  recoverStatusAfterDownloadFailure,
+} from '../lib/downloadLibrarySync';
 
 export function DownloadsPage() {
   const { t } = useT();
@@ -27,6 +32,7 @@ export function DownloadsPage() {
   const { openContextMenu } = useContextMenu();
   const { rows, progress, reload } = useDownloads();
   const { settings: dlSettings } = useDownloadSettings();
+  const installFlow = useLibraryInstallFlow({ onStarted: () => { void reload(); } });
   const [libraryMap, setLibraryMap] = useState<Record<string, DownloadGameInfo>>({});
   const [clearing, setClearing] = useState(false);
 
@@ -52,6 +58,7 @@ export function DownloadsPage() {
       rows.filter(
         (r) =>
           r.state === 'downloading' ||
+          r.state === 'extracting' ||
           r.state === 'resolving' ||
           r.state === 'awaiting_choice' ||
           r.state === 'pending',
@@ -146,6 +153,11 @@ export function DownloadsPage() {
       return;
     }
     await downloads.markRetry(row.id);
+    try {
+      await library.setStatus(row.threadId, 'downloading');
+    } catch {
+      /* not in library */
+    }
     await ipc.downloadStart({
       id: row.id,
       sourceUrl: row.sourceUrl,
@@ -157,6 +169,45 @@ export function DownloadsPage() {
   async function onRemove(row: DownloadRow) {
     await downloads.remove(row.id);
     await reload();
+  }
+
+  async function onChangeProvider(row: DownloadRow) {
+    if (isOffline) {
+      await dialog.alert(t('offline.actionBlocked'), { kind: 'info' });
+      return;
+    }
+    if (!canChangeDownloadProvider(row)) return;
+    const game = await library.get(row.threadId);
+    if (!game) {
+      await dialog.alert(t('downloads.changeProvider.notInLibrary'), { kind: 'error' });
+      return;
+    }
+    try {
+      await ipc.downloadCancel(row.id);
+    } catch {
+      /* row may already be idle */
+    }
+    try {
+      await downloads.remove(row.id);
+    } catch {
+      /* ignore */
+    }
+    try {
+      const fresh = await library.get(row.threadId);
+      if (
+        fresh &&
+        (fresh.installStatus === 'downloading' || fresh.installStatus === 'extracting')
+      ) {
+        await library.setStatus(
+          row.threadId,
+          recoverStatusAfterDownloadFailure(fresh),
+        );
+      }
+    } catch {
+      /* not in library */
+    }
+    await reload();
+    await installFlow.beginInstallOrUpdate(game);
   }
 
   async function onReveal(row: DownloadRow) {
@@ -172,7 +223,7 @@ export function DownloadsPage() {
   async function onExtract(row: DownloadRow) {
     if (!row.destPath) return;
     try {
-      await runExtraction(row.threadId, row.destPath, row.gameVersion);
+      await runExtraction(row.threadId, row.destPath, row.gameVersion, row.id, reload);
       await reload();
     } catch (err) {
       await dialog.alert(t('dllist.extract.failed', { error: formatIpcError(err) }), { kind: 'error' });
@@ -327,6 +378,7 @@ export function DownloadsPage() {
                   onExtract={() => onExtract(r)}
                   onContinueCaptcha={() => onContinueCaptcha(r)}
                   onOpenCaptcha={() => onOpenCaptcha(r)}
+                  onChangeProvider={() => onChangeProvider(r)}
                   onContextMenu={(e) =>
                     openDownloadContextMenu(e, r, {
                       onRemove: () => onRemove(r),
@@ -344,6 +396,7 @@ export function DownloadsPage() {
         </section>
       )}
     </div>
+    {installFlow.modal}
     </OfflineGate>
   );
 }
@@ -364,4 +417,3 @@ function SummaryItem({
     </div>
   );
 }
-

@@ -1,7 +1,7 @@
 import { Outlet } from 'react-router-dom';
-import { DownloadsProvider } from '../contexts/Downloads';
 import { DownloadSettingsProvider } from '../contexts/DownloadSettings';
 import { StoreSettingsProvider } from '../contexts/StoreSettings';
+import { StoreFiltersProvider } from '../contexts/StoreFilters';
 import { RunningGamesProvider } from '../contexts/RunningGames';
 import { NotificationsProvider } from '../contexts/Notifications';
 import { Sidebar } from './Sidebar';
@@ -28,7 +28,7 @@ export function AppShell({ profile, onLoggedOut }: Props) {
     <RunningGamesProvider>
       <DownloadSettingsProvider>
         <StoreSettingsProvider>
-        <DownloadsProvider>
+        <StoreFiltersProvider>
           <NotificationsProvider initialF95Unread={profile.alerts}>
             <TagCatalogProvider>
               <PrefixCatalogProvider>
@@ -47,7 +47,7 @@ export function AppShell({ profile, onLoggedOut }: Props) {
               </PrefixCatalogProvider>
             </TagCatalogProvider>
           </NotificationsProvider>
-        </DownloadsProvider>
+        </StoreFiltersProvider>
         </StoreSettingsProvider>
       </DownloadSettingsProvider>
     </RunningGamesProvider>
