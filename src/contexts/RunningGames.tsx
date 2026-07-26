@@ -56,8 +56,12 @@ interface RunningGamesValue {
   launching: Map<string, LaunchEntry>;
   /** Steam/Hydra-style launch helper. Registers the game in `launching`,
    *  creates a session row, calls the IPC, then waits for `game:started`
-   *  (or a timeout) to clear it. */
-  launch: (game: LibraryGame) => Promise<void>;
+   *  (or a timeout) to clear it. Optional `exePath`/`exeId` override which
+   *  binary to spawn and which child row to mark last-launched. */
+  launch: (
+    game: LibraryGame,
+    opts?: { exePath?: string; exeId?: string },
+  ) => Promise<void>;
   /** Force-clear a launching state — used by the overlay's dismiss button
    *  or when launch errors. */
   cancelLaunch: (threadId: string) => void;
@@ -114,8 +118,9 @@ export function RunningGamesProvider({ children }: { children: ReactNode }) {
   }, []);
 
   const launch = useCallback(
-    async (game: LibraryGame) => {
-      if (!game.exePath) {
+    async (game: LibraryGame, opts?: { exePath?: string; exeId?: string }) => {
+      const exePath = opts?.exePath ?? game.exePath;
+      if (!exePath) {
         throw new Error('exe path not set');
       }
       const entry: LaunchEntry = { game, startedAt: Date.now() };
@@ -139,9 +144,20 @@ export function RunningGamesProvider({ children }: { children: ReactNode }) {
         await ipc.launchGame({
           threadId: game.threadId,
           title: game.title,
-          exePath: game.exePath,
+          exePath,
           sessionId,
         });
+        try {
+          if (opts?.exeId) {
+            await library.markExeLaunched(opts.exeId);
+          } else {
+            const rows = await library.listExes(game.threadId);
+            const hit = rows.find((r) => r.exePath === exePath);
+            if (hit) await library.markExeLaunched(hit.id);
+          }
+        } catch (err) {
+          console.warn('[running-games] markExeLaunched failed', err);
+        }
       } catch (err) {
         // Launch failed before the process is up — pull the overlay
         // immediately so the user can retry without waiting for the timeout.

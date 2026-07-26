@@ -18,7 +18,10 @@ export type TranslateFn = (
 
 export interface LibraryGameActionsDeps {
   navigate: NavigateFunction;
-  launch: (game: LibraryGame) => Promise<void>;
+  launch: (
+    game: LibraryGame,
+    opts?: { exePath?: string; exeId?: string },
+  ) => Promise<void>;
   running: Set<string>;
   isOffline: boolean;
   t: TranslateFn;
