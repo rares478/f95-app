@@ -304,6 +304,80 @@
   text-decoration: underline;
 }
 
+.thread-discussion-composer {
+  margin-top: 1rem;
+  display: flex;
+  flex-direction: column;
+  gap: 0.5rem;
+}
+
+.thread-discussion-composer-label {
+  position: absolute;
+  width: 1px;
+  height: 1px;
+  overflow: hidden;
+  clip: rect(0 0 0 0);
+}
+
+.thread-discussion-composer-input {
+  width: 100%;
+  resize: vertical;
+  min-height: 4.5rem;
+  font: inherit;
+  font-size: 13px;
+  line-height: 1.5;
+  padding: 10px 12px;
+  border-radius: 6px;
+  border: 1px solid var(--border);
+  background: var(--bg-sunken);
+  color: var(--text-primary);
+  box-sizing: border-box;
+}
+
+.thread-discussion-composer-input:disabled {
+  opacity: 0.55;
+}
+
+.thread-discussion-composer-input:focus {
+  outline: none;
+  border-color: var(--accent);
+}
+
+.thread-discussion-composer-error {
+  color: var(--status-danger-text, #e35);
+  font-size: 0.875rem;
+  display: flex;
+  flex-direction: column;
+  gap: 0.35rem;
+}
+
+.thread-discussion-open-f95 {
+  align-self: flex-start;
+  background: none;
+  border: none;
+  padding: 0;
+  margin: 0;
+  font: inherit;
+  font-size: 12px;
+  font-weight: 600;
+  color: var(--accent);
+  cursor: pointer;
+  text-decoration: none;
+}
+
+.thread-discussion-open-f95:hover {
+  text-decoration: underline;
+}
+
+.thread-discussion-composer-actions {
+  display: flex;
+  justify-content: flex-end;
+}
+
+.thread-discussion-composer-submit:disabled {
+  opacity: 0.5;
+}
+
 @media (max-width: 960px) {
   .thread-discussion {
     padding-left: 20px;
