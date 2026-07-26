@@ -37,6 +37,7 @@ function job(
     exeId: null,
     sortOrder: 0,
     errorMessage: null,
+    bundleId: null,
     ...partial,
   };
 }
