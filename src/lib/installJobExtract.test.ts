@@ -5,6 +5,7 @@ import {
   resolveLibraryGameDir,
   sanitizePathSegment,
   shortJobId,
+  shouldAutoExtractDownload,
 } from './installJobExtract';
 
 describe('sanitizePathSegment', () => {
@@ -85,5 +86,38 @@ describe('buildJobExtractDest', () => {
 describe('shortJobId', () => {
   it('returns first 8 hex chars without dashes', () => {
     expect(shortJobId('abcdef12-3456-7890-abcd-ef1234567890')).toBe('abcdef12');
+  });
+});
+
+describe('shouldAutoExtractDownload', () => {
+  it('allows extract when there is no linked job', () => {
+    expect(shouldAutoExtractDownload({ job: null })).toBe(true);
+    expect(shouldAutoExtractDownload({ job: undefined })).toBe(true);
+  });
+
+  it('allows extract for pending job without extractPath', () => {
+    expect(
+      shouldAutoExtractDownload({
+        job: { extractPath: null, assignStatus: 'pending' },
+      }),
+    ).toBe(true);
+  });
+
+  it('skips when extractPath is already set (including pending assign)', () => {
+    expect(
+      shouldAutoExtractDownload({
+        job: { extractPath: 'D:/lib/99/Win_Linux-Game', assignStatus: 'pending' },
+      }),
+    ).toBe(false);
+  });
+
+  it('skips when assignStatus is terminal', () => {
+    for (const assignStatus of ['assigned', 'skipped', 'failed'] as const) {
+      expect(
+        shouldAutoExtractDownload({
+          job: { extractPath: null, assignStatus },
+        }),
+      ).toBe(false);
+    }
   });
 });

@@ -108,3 +108,23 @@ export function emitInstallNeedsAssign(detail: InstallNeedsAssignDetail): void {
     new CustomEvent(INSTALL_NEEDS_ASSIGN_EVENT, { detail }),
   );
 }
+
+const TERMINAL_ASSIGN_STATUSES = new Set(['assigned', 'skipped', 'failed']);
+
+/**
+ * Whether reconcile / auto-extract may run for a completed download.
+ * Job-linked extracts leave library `not_installed` until Assign; once a job
+ * already has an extract path (or a terminal assign status), do not re-extract.
+ */
+export function shouldAutoExtractDownload(args: {
+  job:
+    | { extractPath: string | null; assignStatus: string }
+    | null
+    | undefined;
+}): boolean {
+  const { job } = args;
+  if (!job) return true;
+  if (job.extractPath) return false;
+  if (TERMINAL_ASSIGN_STATUSES.has(job.assignStatus)) return false;
+  return true;
+}
