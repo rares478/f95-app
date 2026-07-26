@@ -3,12 +3,17 @@ import * as ipc from '../../lib/ipc';
 import { usePrefixCatalog } from '../../contexts/PrefixCatalogContext';
 import { useTagCatalog } from '../../contexts/TagCatalogContext';
 import { fallbackPrefixGroupsForCategory } from '../../lib/fallbackPrefixGroups';
+import { loadLibraryMembership } from '../../lib/libraryMembership';
 import { loadStoredPrefixGroups, sanitizePrefixGroups } from '../../lib/prefixCatalogStorage';
 
 /** Loads F95 prefix/tag catalogs once per session (persists to localStorage). */
 export function CatalogBootstrap() {
   const { setFromGroups } = usePrefixCatalog();
   const { setFromRecord } = useTagCatalog();
+
+  useEffect(() => {
+    void loadLibraryMembership();
+  }, []);
 
   useEffect(() => {
     let cancelled = false;

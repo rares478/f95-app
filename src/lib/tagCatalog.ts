@@ -40,6 +40,31 @@ export function resolveTags(catalog: TagCatalog, ids: number[]): SamTag[] {
   return ids.map((id) => ({ id, name: resolveTagName(catalog, id) }));
 }
 
+function normalizeTagKey(value: string): string {
+  return value
+    .trim()
+    .toLowerCase()
+    .normalize('NFKD')
+    .replace(/[\u0300-\u036f]/g, '')
+    .replace(/[^a-z0-9]+/g, '');
+}
+
+/** Match a thread-page tag (name/slug) to a SAM catalog entry. */
+export function findSamTagByNameOrSlug(
+  catalog: TagCatalog,
+  tag: { slug: string; name: string },
+): SamTag | null {
+  const nameKey = normalizeTagKey(tag.name);
+  const slugKey = normalizeTagKey(tag.slug);
+  for (const [id, name] of catalog) {
+    const key = normalizeTagKey(name);
+    if (key === nameKey || key === slugKey) {
+      return { id, name };
+    }
+  }
+  return null;
+}
+
 export function catalogToRecord(catalog: TagCatalog): Record<string, string> {
   const out: Record<string, string> = {};
   for (const [id, name] of catalog) {

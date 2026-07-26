@@ -1,6 +1,7 @@
 import { Link } from 'react-router-dom';
 import { useStoreContextMenu } from '../../hooks/useStoreContextMenu';
 import { useT } from '../../lib/i18n';
+import { useIsInLibrary } from '../../lib/libraryMembership';
 import type { SamCategory, SamGameCard } from '../../types/sam';
 import { ContentTagPills } from './ContentTagPills';
 import { PrefixPills } from './PrefixPills';
@@ -21,6 +22,7 @@ interface Props {
 export function FeaturedHero({ game, category }: Props) {
   const { t } = useT();
   const { openStoreContextMenu } = useStoreContextMenu(category);
+  const inLibrary = useIsInLibrary(game.threadId);
   return (
     <Link
       to={`/store/game/${game.threadId}?cat=${category}`}
@@ -41,6 +43,12 @@ export function FeaturedHero({ game, category }: Props) {
         </div>
       )}
       <div style={overlayStyle} />
+
+      {inLibrary && (
+        <div style={libraryBadge} title={t('store.badge.inLibrary')}>
+          {t('store.badge.inLibrary')}
+        </div>
+      )}
 
       <div style={contentStyle}>
         <div style={featuredTagStyle}>{t('store.featured')}</div>
@@ -94,6 +102,20 @@ const cardStyle: React.CSSProperties = {
   marginBottom: 28,
   boxShadow: '0 4px 20px rgba(0,0,0,0.35)',
   transition: 'transform 0.15s ease, box-shadow 0.15s ease',
+};
+
+const libraryBadge: React.CSSProperties = {
+  position: 'absolute',
+  top: 14,
+  right: 14,
+  zIndex: 2,
+  background: 'var(--status-success)',
+  color: 'var(--text-primary)',
+  padding: '3px 10px',
+  borderRadius: 2,
+  fontSize: 11,
+  fontWeight: 700,
+  letterSpacing: 0.3,
 };
 
 const bannerImg: React.CSSProperties = {

@@ -41,6 +41,8 @@ interface StoreFiltersValue extends StoreFiltersState {
   setExcludeTags: (tags: SamTag[]) => void;
   setTagMode: (mode: SamTagMode) => void;
   changeCategory: (category: SamCategory) => void;
+  /** Reset other filters and include a single tag (used from game detail). */
+  filterByTag: (tag: SamTag, category?: SamCategory) => void;
   clearAll: () => void;
 }
 
@@ -60,6 +62,14 @@ export function StoreFiltersProvider({ children }: { children: ReactNode }) {
     setState((prev) => ({ ...DEFAULT_FILTERS, category: prev.category }));
   }, []);
 
+  const filterByTag = useCallback((tag: SamTag, category?: SamCategory) => {
+    setState((prev) => ({
+      ...DEFAULT_FILTERS,
+      category: category ?? prev.category,
+      includeTags: [tag],
+    }));
+  }, []);
+
   const value: StoreFiltersValue = {
     ...state,
     setSearch: (search) => setState((prev) => ({ ...prev, search })),
@@ -69,6 +79,7 @@ export function StoreFiltersProvider({ children }: { children: ReactNode }) {
     setExcludeTags: (excludeTags) => setState((prev) => ({ ...prev, excludeTags })),
     setTagMode: (tagMode) => setState((prev) => ({ ...prev, tagMode })),
     changeCategory,
+    filterByTag,
     clearAll,
   };
 

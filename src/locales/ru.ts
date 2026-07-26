@@ -58,6 +58,11 @@ const ru: Record<string, string> = {
   'gamedetail.section.screenshots': 'Скриншоты',
   'gamedetail.section.about': 'Об игре',
   'gamedetail.section.tags': 'Теги',
+  'gamedetail.tag.filterBy': 'Фильтровать магазин по «{name}»',
+  'gamedetail.tag.notFound': 'Не удалось найти тег «{name}» в каталоге магазина.',
+  'gamedetail.section.moreLikeThis': 'Похожие',
+  'gamedetail.moreLikeThis.empty': 'Похожие игры не найдены.',
+  'gamedetail.moreLikeThis.failed': 'Не удалось загрузить похожие игры: {error}',
   'gamedetail.section.info': 'Информация',
   'gamedetail.action.addToLibrary': 'Добавить в библиотеку',
   'gamedetail.action.adding': 'Добавление…',
@@ -196,6 +201,7 @@ const ru: Record<string, string> = {
   'store.openInBrowser': 'Открыть на F95Zone',
   'store.addToLibrary': 'Добавить в библиотеку',
   'store.openInLibrary': 'Открыть в библиотеке',
+  'store.badge.inLibrary': 'В библиотеке',
   'store.adding': 'Добавление…',
 
   // ─── Downloads ──────────────────────────────────────────────────────────
