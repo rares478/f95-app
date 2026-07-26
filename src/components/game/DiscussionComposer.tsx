@@ -90,21 +90,24 @@ export function DiscussionComposer({
     let cancelled = false;
     setPreviewLoading(true);
     setPreviewError(null);
-    void bbcodePreview(draft)
-      .then((result) => {
-        if (cancelled) return;
-        setPreviewHtml(result.html);
-        setPreviewLoading(false);
-      })
-      .catch((err: unknown) => {
-        if (cancelled) return;
-        setPreviewError(formatIpcError(err));
-        setPreviewHtml(null);
-        setPreviewLoading(false);
-      });
+    const timer = window.setTimeout(() => {
+      void bbcodePreview(draft)
+        .then((result) => {
+          if (cancelled) return;
+          setPreviewHtml(result.html);
+          setPreviewLoading(false);
+        })
+        .catch((err: unknown) => {
+          if (cancelled) return;
+          setPreviewError(formatIpcError(err));
+          setPreviewHtml(null);
+          setPreviewLoading(false);
+        });
+    }, 400);
 
     return () => {
       cancelled = true;
+      window.clearTimeout(timer);
     };
   }, [tab, draft]);
 

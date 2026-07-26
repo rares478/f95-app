@@ -85,6 +85,8 @@ const FIELD_LABELS = new Set([
 ]);
 
 export class GameClient {
+  private xfTokenCache: string | null = null;
+
   constructor(private readonly http: BrowserClient) {}
 
   threadPageUrl(threadId: string, page: number): string {
@@ -206,32 +208,37 @@ export class GameClient {
       return { html: '' };
     }
 
-    const accountUrl = `${BASE}/account/`;
-    log(`[game] GET account for bbcode preview token ${accountUrl}`);
-    const pageRes = await this.http.get(accountUrl);
-    assertNotCloudflareChallenge(pageRes.body, pageRes.headers, {
-      message: 'Cloudflare challenge encountered on bbcode preview',
-    });
-    if (pageRes.url.includes('/login')) {
-      throw new RpcError(RPC_ERROR.NOT_INITIALIZED, 'not logged in');
-    }
-    if (pageRes.status >= 400) {
-      throw new RpcError(
-        RPC_ERROR.INTERNAL,
-        `bbcode preview prep HTTP ${pageRes.status}`,
-      );
-    }
-
-    const $ = cheerio.load(pageRes.body);
-    const xfToken =
-      $('input[name="_xfToken"]').first().attr('value') ??
-      $('html').attr('data-csrf') ??
-      null;
+    let xfToken = this.xfTokenCache;
     if (!xfToken) {
-      throw new RpcError(
-        RPC_ERROR.INTERNAL,
-        'could not extract _xfToken for bbcode preview',
-      );
+      const accountUrl = `${BASE}/account/`;
+      log(`[game] GET account for bbcode preview token ${accountUrl}`);
+      const pageRes = await this.http.get(accountUrl);
+      assertNotCloudflareChallenge(pageRes.body, pageRes.headers, {
+        message: 'Cloudflare challenge encountered on bbcode preview',
+      });
+      if (pageRes.url.includes('/login')) {
+        this.xfTokenCache = null;
+        throw new RpcError(RPC_ERROR.NOT_INITIALIZED, 'not logged in');
+      }
+      if (pageRes.status >= 400) {
+        throw new RpcError(
+          RPC_ERROR.INTERNAL,
+          `bbcode preview prep HTTP ${pageRes.status}`,
+        );
+      }
+
+      const $ = cheerio.load(pageRes.body);
+      xfToken =
+        $('input[name="_xfToken"]').first().attr('value') ??
+        $('html').attr('data-csrf') ??
+        null;
+      if (!xfToken) {
+        throw new RpcError(
+          RPC_ERROR.INTERNAL,
+          'could not extract _xfToken for bbcode preview',
+        );
+      }
+      this.xfTokenCache = xfToken;
     }
 
     const form = buildBbcodePreviewForm({
@@ -248,6 +255,7 @@ export class GameClient {
       message: 'Cloudflare challenge encountered on bbcode preview post',
     });
     if (res.url.includes('/login')) {
+      this.xfTokenCache = null;
       throw new RpcError(RPC_ERROR.NOT_INITIALIZED, 'not logged in');
     }
     if (res.status >= 400) {
