@@ -30,7 +30,7 @@ export function parseWorkuploadUrl(raw: string): ParsedWorkuploadUrl {
   const segs = u.pathname.split('/').filter(Boolean);
   const fileIdx = segs.findIndex((s) => s.toLowerCase() === 'file');
   if (fileIdx === -1 || !segs[fileIdx + 1]) {
-    throw new RpcError(RPC_ERROR.INVALID_PARAMS, 'WorkUpload URL missing file id');
+    throw new RpcError(RPC_ERROR.INVALID_PARAMS, 'error.workupload.missingId');
   }
   const fileId = segs[fileIdx + 1];
   if (!/^[a-zA-Z0-9_-]{4,64}$/.test(fileId)) {
@@ -125,7 +125,7 @@ function extractFileName(html: string, parsed: ParsedWorkuploadUrl): string | nu
 function challengeError(): RpcError {
   return new RpcError(
     RPC_ERROR.CLOUDFLARE_CHALLENGE,
-    'WorkUpload exige verificação anti-bot — abra o link no navegador para baixar',
+    'error.workupload.challenge',
   );
 }
 
@@ -243,7 +243,7 @@ async function resolveViaDownloadClick(
   const download = await downloadPromise;
   const directUrl = download.url();
   if (!directUrl || !directUrl.startsWith('http')) {
-    throw new RpcError(RPC_ERROR.INTERNAL, 'WorkUpload: download não retornou URL CDN');
+    throw new RpcError(RPC_ERROR.INTERNAL, 'error.workupload.noCdn');
   }
   const suggested = download.suggestedFilename();
   await download.cancel().catch(() => undefined);
@@ -279,12 +279,12 @@ export async function resolveWorkupload(url: string): Promise<WorkuploadResolveR
     assertNotChallengeHtml(html);
 
     if (pageIsNotFound(null, html)) {
-      throw new RpcError(RPC_ERROR.INTERNAL, 'WorkUpload: arquivo não encontrado ou expirado');
+      throw new RpcError(RPC_ERROR.INTERNAL, 'error.workupload.notFound');
     }
     if (/password|passwort|senha/i.test(html) && /type=["']password["']/i.test(html)) {
       throw new RpcError(
         RPC_ERROR.INTERNAL,
-        'WorkUpload: link protegido por senha — abra no navegador e baixe manualmente',
+        'error.workupload.password',
       );
     }
 
@@ -314,7 +314,10 @@ export async function resolveWorkupload(url: string): Promise<WorkuploadResolveR
     if (/timeout|timed out/i.test(msg) || isBotChallengePage(msg)) {
       throw challengeError();
     }
-    throw new RpcError(RPC_ERROR.INTERNAL, `WorkUpload: ${msg}`);
+    throw new RpcError(
+      RPC_ERROR.INTERNAL,
+      `error.workupload.generic|${JSON.stringify({ detail: msg })}`,
+    );
   } finally {
     await context.close().catch(() => undefined);
   }

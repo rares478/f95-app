@@ -60,7 +60,7 @@ export function parseMixdropUrl(raw: string): ParsedMixdropUrl {
   const idx = segs.findIndex((s) => s === 'f' || s === 'e');
   const fileref = idx >= 0 ? segs[idx + 1] : segs[segs.length - 1];
   if (!fileref || !/^[a-z0-9]{4,32}$/i.test(fileref)) {
-    throw new RpcError(RPC_ERROR.INVALID_PARAMS, 'MixDrop URL missing file ref');
+    throw new RpcError(RPC_ERROR.INVALID_PARAMS, 'error.mixdrop.missingRef');
   }
   return {
     fileref,
@@ -127,11 +127,11 @@ export async function fetchMixdropFileInfo(
   }
   const entry = data.result[fileref] ?? Object.values(data.result)[0];
   if (!entry || entry.deleted) {
-    throw new RpcError(RPC_ERROR.INTERNAL, 'MixDrop: arquivo não encontrado ou removido');
+    throw new RpcError(RPC_ERROR.INTERNAL, 'error.mixdrop.notFound');
   }
   const status = entry.status?.trim() ?? null;
   if (status && /notfound|deleted/i.test(status)) {
-    throw new RpcError(RPC_ERROR.INTERNAL, 'MixDrop: arquivo não encontrado ou removido');
+    throw new RpcError(RPC_ERROR.INTERNAL, 'error.mixdrop.notFound');
   }
   let fileSize: number | null = null;
   const rawSize = entry.size;
@@ -177,7 +177,7 @@ function pageIsNotFound(status: number | null, html: string): boolean {
 function captchaError(): RpcError {
   return new RpcError(
     RPC_ERROR.CLOUDFLARE_CHALLENGE,
-    'MixDrop exige verificação reCAPTCHA — abra o link no navegador para baixar',
+    'error.mixdrop.captcha',
   );
 }
 
@@ -266,7 +266,7 @@ async function postGenticket(
   const msg = result.msg ?? text;
   if (/captcha|recaptcha/i.test(msg)) return null;
   if (/not found/i.test(msg)) {
-    throw new RpcError(RPC_ERROR.INTERNAL, 'MixDrop: arquivo não encontrado');
+    throw new RpcError(RPC_ERROR.INTERNAL, 'error.mixdrop.notFound');
   }
   return null;
 }
@@ -313,7 +313,7 @@ async function tryGenticket(
   const msg = result.msg ?? '';
   if (/captcha|recaptcha/i.test(msg)) return null;
   if (/not found/i.test(msg)) {
-    throw new RpcError(RPC_ERROR.INTERNAL, 'MixDrop: arquivo não encontrado');
+    throw new RpcError(RPC_ERROR.INTERNAL, 'error.mixdrop.notFound');
   }
   return null;
 }
@@ -456,7 +456,10 @@ export async function resolveMixdropWithCookies(
     if (err instanceof RpcError) throw err;
     const msg = err instanceof Error ? err.message : String(err);
     if (/captcha|recaptcha|timeout/i.test(msg)) throw captchaError();
-    throw new RpcError(RPC_ERROR.INTERNAL, `MixDrop: ${msg}`);
+    throw new RpcError(
+      RPC_ERROR.INTERNAL,
+      `error.mixdrop.generic|${JSON.stringify({ detail: msg })}`,
+    );
   } finally {
     await context.close().catch(() => undefined);
     await browser.close().catch(() => undefined);
@@ -554,7 +557,10 @@ async function resolveMixdropPlaywright(
     if (err instanceof RpcError) throw err;
     const msg = err instanceof Error ? err.message : String(err);
     if (/captcha|recaptcha|timeout/i.test(msg)) throw captchaError();
-    throw new RpcError(RPC_ERROR.INTERNAL, `MixDrop: ${msg}`);
+    throw new RpcError(
+      RPC_ERROR.INTERNAL,
+      `error.mixdrop.generic|${JSON.stringify({ detail: msg })}`,
+    );
   } finally {
     await context.close().catch(() => undefined);
     if (opts.headed) {
@@ -797,7 +803,7 @@ async function loadMixdropDownloadPage(page: Page, parsed: ParsedMixdropUrl): Pr
   await waitForMixdropReady(page);
   let html = await page.content();
   if (pageIsNotFound(null, html)) {
-    throw new RpcError(RPC_ERROR.INTERNAL, 'MixDrop: arquivo não encontrado');
+    throw new RpcError(RPC_ERROR.INTERNAL, 'error.mixdrop.notFound');
   }
   const origin = pageOrigin(parsed.pageUrl);
   const continueMatch = html.match(/\/f\/[a-z0-9]+\?download/i);
