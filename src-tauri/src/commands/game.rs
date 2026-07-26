@@ -10,6 +10,25 @@ pub async fn game_detail(state: State<'_, AppState>, thread_id: String) -> Resul
 }
 
 #[tauri::command]
+pub async fn thread_posts(
+    state: State<'_, AppState>,
+    thread_id: String,
+    page: Option<u32>,
+) -> Result<Value, AppError> {
+    let client = ensure_sidecar(&state).await?;
+    client.thread_posts(&thread_id, page.unwrap_or(1)).await
+}
+
+#[tauri::command]
+pub async fn resolve_post(
+    state: State<'_, AppState>,
+    post_id: String,
+) -> Result<Value, AppError> {
+    let client = ensure_sidecar(&state).await?;
+    client.resolve_post(&post_id).await
+}
+
+#[tauri::command]
 pub async fn get_following(state: State<'_, AppState>) -> Result<Value, AppError> {
     let client = ensure_sidecar(&state).await?;
     client.get_following().await

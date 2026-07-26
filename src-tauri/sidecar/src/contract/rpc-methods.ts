@@ -43,6 +43,14 @@ export const RPC_METHODS = {
     params: { threadId: 'string' },
     result: 'unknown',
   },
+  threadPosts: {
+    params: { threadId: 'string', page: 'number?' },
+    result: 'unknown',
+  },
+  resolvePost: {
+    params: { postId: 'string' },
+    result: { threadId: 'string', postId: 'string' },
+  },
   getFollowing: {
     params: {},
     result: 'unknown',
