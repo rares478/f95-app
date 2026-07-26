@@ -24,11 +24,22 @@ interface Props {
   progress: DownloadProgress | undefined;
   game?: DownloadGameInfo;
   onCancel: () => void;
+  /** Show Assign… when linked install job is pending. */
+  showAssign?: boolean;
+  onAssign?: () => void;
   onContextMenu?: (e: React.MouseEvent) => void;
 }
 
 /** Full-width card for in-progress downloads. */
-export function DownloadActiveCard({ row, progress, game, onCancel, onContextMenu }: Props) {
+export function DownloadActiveCard({
+  row,
+  progress,
+  game,
+  onCancel,
+  showAssign,
+  onAssign,
+  onContextMenu,
+}: Props) {
   const { t } = useT();
   const { settings: dlSettings } = useDownloadSettings();
   const isExtracting = row.state === 'extracting';
@@ -104,9 +115,16 @@ export function DownloadActiveCard({ row, progress, game, onCancel, onContextMen
               </>
             )}
           </span>
-          <button type="button" className="dl-link-btn" onClick={onCancel} disabled={isExtracting}>
-            {t('downloads.action.cancel')}
-          </button>
+          <div className="dl-active-actions">
+            {showAssign && onAssign && (
+              <button type="button" className="dl-link-btn dl-link-btn-accent" onClick={onAssign}>
+                {t('install.assign.cta')}
+              </button>
+            )}
+            <button type="button" className="dl-link-btn" onClick={onCancel} disabled={isExtracting}>
+              {t('downloads.action.cancel')}
+            </button>
+          </div>
         </div>
       </div>
     </article>
@@ -123,6 +141,9 @@ interface RowProps {
   onOpenCaptcha?: () => void;
   onContinueCaptcha?: () => void;
   onChangeProvider?: () => void;
+  /** Show Assign… when linked install job is pending. */
+  showAssign?: boolean;
+  onAssign?: () => void;
   onContextMenu?: (e: React.MouseEvent) => void;
 }
 
@@ -137,6 +158,8 @@ export function DownloadHistoryRow({
   onOpenCaptcha,
   onContinueCaptcha,
   onChangeProvider,
+  showAssign,
+  onAssign,
   onContextMenu,
 }: RowProps) {
   const { t } = useT();
@@ -252,6 +275,15 @@ export function DownloadHistoryRow({
             title={t('downloads.action.changeProvider.title')}
           >
             {t('downloads.action.changeProvider')}
+          </button>
+        )}
+        {showAssign && onAssign && (
+          <button
+            type="button"
+            className="dl-action-btn dl-action-btn-accent"
+            onClick={onAssign}
+          >
+            {t('install.assign.cta')}
           </button>
         )}
         {row.state === 'completed' && row.destPath && (

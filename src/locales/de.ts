@@ -742,6 +742,13 @@ const de: Record<string, string> = {
   'install.kind.patch': 'Patch',
   'install.kind.extra': 'Extra',
   'install.kind.other': 'Sonstiges',
+  'install.assign.title': 'Extrakt zuweisen',
+  'install.assign.add': 'Als ausführbare Datei hinzufügen',
+  'install.assign.replace': 'Vorhandene ersetzen…',
+  'install.assign.skip': 'Überspringen',
+  'install.assign.cta': 'Zuweisen…',
+  'downloads.plan.progress':
+    '{done}/{total} erledigt · {pending} zuzuweisen · {assigned} zugewiesen · {skipped} übersprungen · {failed} fehlgeschlagen',
   'dl.thread': 'Thread {id}',
 
   // ─── Download list card ─────────────────────────────────────────────────
