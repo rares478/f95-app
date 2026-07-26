@@ -675,6 +675,12 @@ export function resolveDownloadPath(
 
   let edition = spoilerEdition;
   let topLevel = false;
+  // Prefer edition from nearby bold labels (Season 3 + Win/Linux combined,
+  // or Patch (…) heading) before walking further up the OP.
+  if (!edition) {
+    edition = editionFromNearLabels(nearLabels);
+    if (edition && !isAuxRowLabel(edition)) topLevel = true;
+  }
   if (!edition && !$(el).closest(SPOILER_SEL).length) {
     edition = nearestTopLevelEdition($, el);
     if (edition) topLevel = true;
@@ -691,6 +697,9 @@ export function resolveDownloadPath(
     splitSpoiler,
     platform,
   });
+
+  // Patches/extras are not top-level "Current" installs.
+  if (kindHint === 'patch' || kindHint === 'extra') topLevel = false;
 
   const groupBits = [
     edition,
@@ -739,6 +748,52 @@ function sameSpoilerOrNone(
   return candSpoiler === linkSpoiler;
 }
 
+function stripOsFromLabel(raw: string): string {
+  return cleanText(raw)
+    .replace(OS_LABEL_RE, ' ')
+    .replace(/[/|,]+/g, ' ')
+    .replace(/\s+/g, ' ')
+    .replace(/:\s*$/, '')
+    .trim();
+}
+
+function editionFromNearLabels(labels: string[]): string | null {
+  // Prefer explicit Patch/Extra headings over season-like fragments in OS rows
+  // (e.g. "(Ep.11 …) Win/Linux/Mac" must not win over a preceding "Patch").
+  for (const raw of labels) {
+    const t = cleanText(raw);
+    if (t && isAuxRowLabel(t)) {
+      const stripped = stripOsFromLabel(t);
+      return cleanEditionLabel(stripped || t);
+    }
+  }
+  // Split "Patch" + "(Ep.11...)<br> Win/Linux/Mac" across adjacent bolds
+  for (let i = 0; i < labels.length - 1; i++) {
+    const a = cleanText(labels[i]!);
+    const b = cleanText(labels[i + 1]!);
+    if (/^patch(?:es)?$/i.test(a.replace(/:\s*$/, '')) && /\(.*\)/.test(b)) {
+      return cleanEditionLabel(`${a} ${stripOsFromLabel(b)}`.trim());
+    }
+    if (/^patch(?:es)?$/i.test(b.replace(/:\s*$/, '')) && /\(.*\)/.test(a)) {
+      return cleanEditionLabel(`${b} ${stripOsFromLabel(a)}`.trim());
+    }
+  }
+  for (const raw of labels) {
+    const t = cleanText(raw);
+    if (!t || isAuxRowLabel(t)) continue;
+    if (looksLikeSeasonHeading(t) || looksLikeEditionName(t)) {
+      const stripped = stripOsFromLabel(t);
+      if (stripped && (looksLikeSeasonHeading(stripped) || looksLikeEditionName(stripped))) {
+        return cleanEditionLabel(stripped);
+      }
+      if (!platformFromText(t)) {
+        return cleanEditionLabel(t);
+      }
+    }
+  }
+  return null;
+}
+
 function nearestPlatformAndPart(
   $: cheerio.CheerioAPI,
   el: Element,
@@ -751,20 +806,31 @@ function nearestPlatformAndPart(
     const t = cleanText(raw);
     if (!t) return false;
     labels.push(t);
-    // Part may share a label with platform ("Win/Linux Part 1") — set both.
     if (part == null) {
       const p = partFromText(t);
       if (p != null) part = p;
     }
     if (platform == null) {
       const os = platformFromText(t);
-      if (os) {
-        platform = os;
-        return true; // stop: platform row found
+      if (os) platform = os;
+    }
+    // Download section boundary
+    if (/^downloads?$/i.test(t.replace(/:\s*$/, ''))) return true;
+    // Patch/Extra owns the block (may share the bold with Win/Linux).
+    if (isAuxRowLabel(t)) return true;
+    // "Season 3 … Win/Linux" combined heading — stop once platform captured.
+    // Do NOT stop on patch version bumps like "(Ep.11 → Ep.11) Win/Linux/Mac".
+    if (platform != null && looksLikeSeasonHeading(t)) return true;
+    // Pure season/split heading above the OS row.
+    if (looksLikeSeasonHeading(t) && !platformFromText(t)) return true;
+    // Different OS row above the current one — stop (don't bleed across platforms).
+    if (platform != null) {
+      const os = platformFromText(t);
+      if (os && normalizeGroupLabel(os) !== normalizeGroupLabel(platform)) {
+        return true;
       }
     }
-    // Patch/Extras rows own the link — don't inherit earlier sections.
-    if (isAuxRowLabel(t)) return true;
+    // Plain OS-only row: keep walking so a preceding "Patch" / "Season …" is seen.
     return false;
   };
 
@@ -836,13 +902,29 @@ function spoilerButtonTitle(
 const EDITION_NAME_RE =
   /\b(season|episode|ep\.?\s*\d|chapter|ch\.?\s*\d|act\b|interlude|archive|collection|volume|vol\.?\b|splits?|v\d)/i;
 
+/** Strong season/bundle headings (not patch version bumps like "(Ep.11 → Ep.11)"). */
+function looksLikeSeasonHeading(raw: string): boolean {
+  const t = cleanText(raw).replace(/^\*+\s*/, '');
+  if (!t || t.length > 120) return false;
+  if (/^downloads?$/i.test(t)) return false;
+  if (isAuxRowLabel(t)) return false;
+  const stripped = stripOsFromLabel(t);
+  if (!stripped) return false;
+  if (/\b(season|interlude|splits?|archive|collection|volume|vol\.?\b)\b/i.test(stripped)) {
+    return true;
+  }
+  // Soundtrack / version packs: "v0.8.5 (Original Soundtrack)"
+  if (/^v\d/i.test(stripped) && !/\(.*->.*\)/.test(stripped)) return true;
+  return false;
+}
+
 function looksLikeEditionName(raw: string): boolean {
   const t = cleanText(raw).replace(/^\*+\s*/, '');
   if (!t || t.length > 120) return false;
   if (/^downloads?$/i.test(t)) return false;
   if (OS_LABEL_RE.test(t) && !EDITION_NAME_RE.test(t)) return false;
   if (isAuxRowLabel(t)) return false;
-  return EDITION_NAME_RE.test(t);
+  return EDITION_NAME_RE.test(t) || looksLikeSeasonHeading(t);
 }
 
 function cleanEditionLabel(raw: string): string | null {
@@ -985,10 +1067,16 @@ function nearestTopLevelEdition(
           if (raw) {
             // Hit the Download section header — stop; OS rows above it have no edition.
             if (/^downloads?$/i.test(raw.replace(/:\s*$/, ''))) return null;
-            if (isAuxRowLabel(raw)) return null;
+            if (isAuxRowLabel(raw)) return cleanEditionLabel(raw);
             if (!OS_LABEL_RE.test(raw) && looksLikeEditionName(raw)) {
               const label = cleanEditionLabel(raw);
               if (label) return label;
+            }
+            if (OS_LABEL_RE.test(raw) && looksLikeEditionName(raw)) {
+              const stripped = stripOsFromLabel(raw);
+              if (stripped && looksLikeEditionName(stripped)) {
+                return cleanEditionLabel(stripped);
+              }
             }
           }
         } else {
@@ -997,10 +1085,16 @@ function nearestTopLevelEdition(
             const raw = cleanText(inner.text());
             if (raw) {
               if (/^downloads?$/i.test(raw.replace(/:\s*$/, ''))) return null;
-              if (isAuxRowLabel(raw)) return null;
+              if (isAuxRowLabel(raw)) return cleanEditionLabel(raw);
               if (!OS_LABEL_RE.test(raw) && looksLikeEditionName(raw)) {
                 const label = cleanEditionLabel(raw);
                 if (label) return label;
+              }
+              if (OS_LABEL_RE.test(raw) && looksLikeEditionName(raw)) {
+                const stripped = stripOsFromLabel(raw);
+                if (stripped && looksLikeEditionName(stripped)) {
+                  return cleanEditionLabel(stripped);
+                }
               }
             }
           }
@@ -1011,7 +1105,7 @@ function nearestTopLevelEdition(
         );
         if (colon && !OS_LABEL_RE.test(colon[1])) {
           if (/^downloads?$/i.test(colon[1])) return null;
-          if (isAuxRowLabel(colon[1])) return null;
+          if (isAuxRowLabel(colon[1])) return cleanEditionLabel(colon[1]);
           if (looksLikeEditionName(colon[1])) {
             const label = cleanEditionLabel(colon[1]);
             if (label) return label;
