@@ -448,18 +448,26 @@ export async function setExe(threadId: string, exePath: string): Promise<void> {
     await addExe(threadId, exePath);
     return;
   }
-  const resolved = resolvePlayExe(rows);
-  if (!resolved) {
-    await addExe(threadId, exePath);
-    return;
+  // rows.length > 0 ⇒ resolvePlayExe always returns a row
+  const resolved = resolvePlayExe(rows)!;
+  if (rows.some((r) => r.id !== resolved.id && r.exePath === exePath)) {
+    throw new Error('DUPLICATE_EXE_PATH');
   }
   const installPath = exeParentDir(exePath) || null;
-  await execute(
-    `UPDATE library_game_exes
-        SET exe_path = ?, install_path = ?
-        WHERE id = ?`,
-    [exePath, installPath, resolved.id],
-  );
+  try {
+    await execute(
+      `UPDATE library_game_exes
+          SET exe_path = ?, install_path = ?
+          WHERE id = ?`,
+      [exePath, installPath, resolved.id],
+    );
+  } catch (err) {
+    const msg = err instanceof Error ? err.message : String(err);
+    if (/UNIQUE|unique/i.test(msg)) {
+      throw new Error('DUPLICATE_EXE_PATH');
+    }
+    throw err;
+  }
   await syncGameExeCache(threadId);
 }
 
