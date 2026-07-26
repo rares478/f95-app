@@ -46,6 +46,8 @@ export function ThreadDiscussion({
   const sentinelRef = useRef<HTMLDivElement>(null);
   const fetchGen = useRef(0);
   const highlightedFor = useRef<string | null>(null);
+  const highlightScrollTimer = useRef<number | null>(null);
+  const highlightRemoveTimer = useRef<number | null>(null);
 
   const [visible, setVisible] = useState(() => Boolean(focusPostId));
   const [posts, setPosts] = useState<ThreadPost[]>([]);
@@ -69,6 +71,14 @@ export function ThreadDiscussion({
     setError(null);
     setFocusStatus(focusPostId ? 'seeking' : 'idle');
     highlightedFor.current = null;
+    if (highlightScrollTimer.current != null) {
+      window.clearTimeout(highlightScrollTimer.current);
+      highlightScrollTimer.current = null;
+    }
+    if (highlightRemoveTimer.current != null) {
+      window.clearTimeout(highlightRemoveTimer.current);
+      highlightRemoveTimer.current = null;
+    }
   }, [threadId, focusPostId]);
 
   useEffect(() => {
@@ -150,19 +160,38 @@ export function ThreadDiscussion({
     if (!focusPostId || focusStatus === 'found') return;
     if (!posts.some((p) => p.postId === focusPostId)) return;
     setFocusStatus('found');
+  }, [posts, focusPostId, focusStatus]);
+
+  // Scroll/highlight once when the target post appears. Intentionally omits
+  // focusStatus so the `found` transition cannot cancel the pending timer.
+  useEffect(() => {
+    if (!focusPostId) return;
     if (highlightedFor.current === focusPostId) return;
+    if (!posts.some((p) => p.postId === focusPostId)) return;
     highlightedFor.current = focusPostId;
-    const timer = window.setTimeout(() => {
+    highlightScrollTimer.current = window.setTimeout(() => {
+      highlightScrollTimer.current = null;
       const el = document.getElementById(`post-${focusPostId}`);
       if (!el) return;
       el.scrollIntoView({ behavior: 'smooth', block: 'center' });
       el.classList.add('thread-post--highlight');
-      window.setTimeout(() => {
+      highlightRemoveTimer.current = window.setTimeout(() => {
+        highlightRemoveTimer.current = null;
         el.classList.remove('thread-post--highlight');
       }, HIGHLIGHT_MS);
     }, 50);
-    return () => window.clearTimeout(timer);
-  }, [posts, focusPostId, focusStatus]);
+  }, [posts, focusPostId]);
+
+  useEffect(() => {
+    return () => {
+      if (highlightScrollTimer.current != null) {
+        window.clearTimeout(highlightScrollTimer.current);
+      }
+      if (highlightRemoveTimer.current != null) {
+        window.clearTimeout(highlightRemoveTimer.current);
+      }
+    };
+  }, []);
 
   if (offline) {
     return (
