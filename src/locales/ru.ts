@@ -742,6 +742,13 @@ const ru: Record<string, string> = {
   'install.kind.patch': 'Патч',
   'install.kind.extra': 'Доп.',
   'install.kind.other': 'Другое',
+  'install.assign.title': 'Назначить распаковку',
+  'install.assign.add': 'Добавить как exe',
+  'install.assign.replace': 'Заменить существующий…',
+  'install.assign.skip': 'Пропустить',
+  'install.assign.cta': 'Назначить…',
+  'downloads.plan.progress':
+    '{done}/{total} готово · {pending} ждут назначения · {assigned} назначено · {skipped} пропущено · {failed} с ошибкой',
   'dl.thread': 'Тред {id}',
 
   // ─── Download list card ─────────────────────────────────────────────────

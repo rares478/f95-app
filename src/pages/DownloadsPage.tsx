@@ -1,15 +1,28 @@
 import { Link, useNavigate } from 'react-router-dom';
 import { dialog } from '../lib/dialog';
-import { useCallback, useEffect, useMemo, useState } from 'react';
+import { useCallback, useEffect, useMemo, useState, Fragment } from 'react';
 import { runExtraction } from '../hooks/useDownloads';
 import { useDownloads } from '../contexts/Downloads';
 import { useDownloadSettings } from '../contexts/DownloadSettings';
+import { useInstallAssign } from '../contexts/InstallAssign';
 import { formatDownloadSpeed } from '../lib/downloadSettings';
 import type { DownloadGameInfo } from '../components/downloads/DownloadCard';
 import { DownloadActiveCard, DownloadHistoryRow } from '../components/downloads/DownloadRowItem';
 import * as downloads from '../lib/downloads';
 import * as library from '../lib/library';
 import * as ipc from '../lib/ipc';
+import {
+  findJobByDownloadId,
+  getPlan,
+  listJobsByThread,
+  type InstallJob,
+  type InstallPlan,
+} from '../lib/installPlans';
+import {
+  countAssignProgress,
+  groupDownloadRowsByThread,
+  selectPlanJobs,
+} from '../lib/groupDownloadRows';
 import { OfflineGate } from '../components/OfflineGate';
 import { useContextMenu } from '../components/contextMenu';
 import { useOffline } from '../contexts/Offline';
@@ -24,6 +37,7 @@ import {
   canChangeDownloadProvider,
   recoverStatusAfterDownloadFailure,
 } from '../lib/downloadLibrarySync';
+import '../styles/install-plan.css';
 
 export function DownloadsPage() {
   const { t } = useT();
@@ -32,9 +46,13 @@ export function DownloadsPage() {
   const { openContextMenu } = useContextMenu();
   const { rows, progress, reload } = useDownloads();
   const { settings: dlSettings } = useDownloadSettings();
+  const { openAssign, pending: assignPending } = useInstallAssign();
   const installFlow = useLibraryInstallFlow({ onStarted: () => { void reload(); } });
   const [libraryMap, setLibraryMap] = useState<Record<string, DownloadGameInfo>>({});
   const [clearing, setClearing] = useState(false);
+  const [jobsByThread, setJobsByThread] = useState<Record<string, InstallJob[]>>({});
+  const [plansById, setPlansById] = useState<Record<string, InstallPlan>>({});
+  const [jobByDownloadId, setJobByDownloadId] = useState<Record<number, InstallJob>>({});
 
   const loadLibraryMeta = useCallback(async () => {
     try {
@@ -49,9 +67,51 @@ export function DownloadsPage() {
     }
   }, []);
 
+  const loadInstallJobs = useCallback(async () => {
+    const threadIds = [...new Set(rows.map((r) => r.threadId))];
+    if (threadIds.length === 0) {
+      setJobsByThread({});
+      setPlansById({});
+      setJobByDownloadId({});
+      return;
+    }
+    try {
+      const nextJobs: Record<string, InstallJob[]> = {};
+      const nextPlans: Record<string, InstallPlan> = {};
+      const nextByDl: Record<number, InstallJob> = {};
+      await Promise.all(
+        threadIds.map(async (threadId) => {
+          const jobs = await listJobsByThread(threadId);
+          if (jobs.length === 0) return;
+          nextJobs[threadId] = jobs;
+          const planIds = [...new Set(jobs.map((j) => j.planId))];
+          await Promise.all(
+            planIds.map(async (planId) => {
+              if (nextPlans[planId]) return;
+              const plan = await getPlan(planId);
+              if (plan) nextPlans[planId] = plan;
+            }),
+          );
+          for (const j of jobs) {
+            if (j.downloadId != null) nextByDl[j.downloadId] = j;
+          }
+        }),
+      );
+      setJobsByThread(nextJobs);
+      setPlansById(nextPlans);
+      setJobByDownloadId(nextByDl);
+    } catch {
+      /* ignore — downloads page still works without plan metadata */
+    }
+  }, [rows]);
+
   useEffect(() => {
     loadLibraryMeta();
   }, [loadLibraryMeta, rows.length]);
+
+  useEffect(() => {
+    void loadInstallJobs();
+  }, [loadInstallJobs, assignPending]);
 
   const active = useMemo(
     () =>
@@ -78,6 +138,11 @@ export function DownloadsPage() {
   );
   const history = useMemo(() => [...completed, ...other], [completed, other]);
 
+  const activeGroups = useMemo(() => groupDownloadRowsByThread(active), [active]);
+  const historyGroups = useMemo(() => groupDownloadRowsByThread(history), [history]);
+
+  const plansMap = useMemo(() => new Map(Object.entries(plansById)), [plansById]);
+
   const totalSpeed = useMemo(() => {
     let bps = 0;
     for (const r of active) {
@@ -99,6 +164,33 @@ export function DownloadsPage() {
   }, [rows, progress]);
 
   const canClearHistory = history.length > 0;
+
+  function planJobsForGroup(threadId: string, groupRows: DownloadRow[]): InstallJob[] {
+    const all = jobsByThread[threadId] ?? [];
+    if (all.length === 0) return [];
+    return selectPlanJobs(
+      all,
+      plansMap,
+      new Set(groupRows.map((r) => r.id)),
+    );
+  }
+
+  function needsAssign(row: DownloadRow): boolean {
+    return jobByDownloadId[row.id]?.assignStatus === 'pending';
+  }
+
+  async function onAssign(row: DownloadRow) {
+    const job =
+      jobByDownloadId[row.id] ?? (await findJobByDownloadId(row.id));
+    if (!job || job.assignStatus !== 'pending') return;
+    // No findMainExe IPC — open with null; modal shows "no exe" if missing.
+    openAssign({
+      jobId: job.id,
+      planId: job.planId,
+      threadId: row.threadId,
+      exePath: null,
+    });
+  }
 
   async function onCancel(row: DownloadRow) {
     await ipc.downloadCancel(row.id);
@@ -256,6 +348,30 @@ export function DownloadsPage() {
     }
   }
 
+  function renderPlanHeader(threadId: string, groupRows: DownloadRow[]) {
+    const planJobs = planJobsForGroup(threadId, groupRows);
+    if (planJobs.length === 0) return null;
+    const counts = countAssignProgress(planJobs);
+    const title = libraryMap[threadId]?.title ?? t('dl.thread', { id: threadId });
+    return (
+      <div className="downloads-plan-header" key={`plan-${threadId}`}>
+        <div className="downloads-plan-header-text">
+          <span className="downloads-plan-title">{title}</span>
+          <span className="downloads-plan-progress">
+            {t('downloads.plan.progress', {
+              done: counts.done,
+              total: counts.total,
+              pending: counts.pending,
+              assigned: counts.assigned,
+              skipped: counts.skipped,
+              failed: counts.failed,
+            })}
+          </span>
+        </div>
+      </div>
+    );
+  }
+
   return (
     <OfflineGate allowReadOnly>
     <div className="downloads-page">
@@ -325,17 +441,24 @@ export function DownloadsPage() {
         <section className="downloads-block">
           <h2 className="downloads-block-title">{t('downloads.section.active')}</h2>
           <div className="downloads-active-list">
-            {active.map((r) => (
-              <DownloadActiveCard
-                key={r.id}
-                row={r}
-                progress={progress[r.id]}
-                game={libraryMap[r.threadId]}
-                onCancel={() => onCancel(r)}
-                onContextMenu={(e) =>
-                  openDownloadContextMenu(e, r, { onCancel: () => onCancel(r) })
-                }
-              />
+            {activeGroups.map((group) => (
+              <div key={group.threadId} className="downloads-thread-group">
+                {renderPlanHeader(group.threadId, group.rows)}
+                {group.rows.map((r) => (
+                  <DownloadActiveCard
+                    key={r.id}
+                    row={r}
+                    progress={progress[r.id]}
+                    game={libraryMap[r.threadId]}
+                    showAssign={needsAssign(r)}
+                    onAssign={() => void onAssign(r)}
+                    onCancel={() => onCancel(r)}
+                    onContextMenu={(e) =>
+                      openDownloadContextMenu(e, r, { onCancel: () => onCancel(r) })
+                    }
+                  />
+                ))}
+              </div>
             ))}
           </div>
         </section>
@@ -367,29 +490,36 @@ export function DownloadsPage() {
                 <span>{t('downloads.col.date')}</span>
                 <span className="dl-history-head-actions">{t('downloads.col.actions')}</span>
               </div>
-              {history.map((r) => (
-                <DownloadHistoryRow
-                  key={r.id}
-                  row={r}
-                  game={libraryMap[r.threadId]}
-                  onRemove={() => onRemove(r)}
-                  onReveal={() => onReveal(r)}
-                  onRetry={() => onRetry(r)}
-                  onExtract={() => onExtract(r)}
-                  onContinueCaptcha={() => onContinueCaptcha(r)}
-                  onOpenCaptcha={() => onOpenCaptcha(r)}
-                  onChangeProvider={() => onChangeProvider(r)}
-                  onContextMenu={(e) =>
-                    openDownloadContextMenu(e, r, {
-                      onRemove: () => onRemove(r),
-                      onReveal: () => onReveal(r),
-                      onRetry: () => onRetry(r),
-                      onExtract: () => onExtract(r),
-                      onContinueCaptcha: () => onContinueCaptcha(r),
-                      onOpenCaptcha: () => onOpenCaptcha(r),
-                    })
-                  }
-                />
+              {historyGroups.map((group) => (
+                <Fragment key={group.threadId}>
+                  {renderPlanHeader(group.threadId, group.rows)}
+                  {group.rows.map((r) => (
+                    <DownloadHistoryRow
+                      key={r.id}
+                      row={r}
+                      game={libraryMap[r.threadId]}
+                      showAssign={needsAssign(r)}
+                      onAssign={() => void onAssign(r)}
+                      onRemove={() => onRemove(r)}
+                      onReveal={() => onReveal(r)}
+                      onRetry={() => onRetry(r)}
+                      onExtract={() => onExtract(r)}
+                      onContinueCaptcha={() => onContinueCaptcha(r)}
+                      onOpenCaptcha={() => onOpenCaptcha(r)}
+                      onChangeProvider={() => onChangeProvider(r)}
+                      onContextMenu={(e) =>
+                        openDownloadContextMenu(e, r, {
+                          onRemove: () => onRemove(r),
+                          onReveal: () => onReveal(r),
+                          onRetry: () => onRetry(r),
+                          onExtract: () => onExtract(r),
+                          onContinueCaptcha: () => onContinueCaptcha(r),
+                          onOpenCaptcha: () => onOpenCaptcha(r),
+                        })
+                      }
+                    />
+                  ))}
+                </Fragment>
               ))}
             </div>
           </div>

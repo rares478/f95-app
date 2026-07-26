@@ -748,6 +748,13 @@ const en: Record<string, string> = {
   'install.kind.patch': 'Patch',
   'install.kind.extra': 'Extra',
   'install.kind.other': 'Other',
+  'install.assign.title': 'Assign extract',
+  'install.assign.add': 'Add as executable',
+  'install.assign.replace': 'Replace existing…',
+  'install.assign.skip': 'Skip',
+  'install.assign.cta': 'Assign…',
+  'downloads.plan.progress':
+    '{done}/{total} done · {pending} need assign · {assigned} assigned · {skipped} skipped · {failed} failed',
   'dl.thread': 'Thread {id}',
 
   // ─── Download list card ─────────────────────────────────────────────────
