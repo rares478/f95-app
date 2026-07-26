@@ -8,6 +8,7 @@ import {
 import DOMPurify from 'dompurify';
 import { openUrl } from '@tauri-apps/plugin-opener';
 import { GameDescription } from './GameDescription';
+import { dialog } from '../../lib/dialog';
 import { bbcodePreview } from '../../lib/ipc';
 import { formatIpcError } from '../../lib/ipcError';
 import {
@@ -127,16 +128,22 @@ export function DiscussionComposer({
     applyEdit(wrapBbcodeTag(getSelection(), tag));
   };
 
-  const onUrl = () => {
-    const url = window.prompt(t('gamedetail.discussion.bb.urlPrompt'));
+  const onUrl = async () => {
+    const selection = getSelection();
+    const url = await dialog.prompt(t('gamedetail.discussion.bb.urlPrompt'), {
+      title: t('gamedetail.discussion.bb.url'),
+    });
     if (url == null || !url.trim()) return;
-    applyEdit(insertBbcodeUrl(getSelection(), url.trim()));
+    applyEdit(insertBbcodeUrl(selection, url.trim()));
   };
 
-  const onImage = () => {
-    const url = window.prompt(t('gamedetail.discussion.bb.imagePrompt'));
+  const onImage = async () => {
+    const selection = getSelection();
+    const url = await dialog.prompt(t('gamedetail.discussion.bb.imagePrompt'), {
+      title: t('gamedetail.discussion.bb.image'),
+    });
     if (url == null || !url.trim()) return;
-    applyEdit(insertBbcodeImage(getSelection(), url.trim()));
+    applyEdit(insertBbcodeImage(selection, url.trim()));
   };
 
   const onList = () => {
