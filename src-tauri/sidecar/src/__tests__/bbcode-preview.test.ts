@@ -4,6 +4,7 @@ import { describe, expect, it } from 'vitest';
 import { RpcError } from '../rpc';
 import {
   buildBbcodePreviewForm,
+  extractPreviewBodyHtml,
   parseBbcodePreviewResponse,
 } from '../domain/game/bbcodePreview';
 
@@ -21,13 +22,36 @@ describe('parseBbcodePreviewResponse', () => {
       ),
     ).toThrow(RpcError);
   });
+
+  it('strips XF preview chrome to bbWrapper', () => {
+    const body = JSON.stringify({
+      status: 'ok',
+      html: {
+        content:
+          '<div class="bbCodePreview"><div class="bbWrapper"><b>hi</b></div></div>',
+      },
+    });
+    expect(parseBbcodePreviewResponse(body)).toBe('<b>hi</b>');
+  });
+});
+
+describe('extractPreviewBodyHtml', () => {
+  it('returns raw html when no wrapper', () => {
+    expect(extractPreviewBodyHtml('<i>x</i>')).toBe('<i>x</i>');
+  });
 });
 
 describe('buildBbcodePreviewForm', () => {
-  it('posts bb_code to misc/bb-code', () => {
-    const f = buildBbcodePreviewForm({ bbCode: '[B]x[/B]', xfToken: 'tok' });
-    expect(f.url).toContain('/misc/bb-code');
-    expect(f.body).toContain('bb_code=');
+  it('posts message to threads/{id}/reply-preview', () => {
+    const f = buildBbcodePreviewForm({
+      threadId: '100',
+      bbCode: '[B]x[/B]',
+      xfToken: 'tok',
+    });
+    expect(f.url).toContain('/threads/100/reply-preview');
+    expect(f.url).toContain('quick_reply=1');
+    expect(f.body).toContain('message=');
     expect(f.body).toContain('_xfToken=tok');
+    expect(f.body).not.toContain('bb_code=');
   });
 });

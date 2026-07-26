@@ -1,3 +1,4 @@
+import * as cheerio from 'cheerio';
 import { RPC_ERROR, RpcError } from '../../rpc';
 import { F95_BASE } from '../../shared/constants';
 
@@ -5,15 +6,20 @@ export interface BbcodePreviewResult {
   html: string;
 }
 
+/**
+ * F95/XF quick-reply preview — POST /threads/{id}/reply-preview?quick_reply=1 with `message`.
+ */
 export function buildBbcodePreviewForm(args: {
+  threadId: string;
   bbCode: string;
   xfToken: string;
   requestUri?: string;
 }): { url: string; body: string; headers: Record<string, string> } {
-  const requestUri = args.requestUri ?? '/';
-  const url = `${F95_BASE}/misc/bb-code`;
+  const id = args.threadId.trim();
+  const requestUri = args.requestUri ?? `/threads/${id}/`;
+  const url = `${F95_BASE}/threads/${id}/reply-preview?quick_reply=1`;
   const body = new URLSearchParams({
-    bb_code: args.bbCode,
+    message: args.bbCode,
     _xfToken: args.xfToken,
     _xfRequestUri: requestUri,
     _xfWithData: '1',
@@ -83,6 +89,18 @@ function pickHtmlFragment(parsed: Record<string, unknown>): string | null {
   return null;
 }
 
+/** Prefer the rendered message body over XF form chrome around it. */
+export function extractPreviewBodyHtml(html: string): string {
+  const trimmed = html.trim();
+  if (!trimmed) return '';
+  const $ = cheerio.load(trimmed);
+  const wrapper = $('.bbWrapper').first();
+  if (wrapper.length) return wrapper.html()?.trim() || trimmed;
+  const inner = $('.bbCodePreview-content, .js-previewContainer .bbWrapper').first();
+  if (inner.length) return inner.html()?.trim() || trimmed;
+  return trimmed;
+}
+
 export function parseBbcodePreviewResponse(body: string): string {
   const raw = body.trim();
   if (!raw) {
@@ -113,5 +131,5 @@ export function parseBbcodePreviewResponse(body: string): string {
   if (html === null) {
     throw new RpcError(RPC_ERROR.INTERNAL, 'bbcode preview response missing html');
   }
-  return html;
+  return extractPreviewBodyHtml(html);
 }

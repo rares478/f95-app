@@ -15,6 +15,7 @@ const SESSION_DIR =
   path.join(process.env.LOCALAPPDATA ?? '', 'com.f95.app', 'sessions');
 
 const BB_CODE = process.env.BB_CODE ?? '[B]hi[/B]\n[LIST]\n[*]one\n[/LIST]';
+const THREAD_ID = process.env.THREAD_ID ?? '207437';
 
 function summarizeKeys(value: unknown, prefix = ''): string[] {
   if (!value || typeof value !== 'object') return [];
@@ -59,11 +60,12 @@ async function main(): Promise<void> {
     console.log('[bbcodePreview] xfToken length', xfToken.length);
 
     const form = buildBbcodePreviewForm({
+      threadId: THREAD_ID,
       bbCode: BB_CODE,
       xfToken,
-      requestUri: '/',
     });
     console.log('[bbcodePreview] POST', form.url);
+    console.log('[bbcodePreview] threadId', THREAD_ID);
     console.log('[bbcodePreview] bbCode sample', JSON.stringify(BB_CODE.slice(0, 80)));
 
     const res = await http.post(form.url, {

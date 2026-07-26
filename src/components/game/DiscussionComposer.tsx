@@ -91,7 +91,7 @@ export function DiscussionComposer({
     setPreviewLoading(true);
     setPreviewError(null);
     const timer = window.setTimeout(() => {
-      void bbcodePreview(draft)
+      void bbcodePreview(threadId, draft)
         .then((result) => {
           if (cancelled) return;
           setPreviewHtml(result.html);
@@ -109,7 +109,7 @@ export function DiscussionComposer({
       cancelled = true;
       window.clearTimeout(timer);
     };
-  }, [tab, draft]);
+  }, [tab, draft, threadId]);
 
   const getSelection = (): BbcodeSelection => {
     const el = textareaRef.current;

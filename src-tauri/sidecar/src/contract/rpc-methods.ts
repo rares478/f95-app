@@ -52,7 +52,7 @@ export const RPC_METHODS = {
     result: { threadId: 'string', postId: 'string|null', page: 'number|null' },
   },
   bbcodePreview: {
-    params: { bbCode: 'string' },
+    params: { threadId: 'string', bbCode: 'string' },
     result: { html: 'string' },
   },
   resolvePost: {

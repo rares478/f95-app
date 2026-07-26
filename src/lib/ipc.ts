@@ -78,8 +78,11 @@ export async function threadReply(
   return invoke<ThreadReplyResult>('thread_reply', { threadId, message });
 }
 
-export async function bbcodePreview(bbCode: string): Promise<BbcodePreviewResult> {
-  return invoke<BbcodePreviewResult>('bbcode_preview', { bbCode });
+export async function bbcodePreview(
+  threadId: string,
+  bbCode: string,
+): Promise<BbcodePreviewResult> {
+  return invoke<BbcodePreviewResult>('bbcode_preview', { threadId, bbCode });
 }
 
 export async function resolvePost(postId: string): Promise<ResolvePostResult> {
