@@ -590,15 +590,16 @@ function collectLinks(
     if (info.category === 'direct') {
       if (seenDownload.has(url)) return;
       seenDownload.add(url);
+      const path = resolveDownloadPath($, el);
       downloads.push({
         host: info.host,
         url,
         text: text || info.host,
-        group: nearestDownloadGroupLabel($, el),
-        edition: null,
-        platform: null,
-        part: null,
-        kindHint: null,
+        group: path.group,
+        edition: path.edition,
+        platform: path.platform,
+        part: path.part,
+        kindHint: path.kindHint,
       });
     } else if (info.category === 'social') {
       if (seenSocial.has(url)) return;
@@ -613,7 +614,12 @@ function collectLinks(
 const OS_LABEL_RE =
   /\b(win(?:dows)?(?:\s*\/\s*linux)?|linux|mac(?:os)?|android|ios|browser|all platforms?)\b/i;
 
-/** Section headers that are not download groups (games + animations/comics/assets). */
+const PART_LABEL_RE = /Part\s*(\d+)/i;
+
+const SPOILER_SEL =
+  '.bbCodeSpoiler, details.x-spoiler, .bbCodeBlock--spoiler';
+
+/** Section headers that are not download editions (games + animations/comics/assets). */
 const GROUP_LABEL_EXCLUDE = new Set([
   'download',
   'downloads',
@@ -639,6 +645,54 @@ const GROUP_LABEL_EXCLUDE = new Set([
   'credits',
 ]);
 
+export type DownloadPath = {
+  edition: string | null;
+  platform: string | null;
+  part: number | null;
+  kindHint: NonNullable<GameDownload['kindHint']>;
+  group: string | null;
+};
+
+/**
+ * Resolve structured download path (edition / platform / part) from the OP
+ * DOM around a host link, including XF spoiler context.
+ */
+export function resolveDownloadPath(
+  $: cheerio.CheerioAPI,
+  el: Element,
+): DownloadPath {
+  const { platform, part, labels: nearLabels } = nearestPlatformAndPart($, el);
+  const {
+    edition: spoilerEdition,
+    splitSpoiler,
+    titles: spoilerTitles,
+  } = resolveSpoilerEdition($, el);
+
+  let edition = spoilerEdition;
+  if (!edition && !$(el).closest(SPOILER_SEL).length) {
+    edition = nearestTopLevelEdition($, el);
+  }
+
+  const labels = [...spoilerTitles, ...nearLabels];
+  if (edition) labels.push(edition);
+
+  const kindHint = inferKindHint({
+    labels,
+    part,
+    splitSpoiler,
+    platform,
+  });
+
+  const groupBits = [
+    edition,
+    platform,
+    part != null ? `Part ${part}` : null,
+  ].filter(Boolean) as string[];
+  const group = groupBits.length ? groupBits.join(' · ') : null;
+
+  return { edition, platform, part, kindHint, group };
+}
+
 function normalizeGroupLabel(raw: string): string | null {
   const t = cleanText(raw).replace(/:\s*$/, '').trim();
   if (!t) return null;
@@ -646,53 +700,233 @@ function normalizeGroupLabel(raw: string): string | null {
   return t;
 }
 
-function labelFromBoldText(raw: string): string | null {
-  const t = cleanText(raw);
-  if (!t) return null;
-  if (OS_LABEL_RE.test(t)) {
-    return normalizeGroupLabel(t.endsWith(':') ? t : `${t}:`);
-  }
-  if (t.endsWith(':')) {
-    return normalizeGroupLabel(t);
-  }
-  return null;
+function platformFromText(raw: string): string | null {
+  const m = cleanText(raw).match(OS_LABEL_RE);
+  if (!m) return null;
+  return normalizeGroupLabel(m[0]) ?? cleanText(m[0]);
 }
 
-function nearestDownloadGroupLabel(
+function partFromText(raw: string): number | null {
+  const m = cleanText(raw).match(PART_LABEL_RE);
+  if (!m) return null;
+  return Number.parseInt(m[1], 10);
+}
+
+const AUX_ROW_RE =
+  /^(patches?|extras?|translations?|mods?)\b/i;
+
+function isAuxRowLabel(raw: string): boolean {
+  return AUX_ROW_RE.test(cleanText(raw).replace(/:\s*$/, ''));
+}
+
+function nearestPlatformAndPart(
   $: cheerio.CheerioAPI,
   el: Element,
-): string | null {
-  // Walk backward through siblings/parents for the nearest <b>/<strong> label
-  // (Win/Linux, Collection, 08-10, etc.). Games use OS rows; animations/comics
-  // use episode/chapter ranges on the same line as the host links.
+): { platform: string | null; part: number | null; labels: string[] } {
+  let platform: string | null = null;
+  let part: number | null = null;
+  const labels: string[] = [];
+
+  const considerLabel = (raw: string) => {
+    const t = cleanText(raw);
+    if (!t) return false;
+    labels.push(t);
+    if (part == null && platform == null) {
+      const p = partFromText(t);
+      if (p != null) part = p;
+    }
+    if (platform == null) {
+      const os = platformFromText(t);
+      if (os) {
+        platform = os;
+        return true; // stop: platform row found
+      }
+    }
+    // Patch/Extras rows own the link — don't inherit earlier sections.
+    if (isAuxRowLabel(t)) return true;
+    return false;
+  };
+
   let node: AnyNode | null = el;
   let hops = 0;
   while (node && hops < 80) {
     let prev: AnyNode | null = (node as AnyNode).prev ?? null;
     while (prev) {
       if (isElement(prev)) {
+        // Never pull Part/OS labels out of a prior spoiler block.
+        if ($(prev).is(SPOILER_SEL)) {
+          prev = prev.prev ?? null;
+          hops++;
+          continue;
+        }
         const tag = prev.tagName?.toLowerCase();
         if (tag === 'b' || tag === 'strong') {
-          const label = labelFromBoldText($(prev).text());
-          if (label) return label;
-        }
-        const inner = $(prev).find('b, strong').last();
-        if (inner.length) {
-          const label = labelFromBoldText(inner.text());
-          if (label) return label;
+          if (considerLabel($(prev).text())) {
+            return { platform, part, labels };
+          }
+        } else {
+          const inner = $(prev).find('b, strong').last();
+          if (inner.length && !inner.closest(SPOILER_SEL).length) {
+            if (considerLabel(inner.text())) {
+              return { platform, part, labels };
+            }
+          }
         }
       } else if (isText(prev)) {
-        const os = prev.data.match(OS_LABEL_RE);
-        if (os) {
-          const label = normalizeGroupLabel(os[0]);
-          if (label) return label;
+        if (considerLabel(prev.data)) {
+          return { platform, part, labels };
         }
-        // Plain-text labels: "Collection: GOFILE - …"
+      }
+      prev = prev.prev ?? null;
+      hops++;
+    }
+    node = (node as AnyNode).parent ?? null;
+    hops++;
+  }
+  return { platform, part, labels };
+}
+
+function spoilerButtonTitle(
+  $: cheerio.CheerioAPI,
+  spoiler: Element,
+): string {
+  const $spoiler = $(spoiler);
+  if (
+    spoiler.tagName?.toLowerCase() === 'details' ||
+    $spoiler.hasClass('x-spoiler')
+  ) {
+    return cleanText($spoiler.children('summary').first().text());
+  }
+  return (
+    cleanText(
+      $spoiler
+        .find('.bbCodeSpoiler-button-title, .bbCodeBlock-title')
+        .first()
+        .text(),
+    ) || cleanText($spoiler.find('button').first().text())
+  );
+}
+
+function previousSignificantSiblingText(
+  $: cheerio.CheerioAPI,
+  spoiler: Element,
+): string | null {
+  let prev: AnyNode | null = (spoiler as AnyNode).prev ?? null;
+  while (prev) {
+    if (isText(prev)) {
+      const t = cleanText(prev.data);
+      if (t) return t;
+    } else if (isElement(prev)) {
+      const tag = prev.tagName?.toLowerCase();
+      if (tag === 'br') {
+        prev = prev.prev ?? null;
+        continue;
+      }
+      const t = cleanText($(prev).text());
+      if (!t) {
+        prev = prev.prev ?? null;
+        continue;
+      }
+      if (
+        tag === 'b' ||
+        tag === 'strong' ||
+        tag === 'p' ||
+        /^h[1-6]$/.test(tag)
+      ) {
+        if (t.length <= 120) return t;
+      } else if (t.length <= 80) {
+        return t;
+      }
+    }
+    prev = prev.prev ?? null;
+  }
+  return null;
+}
+
+function resolveSpoilerEdition(
+  $: cheerio.CheerioAPI,
+  el: Element,
+): {
+  edition: string | null;
+  splitSpoiler: boolean;
+  titles: string[];
+} {
+  const spoilers = $(el).parents(SPOILER_SEL).toArray().reverse();
+  let edition: string | null = null;
+  let splitSpoiler = false;
+  const titles: string[] = [];
+
+  for (const spoiler of spoilers) {
+    const buttonTitle = spoilerButtonTitle($, spoiler);
+    let title = buttonTitle;
+    let fromFallback = false;
+    if (!title || /^spoiler$/i.test(title)) {
+      const prev = previousSignificantSiblingText($, spoiler);
+      if (prev) {
+        title = prev;
+        fromFallback = true;
+      }
+    }
+    if (buttonTitle) titles.push(buttonTitle);
+    if (title && title !== buttonTitle) titles.push(title);
+
+    if (buttonTitle && /split/i.test(buttonTitle)) {
+      splitSpoiler = true;
+    }
+    if (!title || /^spoiler$/i.test(title)) continue;
+    // Split spoiler button titles are not editions; preceding-text
+    // fallbacks (e.g. "Season 3 splits") still may be.
+    if (!fromFallback && /split/i.test(title)) continue;
+    if (!edition) edition = cleanText(title);
+  }
+
+  return { edition, splitSpoiler, titles };
+}
+
+function nearestTopLevelEdition(
+  $: cheerio.CheerioAPI,
+  el: Element,
+): string | null {
+  let node: AnyNode | null = el;
+  let hops = 0;
+  while (node && hops < 80) {
+    let prev: AnyNode | null = (node as AnyNode).prev ?? null;
+    while (prev) {
+      if (isElement(prev)) {
+        if ($(prev).is(SPOILER_SEL)) {
+          // Prior spoiler / its intro text belongs to that block, not this row.
+          return null;
+        }
+        const tag = prev.tagName?.toLowerCase();
+        if (tag === 'b' || tag === 'strong' || /^h[1-6]$/.test(tag)) {
+          const raw = cleanText($(prev).text());
+          if (raw) {
+            if (isAuxRowLabel(raw)) return null;
+            if (!OS_LABEL_RE.test(raw)) {
+              const label = normalizeGroupLabel(raw);
+              if (label) return label;
+            }
+          }
+        } else {
+          const inner = $(prev).find('b, strong').last();
+          if (inner.length && !inner.closest(SPOILER_SEL).length) {
+            const raw = cleanText(inner.text());
+            if (raw) {
+              if (isAuxRowLabel(raw)) return null;
+              if (!OS_LABEL_RE.test(raw)) {
+                const label = normalizeGroupLabel(raw);
+                if (label) return label;
+              }
+            }
+          }
+        }
+      } else if (isText(prev)) {
         const colon = prev.data.match(
           /(?:^|[\s])((?:[\w][\w /_.+-]{0,40}))\s*:\s*$/,
         );
-        if (colon) {
-          const label = normalizeGroupLabel(`${colon[1]}:`);
+        if (colon && !OS_LABEL_RE.test(colon[1])) {
+          if (isAuxRowLabel(colon[1])) return null;
+          const label = normalizeGroupLabel(colon[1]);
           if (label) return label;
         }
       }
@@ -703,6 +937,20 @@ function nearestDownloadGroupLabel(
     hops++;
   }
   return null;
+}
+
+function inferKindHint(opts: {
+  labels: string[];
+  part: number | null;
+  splitSpoiler: boolean;
+  platform: string | null;
+}): NonNullable<GameDownload['kindHint']> {
+  const blob = opts.labels.join(' ');
+  if (/patch/i.test(blob)) return 'patch';
+  if (/extra|translation|mod/i.test(blob)) return 'extra';
+  if (opts.part != null || opts.splitSpoiler) return 'split';
+  if (opts.platform != null) return 'full';
+  return 'other';
 }
 
 function nonEmpty(v: string | undefined | null): string | null {

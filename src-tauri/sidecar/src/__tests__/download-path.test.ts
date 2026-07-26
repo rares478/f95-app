@@ -1,0 +1,86 @@
+import { readFileSync } from 'node:fs';
+import { join } from 'node:path';
+import { describe, expect, it } from 'vitest';
+import * as cheerio from 'cheerio';
+import type { Element } from 'domhandler';
+import { resolveDownloadPath } from '../domain/game/client';
+
+const html = readFileSync(
+  join(__dirname, 'fixtures', 'download-path-multi-season.html'),
+  'utf8',
+);
+
+function pathFor(urlFragment: string) {
+  const $ = cheerio.load(html);
+  const el = $(`a[href*="${urlFragment}"]`).get(0) as Element | undefined;
+  if (!el) throw new Error(`missing link ${urlFragment}`);
+  return resolveDownloadPath($, el);
+}
+
+describe('resolveDownloadPath', () => {
+  it('keeps Season 3 full Win/Linux separate from Season 1-2 Win/Linux', () => {
+    const top = pathFor('s3-win-full');
+    expect(top).toMatchObject({
+      edition: null,
+      platform: 'Win/Linux',
+      part: null,
+      kindHint: 'full',
+      group: 'Win/Linux',
+    });
+
+    const s12 = pathFor('s12-win-full');
+    expect(s12).toMatchObject({
+      edition: 'Season 1 - 2',
+      platform: 'Win/Linux',
+      part: null,
+      kindHint: 'full',
+      group: 'Season 1 - 2 · Win/Linux',
+    });
+  });
+
+  it('labels Mac top-level as full platform', () => {
+    expect(pathFor('s3-mac-full')).toMatchObject({
+      edition: null,
+      platform: 'Mac',
+      part: null,
+      kindHint: 'full',
+      group: 'Mac',
+    });
+  });
+
+  it('labels split parts under outer season edition', () => {
+    expect(pathFor('s12-win-p1')).toMatchObject({
+      edition: 'Season 1 - 2',
+      platform: 'Win/Linux',
+      part: 1,
+      kindHint: 'split',
+      group: 'Season 1 - 2 · Win/Linux · Part 1',
+    });
+    expect(pathFor('s12-win-p2')).toMatchObject({
+      edition: 'Season 1 - 2',
+      platform: 'Win/Linux',
+      part: 2,
+      kindHint: 'split',
+      group: 'Season 1 - 2 · Win/Linux · Part 2',
+    });
+  });
+
+  it('uses preceding text when spoiler title is generic', () => {
+    expect(pathFor('s3-win-p1')).toMatchObject({
+      edition: 'Season 3 splits',
+      platform: 'Win/Linux',
+      part: 1,
+      kindHint: 'split',
+      group: 'Season 3 splits · Win/Linux · Part 1',
+    });
+  });
+
+  it('emits patch and extra kindHints', () => {
+    expect(pathFor('patch-win')).toMatchObject({
+      kindHint: 'patch',
+    });
+    expect(pathFor('extra-pack')).toMatchObject({
+      kindHint: 'extra',
+    });
+  });
+});
