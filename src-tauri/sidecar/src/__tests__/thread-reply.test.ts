@@ -37,6 +37,23 @@ describe('parseThreadReplyResponse', () => {
     }
   });
 
+  it('extracts message from field-keyed errors object (live XF shape)', () => {
+    expect(() =>
+      parseThreadReplyResponse({
+        threadId: '100',
+        body: fix('thread-reply-error-fields.json'),
+      }),
+    ).toThrow(RpcError);
+    try {
+      parseThreadReplyResponse({
+        threadId: '100',
+        body: fix('thread-reply-error-fields.json'),
+      });
+    } catch (e) {
+      expect((e as RpcError).message).toMatch(/valid message/i);
+    }
+  });
+
   it('returns null postId when success has no post link', () => {
     const result = parseThreadReplyResponse({
       threadId: '100',

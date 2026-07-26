@@ -39,12 +39,30 @@ export function buildThreadReplyForm(args: {
   };
 }
 
-function firstErrorMessage(parsed: Record<string, unknown>): string | null {
-  const errors = parsed.errors;
-  if (Array.isArray(errors) && errors.length > 0) {
-    const first = errors[0];
-    if (typeof first === 'string' && first.trim()) return first.trim();
+function firstStringFromErrors(errors: unknown): string | null {
+  if (Array.isArray(errors)) {
+    for (const item of errors) {
+      if (typeof item === 'string' && item.trim()) return item.trim();
+    }
+    return null;
   }
+  // Live XF often returns field-keyed objects, e.g. { message: "Please enter..." }
+  if (errors && typeof errors === 'object') {
+    for (const value of Object.values(errors as Record<string, unknown>)) {
+      if (typeof value === 'string' && value.trim()) return value.trim();
+      if (Array.isArray(value)) {
+        for (const item of value) {
+          if (typeof item === 'string' && item.trim()) return item.trim();
+        }
+      }
+    }
+  }
+  return null;
+}
+
+function firstErrorMessage(parsed: Record<string, unknown>): string | null {
+  const fromErrors = firstStringFromErrors(parsed.errors);
+  if (fromErrors) return fromErrors;
   if (typeof parsed.message === 'string' && parsed.message.trim()) {
     return parsed.message.trim();
   }
