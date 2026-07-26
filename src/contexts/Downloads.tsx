@@ -6,6 +6,13 @@ import {
 } from '../components/HostFileChoiceModal';
 import * as downloads from '../lib/downloads';
 import * as ipc from '../lib/ipc';
+import * as library from '../lib/library';
+import { recoverStatusAfterDownloadFailure } from '../lib/downloadLibrarySync';
+import {
+  findJobByDownloadId,
+  markJobAssign,
+  recomputePlanStatus,
+} from '../lib/installPlans';
 import { dialog } from '../lib/dialog';
 import { useT } from '../lib/i18n';
 import { formatIpcError } from '../lib/ipcError';
@@ -65,6 +72,28 @@ export function DownloadsProvider({ children }: { children: ReactNode }) {
           if (fileChoice) {
             await ipc.downloadCancel(fileChoice.downloadId);
             await downloads.markCancelled(fileChoice.downloadId);
+            try {
+              const linkedJob = await findJobByDownloadId(fileChoice.downloadId);
+              if (linkedJob) {
+                await markJobAssign(linkedJob.id, 'failed', {
+                  errorMessage: 'cancelled',
+                });
+                await recomputePlanStatus(linkedJob.planId);
+              }
+            } catch {
+              /* ignore */
+            }
+            try {
+              const game = await library.get(fileChoice.threadId);
+              if (game) {
+                await library.setStatus(
+                  fileChoice.threadId,
+                  recoverStatusAfterDownloadFailure(game),
+                );
+              }
+            } catch {
+              /* not in library */
+            }
             await value.reload();
           }
           setFileChoice(null);

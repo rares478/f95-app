@@ -15,6 +15,8 @@ import {
   findJobByDownloadId,
   getPlan,
   listJobsByThread,
+  markJobAssign,
+  recomputePlanStatus,
   type InstallJob,
   type InstallPlan,
 } from '../lib/installPlans';
@@ -210,8 +212,26 @@ export function DownloadsPage() {
     await ipc.downloadCancel(row.id);
     const liveBytes = progress[row.id]?.bytes ?? row.bytesDone;
     await downloads.markCancelled(row.id, liveBytes);
+    const linkedJob =
+      jobByDownloadId[row.id] ?? (await findJobByDownloadId(row.id));
+    if (linkedJob) {
+      try {
+        await markJobAssign(linkedJob.id, 'failed', {
+          errorMessage: 'cancelled',
+        });
+        await recomputePlanStatus(linkedJob.planId);
+      } catch {
+        /* ignore */
+      }
+    }
     try {
-      await library.setStatus(row.threadId, 'not_installed');
+      const game = await library.get(row.threadId);
+      if (game) {
+        await library.setStatus(
+          row.threadId,
+          recoverStatusAfterDownloadFailure(game),
+        );
+      }
     } catch {
       /* not in library */
     }

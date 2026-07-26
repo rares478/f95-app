@@ -15,6 +15,7 @@ import { defaultExeLabel, shouldAutoAssign } from '../lib/installAssign';
 import {
   buildJobExtractDest,
   emitInstallNeedsAssign,
+  shouldAutoExtractDownload,
 } from '../lib/installJobExtract';
 import {
   findJobByDownloadId,
@@ -369,6 +370,8 @@ async function reconcilePendingExtractions(
     if (row.state !== 'completed' || !row.destPath || !isArchivePath(row.destPath)) continue;
     const game = await library.get(row.threadId);
     if (!game || !needsExtraction(row, game)) continue;
+    const linkedJob = await findJobByDownloadId(row.id);
+    if (!shouldAutoExtractDownload({ job: linkedJob })) continue;
     await tryAutoExtract(row.threadId, row.destPath, row.gameVersion, row.id);
   }
 }
@@ -531,7 +534,11 @@ export function useDownloads(options?: UseDownloadsOptions): {
           }
           const archivePaths = archivePathsFromDone(e.payload);
           const dlSettings = await loadDownloadSettings();
-          if (dlSettings.autoExtract && archivePaths.length > 0) {
+          if (
+            dlSettings.autoExtract &&
+            archivePaths.length > 0 &&
+            shouldAutoExtractDownload({ job: linkedJob })
+          ) {
             for (const archivePath of archivePaths) {
               await tryAutoExtract(row.threadId, archivePath, row.gameVersion, row.id);
             }
@@ -544,6 +551,17 @@ export function useDownloads(options?: UseDownloadsOptions): {
           const liveBytes = progressRef.current[e.payload.id]?.bytes;
           await downloads.markError(e.payload.id, e.payload.message, liveBytes);
           const row = await downloads.get(e.payload.id);
+          const linkedJob = await findJobByDownloadId(e.payload.id);
+          if (linkedJob) {
+            try {
+              await markJobAssign(linkedJob.id, 'failed', {
+                errorMessage: e.payload.message || 'download failed',
+              });
+              await recomputePlanStatus(linkedJob.planId);
+            } catch {
+              /* ignore */
+            }
+          }
           if (row) {
             try {
               const game = await library.get(row.threadId);
