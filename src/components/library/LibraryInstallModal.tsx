@@ -26,6 +26,8 @@ export interface LibraryInstallModalProps {
   gameVersion: string | null;
   onClose: () => void;
   onStarted?: () => void;
+  /** When opened as “Browse all links” from the install plan wizard. */
+  onBackToPlan?: () => void;
 }
 
 export function LibraryInstallModal({
@@ -35,6 +37,7 @@ export function LibraryInstallModal({
   gameVersion,
   onClose,
   onStarted,
+  onBackToPlan,
 }: LibraryInstallModalProps) {
   const { t } = useT();
   const { isOffline } = useOffline();
@@ -164,6 +167,11 @@ export function LibraryInstallModal({
           )}
 
           <div style={footerStyle}>
+            {onBackToPlan && (
+              <button type="button" style={cancelBtnStyle} onClick={onBackToPlan}>
+                {t('common.back')}
+              </button>
+            )}
             <button type="button" style={cancelBtnStyle} onClick={onClose}>
               {t('common.cancel')}
             </button>

@@ -78,3 +78,19 @@ export function pickPreferredHost(
 
   return links[0] ?? null;
 }
+
+/** Best-effort OS for section defaults; Win Tauri falls back to windows. */
+export function detectInstallPlatform(): 'windows' | 'macos' | 'linux' {
+  const nav = navigator as Navigator & {
+    userAgentData?: { platform?: string };
+  };
+  const fromUaData = nav.userAgentData?.platform?.toLowerCase() ?? '';
+  if (fromUaData.includes('mac')) return 'macos';
+  if (fromUaData.includes('linux')) return 'linux';
+  if (fromUaData.includes('win')) return 'windows';
+
+  const ua = navigator.userAgent.toLowerCase();
+  if (ua.includes('mac')) return 'macos';
+  if (ua.includes('linux') && !ua.includes('android')) return 'linux';
+  return 'windows';
+}

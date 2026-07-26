@@ -17,8 +17,10 @@ import { useT } from '../../lib/i18n';
 import { formatIpcError } from '../../lib/ipcError';
 import { dialog } from '../../lib/dialog';
 import { InstallLocationModal } from '../InstallLocationModal';
+import { InstallPlanWizard } from '../library/InstallPlanWizard';
 import type { InstallLibraryWithDisk } from '../../types/install-library';
 import type { SamCategory } from '../../types/sam';
+import '../../styles/install-plan.css';
 
 export interface DownloadLinksGameInfo {
   threadId: string;
@@ -42,8 +44,25 @@ export function DownloadLinks({ game, downloads: items, social, embedded }: Prop
   const [busyUrl, setBusyUrl] = useState<string | null>(null);
   const [pickerOpen, setPickerOpen] = useState(false);
   const [pending, setPending] = useState<GameDownload | null>(null);
+  const [wizardOpen, setWizardOpen] = useState(false);
 
   const groups = groupDownloads(items);
+
+  async function prepareWizardStart() {
+    await library.add({
+      threadId: game.threadId,
+      category: game.category,
+      title: game.title,
+      threadUrl: game.threadUrl,
+      thumbnailUrl: game.thumbnailUrl,
+      currentVersion: game.version,
+    });
+    try {
+      await saveLinksSnapshot(game.threadId, items, game.version);
+    } catch (err) {
+      console.warn('[library] failed to cache download links on install start', err);
+    }
+  }
 
   async function startDownload(download: GameDownload, libraryPath?: string) {
     if (isOffline) {
@@ -112,6 +131,18 @@ export function DownloadLinks({ game, downloads: items, social, embedded }: Prop
   return (
     <>
       {!embedded && <h3>{t('dl.section')}</h3>}
+
+      {items.length > 0 && (
+        <div className="install-wizard-store-actions">
+          <button
+            type="button"
+            className="dl-action-btn dl-action-btn-accent"
+            onClick={() => setWizardOpen(true)}
+          >
+            {t('libcard.cta.install')}
+          </button>
+        </div>
+      )}
 
       {groups.map(([label, groupItems]) => (
         <div key={label ?? 'default'} style={{ marginBottom: 12 }}>
@@ -187,6 +218,17 @@ export function DownloadLinks({ game, downloads: items, social, embedded }: Prop
           </ul>
         </div>
       )}
+
+      <InstallPlanWizard
+        open={wizardOpen}
+        threadId={game.threadId}
+        title={game.title}
+        links={items}
+        gameVersion={game.version}
+        intent="install"
+        onClose={() => setWizardOpen(false)}
+        prepareStart={prepareWizardStart}
+      />
 
       <InstallLocationModal
         open={pickerOpen}

@@ -98,3 +98,161 @@
   font-size: 12px;
   color: var(--accent-strong);
 }
+
+/* Install plan wizard */
+
+.install-wizard-modal {
+  width: min(560px, calc(100vw - 40px));
+}
+
+.install-wizard-step-label {
+  margin: 0;
+  font-size: 13px;
+  font-weight: 600;
+  color: var(--text-secondary);
+}
+
+.install-wizard-section-list,
+.install-wizard-host-list,
+.install-wizard-host-options {
+  list-style: none;
+  margin: 0;
+  padding: 0;
+  display: flex;
+  flex-direction: column;
+  gap: 6px;
+}
+
+.install-wizard-section-row,
+.install-wizard-host-row {
+  background: var(--bg-elevated);
+  border: 1px solid var(--border);
+  border-radius: 4px;
+  padding: 8px 10px;
+}
+
+.install-wizard-section-label {
+  display: flex;
+  align-items: center;
+  gap: 10px;
+  cursor: pointer;
+  font-size: 13px;
+  color: var(--text-primary);
+}
+
+.install-wizard-section-label input {
+  margin: 0;
+}
+
+.install-wizard-section-name {
+  flex: 1;
+  min-width: 0;
+  font-weight: 600;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+.install-wizard-kind {
+  flex-shrink: 0;
+  font-size: 10px;
+  font-weight: 700;
+  text-transform: uppercase;
+  letter-spacing: 0.04em;
+  padding: 2px 6px;
+  border-radius: 3px;
+  color: var(--text-secondary);
+  background: var(--bg-base);
+  border: 1px solid var(--border);
+}
+
+.install-wizard-kind--current_os {
+  color: var(--accent-text, var(--text-primary));
+  background: var(--accent);
+  border-color: transparent;
+}
+
+.install-wizard-host-count {
+  flex-shrink: 0;
+  font-size: 11px;
+  color: var(--text-tertiary);
+  min-width: 1.5em;
+  text-align: right;
+}
+
+.install-wizard-host-head {
+  display: flex;
+  flex-direction: column;
+  gap: 8px;
+}
+
+.install-wizard-host-title {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+}
+
+.install-wizard-host-pick {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 8px;
+  flex-wrap: wrap;
+}
+
+.install-wizard-host-chip {
+  display: inline-flex;
+  align-items: center;
+  gap: 8px;
+  min-width: 0;
+}
+
+.install-wizard-host-chip-label {
+  font-size: 13px;
+  color: var(--text-primary);
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+.install-wizard-host-options {
+  margin-top: 8px;
+  padding-top: 8px;
+  border-top: 1px solid var(--border);
+}
+
+.install-wizard-host-option {
+  width: 100%;
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 8px;
+  background: transparent;
+  border: 1px solid transparent;
+  border-radius: 3px;
+  padding: 6px 8px;
+  cursor: pointer;
+  text-align: left;
+  color: inherit;
+  font: inherit;
+}
+
+.install-wizard-host-option:hover {
+  background: var(--bg-base);
+  border-color: var(--border);
+}
+
+.install-wizard-host-option.is-active {
+  border-color: var(--accent-strong);
+  background: var(--bg-base);
+}
+
+.install-wizard-host-note {
+  font-size: 11px;
+  color: var(--text-tertiary);
+}
+
+.install-wizard-store-actions {
+  display: flex;
+  margin-bottom: 12px;
+}
