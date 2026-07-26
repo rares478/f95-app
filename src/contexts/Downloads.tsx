@@ -1,4 +1,4 @@
-import { createContext, useContext, useState, type ReactNode } from 'react';
+import { useState, type ReactNode } from 'react';
 import { useDownloads as useDownloadsHook } from '../hooks/useDownloads';
 import {
   HostFileChoiceModal,
@@ -9,19 +9,11 @@ import * as ipc from '../lib/ipc';
 import { dialog } from '../lib/dialog';
 import { useT } from '../lib/i18n';
 import { formatIpcError } from '../lib/ipcError';
-import type { DownloadProgress, DownloadRow } from '../types/download';
-
-interface DownloadsValue {
-  rows: DownloadRow[];
-  progress: Record<number, DownloadProgress>;
-  reload: () => Promise<void>;
-}
-
-const Ctx = createContext<DownloadsValue | null>(null);
+import { DownloadsContext } from './downloadsContext';
 
 /**
  * Single subscription to `download:*` events for the whole app. Mount once
- * at AppShell so the status bar and Downloads page share live progress.
+ * at the app root so the status bar and Downloads page share live progress.
  */
 interface FileChoiceRequest {
   downloadId: number;
@@ -61,7 +53,7 @@ export function DownloadsProvider({ children }: { children: ReactNode }) {
   }
 
   return (
-    <Ctx.Provider value={value}>
+    <DownloadsContext.Provider value={value}>
       {children}
       <HostFileChoiceModal
         open={fileChoice != null}
@@ -79,16 +71,10 @@ export function DownloadsProvider({ children }: { children: ReactNode }) {
         }}
         onConfirm={onConfirmFileChoice}
       />
-    </Ctx.Provider>
+    </DownloadsContext.Provider>
   );
 }
 
 export type { FileChoiceRequest };
 
-export function useDownloads(): DownloadsValue {
-  const ctx = useContext(Ctx);
-  if (!ctx) {
-    throw new Error('useDownloads must be used within DownloadsProvider');
-  }
-  return ctx;
-}
+export { useDownloads } from './downloadsContext';

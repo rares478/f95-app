@@ -3,6 +3,7 @@ import { RPC_ERROR, RpcError } from '../../rpc';
 import { log } from '../../logger';
 import { assertNotCloudflareChallenge } from '../../shared/cloudflare';
 import { F95_BASE } from '../../shared/constants';
+import { decodeHtmlEntities } from '../../shared/htmlEntities';
 import { parseRssXml, type RssFeed, type RssFeedItem } from './rss';
 
 export type { RssFeed, RssFeedItem };
@@ -293,8 +294,10 @@ function toTag(raw: unknown, catalog: Map<number, string>): SamTag | null {
   const r = raw as Record<string, unknown>;
   const id = numberOrNull(r.id ?? r.tag_id ?? r.tagId);
   if (id === null) return null;
+  const cached = catalog.get(id);
   const name =
-    stringOrNull(r.name ?? r.tag ?? r.label ?? r.title) ?? catalog.get(id) ?? null;
+    displayNameOrNull(r.name ?? r.tag ?? r.label ?? r.title) ??
+    (cached ? decodeHtmlEntities(cached) : null);
   if (!name) return null;
   return { id, name };
 }
@@ -334,7 +337,7 @@ function parseTagCatalogObject(value: unknown): Map<number, string> {
       if (!raw || typeof raw !== 'object' || Array.isArray(raw)) continue;
       const r = raw as Record<string, unknown>;
       const id = numberOrNull(r.id ?? r.tag_id ?? r.tagId);
-      const name = stringOrNull(r.name ?? r.tag ?? r.label ?? r.title);
+      const name = displayNameOrNull(r.name ?? r.tag ?? r.label ?? r.title);
       if (id !== null && name) map.set(id, name);
     }
     return map;
@@ -344,9 +347,11 @@ function parseTagCatalogObject(value: unknown): Map<number, string> {
     const id = numberOrNull(key);
     const name =
       typeof val === 'string'
-        ? val.trim()
+        ? displayNameOrNull(val)
         : val && typeof val === 'object' && !Array.isArray(val)
-          ? stringOrNull((val as Record<string, unknown>).name ?? (val as Record<string, unknown>).tag)
+          ? displayNameOrNull(
+              (val as Record<string, unknown>).name ?? (val as Record<string, unknown>).tag,
+            )
           : null;
     if (id !== null && name) map.set(id, name);
   }
@@ -449,7 +454,7 @@ function parsePrefixGroupList(catBlock: unknown): SamPrefixGroup[] {
     const gr = g as Record<string, unknown>;
     const groupId = numberOrNull(gr.id ?? gr.group_id ?? gr.groupId) ?? 0;
     const groupName =
-      stringOrNull(gr.name ?? gr.title ?? gr.label ?? gr.group) ?? 'Other';
+      displayNameOrNull(gr.name ?? gr.title ?? gr.label ?? gr.group) ?? 'Other';
     const rawPrefixes = normalizePrefixEntries(gr.prefixes);
     if (rawPrefixes.length > 0) {
       groups.push({ id: groupId, name: groupName, prefixes: rawPrefixes });
@@ -470,7 +475,7 @@ function normalizePrefixEntries(raw: unknown): SamPrefixEntry[] {
     if (!p || typeof p !== 'object' || Array.isArray(p)) continue;
     const pr = p as Record<string, unknown>;
     const id = numberOrNull(pr.id ?? pr.prefix_id ?? pr.prefixId);
-    const name = stringOrNull(pr.name ?? pr.title ?? pr.label ?? pr.text);
+    const name = displayNameOrNull(pr.name ?? pr.title ?? pr.label ?? pr.text);
     if (id === null || !name) continue;
     prefixes.push({
       id,
@@ -548,9 +553,10 @@ function toCard(raw: unknown): SamGameCard | null {
     .map((s) => absoluteUrl(stringOrNull(s)))
     .filter((s): s is string => s !== null);
 
+  const rawTitle = String(r.title ?? r.name ?? '').trim();
   return {
     threadId: String(id),
-    title: String(r.title ?? r.name ?? '').trim() || `Thread ${id}`,
+    title: decodeHtmlEntities(rawTitle) || `Thread ${id}`,
     version: stringOrNull(r.version),
     thumbnailUrl: absoluteUrl(stringOrNull(r.cover ?? r.thumb ?? r.thumbnail ?? r.image)),
     screens,
@@ -562,7 +568,7 @@ function toCard(raw: unknown): SamGameCard | null {
     likes: numberOrNull(r.likes ?? r.reactions),
     updatedAt: stringOrNull(r.date ?? r.updated ?? r.last_update ?? r.updated_at),
     updatedTs: numberOrNull(r.ts ?? r.timestamp ?? r.updated_ts),
-    creator: stringOrNull(r.creator ?? r.author ?? r.username),
+    creator: displayNameOrNull(r.creator ?? r.author ?? r.username),
     watched: Boolean(r.watched),
     ignored: Boolean(r.ignored),
     isNew: Boolean(r.new),
@@ -613,6 +619,12 @@ function stringOrNull(v: unknown): string | null {
   if (v === null || v === undefined) return null;
   const s = String(v).trim();
   return s.length ? s : null;
+}
+
+/** Trim + decode HTML entities for user-visible SAM labels. */
+function displayNameOrNull(v: unknown): string | null {
+  const s = stringOrNull(v);
+  return s ? decodeHtmlEntities(s) : null;
 }
 
 function pickNumber(v: unknown): number | null {

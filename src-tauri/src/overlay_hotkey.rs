@@ -4,6 +4,8 @@ use crate::commands::overlay::{
     overlay_toggle_cached, report_overlay_failure, OverlaySyncHotkeyResult, OVERLAY_HINT_WINDOW_LABEL,
     OVERLAY_WINDOW_LABEL,
 };
+use crate::error::AppError;
+use serde_json::json;
 use tauri::{AppHandle, Manager};
 use tauri_plugin_global_shortcut::{GlobalShortcutExt, Shortcut, ShortcutState};
 
@@ -137,19 +139,19 @@ async fn should_handle_overlay_hotkey(
         .map(|g| *g)
         .unwrap_or(false);
     if !enabled {
-        return (false, "overlay desativado nas configurações");
+        return (false, "overlay disabled in settings");
     }
 
     let running = state.launcher.running().await;
     if running.is_empty() {
-        return (false, "nenhum jogo em execução");
+        return (false, "no game running");
     }
 
     let overlay_open =
         crate::commands::overlay::overlay_effective_visible(app, state.inner());
 
     if overlay_open {
-        return (true, "overlay aberto — permitir fechar");
+        return (true, "overlay open — allow close");
     }
 
     #[cfg(windows)]
@@ -161,14 +163,14 @@ async fn should_handle_overlay_hotkey(
                 .map(|g| g.clone())
                 .unwrap_or_default();
             if is_shift_tab(&hotkey) {
-                return (false, "Shift+Tab com launcher em foco");
+                return (false, "Shift+Tab with launcher focused");
             }
         }
 
         for label in [OVERLAY_WINDOW_LABEL, OVERLAY_HINT_WINDOW_LABEL] {
             if let Some(win) = app.get_webview_window(label) {
                 if win.is_focused().unwrap_or(false) {
-                    return (true, "janela overlay em foco");
+                    return (true, "overlay window focused");
                 }
             }
         }
@@ -186,16 +188,16 @@ async fn should_handle_overlay_hotkey(
             std::process::id(),
             overlay_open,
         ) {
-            return (true, "jogo em foco");
+            return (true, "game focused");
         }
 
-        return (false, "outra janela em foco — jogo não está ativo");
+        return (false, "another window focused — game not active");
     }
 
     #[cfg(not(windows))]
     {
         let _ = app;
-        (true, "plataforma sem filtro extra")
+        (true, "platform without extra focus filter")
     }
 }
 
@@ -266,7 +268,7 @@ pub fn sync_overlay_hotkey(app: &AppHandle, enabled: bool, hotkey: &str) -> Over
         return OverlaySyncHotkeyResult {
             registered: false,
             hotkey: String::new(),
-            message: Some("Atalho vazio.".into()),
+            message: Some(AppError::keyed("error.hotkey.empty").to_string()),
         };
     }
 
@@ -281,7 +283,13 @@ pub fn sync_overlay_hotkey(app: &AppHandle, enabled: bool, hotkey: &str) -> Over
                 return OverlaySyncHotkeyResult {
                     registered: false,
                     hotkey: requested.clone(),
-                    message: Some(format!("Atalho inválido: {e}")),
+                    message: Some(
+                        AppError::keyed_vars(
+                            "error.hotkey.invalid",
+                            json!({ "detail": e.to_string() }),
+                        )
+                        .to_string(),
+                    ),
                 };
             }
         };
@@ -297,13 +305,21 @@ pub fn sync_overlay_hotkey(app: &AppHandle, enabled: bool, hotkey: &str) -> Over
 
         let message = if candidate != &requested {
             if steam_running && is_shift_tab(&requested) {
-                Some(format!(
-                    "Steam está aberto e usa Shift+Tab. O overlay foi configurado para \"{candidate}\"."
-                ))
+                Some(
+                    AppError::keyed_vars(
+                        "error.hotkey.steamFallback",
+                        json!({ "candidate": candidate }),
+                    )
+                    .to_string(),
+                )
             } else {
-                Some(format!(
-                    "Não foi possível usar \"{requested}\". O overlay usa \"{candidate}\"."
-                ))
+                Some(
+                    AppError::keyed_vars(
+                        "error.hotkey.fallback",
+                        json!({ "requested": requested, "candidate": candidate }),
+                    )
+                    .to_string(),
+                )
             }
         } else {
             None
@@ -328,11 +344,13 @@ pub fn sync_overlay_hotkey(app: &AppHandle, enabled: bool, hotkey: &str) -> Over
         registered: false,
         hotkey: requested,
         message: Some(if steam_running && is_shift_tab(trimmed) {
-            "Steam reserva Shift+Tab. Escolha outro atalho (ex.: Ctrl+Shift+O).".into()
+            AppError::keyed("error.hotkey.steamReserved").to_string()
         } else {
-            format!(
-                "Não foi possível registrar \"{trimmed}\". Outro programa pode estar usando este atalho."
+            AppError::keyed_vars(
+                "error.hotkey.registerFailed",
+                json!({ "hotkey": trimmed }),
             )
+            .to_string()
         }),
     }
 }
@@ -342,6 +360,6 @@ pub fn sync_overlay_hotkey(_app: &AppHandle, _enabled: bool, hotkey: &str) -> Ov
     OverlaySyncHotkeyResult {
         registered: false,
         hotkey: hotkey.to_string(),
-        message: Some("Atalho global não disponível nesta plataforma.".into()),
+        message: Some(AppError::keyed("error.hotkey.unavailable").to_string()),
     }
 }

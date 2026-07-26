@@ -75,7 +75,8 @@
       "sidecar/dist/bundle.cjs": "sidecar/bundle.cjs",
       "sidecar/dist/node.exe": "sidecar/node.exe",
       "sidecar/dist/node_modules/": "sidecar/node_modules/",
-      "sidecar/dist/ms-playwright/": "sidecar/ms-playwright/"
+      "sidecar/dist/ms-playwright/": "sidecar/ms-playwright/",
+      "resources/7zip/": "7zip/"
     },
     "icon": [
       "icons/32x32.png",

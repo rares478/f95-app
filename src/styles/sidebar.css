@@ -1,0 +1,225 @@
+/* Main navigation sidebar */
+
+.app-sidebar {
+  width: 220px;
+  flex-shrink: 0;
+  background: var(--bg-sidebar);
+  border-right: 1px solid var(--border-faint);
+  display: flex;
+  flex-direction: column;
+  height: 100%;
+  transition: width 0.18s ease;
+  overflow: hidden;
+}
+
+.app-sidebar--collapsed {
+  width: 56px;
+}
+
+.app-sidebar-user {
+  padding: 14px 16px;
+  border-bottom: 1px solid var(--border-faint);
+  display: flex;
+  align-items: center;
+  gap: 10px;
+  flex-shrink: 0;
+}
+
+.app-sidebar--collapsed .app-sidebar-user {
+  flex-direction: column;
+  padding: 12px 8px;
+  gap: 8px;
+}
+
+.app-sidebar-user-text {
+  min-width: 0;
+  flex: 1;
+}
+
+.app-sidebar--collapsed .app-sidebar-user-text {
+  display: none;
+}
+
+.app-sidebar-avatar {
+  width: 38px;
+  height: 38px;
+  border-radius: 50%;
+  object-fit: cover;
+  background: var(--border);
+  border: 2px solid var(--border);
+  flex-shrink: 0;
+}
+
+.app-sidebar-avatar-fallback {
+  width: 38px;
+  height: 38px;
+  border-radius: 50%;
+  background: var(--bg-elevated);
+  border: 2px solid var(--border);
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  font-size: 16px;
+  color: var(--text-muted);
+  font-weight: 700;
+  flex-shrink: 0;
+}
+
+.app-sidebar-username {
+  font-size: 13px;
+  font-weight: 600;
+  color: var(--text-primary);
+  white-space: nowrap;
+  overflow: hidden;
+  text-overflow: ellipsis;
+}
+
+.app-sidebar-status {
+  font-size: 11px;
+  display: flex;
+  align-items: center;
+  gap: 5px;
+  margin-top: 2px;
+}
+
+.app-sidebar-status-dot {
+  width: 6px;
+  height: 6px;
+  border-radius: 50%;
+  display: inline-block;
+}
+
+.app-sidebar-nav {
+  display: flex;
+  flex-direction: column;
+  padding: 4px 0 8px;
+  flex: 1;
+  min-height: 0;
+  overflow-y: auto;
+  overflow-x: hidden;
+}
+
+.app-sidebar-section {
+  padding: 0;
+  margin-top: 18px;
+  display: flex;
+  flex-direction: column;
+}
+
+.app-sidebar-section:first-child {
+  margin-top: 12px;
+}
+
+.app-sidebar-section-title {
+  font-size: 10px;
+  font-weight: 800;
+  color: var(--text-faint);
+  text-transform: uppercase;
+  letter-spacing: 1.4px;
+  padding: 0 18px;
+  margin-bottom: 6px;
+  white-space: nowrap;
+}
+
+.app-sidebar--collapsed .app-sidebar-section-title {
+  display: none;
+}
+
+.app-sidebar-link {
+  display: flex;
+  align-items: center;
+  gap: 12px;
+  padding: 9px 18px;
+  font-size: 13px;
+  font-weight: 500;
+  color: var(--text-tertiary);
+  text-decoration: none;
+  border-left: 3px solid transparent;
+  transition: background 0.1s ease, color 0.1s ease, border-color 0.1s ease;
+}
+
+.app-sidebar--collapsed .app-sidebar-link {
+  justify-content: center;
+  padding: 10px 0;
+  gap: 0;
+  border-left-width: 0;
+  border-right: 3px solid transparent;
+}
+
+.app-sidebar--collapsed .app-sidebar-link.sidebar-link-active {
+  border-left-width: 0;
+  border-right-color: var(--accent);
+}
+
+.app-sidebar-link.sidebar-link-active {
+  color: var(--text-primary);
+  background: var(--bg-elevated);
+  border-left-color: var(--accent);
+  font-weight: 700;
+}
+
+.app-sidebar-link-icon {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  width: 18px;
+  height: 18px;
+  flex-shrink: 0;
+}
+
+.app-sidebar-link-label {
+  white-space: nowrap;
+  overflow: hidden;
+  text-overflow: ellipsis;
+}
+
+.app-sidebar--collapsed .app-sidebar-link-label {
+  display: none;
+}
+
+.app-sidebar-footer {
+  flex-shrink: 0;
+  padding: 8px;
+  border-top: 1px solid var(--border-faint);
+}
+
+.app-sidebar-toggle {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  gap: 8px;
+  width: 100%;
+  padding: 8px 10px;
+  background: transparent;
+  border: 1px solid var(--border);
+  border-radius: 6px;
+  color: var(--text-muted);
+  font-size: 12px;
+  font-weight: 600;
+  font-family: inherit;
+  cursor: pointer;
+  transition: background 0.12s ease, color 0.12s ease, border-color 0.12s ease;
+}
+
+.app-sidebar-toggle:hover {
+  background: var(--bg-hover);
+  color: var(--text-primary);
+  border-color: var(--border-strong);
+}
+
+.app-sidebar-toggle:focus-visible {
+  outline: 2px solid var(--accent);
+  outline-offset: 1px;
+}
+
+.app-sidebar-toggle-label {
+  white-space: nowrap;
+}
+
+.app-sidebar--collapsed .app-sidebar-toggle-label {
+  display: none;
+}
+
+.app-sidebar--collapsed .app-sidebar-toggle {
+  padding: 8px;
+}

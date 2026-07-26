@@ -1,4 +1,4 @@
-import { useCallback, useEffect, useMemo, useRef, useState } from 'react';
+import { useCallback, useEffect, useMemo, useRef } from 'react';
 import { FilterSidebar } from '../components/store/FilterSidebar';
 import { GameCard } from '../components/store/GameCard';
 import { FeaturedHero } from '../components/store/FeaturedHero';
@@ -7,26 +7,95 @@ import { LoadingState } from '../components/ui/LoadingState';
 import { GameCardGridSkeleton } from '../components/ui/GameCardSkeleton';
 import { useSamList } from '../hooks/useSamList';
 import { useStoreSettings } from '../contexts/StoreSettings';
+import { useStoreFilters } from '../contexts/StoreFilters';
 import { OfflineGate } from '../components/OfflineGate';
 import { useT } from '../lib/i18n';
-import type {
-  PrefixFilterMode,
-  SamCategory,
-  SamSort,
-  SamTag,
-  SamTagMode,
-} from '../types/sam';
+
+const STORE_VIEW_STATE_KEY = 'f95-app:store-view-state';
+
+function loadStoreViewState(): { page: number; scrollTop: number } {
+  try {
+    const raw = sessionStorage.getItem(STORE_VIEW_STATE_KEY);
+    if (!raw) return { page: 1, scrollTop: 0 };
+    const parsed = JSON.parse(raw) as { page?: number; scrollTop?: number };
+    return {
+      page: Math.max(1, Number(parsed.page ?? 1)),
+      scrollTop: Math.max(0, Number(parsed.scrollTop ?? 0)),
+    };
+  } catch {
+    return { page: 1, scrollTop: 0 };
+  }
+}
+
+function saveStoreViewState(next: { page?: number; scrollTop?: number }) {
+  const current = loadStoreViewState();
+  const merged = {
+    page: Math.max(1, Number(next.page ?? current.page)),
+    scrollTop: Math.max(0, Number(next.scrollTop ?? current.scrollTop)),
+  };
+  sessionStorage.setItem(STORE_VIEW_STATE_KEY, JSON.stringify(merged));
+}
+
+function restoreScrollWhenReady(
+  container: HTMLElement,
+  targetTop: number,
+  onDone: () => void,
+): () => void {
+  if (targetTop <= 0) {
+    onDone();
+    return () => undefined;
+  }
+
+  let cancelled = false;
+  let rafId = 0;
+  let attempts = 0;
+  const maxAttempts = 30;
+
+  const tryRestore = () => {
+    if (cancelled) return;
+    attempts += 1;
+    container.scrollTop = targetTop;
+
+    const reachedTarget = Math.abs(container.scrollTop - targetTop) <= 2;
+    const hasEnoughHeight = container.scrollHeight - container.clientHeight >= targetTop;
+
+    if (reachedTarget || attempts >= maxAttempts || (!hasEnoughHeight && attempts >= maxAttempts)) {
+      onDone();
+      return;
+    }
+
+    rafId = requestAnimationFrame(tryRestore);
+  };
+
+  rafId = requestAnimationFrame(tryRestore);
+  return () => {
+    cancelled = true;
+    cancelAnimationFrame(rafId);
+  };
+}
 
 export function StorePage() {
   const { t } = useT();
   const { settings: storeSettings } = useStoreSettings();
+  const {
+    category,
+    search,
+    sort,
+    prefixFilter,
+    includeTags,
+    excludeTags,
+    tagMode,
+    setSearch,
+    setSort,
+    setPrefixFilter,
+    setIncludeTags,
+    setExcludeTags,
+    setTagMode,
+    changeCategory,
+    clearAll,
+  } = useStoreFilters();
   const infiniteScroll = storeSettings.scrollMode === 'infinite';
-  const [category, setCategory] = useState<SamCategory>('games');
-  const [search, setSearch] = useState('');
-  const [sort, setSort] = useState<SamSort>('date');
-  const [prefixFilter, setPrefixFilter] = useState<Record<number, PrefixFilterMode>>({});
-  const [selectedTags, setSelectedTags] = useState<SamTag[]>([]);
-  const [tagMode, setTagMode] = useState<SamTagMode>('and');
+  const initialViewRef = useRef(loadStoreViewState());
 
   const includePrefixes = useMemo(
     () =>
@@ -47,7 +116,8 @@ export function StorePage() {
     search.trim().length > 0 ||
     includePrefixes.length > 0 ||
     excludePrefixes.length > 0 ||
-    selectedTags.length > 0;
+    includeTags.length > 0 ||
+    excludeTags.length > 0;
 
   const { items, page, totalPages, totalRows, loading, error, hasMore, loadMore, goToPage, reload } =
     useSamList({
@@ -56,8 +126,9 @@ export function StorePage() {
       search: search.trim() || undefined,
       prefixes: includePrefixes.length ? includePrefixes : undefined,
       noprefixes: excludePrefixes.length ? excludePrefixes : undefined,
-      tags: selectedTags.length ? selectedTags.map((tg) => tg.id) : undefined,
-      tagtype: selectedTags.length ? tagMode : undefined,
+      tags: includeTags.length ? includeTags.map((tg) => tg.id) : undefined,
+      notags: excludeTags.length ? excludeTags.map((tg) => tg.id) : undefined,
+      tagtype: includeTags.length > 1 ? tagMode : undefined,
     });
 
   const scrollModeRef = useRef(storeSettings.scrollMode);
@@ -66,6 +137,22 @@ export function StorePage() {
     scrollModeRef.current = storeSettings.scrollMode;
     reload();
   }, [storeSettings.scrollMode, reload]);
+
+  useEffect(() => {
+    if (page > 0) saveStoreViewState({ page });
+  }, [page]);
+
+  const restoredRef = useRef(false);
+  useEffect(() => {
+    const main = document.querySelector('.app-main');
+    if (!(main instanceof HTMLElement)) return;
+    const onScroll = () => {
+      if (!restoredRef.current) return;
+      saveStoreViewState({ scrollTop: main.scrollTop });
+    };
+    main.addEventListener('scroll', onScroll, { passive: true });
+    return () => main.removeEventListener('scroll', onScroll);
+  }, []);
 
   const sentinelRef = useRef<HTMLDivElement | null>(null);
   useEffect(() => {
@@ -84,15 +171,28 @@ export function StorePage() {
     return () => obs.disconnect();
   }, [infiniteScroll, loadMore]);
 
+  useEffect(() => {
+    if (restoredRef.current) return;
+    if (loading) return;
+    if (items.length === 0) return;
+    const main = document.querySelector('.app-main');
+    if (!(main instanceof HTMLElement)) return;
+    return restoreScrollWhenReady(main, initialViewRef.current.scrollTop, () => {
+      restoredRef.current = true;
+      saveStoreViewState({ scrollTop: main.scrollTop, page });
+    });
+  }, [loading, items.length, page]);
+
   const showFeatured = useMemo(() => {
-    if (sort !== 'date' || search || selectedTags.length > 0) return false;
+    if (sort !== 'date' || search || includeTags.length > 0 || excludeTags.length > 0) return false;
     if (includePrefixes.length > 0 || excludePrefixes.length > 0) return false;
     if (!infiniteScroll && page > 1) return false;
     return items.length > 0;
   }, [
     sort,
     search,
-    selectedTags.length,
+    includeTags.length,
+    excludeTags.length,
     includePrefixes.length,
     excludePrefixes.length,
     infiniteScroll,
@@ -110,24 +210,8 @@ export function StorePage() {
     [goToPage],
   );
 
-  /** F95Zone resets filters when the SAM category tab changes — mirror that here. */
-  const handleCategoryChange = useCallback(
-    (next: SamCategory) => {
-      if (next === category) return;
-      setCategory(next);
-      setPrefixFilter({});
-      setSelectedTags([]);
-      setSearch('');
-      setTagMode('and');
-    },
-    [category],
-  );
-
   function clearAllFilters() {
-    setSearch('');
-    setPrefixFilter({});
-    setSelectedTags([]);
-    setTagMode('and');
+    clearAll();
   }
 
   return (
@@ -135,15 +219,17 @@ export function StorePage() {
       <div className="store-page">
         <FilterSidebar
           category={category}
-          onCategory={handleCategoryChange}
+          onCategory={changeCategory}
           search={search}
           onSearch={setSearch}
           sort={sort}
           onSort={setSort}
           prefixFilter={prefixFilter}
           onPrefixFilter={setPrefixFilter}
-          selectedTags={selectedTags}
-          onSelectedTags={setSelectedTags}
+          includeTags={includeTags}
+          onIncludeTags={setIncludeTags}
+          excludeTags={excludeTags}
+          onExcludeTags={setExcludeTags}
           tagMode={tagMode}
           onTagMode={setTagMode}
           onClearAll={clearAllFilters}

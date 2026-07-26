@@ -3,6 +3,7 @@ export type DownloadState =
   | 'resolving'
   | 'awaiting_choice'
   | 'downloading'
+  | 'extracting'
   | 'completed'
   | 'cancelled'
   | 'failed'
@@ -31,6 +32,9 @@ export interface DownloadProgress {
   bytes: number;
   total: number | null;
   speedBps: number;
+  /** Set while `extract:progress` events stream from the backend. */
+  extractPercent?: number | null;
+  extractEtaSecs?: number | null;
 }
 
 /** Translation key for a download state. Pair with `t()`. */
@@ -44,6 +48,8 @@ export function stateColor(s: DownloadState): string {
       return 'var(--status-success)';
     case 'downloading':
       return 'var(--status-info)';
+    case 'extracting':
+      return 'var(--status-purple)';
     case 'resolving':
     case 'pending':
     case 'awaiting_choice':
@@ -75,6 +81,11 @@ export function formatSpeed(bps: number): string {
 export function formatEta(bytesLeft: number, bps: number): string {
   if (bps <= 0) return '—';
   const sec = Math.max(0, Math.round(bytesLeft / bps));
+  return formatDuration(sec);
+}
+
+export function formatDuration(sec: number): string {
+  if (sec <= 0) return '—';
   if (sec < 60) return `${sec}s`;
   const m = Math.floor(sec / 60);
   const s = sec % 60;

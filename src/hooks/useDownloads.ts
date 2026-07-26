@@ -2,6 +2,7 @@ import { useCallback, useEffect, useRef, useState } from 'react';
 import { listen, type UnlistenFn } from '@tauri-apps/api/event';
 import * as downloads from '../lib/downloads';
 import * as library from '../lib/library';
+import { syncLibraryFromDownloads, recoverStatusAfterDownloadFailure } from '../lib/downloadLibrarySync';
 import * as libraries from '../lib/libraries';
 import * as ipc from '../lib/ipc';
 import { loadDownloadSettings } from '../lib/downloadSettings';
@@ -12,7 +13,7 @@ import {
 } from '../lib/archives';
 import { dialog } from '../lib/dialog';
 import { tStandalone } from '../lib/i18n';
-import { formatIpcError } from '../lib/ipcError';
+import { extractRawMessage, formatIpcError } from '../lib/ipcError';
 import type { DownloadProgress, DownloadRow } from '../types/download';
 import type { LibraryGame } from '../types/library';
 
@@ -48,17 +49,27 @@ export async function runExtraction(
   threadId: string,
   archivePath: string,
   gameVersion?: string | null,
+  downloadId?: number | null,
+  onExtracting?: () => void,
 ): Promise<void> {
   let game = await library.get(threadId);
   if (!game) {
-    throw new Error('Jogo não está na biblioteca');
+    throw new Error('Game is not in the library');
+  }
+  let resolvedDownloadId = downloadId ?? null;
+  if (resolvedDownloadId == null) {
+    const rows = await downloads.listByThread(threadId);
+    resolvedDownloadId =
+      rows.find((row) => row.destPath === archivePath)?.id ?? null;
   }
   const previousInstallDir = game.installPath;
   const wasInstalled =
     game.installStatus === 'installed' || game.installStatus === 'update_available';
 
   try {
+    await downloads.markExtracting(threadId, archivePath);
     await library.setStatus(threadId, 'extracting');
+    onExtracting?.();
   } catch {
     /* row may have been removed mid-extract */
   }
@@ -66,6 +77,7 @@ export async function runExtraction(
     const result = await ipc.extractArchive({
       archivePath,
       gameTitle: game.title,
+      downloadId: resolvedDownloadId,
     });
     const cat = game.category ?? 'games';
     const mediaOnly = cat === 'comics' || cat === 'animations' || cat === 'assets';
@@ -91,6 +103,11 @@ export async function runExtraction(
       } catch (err) {
         console.warn('[extract] failed to delete archive', err);
       }
+    }
+    try {
+      await downloads.markExtracted(threadId, archivePath);
+    } catch {
+      /* ignore */
     }
     if (dlSettings.createShortcuts && result.exePath) {
       try {
@@ -141,7 +158,15 @@ export async function runExtraction(
   } catch (err) {
     console.error('[extract] failed', err);
     try {
-      await library.setStatus(threadId, 'error');
+      await downloads.markExtractFailed(threadId, archivePath, extractRawMessage(err));
+    } catch {
+      /* ignore */
+    }
+    try {
+      const game = await library.get(threadId);
+      if (game) {
+        await library.setStatus(threadId, recoverStatusAfterDownloadFailure(game));
+      }
     } catch {
       /* ignore */
     }
@@ -164,6 +189,11 @@ interface ProgressPayload {
   bytes: number;
   total: number | null;
   speedBps: number;
+}
+interface ExtractProgressPayload {
+  id: number;
+  percent: number;
+  etaSecs: number | null;
 }
 interface DonePayload {
   id: number;
@@ -211,7 +241,12 @@ export interface UseDownloadsOptions {
 }
 
 async function reconcilePendingExtractions(
-  tryAutoExtract: (threadId: string, archivePath: string, gameVersion?: string | null) => Promise<void>,
+  tryAutoExtract: (
+    threadId: string,
+    archivePath: string,
+    gameVersion?: string | null,
+    downloadId?: number,
+  ) => Promise<void>,
 ): Promise<void> {
   const dlSettings = await loadDownloadSettings();
   if (!dlSettings.autoExtract) return;
@@ -221,7 +256,7 @@ async function reconcilePendingExtractions(
     if (row.state !== 'completed' || !row.destPath || !isArchivePath(row.destPath)) continue;
     const game = await library.get(row.threadId);
     if (!game || !needsExtraction(row, game)) continue;
-    await tryAutoExtract(row.threadId, row.destPath, row.gameVersion);
+    await tryAutoExtract(row.threadId, row.destPath, row.gameVersion, row.id);
   }
 }
 
@@ -238,6 +273,7 @@ export function useDownloads(options?: UseDownloadsOptions): {
 
   const reload = useCallback(async () => {
     const list = await downloads.list();
+    await syncLibraryFromDownloads(list);
     setRows(list);
     const activeIds = new Set(
       list
@@ -245,7 +281,8 @@ export function useDownloads(options?: UseDownloadsOptions): {
           (r) =>
             r.state === 'downloading' ||
             r.state === 'resolving' ||
-            r.state === 'awaiting_choice',
+            r.state === 'awaiting_choice' ||
+            r.state === 'extracting',
         )
         .map((r) => r.id),
     );
@@ -269,12 +306,16 @@ export function useDownloads(options?: UseDownloadsOptions): {
       threadId: string,
       archivePath: string,
       gameVersion?: string | null,
+      downloadId?: number,
     ): Promise<void> {
       const key = `${threadId}:${archivePath}`;
       if (extractingRef.current.has(key)) return;
       extractingRef.current.add(key);
       try {
-        await runExtraction(threadId, archivePath, gameVersion);
+        await runExtraction(threadId, archivePath, gameVersion, downloadId, () => {
+          if (!cancelled) reload();
+        });
+        if (!cancelled) reload();
       } catch (err) {
         console.error('[extract] auto failed', err);
         await dialog.alert(
@@ -292,6 +333,14 @@ export function useDownloads(options?: UseDownloadsOptions): {
       unlisten.push(
         await listen<ResolvingPayload>('download:resolving', async (e) => {
           await downloads.markResolving(e.payload.id);
+          const row = await downloads.get(e.payload.id);
+          if (row) {
+            try {
+              await library.setStatus(row.threadId, 'downloading');
+            } catch {
+              /* not in library */
+            }
+          }
           if (!cancelled) reload();
         }),
       );
@@ -311,6 +360,24 @@ export function useDownloads(options?: UseDownloadsOptions): {
             }
           }
           if (!cancelled) reload();
+        }),
+      );
+      unlisten.push(
+        await listen<ExtractProgressPayload>('extract:progress', (e) => {
+          if (cancelled) return;
+          setProgress((p) => ({
+            ...p,
+            [e.payload.id]: {
+              ...(p[e.payload.id] ?? {
+                id: e.payload.id,
+                bytes: 0,
+                total: null,
+                speedBps: 0,
+              }),
+              extractPercent: e.payload.percent,
+              extractEtaSecs: e.payload.etaSecs,
+            },
+          }));
         }),
       );
       unlisten.push(
@@ -348,7 +415,7 @@ export function useDownloads(options?: UseDownloadsOptions): {
           const dlSettings = await loadDownloadSettings();
           if (dlSettings.autoExtract && archivePaths.length > 0) {
             for (const archivePath of archivePaths) {
-              await tryAutoExtract(row.threadId, archivePath, row.gameVersion);
+              await tryAutoExtract(row.threadId, archivePath, row.gameVersion, row.id);
             }
           }
           if (!cancelled) reload();
@@ -361,7 +428,13 @@ export function useDownloads(options?: UseDownloadsOptions): {
           const row = await downloads.get(e.payload.id);
           if (row) {
             try {
-              await library.setStatus(row.threadId, 'error');
+              const game = await library.get(row.threadId);
+              if (game) {
+                await library.setStatus(
+                  row.threadId,
+                  recoverStatusAfterDownloadFailure(game),
+                );
+              }
             } catch {
               /* not in library */
             }
