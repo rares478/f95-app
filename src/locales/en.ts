@@ -810,6 +810,7 @@ const en: Record<string, string> = {
   'error.datanodes.timeout': 'DataNodes: timed out preparing download — try again or set an API key',
   'error.datanodes.generic': 'DataNodes: {detail}',
   'error.datanodes.multiFile': 'DataNodes: multi-file folders are not supported',
+  'error.datanodes.badKey': 'DataNodes: API key rejected ({detail}). Check Settings → Hosts → DataNodes → Verify.',
 
   // Mixdrop
   'error.mixdrop.missingRef': 'MixDrop URL missing file ref',
@@ -836,10 +837,28 @@ const en: Record<string, string> = {
   'error.workupload.password': 'WorkUpload: password-protected link — open in browser and download manually',
   'error.workupload.generic': 'WorkUpload: {detail}',
 
+  // UploadHaven
+  'error.uploadhaven.generic': 'UploadHaven: {detail}',
+  'error.uploadhaven.notFound': 'UploadHaven: file not found — the link may be incorrect or expired',
+  'error.uploadhaven.pageUnavailable': 'UploadHaven: file not found or page unavailable',
+  'error.uploadhaven.sessionExpired': 'UploadHaven: session expired or not recognized — log in and Verify in Settings',
+  'error.uploadhaven.sessionNotRecognized': 'UploadHaven: Pro account active, but the download page did not recognize the session — log in again in Settings',
+  'error.uploadhaven.csrfMissing': 'UploadHaven: CSRF token not found',
+  'error.uploadhaven.csrfExpired': 'UploadHaven: CSRF token expired — try again.',
+  'error.uploadhaven.emailPasswordRequired': 'E-mail and password are required.',
+  'error.uploadhaven.badCredentials': 'Incorrect email or password.',
+  'error.uploadhaven.loginFailed': 'Login failed — session was not created.',
+  'error.uploadhaven.noSession': 'No saved session.',
+  'error.uploadhaven.sessionExpiredVerify': 'Session expired — log in again.',
+  'error.uploadhaven.proActive': 'Pro account active — downloads without waiting.',
+  'error.uploadhaven.freeConnected': 'Account connected (free plan).',
+
   // Shared download manager
   'error.download.choiceExpired': 'File choice expired — click Retry on the download',
   'error.download.choiceMissing': 'Selected file not found',
   'error.download.htmlInsteadOfFile': 'Download returned HTML instead of a file — open the link in the browser',
+  'error.download.generic': 'Download: {detail}',
+  'error.download.shaMismatch': 'SHA-256 mismatch — expected {expected}, got {actual}. File discarded.',
 
   'settings.theme.default.label': 'Default',
   'settings.theme.default.desc': 'Dark with red accent — the original look.',

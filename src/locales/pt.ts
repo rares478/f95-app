@@ -809,6 +809,7 @@ const pt: Record<string, string> = {
   'error.datanodes.timeout': 'DataNodes: tempo esgotado ao preparar o download — tente de novo ou defina uma chave de API',
   'error.datanodes.generic': 'DataNodes: {detail}',
   'error.datanodes.multiFile': 'DataNodes: pastas com vários arquivos não são suportadas',
+  'error.datanodes.badKey': 'DataNodes: chave de API rejeitada ({detail}). Verifique em Configurações → Hosts → DataNodes → Verificar.',
 
   // Mixdrop
   'error.mixdrop.missingRef': 'URL do MixDrop sem file ref',
@@ -835,10 +836,28 @@ const pt: Record<string, string> = {
   'error.workupload.password': 'WorkUpload: link protegido por senha — abra no navegador e baixe manualmente',
   'error.workupload.generic': 'WorkUpload: {detail}',
 
+  // UploadHaven
+  'error.uploadhaven.generic': 'UploadHaven: {detail}',
+  'error.uploadhaven.notFound': 'UploadHaven: arquivo não encontrado — o link pode estar incorreto ou expirado',
+  'error.uploadhaven.pageUnavailable': 'UploadHaven: arquivo não encontrado ou página indisponível',
+  'error.uploadhaven.sessionExpired': 'UploadHaven: sessão expirada ou não reconhecida — entre e Verifique em Configurações',
+  'error.uploadhaven.sessionNotRecognized': 'UploadHaven: conta Pro ativa, mas a página de download não reconheceu a sessão — entre de novo em Configurações',
+  'error.uploadhaven.csrfMissing': 'UploadHaven: token CSRF não encontrado',
+  'error.uploadhaven.csrfExpired': 'UploadHaven: token CSRF expirado — tente de novo.',
+  'error.uploadhaven.emailPasswordRequired': 'E-mail e senha são obrigatórios.',
+  'error.uploadhaven.badCredentials': 'E-mail ou senha incorretos.',
+  'error.uploadhaven.loginFailed': 'Falha no login — a sessão não foi criada.',
+  'error.uploadhaven.noSession': 'Nenhuma sessão salva.',
+  'error.uploadhaven.sessionExpiredVerify': 'Sessão expirada — entre de novo.',
+  'error.uploadhaven.proActive': 'Conta Pro ativa — downloads sem espera.',
+  'error.uploadhaven.freeConnected': 'Conta conectada (plano gratuito).',
+
   // Shared download manager
   'error.download.choiceExpired': 'Escolha de arquivo expirada — clique em Tentar de novo no download',
   'error.download.choiceMissing': 'Arquivo selecionado não encontrado',
   'error.download.htmlInsteadOfFile': 'O download retornou HTML em vez de um arquivo — abra o link no navegador',
+  'error.download.generic': 'Download: {detail}',
+  'error.download.shaMismatch': 'SHA-256 não confere — esperado {expected}, obtido {actual}. Arquivo descartado.',
 
   'settings.theme.default.label': 'Padrão',
   'settings.theme.default.desc': 'Escuro com accent vermelho — o visual original.',

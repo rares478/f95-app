@@ -804,6 +804,7 @@ const de: Record<string, string> = {
   'error.datanodes.timeout': 'DataNodes: Zeitüberschreitung bei der Download-Vorbereitung — erneut versuchen oder API-Schlüssel setzen',
   'error.datanodes.generic': 'DataNodes: {detail}',
   'error.datanodes.multiFile': 'DataNodes: Ordner mit mehreren Dateien werden nicht unterstützt',
+  'error.datanodes.badKey': 'DataNodes: API-Schlüssel abgelehnt ({detail}). Prüfe unter Einstellungen → Hosts → DataNodes → Prüfen.',
 
   // Mixdrop
   'error.mixdrop.missingRef': 'MixDrop-URL ohne Dateireferenz',
@@ -830,10 +831,28 @@ const de: Record<string, string> = {
   'error.workupload.password': 'WorkUpload: passwortgeschützter Link — im Browser öffnen und manuell herunterladen',
   'error.workupload.generic': 'WorkUpload: {detail}',
 
+  // UploadHaven
+  'error.uploadhaven.generic': 'UploadHaven: {detail}',
+  'error.uploadhaven.notFound': 'UploadHaven: Datei nicht gefunden — der Link ist möglicherweise falsch oder abgelaufen',
+  'error.uploadhaven.pageUnavailable': 'UploadHaven: Datei nicht gefunden oder Seite nicht verfügbar',
+  'error.uploadhaven.sessionExpired': 'UploadHaven: Sitzung abgelaufen oder nicht erkannt — melde dich an und prüfe unter Einstellungen',
+  'error.uploadhaven.sessionNotRecognized': 'UploadHaven: Pro-Konto aktiv, aber die Download-Seite hat die Sitzung nicht erkannt — melde dich erneut unter Einstellungen an',
+  'error.uploadhaven.csrfMissing': 'UploadHaven: CSRF-Token nicht gefunden',
+  'error.uploadhaven.csrfExpired': 'UploadHaven: CSRF-Token abgelaufen — erneut versuchen.',
+  'error.uploadhaven.emailPasswordRequired': 'E-Mail und Passwort sind erforderlich.',
+  'error.uploadhaven.badCredentials': 'Falsche E-Mail oder Passwort.',
+  'error.uploadhaven.loginFailed': 'Anmeldung fehlgeschlagen — Sitzung wurde nicht erstellt.',
+  'error.uploadhaven.noSession': 'Keine gespeicherte Sitzung.',
+  'error.uploadhaven.sessionExpiredVerify': 'Sitzung abgelaufen — erneut anmelden.',
+  'error.uploadhaven.proActive': 'Pro-Konto aktiv — Downloads ohne Wartezeit.',
+  'error.uploadhaven.freeConnected': 'Konto verbunden (Free-Plan).',
+
   // Shared download manager
   'error.download.choiceExpired': 'Dateiauswahl abgelaufen — klicke auf Erneut versuchen beim Download',
   'error.download.choiceMissing': 'Ausgewählte Datei nicht gefunden',
   'error.download.htmlInsteadOfFile': 'Download hat HTML statt einer Datei zurückgegeben — öffne den Link im Browser',
+  'error.download.generic': 'Download: {detail}',
+  'error.download.shaMismatch': 'SHA-256 stimmt nicht — erwartet {expected}, erhalten {actual}. Datei verworfen.',
 
   'settings.theme.default.label': 'Standard',
   'settings.theme.default.desc': 'Dunkel mit rotem Akzent — das Original.',

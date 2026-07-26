@@ -804,6 +804,7 @@ const ru: Record<string, string> = {
   'error.datanodes.timeout': 'DataNodes: истекло время подготовки загрузки — попробуйте снова или укажите API-ключ',
   'error.datanodes.generic': 'DataNodes: {detail}',
   'error.datanodes.multiFile': 'DataNodes: папки с несколькими файлами не поддерживаются',
+  'error.datanodes.badKey': 'DataNodes: API-ключ отклонён ({detail}). Проверьте в Настройки → Хосты → DataNodes → Проверить.',
 
   // Mixdrop
   'error.mixdrop.missingRef': 'В URL MixDrop отсутствует file ref',
@@ -830,10 +831,28 @@ const ru: Record<string, string> = {
   'error.workupload.password': 'WorkUpload: ссылка защищена паролем — откройте в браузере и скачайте вручную',
   'error.workupload.generic': 'WorkUpload: {detail}',
 
+  // UploadHaven
+  'error.uploadhaven.generic': 'UploadHaven: {detail}',
+  'error.uploadhaven.notFound': 'UploadHaven: файл не найден — ссылка может быть неверной или истёкшей',
+  'error.uploadhaven.pageUnavailable': 'UploadHaven: файл не найден или страница недоступна',
+  'error.uploadhaven.sessionExpired': 'UploadHaven: сессия истекла или не распознана — войдите и проверьте в Настройках',
+  'error.uploadhaven.sessionNotRecognized': 'UploadHaven: аккаунт Pro активен, но страница загрузки не распознала сессию — войдите снова в Настройках',
+  'error.uploadhaven.csrfMissing': 'UploadHaven: CSRF-токен не найден',
+  'error.uploadhaven.csrfExpired': 'UploadHaven: CSRF-токен истёк — попробуйте снова.',
+  'error.uploadhaven.emailPasswordRequired': 'Требуются e-mail и пароль.',
+  'error.uploadhaven.badCredentials': 'Неверный e-mail или пароль.',
+  'error.uploadhaven.loginFailed': 'Вход не удался — сессия не создана.',
+  'error.uploadhaven.noSession': 'Нет сохранённой сессии.',
+  'error.uploadhaven.sessionExpiredVerify': 'Сессия истекла — войдите снова.',
+  'error.uploadhaven.proActive': 'Аккаунт Pro активен — загрузки без ожидания.',
+  'error.uploadhaven.freeConnected': 'Аккаунт подключён (бесплатный план).',
+
   // Shared download manager
   'error.download.choiceExpired': 'Выбор файла истёк — нажмите Повторить у загрузки',
   'error.download.choiceMissing': 'Выбранный файл не найден',
   'error.download.htmlInsteadOfFile': 'Загрузка вернула HTML вместо файла — откройте ссылку в браузере',
+  'error.download.generic': 'Загрузка: {detail}',
+  'error.download.shaMismatch': 'Несовпадение SHA-256 — ожидалось {expected}, получено {actual}. Файл отброшен.',
 
   'settings.theme.default.label': 'По умолчанию',
   'settings.theme.default.desc': 'Тёмная тема с красным акцентом — оригинальный вид.',

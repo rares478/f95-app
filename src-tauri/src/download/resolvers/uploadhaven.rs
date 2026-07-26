@@ -7,6 +7,7 @@ use crate::uploadhaven::html::{
 };
 use crate::uploadhaven::UploadHavenSession;
 use reqwest::header::{HeaderMap, LOCATION, SET_COOKIE};
+use serde_json::json;
 use std::time::Duration;
 use tauri::AppHandle;
 
@@ -49,10 +50,7 @@ pub(crate) async fn resolve_uploadhaven(
         if crate::uploadhaven::has_session_cookie(&s.cookie_header)
             && crate::uploadhaven::session_rejected_on_download_page(&page.html)
         {
-            return Err(AppError::Other(
-                "uploadhaven: sessão expirada ou não reconhecida - faça login e Verify em Configurações"
-                    .into(),
-            ));
+            return Err(AppError::keyed("error.uploadhaven.sessionExpired"));
         }
     }
 
@@ -180,9 +178,7 @@ pub(crate) async fn resolve_uploadhaven(
         && free_tier_page
         && !is_pro_page
     {
-        return Err(AppError::Other(
-            "uploadhaven: conta Pro ativa, mas a página de download não reconheceu a sessão - faça login novamente em Configurações".into(),
-        ));
+        return Err(AppError::keyed("error.uploadhaven.sessionNotRecognized"));
     }
 
     crate::dev_debug::log_warn(
@@ -255,13 +251,23 @@ async fn fetch_uploadhaven_page(
     let resp = get
         .send()
         .await
-        .map_err(|e| AppError::Other(format!("uploadhaven page http: {e}")))?;
+        .map_err(|e| {
+            AppError::keyed_vars(
+                "error.uploadhaven.generic",
+                json!({ "detail": format!("page http: {e}") }),
+            )
+        })?;
     let mut status = resp.status();
     let mut resp_headers = resp.headers().clone();
     let mut html = resp
         .text()
         .await
-        .map_err(|e| AppError::Other(format!("uploadhaven page body: {e}")))?;
+        .map_err(|e| {
+            AppError::keyed_vars(
+                "error.uploadhaven.generic",
+                json!({ "detail": format!("page body: {e}") }),
+            )
+        })?;
 
     if status.is_redirection() {
         let location = resp_headers
@@ -286,13 +292,23 @@ async fn fetch_uploadhaven_page(
             let resp2 = follow
                 .send()
                 .await
-                .map_err(|e| AppError::Other(format!("uploadhaven page follow: {e}")))?;
+                .map_err(|e| {
+                    AppError::keyed_vars(
+                        "error.uploadhaven.generic",
+                        json!({ "detail": format!("page follow: {e}") }),
+                    )
+                })?;
             status = resp2.status();
             resp_headers = resp2.headers().clone();
             html = resp2
                 .text()
                 .await
-                .map_err(|e| AppError::Other(format!("uploadhaven page follow body: {e}")))?;
+                .map_err(|e| {
+                    AppError::keyed_vars(
+                        "error.uploadhaven.generic",
+                        json!({ "detail": format!("page follow body: {e}") }),
+                    )
+                })?;
         }
     }
 
@@ -320,18 +336,19 @@ fn uploadhaven_check_page(
     page_url: &str,
 ) -> Result<(), AppError> {
     if let Some(msg) = uploadhaven_page_error(html) {
-        return Err(AppError::Other(format!("uploadhaven: {msg}")));
-    }
-    if status.as_u16() == 404 {
-        return Err(AppError::Other(
-            "uploadhaven: arquivo não encontrado - o link pode estar incorreto ou expirado".into(),
+        return Err(AppError::keyed_vars(
+            "error.uploadhaven.generic",
+            json!({ "detail": msg }),
         ));
     }
+    if status.as_u16() == 404 {
+        return Err(AppError::keyed("error.uploadhaven.notFound"));
+    }
     if !status.is_success() {
-        return Err(AppError::Other(format!(
-            "uploadhaven: HTTP {} ao abrir {page_url}",
-            status.as_u16()
-        )));
+        return Err(AppError::keyed_vars(
+            "error.uploadhaven.generic",
+            json!({ "detail": format!("HTTP {} opening {page_url}", status.as_u16()) }),
+        ));
     }
     Ok(())
 }
@@ -342,12 +359,13 @@ fn uploadhaven_no_form_error(
     page_url: &str,
 ) -> Result<ResolveResult, AppError> {
     if let Some(msg) = uploadhaven_page_error(html) {
-        return Err(AppError::Other(format!("uploadhaven: {msg}")));
+        return Err(AppError::keyed_vars(
+            "error.uploadhaven.generic",
+            json!({ "detail": msg }),
+        ));
     }
     if status.as_u16() == 404 || !status.is_success() {
-        return Err(AppError::Other(
-            "uploadhaven: arquivo não encontrado ou página indisponível".into(),
-        ));
+        return Err(AppError::keyed("error.uploadhaven.pageUnavailable"));
     }
     Ok(ResolveResult::NeedsBrowser {
         url: page_url.to_string(),
@@ -400,7 +418,12 @@ async fn uploadhaven_submit_form(
     let post_resp = post
         .send()
         .await
-        .map_err(|e| AppError::Other(format!("uploadhaven post http: {e}")))?;
+        .map_err(|e| {
+            AppError::keyed_vars(
+                "error.uploadhaven.generic",
+                json!({ "detail": format!("post http: {e}") }),
+            )
+        })?;
     let status = post_resp.status();
     let location = post_resp
         .headers()
@@ -411,7 +434,12 @@ async fn uploadhaven_submit_form(
     let post_html = post_resp
         .text()
         .await
-        .map_err(|e| AppError::Other(format!("uploadhaven post body: {e}")))?;
+        .map_err(|e| {
+            AppError::keyed_vars(
+                "error.uploadhaven.generic",
+                json!({ "detail": format!("post body: {e}") }),
+            )
+        })?;
 
     if let Some(url) = find_uploadhaven_direct_link(&post_html) {
         return Ok(Some(url));
@@ -451,7 +479,10 @@ async fn uploadhaven_submit_form(
         if post_html.to_lowercase().contains("wait") || post_html.to_lowercase().contains("timer") {
             return Ok(None);
         }
-        return Err(AppError::Other(format!("uploadhaven: {msg}")));
+        return Err(AppError::keyed_vars(
+            "error.uploadhaven.generic",
+            json!({ "detail": msg }),
+        ));
     }
 
     // 302 back to the same download page = rejected (wrong tier / timer).
@@ -534,13 +565,13 @@ fn fix_uploadhaven_path(url: &str) -> Option<String> {
 fn uploadhaven_page_error(html: &str) -> Option<String> {
     let lower = html.to_lowercase();
     if lower.contains("the requested download could not be found") {
-        return Some("arquivo não encontrado ou link expirado".into());
+        return Some("file not found or link expired".into());
     }
     if lower.contains("heading-1\">error</div>") || lower.contains("heading-1\">error<") {
         if let Some(msg) = find_alert_danger_text(html) {
             return Some(msg);
         }
-        return Some("página de erro do UploadHaven".into());
+        return Some("UploadHaven error page".into());
     }
     None
 }

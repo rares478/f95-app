@@ -2,6 +2,7 @@ use super::super::types::ResolveResult;
 use super::super::util::{percent_decode_lossy, urlencode};
 use crate::error::AppError;
 use crate::sidecar::SidecarClient;
+use serde_json::json;
 use tauri::AppHandle;
 
 pub(crate) async fn resolve_datanodes(
@@ -32,20 +33,23 @@ pub(crate) async fn resolve_datanodes(
                 );
             }
             Ok(ResolveResult::ChooseFile { .. }) => {
-                return Err(AppError::Other(
-                    "datanodes: pasta com vários arquivos não suportada".into(),
-                ));
+                return Err(AppError::keyed("error.datanodes.multiFile"));
             }
         }
-    } else {
-        crate::dev_debug::log(
-            Some(app),
-            "datanodes",
-            format!("playwright guest (code={code})"),
-        );
+        return resolve_datanodes_playwright(sidecar, app, url, label).await;
     }
 
-    resolve_datanodes_playwright(sidecar, app, url, label).await
+    // Free tier needs ad pop-ups that headless Chromium cannot complete. Skip
+    // the multi-minute guest wait and open the interactive browser flow instead.
+    crate::dev_debug::log(
+        Some(app),
+        "datanodes",
+        format!("no API key for {code} → needs_browser (guest ads unsupported)"),
+    );
+    Ok(ResolveResult::NeedsBrowser {
+        url: url.to_string(),
+        host: label.into(),
+    })
 }
 
 async fn resolve_datanodes_playwright(
@@ -72,12 +76,14 @@ async fn resolve_datanodes_playwright(
                 extra_headers: Vec::new(),
             })
         }
-        Err(AppError::Other(msg)) if msg.contains("API key") || msg.contains("api key") => {
-            crate::dev_debug::log_warn(Some(app), "datanodes", format!("needs key: {msg}"));
-            Err(AppError::Other(msg))
-        }
         Err(e) => {
-            crate::dev_debug::log(Some(app), "datanodes", format!("playwright err: {e}"));
+            // Guest Playwright cannot finish ad-gated free downloads; fall back
+            // to the interactive browser window instead of failing the row.
+            crate::dev_debug::log_warn(
+                Some(app),
+                "datanodes",
+                format!("playwright failed → needs_browser: {e}"),
+            );
             Ok(ResolveResult::NeedsBrowser {
                 url: url.to_string(),
                 host: label.into(),
@@ -103,12 +109,18 @@ async fn resolve_datanodes_api(
         .get(&dl_url)
         .send()
         .await
-        .map_err(|e| AppError::Other(format!("datanodes direct_link http: {e}")))?;
+        .map_err(|e| {
+            AppError::keyed_vars(
+                "error.datanodes.generic",
+                json!({ "detail": format!("direct_link http: {e}") }),
+            )
+        })?;
     let http_status = raw.status();
     let resp: serde_json::Value = raw.json().await.map_err(|e| {
-        AppError::Other(format!(
-            "datanodes direct_link json (HTTP {http_status}): {e}"
-        ))
+        AppError::keyed_vars(
+            "error.datanodes.generic",
+            json!({ "detail": format!("direct_link json (HTTP {http_status}): {e}") }),
+        )
     })?;
 
     let api_status = resp.get("status").and_then(|v| v.as_i64()).unwrap_or(0);
@@ -129,10 +141,10 @@ async fn resolve_datanodes_api(
             || api_msg.to_ascii_lowercase().contains("key")
             || api_msg.to_ascii_lowercase().contains("auth");
         if key_problem {
-            return Err(AppError::Other(format!(
-                "datanodes: API key recusada (status {api_status} {api_msg}). \
-                 Confira em ConfiguraÃ§Ãµes â†’ Hosts â†’ DataNodes â†’ Verificar."
-            )));
+            return Err(AppError::keyed_vars(
+                "error.datanodes.badKey",
+                json!({ "detail": format!("status {api_status} {api_msg}") }),
+            ));
         }
         return Ok(ResolveResult::NeedsBrowser {
             url: url.to_string(),
