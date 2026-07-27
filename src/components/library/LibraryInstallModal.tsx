@@ -1,4 +1,5 @@
 import { useState } from 'react';
+import { createPortal } from 'react-dom';
 import type { GameDownload } from '../../types/game';
 import type { LibraryGame } from '../../types/library';
 import type { InstallLibraryWithDisk } from '../../types/install-library';
@@ -102,7 +103,7 @@ export function LibraryInstallModal({
     await startDownload(dl, lib.path);
   }
 
-  return (
+  return createPortal(
     <>
       <div style={overlayStyle} onClick={onClose}>
         <div style={modalStyle} onClick={(e) => e.stopPropagation()}>
@@ -190,7 +191,8 @@ export function LibraryInstallModal({
         }}
         onConfirm={onLibraryPicked}
       />
-    </>
+    </>,
+    document.body,
   );
 }
 
@@ -201,7 +203,7 @@ const overlayStyle: React.CSSProperties = {
   display: 'flex',
   alignItems: 'center',
   justifyContent: 'center',
-  zIndex: 1000,
+  zIndex: 2000,
 };
 
 const modalStyle: React.CSSProperties = {

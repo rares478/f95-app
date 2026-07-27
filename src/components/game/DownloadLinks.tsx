@@ -1,4 +1,5 @@
-import { useState } from 'react';
+import { useState, type ReactNode } from 'react';
+import { createPortal } from 'react-dom';
 import { openUrl } from '@tauri-apps/plugin-opener';
 import type { GameDownload, SocialLink } from '../../types/game';
 import * as downloads from '../../lib/downloads';
@@ -53,6 +54,7 @@ export function DownloadLinks({
   const [pickerOpen, setPickerOpen] = useState(false);
   const [pending, setPending] = useState<GameDownload | null>(null);
   const [wizardOpen, setWizardOpen] = useState(false);
+  const [linksOpen, setLinksOpen] = useState(false);
 
   const groups = groupDownloads(items);
 
@@ -137,22 +139,8 @@ export function DownloadLinks({
     return <p className="dl-meta-text">{t('dl.empty')}</p>;
   }
 
-  return (
+  const linksBody = (
     <>
-      {!embedded && <h3>{t('dl.section')}</h3>}
-
-      {items.length > 0 && (
-        <div className="install-wizard-store-actions">
-          <button
-            type="button"
-            className="dl-action-btn dl-action-btn-accent"
-            onClick={() => setWizardOpen(true)}
-          >
-            {t('libcard.cta.install')}
-          </button>
-        </div>
-      )}
-
       {groups.map(([label, groupItems]) => (
         <div key={label ?? 'default'} style={{ marginBottom: 12 }}>
           {label && (
@@ -192,7 +180,7 @@ export function DownloadLinks({
                         ? t('dl.btn.tooltipSupported', { host: download.host })
                         : t('dl.btn.tooltipUnsupported', { host: download.host })
                     }
-                    onClick={() => onDownloadClick(download)}
+                    onClick={() => void onDownloadClick(download)}
                   >
                     {busyUrl === download.url
                       ? '…'
@@ -218,13 +206,40 @@ export function DownloadLinks({
                 <button
                   type="button"
                   className="dl-link-btn"
-                  onClick={() => openUrl(link.url)}
+                  onClick={() => void openUrl(link.url)}
                 >
                   {link.text?.trim() || link.host}
                 </button>
               </li>
             ))}
           </ul>
+        </div>
+      )}
+    </>
+  );
+
+  return (
+    <>
+      {!embedded && <h3>{t('dl.section')}</h3>}
+
+      {(items.length > 0 || social.length > 0) && (
+        <div className="install-wizard-store-actions">
+          {items.length > 0 && (
+            <button
+              type="button"
+              className="dl-action-btn dl-action-btn-accent"
+              onClick={() => setWizardOpen(true)}
+            >
+              {t('libcard.cta.install')}
+            </button>
+          )}
+          <button
+            type="button"
+            className="dl-action-btn"
+            onClick={() => setLinksOpen(true)}
+          >
+            {t('dl.showAllLinks')}
+          </button>
         </div>
       )}
 
@@ -251,6 +266,89 @@ export function DownloadLinks({
         }}
         onConfirm={onLibraryPicked}
       />
+
+      {linksOpen && (
+        <AllLinksModal
+          title={game.title}
+          closeLabel={t('common.cancel')}
+          onClose={() => setLinksOpen(false)}
+        >
+          {linksBody}
+        </AllLinksModal>
+      )}
     </>
   );
 }
+
+function AllLinksModal({
+  title,
+  children,
+  closeLabel,
+  onClose,
+}: {
+  title: string;
+  children: ReactNode;
+  closeLabel: string;
+  onClose: () => void;
+}) {
+  return createPortal(
+    <div style={overlayStyle} onClick={onClose}>
+      <div
+        style={modalStyle}
+        onClick={(e) => e.stopPropagation()}
+        role="dialog"
+        aria-modal="true"
+        aria-label={`${title} links`}
+      >
+        <h2 style={titleStyle}>{title}</h2>
+        <div style={bodyStyle}>{children}</div>
+        <div style={footerStyle}>
+          <button type="button" className="dl-action-btn" onClick={onClose}>{closeLabel}</button>
+        </div>
+      </div>
+    </div>,
+    document.body,
+  );
+}
+
+const overlayStyle: React.CSSProperties = {
+  position: 'fixed',
+  inset: 0,
+  background: 'rgba(0, 0, 0, 0.65)',
+  display: 'flex',
+  alignItems: 'center',
+  justifyContent: 'center',
+  zIndex: 2000,
+};
+
+const modalStyle: React.CSSProperties = {
+  background: 'var(--bg-base)',
+  border: '1px solid var(--border)',
+  borderRadius: 6,
+  padding: '20px 22px',
+  width: 'min(920px, calc(100vw - 40px))',
+  maxHeight: 'calc(100vh - 80px)',
+  display: 'flex',
+  flexDirection: 'column',
+  gap: 12,
+  boxShadow: '0 8px 32px rgba(0,0,0,0.6)',
+};
+
+const titleStyle: React.CSSProperties = {
+  margin: 0,
+  fontSize: 17,
+  fontWeight: 700,
+  color: 'var(--text-primary)',
+};
+
+const bodyStyle: React.CSSProperties = {
+  overflow: 'auto',
+  minHeight: 0,
+  paddingRight: 2,
+};
+
+const footerStyle: React.CSSProperties = {
+  display: 'flex',
+  justifyContent: 'flex-end',
+};
+

@@ -223,3 +223,87 @@ describe('resolveDownloadPath — Being a DIK patch vs season', () => {
     expect(dikPath('s3-full-win').kindHint).toBe('full');
   });
 });
+
+describe('resolveDownloadPath — Hard to Love nested acts', () => {
+  const htlHtml = readFileSync(
+    join(__dirname, 'fixtures', 'download-path-hard-to-love.html'),
+    'utf8',
+  );
+
+  function htlPath(urlFragment: string) {
+    const $ = cheerio.load(htlHtml);
+    const el = $(`a[href*="${urlFragment}"]`).get(0) as Element | undefined;
+    if (!el) throw new Error(`missing link ${urlFragment}`);
+    return resolveDownloadPath($, el);
+  }
+
+  it('keeps Act2 current separate from Act 1 spoiler content', () => {
+    expect(htlPath('act2-win')).toMatchObject({
+      edition: 'Act2',
+      platform: 'Win/Linux',
+      kindHint: 'full',
+      topLevel: true,
+    });
+  });
+
+  it('splits Act 1 High vs Low quality', () => {
+    expect(htlPath('act1-hq-win')).toMatchObject({
+      edition: 'Act 1 (v1.0) · High Quality',
+      platform: 'Win/Linux',
+      kindHint: 'full',
+    });
+    expect(htlPath('act1-lq-win')).toMatchObject({
+      edition: 'Act 1 (v1.0) · Low Quality',
+      platform: 'Win/Linux',
+      kindHint: 'full',
+    });
+    expect(htlPath('act1-hq-win').edition).not.toBe(htlPath('act1-lq-win').edition);
+  });
+
+  it('does not lump Before Remake seasons into Act 1', () => {
+    expect(htlPath('s2-win')).toMatchObject({
+      edition: 'Before Remake · SEASON 2',
+      platform: 'Win/Linux',
+    });
+    expect(htlPath('s1-win')).toMatchObject({
+      edition: 'Before Remake · SEASON 1',
+      platform: 'Win/Linux',
+    });
+    expect(htlPath('s2-win').edition).not.toMatch(/Act 1/i);
+    expect(htlPath('act1-hq-win').edition).not.toMatch(/SEASON/i);
+  });
+});
+
+describe('resolveDownloadPath — Love of Magic Win64 labels', () => {
+  const lomHtml = `
+  <div class="bbWrapper">
+    <b>DOWNLOAD</b><br/>
+    <b>Book 3 (Act XI-XVI and New Game+)</b><br/>
+    <b>Win64:</b> <a href="https://mega.nz/file/lom-b3-win">MEGA</a><br/>
+    <b>OSX:</b> <a href="https://mega.nz/file/lom-b3-mac">MEGA</a><br/>
+    <b>Linux:</b> <a href="https://mega.nz/file/lom-b3-linux">MEGA</a><br/>
+    <b>Android (v0.2.5b):</b> <a href="https://mega.nz/file/lom-b3-android">MEGA</a>
+  </div>`;
+
+  function lomPath(urlFragment: string) {
+    const $ = cheerio.load(lomHtml);
+    const el = $(`a[href*="${urlFragment}"]`).get(0) as Element | undefined;
+    if (!el) throw new Error(`missing link ${urlFragment}`);
+    return resolveDownloadPath($, el);
+  }
+
+  it('detects Win64 rows as desktop platform', () => {
+    expect(lomPath('lom-b3-win')).toMatchObject({
+      edition: 'Book 3 (Act XI-XVI and New Game+)',
+      platform: 'Win64',
+      kindHint: 'full',
+    });
+  });
+
+  it('detects OSX rows as Mac platform label', () => {
+    expect(lomPath('lom-b3-mac')).toMatchObject({
+      platform: 'OSX',
+      kindHint: 'full',
+    });
+  });
+});

@@ -1,4 +1,4 @@
-import { useEffect, useMemo, useState } from 'react';
+import { useCallback, useEffect, useMemo, useRef, useState } from 'react';
 import { RouterProvider } from 'react-router-dom';
 import { getCurrentWindow } from '@tauri-apps/api/window';
 import { listen } from '@tauri-apps/api/event';
@@ -177,9 +177,20 @@ function RouterRoot({
   profile: ProfileDto;
   onLoggedOut: () => void;
 }) {
+  // Keep the browser router instance alive across parent re-renders. A new
+  // createBrowserRouter() remounts the whole tree (spoilers, forms, scroll).
+  const onLoggedOutRef = useRef(onLoggedOut);
+  onLoggedOutRef.current = onLoggedOut;
+
+  const stableOnLoggedOut = useCallback(() => {
+    onLoggedOutRef.current();
+  }, []);
+
   const router = useMemo(
-    () => buildRouter({ profile, onLoggedOut }),
-    [profile, onLoggedOut],
+    () => buildRouter({ profile, onLoggedOut: stableOnLoggedOut }),
+    // profile is fixed after MainAppGate boot; only rebuild if logout handler identity must change
+    // eslint-disable-next-line react-hooks/exhaustive-deps -- intentionally omit profile
+    [stableOnLoggedOut],
   );
   return <RouterProvider router={router} />;
 }

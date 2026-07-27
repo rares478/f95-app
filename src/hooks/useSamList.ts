@@ -46,15 +46,16 @@ export function useSamList(filters: SamFilters): SamListState & {
   const sessionKey = `${SESSION_PREFIX}${filterKey}`;
 
   const reqIdRef = useRef(0);
-  const restoredRef = useRef(false);
-
-  useEffect(() => {
-    restoredRef.current = false;
-  }, [sessionKey]);
+  /** Session key whose items are currently in React state (for safe persistence). */
+  const itemsForKeyRef = useRef<string | null>(null);
+  /** True after the first filterKey effect run for this hook instance. */
+  const didInitRef = useRef(false);
+  const prevFilterKeyRef = useRef(filterKey);
 
   const fetchPage = useCallback(
     async (target: number, append: boolean) => {
       const myId = ++reqIdRef.current;
+      const keyAtStart = sessionKey;
       setLoading(true);
       setError(null);
       try {
@@ -72,6 +73,7 @@ export function useSamList(filters: SamFilters): SamListState & {
           page: target,
         });
         if (reqIdRef.current !== myId) return; // stale response
+        itemsForKeyRef.current = keyAtStart;
         setPage(result.page);
         setTotalPages(result.totalPages);
         setTotalRows(result.totalRows);
@@ -86,21 +88,13 @@ export function useSamList(filters: SamFilters): SamListState & {
       }
     },
     // eslint-disable-next-line react-hooks/exhaustive-deps
-    [filterKey],
+    [filterKey, sessionKey],
   );
 
+  // Persist only when `items` belong to the current filter key. Writing the
+  // previous filter's rows under a new key made the reload effect skip fetch.
   useEffect(() => {
-    if (restoredRef.current) return;
-    restoredRef.current = true;
-    const snapshot = loadSessionSnapshot(sessionKey);
-    if (!snapshot) return;
-    setItems(snapshot.items);
-    setPage(snapshot.page);
-    setTotalPages(snapshot.totalPages);
-    setTotalRows(snapshot.totalRows);
-  }, [sessionKey]);
-
-  useEffect(() => {
+    if (itemsForKeyRef.current !== sessionKey) return;
     saveSessionSnapshot(sessionKey, {
       items,
       page,
@@ -109,27 +103,47 @@ export function useSamList(filters: SamFilters): SamListState & {
     });
   }, [sessionKey, items, page, totalPages, totalRows]);
 
-  // Reload when filters change (debounced for search), unless hydrated from session.
+  // Load list when filters change. Session restore is only for remounting with
+  // the same filters (e.g. back from a game page) — never when filters change
+  // while this hook is already mounted.
   useEffect(() => {
-    const snapshot = loadSessionSnapshot(sessionKey);
-    if (snapshot && snapshot.items.length > 0) return;
+    const filterChanged =
+      didInitRef.current && prevFilterKeyRef.current !== filterKey;
+    prevFilterKeyRef.current = filterKey;
+
+    if (!didInitRef.current) {
+      didInitRef.current = true;
+      const snapshot = loadSessionSnapshot(sessionKey);
+      if (snapshot && snapshot.items.length > 0) {
+        itemsForKeyRef.current = sessionKey;
+        setItems(snapshot.items);
+        setPage(snapshot.page);
+        setTotalPages(snapshot.totalPages);
+        setTotalRows(snapshot.totalRows);
+        return;
+      }
+    } else if (!filterChanged) {
+      return;
+    }
+
+    itemsForKeyRef.current = null;
     const isSearch = (filters.search ?? '').length > 0;
     const t = setTimeout(
       () => {
         setItems([]);
         setPage(0);
-        fetchPage(1, false);
+        void fetchPage(1, false);
       },
       isSearch ? 250 : 0,
     );
     return () => clearTimeout(t);
     // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [filterKey]);
+  }, [filterKey, fetchPage]);
 
   const loadMore = useCallback(() => {
     if (loading) return;
     if (page >= totalPages) return;
-    fetchPage(page + 1, true);
+    void fetchPage(page + 1, true);
   }, [loading, page, totalPages, fetchPage]);
 
   const goToPage = useCallback(
@@ -137,16 +151,17 @@ export function useSamList(filters: SamFilters): SamListState & {
       if (loading) return;
       if (target < 1 || target > totalPages) return;
       if (target === page) return;
-      fetchPage(target, false);
+      void fetchPage(target, false);
     },
     [loading, page, totalPages, fetchPage],
   );
 
   const reload = useCallback(() => {
     clearSessionSnapshot(sessionKey);
+    itemsForKeyRef.current = null;
     setItems([]);
     setPage(0);
-    fetchPage(1, false);
+    void fetchPage(1, false);
   }, [fetchPage, sessionKey]);
 
   return {

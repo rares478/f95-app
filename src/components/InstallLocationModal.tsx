@@ -1,4 +1,5 @@
 import { useEffect, useState } from 'react';
+import { createPortal } from 'react-dom';
 import * as libraries from '../lib/libraries';
 import { useT } from '../lib/i18n';
 import { LoadingState } from './ui/LoadingState';
@@ -67,7 +68,7 @@ export function InstallLocationModal({
 
   const selected = libs.find((l) => l.id === selectedId);
 
-  return (
+  return createPortal(
     <div style={overlayStyle} onClick={onCancel}>
       <div style={modalStyle} onClick={(e) => e.stopPropagation()}>
         <h2 style={titleStyle}>{title}</h2>
@@ -133,7 +134,8 @@ export function InstallLocationModal({
           </button>
         </div>
       </div>
-    </div>
+    </div>,
+    document.body,
   );
 }
 
@@ -144,7 +146,7 @@ const overlayStyle: React.CSSProperties = {
   display: 'flex',
   alignItems: 'center',
   justifyContent: 'center',
-  zIndex: 1000,
+  zIndex: 2000,
 };
 const modalStyle: React.CSSProperties = {
   background: 'var(--bg-base)',

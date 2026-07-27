@@ -1,4 +1,5 @@
 import { useEffect, useMemo, useState } from 'react';
+import { createPortal } from 'react-dom';
 import type { GameDownload } from '../../types/game';
 import type { InstallLibraryWithDisk } from '../../types/install-library';
 import * as downloads from '../../lib/downloads';
@@ -687,7 +688,7 @@ export function InstallPlanWizard({
     !selectedSeason ||
     !selectedPackage;
 
-  return (
+  return createPortal(
     <>
       <div className="install-assign-overlay" onClick={onClose}>
         <div
@@ -768,7 +769,8 @@ export function InstallPlanWizard({
         }}
         onConfirm={onLibraryPicked}
       />
-    </>
+    </>,
+    document.body,
   );
 }
 
