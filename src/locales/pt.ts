@@ -704,6 +704,7 @@ const pt: Record<string, string> = {
 
   // ─── Download links + queue ─────────────────────────────────────────────
   'dl.section': 'Downloads',
+  'dl.showAllLinks': 'Mostrar todos os links',
   'dl.empty': 'Nenhum link de download direto encontrado neste thread.',
   'dl.btn.download': 'Baixar',
   'dl.btn.queue': 'Enfileirar',
@@ -1192,3 +1193,6 @@ const pt: Record<string, string> = {
 };
 
 export default pt;
+
+
+

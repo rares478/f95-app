@@ -705,6 +705,7 @@ const en: Record<string, string> = {
 
   // ─── Download links + queue ─────────────────────────────────────────────
   'dl.section': 'Downloads',
+  'dl.showAllLinks': 'Show all links',
   'dl.empty': 'No direct download links found in this thread.',
   'dl.btn.download': 'Download',
   'dl.btn.queue': 'Queue',
@@ -1190,3 +1191,5 @@ const en: Record<string, string> = {
 };
 
 export default en;
+
+

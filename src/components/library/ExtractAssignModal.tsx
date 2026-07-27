@@ -1,4 +1,5 @@
 import { useEffect, useState } from 'react';
+import { createPortal } from 'react-dom';
 import { defaultExeLabel } from '../../lib/installAssign';
 import * as downloads from '../../lib/downloads';
 import { loadDownloadSettings } from '../../lib/downloadSettings';
@@ -205,7 +206,7 @@ export function ExtractAssignModal({
     }
   }
 
-  return (
+  return createPortal(
     <div className="install-assign-overlay" onClick={onClose}>
       <div
         className="install-assign-modal"
@@ -318,6 +319,7 @@ export function ExtractAssignModal({
           </>
         )}
       </div>
-    </div>
+    </div>,
+    document.body,
   );
 }

@@ -30,7 +30,7 @@ type NormalizedLink = GameDownload & {
 };
 
 const OS_LABEL_RE =
-  /\b(win(?:dows)?(?:\s*\/\s*linux)?|linux|mac(?:os)?|android|ios|browser|all platforms?)\b/i;
+  /\b(win(?:dows)?(?:32|64)?(?:\s*\/\s*linux)?|linux|mac(?:os)?|osx|android|ios|browser|all platforms?)\b/i;
 
 /**
  * Parse legacy `group` ("Season 1-2 · Win/Linux · Part 1") when scraper

@@ -699,6 +699,7 @@ const ru: Record<string, string> = {
 
   // ─── Download links ─────────────────────────────────────────────────────
   'dl.section': 'Загрузки',
+  'dl.showAllLinks': 'Показать все ссылки',
   'dl.empty': 'В этом треде не найдено прямых ссылок на загрузку.',
   'dl.btn.download': 'Скачать',
   'dl.btn.queue': 'В очередь',
@@ -1187,3 +1188,6 @@ const ru: Record<string, string> = {
 };
 
 export default ru;
+
+
+

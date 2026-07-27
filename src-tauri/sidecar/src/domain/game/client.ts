@@ -615,7 +615,7 @@ function collectLinks(
 }
 
 const OS_LABEL_RE =
-  /\b(win(?:dows)?(?:\s*\/\s*linux)?|linux|mac(?:os)?|android|ios|browser|all platforms?)\b/i;
+  /\b(win(?:dows)?(?:32|64)?(?:\s*\/\s*linux)?|linux|mac(?:os)?|osx|android|ios|browser|all platforms?)\b/i;
 
 const PART_LABEL_RE = /Part\s*(\d+)/i;
 
@@ -673,15 +673,36 @@ export function resolveDownloadPath(
     titles: spoilerTitles,
   } = resolveSpoilerEdition($, el);
 
-  let edition = spoilerEdition;
-  let topLevel = false;
-  // Prefer edition from nearby bold labels (Season 3 + Win/Linux combined,
-  // or Patch (…) heading) before walking further up the OP.
-  if (!edition) {
-    edition = editionFromNearLabels(nearLabels);
-    if (edition && !isAuxRowLabel(edition)) topLevel = true;
+  // Near bold headings (Act 1, High Quality, SEASON 2) beat the outer spoiler
+  // title ("Act 1 & Before Remake"). Prefix with innermost spoiler context when
+  // it is "Before Remake" and the near heading is only SEASON n.
+  const fromNear = editionFromNearLabels(nearLabels);
+  let edition: string | null = null;
+  if (fromNear && spoilerEdition) {
+    // Only the nested "Before Remake" spoiler — not the outer combined
+    // "Act 1 & Before Remake" title, which must not prefix Act 1 quality rows.
+    if (
+      /^before\s+remake$/i.test(spoilerEdition) &&
+      !/before\s+remake/i.test(fromNear)
+    ) {
+      edition = `${spoilerEdition} · ${fromNear}`;
+    } else {
+      edition = fromNear;
+    }
+  } else {
+    edition = fromNear ?? spoilerEdition;
   }
-  if (!edition && !$(el).closest(SPOILER_SEL).length) {
+  let topLevel = false;
+  if (fromNear && !spoilerEdition) {
+    topLevel =
+      !$(el).closest(SPOILER_SEL).length &&
+      !isAuxRowLabel(fromNear) &&
+      !/before\s+remake/i.test(fromNear);
+  } else if (fromNear && $(el).closest(SPOILER_SEL).length) {
+    topLevel = false;
+  } else if (spoilerEdition) {
+    topLevel = false;
+  } else if (!$(el).closest(SPOILER_SEL).length) {
     edition = nearestTopLevelEdition($, el);
     if (edition) topLevel = true;
   }
@@ -757,6 +778,10 @@ function stripOsFromLabel(raw: string): string {
     .trim();
 }
 
+function isQualityLabel(raw: string): boolean {
+  return /^(high|low)\s*quality\b/i.test(cleanText(raw).replace(/:\s*$/, ''));
+}
+
 function editionFromNearLabels(labels: string[]): string | null {
   // Prefer explicit Patch/Extra headings over season-like fragments in OS rows
   // (e.g. "(Ep.11 …) Win/Linux/Mac" must not win over a preceding "Patch").
@@ -778,20 +803,36 @@ function editionFromNearLabels(labels: string[]): string | null {
       return cleanEditionLabel(`${b} ${stripOsFromLabel(a)}`.trim());
     }
   }
+
+  // Nested OP structure (Hard to Love): quality + Act/Season + Before Remake.
+  // `labels` are nearest-first from the link walk.
+  let quality: string | null = null;
+  let primary: string | null = null;
+  let context: string | null = null;
   for (const raw of labels) {
     const t = cleanText(raw);
     if (!t || isAuxRowLabel(t)) continue;
-    if (looksLikeSeasonHeading(t) || looksLikeEditionName(t)) {
-      const stripped = stripOsFromLabel(t);
-      if (stripped && (looksLikeSeasonHeading(stripped) || looksLikeEditionName(stripped))) {
-        return cleanEditionLabel(stripped);
-      }
-      if (!platformFromText(t)) {
-        return cleanEditionLabel(t);
+    if (isQualityLabel(t)) {
+      if (!quality) quality = cleanEditionLabel(t);
+      continue;
+    }
+    if (/before\s+remake/i.test(t)) {
+      if (!context) context = cleanEditionLabel(t);
+      continue;
+    }
+    if (
+      looksLikeSeasonHeading(t) ||
+      looksLikeEditionName(t) ||
+      /\bact\s*\d/i.test(t)
+    ) {
+      if (!primary) {
+        const stripped = stripOsFromLabel(t);
+        primary = cleanEditionLabel(stripped || t);
       }
     }
   }
-  return null;
+  const parts = [context, primary, quality].filter(Boolean) as string[];
+  return parts.length ? parts.join(' · ') : null;
 }
 
 function nearestPlatformAndPart(
@@ -818,19 +859,17 @@ function nearestPlatformAndPart(
     if (/^downloads?$/i.test(t.replace(/:\s*$/, ''))) return true;
     // Patch/Extra owns the block (may share the bold with Win/Linux).
     if (isAuxRowLabel(t)) return true;
-    // "Season 3 … Win/Linux" combined heading — stop once platform captured.
+    // Quality rows sit under an Act heading — keep walking for Act 1 / Season.
+    if (isQualityLabel(t)) return false;
+    // "Season 3 … Win/Linux" / "Act 1 (v1.0)" — stop once platform captured.
     // Do NOT stop on patch version bumps like "(Ep.11 → Ep.11) Win/Linux/Mac".
     if (platform != null && looksLikeSeasonHeading(t)) return true;
-    // Pure season/split heading above the OS row.
+    // Pure season/split/act heading above the OS row.
     if (looksLikeSeasonHeading(t) && !platformFromText(t)) return true;
-    // Different OS row above the current one — stop (don't bleed across platforms).
-    if (platform != null) {
-      const os = platformFromText(t);
-      if (os && normalizeGroupLabel(os) !== normalizeGroupLabel(platform)) {
-        return true;
-      }
-    }
-    // Plain OS-only row: keep walking so a preceding "Patch" / "Season …" is seen.
+    if (/before\s+remake/i.test(t)) return true;
+    // Different OS row above: do not stop — Low Quality Win sits below High
+    // Quality Mac, and we still need Act 1 / Season headings further up.
+    // Platform is already locked once set.
     return false;
   };
 
@@ -910,9 +949,10 @@ function looksLikeSeasonHeading(raw: string): boolean {
   if (isAuxRowLabel(t)) return false;
   const stripped = stripOsFromLabel(t);
   if (!stripped) return false;
-  if (/\b(season|interlude|splits?|archive|collection|volume|vol\.?\b)\b/i.test(stripped)) {
+  if (/\b(season|interlude|splits?|archive|collection|volume|vol\.?\b|act\b)\b/i.test(stripped)) {
     return true;
   }
+  if (/before\s+remake/i.test(stripped)) return true;
   // Soundtrack / version packs: "v0.8.5 (Original Soundtrack)"
   if (/^v\d/i.test(stripped) && !/\(.*->.*\)/.test(stripped)) return true;
   return false;
@@ -1001,8 +1041,9 @@ function resolveSpoilerEdition(
   splitSpoiler: boolean;
   titles: string[];
 } {
-  // Outermost → innermost so a season edition wins over nested split titles.
-  const spoilers = $(el).parents(SPOILER_SEL).toArray().reverse();
+  // Closest (innermost) spoiler first — nested "Before Remake" beats outer
+  // "Act 1 & Before Remake" when both use generic Spoiler buttons.
+  const spoilers = $(el).parents(SPOILER_SEL).toArray();
   let edition: string | null = null;
   let outerSplitEdition: string | null = null;
   let splitSpoiler = false;
@@ -1010,7 +1051,7 @@ function resolveSpoilerEdition(
 
   for (let i = 0; i < spoilers.length; i++) {
     const spoiler = spoilers[i]!;
-    const isOutermost = i === 0;
+    const isOutermost = i === spoilers.length - 1;
     const buttonTitle = spoilerButtonTitle($, spoiler);
     let title = buttonTitle;
     let fromFallback = false;
@@ -1027,10 +1068,12 @@ function resolveSpoilerEdition(
     if (buttonTitle && /split/i.test(buttonTitle)) {
       splitSpoiler = true;
     }
+    if (title && /split/i.test(title)) {
+      splitSpoiler = true;
+    }
     if (!title || /^spoiler$/i.test(title)) continue;
     // Inner split titles must not replace an outer season. Outer-only
-    // /split/i titles become edition when no non-split edition is found
-    // (fromFallback titles like "Season 3 splits" already qualify above).
+    // /split/i titles become edition when no non-split edition is found.
     if (!fromFallback && /split/i.test(title)) {
       if (isOutermost && !outerSplitEdition) {
         outerSplitEdition = cleanEditionLabel(title);
