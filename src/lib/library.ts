@@ -1,5 +1,6 @@
 import { parseSamCategory } from '../constants/samCategories';
 import { execute, query } from './db';
+import { prefetchLibraryThumbnail } from './libraryThumbnailCache';
 import {
   exeParentDir,
   normalizeExeLabel,
@@ -168,6 +169,9 @@ export async function add(input: AddInput): Promise<void> {
     ],
   );
   markThreadInLibrary(input.threadId);
+  if (input.thumbnailUrl) {
+    prefetchLibraryThumbnail(input.thumbnailUrl, 2);
+  }
 }
 
 /**

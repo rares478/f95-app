@@ -13,6 +13,7 @@ import { formatIpcError } from '../lib/ipcError';
 import { useT } from '../lib/i18n';
 import { dialog } from '../lib/dialog';
 import * as library from '../lib/library';
+import { prefetchLibraryThumbnails } from '../lib/libraryThumbnailCache';
 import * as updates from '../lib/updates';
 import type {
   InstallStatus,
@@ -99,6 +100,11 @@ export function LibraryPage() {
   useEffect(() => {
     reload();
   }, [downloadSyncKey, reload]);
+
+  useEffect(() => {
+    if (items.length === 0) return;
+    prefetchLibraryThumbnails(items);
+  }, [items]);
 
   const stats = useMemo(
     () => ({

@@ -243,7 +243,7 @@ export async function resolveMediaPreview(args: {
 
 export async function resolveRemoteImagePreview(args: {
   url: string;
-  variant: 'grid';
+  variant: 'grid' | 'library';
 }): Promise<string> {
   return invoke<string>('resolve_remote_image_preview', args);
 }
