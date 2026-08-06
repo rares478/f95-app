@@ -5,6 +5,7 @@ import { useOffline } from './contexts/Offline';
 import { ProfilePage } from './pages/ProfilePage';
 import { StorePage } from './pages/StorePage';
 import { GameDetailPage } from './pages/GameDetailPage';
+import { LibraryLayout } from './components/library/LibraryLayout';
 import { LibraryPage } from './pages/LibraryPage';
 import { LibraryGamePage } from './pages/LibraryGamePage';
 import { LibraryMediaViewerPage } from './pages/LibraryMediaViewerPage';
@@ -33,8 +34,16 @@ export function buildRouter({ profile, onLoggedOut }: BuildOpts) {
         { index: true, element: <HomeRedirect /> },
         { path: 'store', element: <StorePage /> },
         { path: 'store/game/:threadId', element: <GameDetailPage /> },
-        { path: 'library', element: <LibraryPage /> },
-        { path: 'library/game/:threadId', element: <LibraryGamePage /> },
+        {
+          // Layout keeps the Steam-skin game-list panel mounted across the
+          // library home and game detail routes (pass-through otherwise).
+          path: 'library',
+          element: <LibraryLayout />,
+          children: [
+            { index: true, element: <LibraryPage /> },
+            { path: 'game/:threadId', element: <LibraryGamePage /> },
+          ],
+        },
         { path: 'library/game/:threadId/view', element: <LibraryMediaViewerPage /> },
         { path: 'downloads', element: <DownloadsPage /> },
         { path: 'news', element: <NewsPage /> },

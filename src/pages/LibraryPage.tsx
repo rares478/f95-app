@@ -7,6 +7,7 @@ import { GameCardGridSkeleton } from '../components/ui/GameCardSkeleton';
 import { parseSamCategory } from '../constants/samCategories';
 import { useOffline } from '../contexts/Offline';
 import { useLibraryGameActions } from '../hooks/useLibraryGameActions';
+import { useSkin } from '../hooks/useSkin';
 import { useT } from '../lib/i18n';
 import { dialog } from '../lib/dialog';
 import * as library from '../lib/library';
@@ -41,6 +42,9 @@ const SORTS: { id: LibrarySort; labelKey: string }[] = [
 
 export function LibraryPage() {
   const { t } = useT();
+  // Steam skin: LibraryLayout mounts the game-list panel (with its own
+  // search) on the left, so this page hides its standalone search input.
+  const steamMode = useSkin() === 'steam';
   const [searchParams, setSearchParams] = useSearchParams();
   const category = parseSamCategory(searchParams.get('cat'));
   const [items, setItems] = useState<LibraryGame[]>([]);
@@ -184,18 +188,21 @@ export function LibraryPage() {
       <LibraryCategoryBar category={category} onCategory={setCategory} />
 
       <div style={controlsStyle}>
-        <input
-          type="text"
-          value={search}
-          placeholder={t('library.search')}
-          onChange={(e) => setSearch(e.target.value)}
-          style={searchInput}
-        />
+        {/* In Steam mode the search lives in the left game-list panel. */}
+        {!steamMode && (
+          <input
+            type="text"
+            value={search}
+            placeholder={t('library.search')}
+            onChange={(e) => setSearch(e.target.value)}
+            style={searchInput}
+          />
+        )}
 
         <select
           value={sort}
           onChange={(e) => setSort(e.target.value as LibrarySort)}
-          style={selectStyle}
+          style={steamMode ? { ...selectStyle, marginLeft: 'auto' } : selectStyle}
         >
           {SORTS.map((s) => (
             <option key={s.id} value={s.id}>
