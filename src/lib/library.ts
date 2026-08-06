@@ -186,6 +186,12 @@ export async function isInLibrary(threadId: string): Promise<boolean> {
   return (rows[0]?.n ?? 0) > 0;
 }
 
+/** Recently played library games (newest first), for tray / quick launch UIs. */
+export async function listRecentPlayed(limit = 5): Promise<LibraryGame[]> {
+  const items = await list({ sort: 'last_played' });
+  return items.filter((g) => !!g.lastPlayedAt).slice(0, Math.max(0, limit));
+}
+
 export async function list(filter: LibraryFilter = {}): Promise<LibraryGame[]> {
   const where: string[] = [];
   const args: unknown[] = [];

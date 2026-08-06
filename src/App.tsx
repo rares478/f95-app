@@ -15,11 +15,10 @@ import { LocaleProvider } from './lib/i18n';
 import { DevDebugConsole } from './components/DevDebugConsole';
 import { GameOverlayRoot } from './components/overlay/GameOverlayRoot';
 import { OverlayHintRoot } from './components/overlay/OverlayHintRoot';
+import { TrayMenuRoot } from './components/tray/TrayMenuRoot';
 import { loadDevDebugSettings } from './lib/devDebugSettings';
 import { startOverlayHotkeySync } from './lib/overlayHotkey';
-import { loadAppRuntimeSettings } from './lib/appRuntimeSettings';
 import { runStartupUpdateCheck } from './lib/appUpdater';
-import { startTrayIconSync } from './lib/tray';
 import { tStandalone } from './lib/i18n';
 import type { ProfileDto } from './types';
 import './App.css';
@@ -29,10 +28,11 @@ import './styles/context-menu.css';
 import './styles/notifications.css';
 import './styles/settings-store.css';
 import './styles/settings-changelog.css';
+import './styles/version-info-modal.css';
 import './styles/nav-accent.css';
 import './styles/custom-video-fullscreen.css';
 
-type AppWindowKind = 'login' | 'main' | 'overlay' | 'overlay-hint';
+type AppWindowKind = 'login' | 'main' | 'overlay' | 'overlay-hint' | 'tray-menu';
 
 function resolveAppWindowKind(): AppWindowKind {
   try {
@@ -40,6 +40,7 @@ function resolveAppWindowKind(): AppWindowKind {
     if (label === 'login') return 'login';
     if (label === 'game-overlay') return 'overlay';
     if (label === 'overlay-hint') return 'overlay-hint';
+    if (label === 'tray-menu') return 'tray-menu';
   } catch {
     /* browser preview */
   }
@@ -48,6 +49,7 @@ function resolveAppWindowKind(): AppWindowKind {
     const w = params.get('window');
     if (w === 'overlay') return 'overlay';
     if (w === 'overlay-hint') return 'overlay-hint';
+    if (w === 'tray-menu') return 'tray-menu';
   }
   return 'main';
 }
@@ -66,14 +68,26 @@ function App() {
   }, []);
 
   useEffect(() => {
-    if (appWindowKind === 'login' || appWindowKind === 'overlay' || appWindowKind === 'overlay-hint') {
+    if (
+      appWindowKind === 'login' ||
+      appWindowKind === 'overlay' ||
+      appWindowKind === 'overlay-hint' ||
+      appWindowKind === 'tray-menu'
+    ) {
       return;
     }
     return startOverlayHotkeySync();
   }, []);
 
   useEffect(() => {
-    if (appWindowKind === 'login' || appWindowKind === 'overlay' || appWindowKind === 'overlay-hint') return;
+    if (
+      appWindowKind === 'login' ||
+      appWindowKind === 'overlay' ||
+      appWindowKind === 'overlay-hint' ||
+      appWindowKind === 'tray-menu'
+    ) {
+      return;
+    }
     (async () => {
       try {
         const [token, accountId, megaSession, uhCookies, uhEmail, uhIsPro, bhAccountId, datanodesKey, mixdropEmail, mixdropKey] = await Promise.all([
@@ -117,14 +131,15 @@ function App() {
   }, []);
 
   useEffect(() => {
-    if (appWindowKind === 'login' || appWindowKind === 'overlay' || appWindowKind === 'overlay-hint') return;
+    if (
+      appWindowKind === 'login' ||
+      appWindowKind === 'overlay' ||
+      appWindowKind === 'overlay-hint' ||
+      appWindowKind === 'tray-menu'
+    ) {
+      return;
+    }
     void loadDevDebugSettings();
-  }, []);
-
-  useEffect(() => {
-    if (appWindowKind !== 'main') return;
-    void loadAppRuntimeSettings();
-    return startTrayIconSync(tStandalone);
   }, []);
 
   useEffect(() => {
@@ -136,7 +151,14 @@ function App() {
   }, []);
 
   useEffect(() => {
-    if (appWindowKind === 'login' || appWindowKind === 'overlay' || !import.meta.env.DEV) return;
+    if (
+      appWindowKind === 'login' ||
+      appWindowKind === 'overlay' ||
+      appWindowKind === 'tray-menu' ||
+      !import.meta.env.DEV
+    ) {
+      return;
+    }
     let cancelled = false;
     void listen<{ cookieHeader: string; isPro: boolean }>(
       'uploadhaven:session-updated',
@@ -155,6 +177,10 @@ function App() {
   }, []);
 
   if (!themeReady) return null;
+
+  if (appWindowKind === 'tray-menu') {
+    return <TrayMenuRoot />;
+  }
 
   return (
     <LocaleProvider>

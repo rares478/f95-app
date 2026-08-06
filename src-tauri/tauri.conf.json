@@ -53,6 +53,22 @@
         "skipTaskbar": true,
         "resizable": false,
         "focus": false
+      },
+      {
+        "label": "tray-menu",
+        "create": false,
+        "title": "",
+        "url": "index.html?window=tray-menu",
+        "width": 288,
+        "height": 900,
+        "visible": false,
+        "decorations": false,
+        "transparent": true,
+        "alwaysOnTop": true,
+        "skipTaskbar": true,
+        "resizable": false,
+        "focus": true,
+        "shadow": false
       }
     ],
     "security": {

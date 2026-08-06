@@ -28,7 +28,10 @@ const en: Record<string, string> = {
   'statusbar.downloading': 'Downloading {name} — {pct}%',
   'statusbar.resolving': '{state}: {name}',
   'statusbar.more': '(+{count} more)',
-  'statusbar.versionTitle': 'Application version',
+  'statusbar.versionTitle': 'Application version — click for changelog and updates',
+  'statusbar.versionModal.title': 'Version & changelog',
+  'statusbar.versionModal.current': 'Current version: v{version}',
+  'statusbar.versionModal.currentUnknown': 'Current version: unknown',
 
   // ─── Offline mode ───────────────────────────────────────────────────────
   'offline.title': 'You are offline',
@@ -79,6 +82,7 @@ const en: Record<string, string> = {
 
   // ─── Common buttons / states ────────────────────────────────────────────
   'common.cancel': 'Cancel',
+  'common.close': 'Close',
   'common.save': 'Save',
   'common.confirm': 'Confirm',
   'common.ok': 'OK',
@@ -491,7 +495,16 @@ const en: Record<string, string> = {
   'settings.tray.section': 'System tray',
   'settings.tray.hint': 'Keep the app in the notification area. When enabled, closing the window hides it instead of quitting.',
   'settings.tray.enabled': 'Show tray icon',
+  'tray.menu.label': 'Tray menu',
   'tray.show': 'Show F95 App',
+  'tray.library': 'Library',
+  'tray.recentGames': 'Recent games',
+  'tray.recent.empty': 'No recent games',
+  'tray.recent.loading': 'Loading…',
+  'tray.downloads': 'Downloads',
+  'tray.settings': 'Settings',
+  'tray.changelog': 'Changelog',
+  'tray.checkUpdates': 'Check for updates',
   'tray.quit': 'Quit',
 
   'settings.changelog.section': 'Changelog',
