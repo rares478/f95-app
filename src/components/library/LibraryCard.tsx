@@ -5,6 +5,7 @@ import { inFlightLibraryStatus } from '../../lib/downloadLibrarySync';
 import { useT } from '../../lib/i18n';
 import type { LibraryDisplayStatus, LibraryGame } from '../../types/library';
 import { formatPlaytime, statusColor, statusKey } from '../../types/library';
+import { LibraryThumbnail } from './LibraryThumbnail';
 
 interface Props {
   game: LibraryGame;
@@ -26,7 +27,12 @@ export function LibraryCard({ game, onPrimaryAction, onContextMenu }: Props) {
     >
       <Link to={`/library/game/${game.threadId}`} style={thumbLinkStyle}>
         {game.thumbnailUrl ? (
-          <img src={game.thumbnailUrl} alt={game.title} loading="lazy" style={thumbImg} />
+          <LibraryThumbnail
+            src={game.thumbnailUrl}
+            alt={game.title}
+            style={thumbImg}
+            fallback={<div style={thumbFallback}>{game.title.slice(0, 1).toUpperCase()}</div>}
+          />
         ) : (
           <div style={thumbFallback}>{game.title.slice(0, 1).toUpperCase()}</div>
         )}

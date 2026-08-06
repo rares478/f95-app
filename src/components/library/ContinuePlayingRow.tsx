@@ -5,6 +5,7 @@ import { inFlightLibraryStatus } from '../../lib/downloadLibrarySync';
 import { useT } from '../../lib/i18n';
 import type { LibraryGame } from '../../types/library';
 import { formatPlaytime } from '../../types/library';
+import { LibraryThumbnail } from './LibraryThumbnail';
 
 interface Props {
   games: LibraryGame[];
@@ -70,7 +71,12 @@ function ContinuePlayingCard({
     >
       <Link to={`/library/game/${game.threadId}`} style={thumbLinkStyle}>
         {game.thumbnailUrl ? (
-          <img src={game.thumbnailUrl} alt={game.title} style={thumbImg} loading="lazy" />
+          <LibraryThumbnail
+            src={game.thumbnailUrl}
+            alt={game.title}
+            style={thumbImg}
+            fallback={<div style={thumbFallback}>{game.title.slice(0, 1).toUpperCase()}</div>}
+          />
         ) : (
           <div style={thumbFallback}>{game.title.slice(0, 1).toUpperCase()}</div>
         )}

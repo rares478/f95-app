@@ -18,6 +18,7 @@ import {
   stateKey,
 } from '../../types/download';
 import type { DownloadGameInfo } from './DownloadCard';
+import { LibraryThumbnail } from '../library/LibraryThumbnail';
 
 interface Props {
   row: DownloadRow;
@@ -57,7 +58,7 @@ export function DownloadActiveCard({
     <article className="dl-active-card" onContextMenu={onContextMenu}>
       <Link to={`/store/game/${row.threadId}`} className="dl-active-thumb">
         {game?.thumbnailUrl ? (
-          <img src={game.thumbnailUrl} alt="" loading="lazy" />
+          <LibraryThumbnail src={game.thumbnailUrl} alt="" />
         ) : (
           <span className="dl-active-thumb-fallback">
             {displayTitle.slice(0, 1).toUpperCase()}
@@ -190,7 +191,7 @@ export function DownloadHistoryRow({
     >
       <Link to={`/store/game/${row.threadId}`} className="dl-history-thumb">
         {game?.thumbnailUrl ? (
-          <img src={game.thumbnailUrl} alt="" loading="lazy" />
+          <LibraryThumbnail src={game.thumbnailUrl} alt="" />
         ) : (
           <span>{displayTitle.slice(0, 1).toUpperCase()}</span>
         )}

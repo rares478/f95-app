@@ -1,6 +1,5 @@
 import { useCallback, useEffect, useMemo, useState } from 'react';
 import { useNavigate, useParams } from 'react-router-dom';
-import DOMPurify from 'dompurify';
 import { dialog } from '../lib/dialog';
 import { openUrl } from '@tauri-apps/plugin-opener';
 import * as ipc from '../lib/ipc';
@@ -13,9 +12,8 @@ import { useRunningGames } from '../contexts/RunningGames';
 import { useOffline } from '../contexts/Offline';
 import { InstallLocationModal } from '../components/InstallLocationModal';
 import { MoveProgressModal } from '../components/MoveProgressModal';
-import { GameDescription } from '../components/game/GameDescription';
-import { ScreenshotGallery } from '../components/game/ScreenshotGallery';
-import { ThreadDiscussion } from '../components/game/ThreadDiscussion';
+import { useCachedImageUrl } from '../lib/libraryThumbnailCache';
+import { clearLibraryPreviewCache } from '../lib/libraryPreviewQueue';
 import { clearGridPreviewCache } from '../lib/gridPreviewQueue';
 import { clearRemoteImageQueue } from '../lib/remoteImageQueue';
 import {
@@ -97,6 +95,15 @@ export function LibraryGamePage() {
         .join('|'),
     [downloadRows, threadId],
   );
+  const readyGame = state.kind === 'ready' ? state.game : null;
+  const bannerRemote = readyGame
+    ? storeDetail?.bannerUrl ?? readyGame.thumbnailUrl
+    : null;
+  const coverRemote = readyGame
+    ? readyGame.thumbnailUrl ?? storeDetail?.bannerUrl
+    : null;
+  const cachedBannerUrl = useCachedImageUrl(bannerRemote, 0);
+  const cachedCoverUrl = useCachedImageUrl(coverRemote, 0);
 
   const reload = useCallback(async () => {
     if (!threadId) return;
@@ -150,6 +157,7 @@ export function LibraryGamePage() {
     () => () => {
       clearRemoteImageQueue();
       clearGridPreviewCache();
+      clearLibraryPreviewCache();
     },
     [],
   );
@@ -217,13 +225,6 @@ export function LibraryGamePage() {
     inFlightLibraryStatus(downloadRows, g.threadId) ?? g.installStatus;
   const downloadInFlight =
     displayStatus === 'downloading' || displayStatus === 'extracting';
-  const bannerUrl = storeDetail?.bannerUrl ?? g.thumbnailUrl;
-  const sanitized =
-    storeDetail?.descriptionHtml &&
-    DOMPurify.sanitize(storeDetail.descriptionHtml, {
-      ADD_TAGS: ['details', 'summary', 'button'],
-      ADD_ATTR: ['target', 'rel', 'loading', 'type', 'hidden'],
-    });
   const resolvedExe = resolvePlayExe(exes);
   const otherExes = resolvedExe
     ? exes.filter((e) => e.id !== resolvedExe.id)
@@ -466,8 +467,8 @@ export function LibraryGamePage() {
       }
     >
       <GameDetailHero
-        bannerUrl={bannerUrl}
-        coverUrl={g.thumbnailUrl ?? bannerUrl}
+        bannerUrl={cachedBannerUrl}
+        coverUrl={cachedCoverUrl}
         badges={
           <>
             <span
@@ -641,25 +642,6 @@ export function LibraryGamePage() {
 
       <GameDetailBody>
         <GameDetailMain>
-          {storeDetail && storeDetail.screenshots.length > 0 && (
-            <GameDetailSection title={t('gamedetail.section.screenshots')}>
-              <ScreenshotGallery images={storeDetail.screenshots} />
-            </GameDetailSection>
-          )}
-
-          {sanitized && (
-            <GameDetailSection title={t('gamedetail.section.about')}>
-              <GameDescription
-                html={sanitized}
-                style={{ fontSize: 13.5, lineHeight: 1.65, wordBreak: 'break-word' }}
-              />
-            </GameDetailSection>
-          )}
-
-          {g.threadId && (
-            <ThreadDiscussion threadId={g.threadId} offline={isOffline} />
-          )}
-
           <GameDetailSection title={t('libdetail.section.notes')}>
             <textarea
               value={notesDraft}

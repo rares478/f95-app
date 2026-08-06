@@ -12,14 +12,24 @@ const PROBE_USER_AGENT: &str =
 
 const GRID_MAX_EDGE: u32 = 720;
 const GRID_JPEG_QUALITY: u8 = 84;
+const LIBRARY_MAX_EDGE: u32 = 720;
+const LIBRARY_JPEG_QUALITY: u8 = 88;
 
-fn io_err(e: impl ToString) -> AppError {
-    AppError::keyed_vars("error.media.io", json!({ "detail": e.to_string() }))
+struct VariantSpec {
+    max_edge: u32,
+    jpeg_quality: u8,
 }
 
-fn max_edge_for_variant(variant: &str) -> Result<u32, AppError> {
+fn variant_spec(variant: &str) -> Result<VariantSpec, AppError> {
     match variant {
-        "grid" => Ok(GRID_MAX_EDGE),
+        "grid" => Ok(VariantSpec {
+            max_edge: GRID_MAX_EDGE,
+            jpeg_quality: GRID_JPEG_QUALITY,
+        }),
+        "library" => Ok(VariantSpec {
+            max_edge: LIBRARY_MAX_EDGE,
+            jpeg_quality: LIBRARY_JPEG_QUALITY,
+        }),
         _ => Err(AppError::keyed_vars(
             "error.media.invalidVariant",
             json!({ "variant": variant }),
@@ -30,6 +40,17 @@ fn max_edge_for_variant(variant: &str) -> Result<u32, AppError> {
 fn is_f95_attachment(url: &str) -> bool {
     let lower = url.to_lowercase();
     lower.contains("f95zone") || lower.contains("attachments")
+}
+
+fn io_err(e: impl ToString) -> AppError {
+    AppError::keyed_vars("error.media.io", json!({ "detail": e.to_string() }))
+}
+
+fn to_full_url(url: &str) -> String {
+    if !url.contains("/thumb/") {
+        return url.to_string();
+    }
+    url.replace("/thumb/", "/")
 }
 
 fn to_thumb_url(full: &str) -> String {
@@ -44,6 +65,27 @@ fn to_thumb_url(full: &str) -> String {
     full.to_string()
 }
 
+fn download_candidates(url: &str, variant: &str) -> Vec<String> {
+    if variant == "library" && is_f95_attachment(url) {
+        let full = to_full_url(url);
+        let mut candidates = vec![full.clone()];
+        let thumb = to_thumb_url(&full);
+        if thumb != full {
+            candidates.push(thumb);
+        }
+        return candidates;
+    }
+
+    let mut candidates = vec![url.to_string()];
+    if variant == "grid" && is_f95_attachment(url) {
+        let thumb = to_thumb_url(url);
+        if thumb != url {
+            candidates.insert(0, thumb);
+        }
+    }
+    candidates
+}
+
 fn cache_path_for_url(cache_root: &Path, url: &str, variant: &str, ext: &str) -> PathBuf {
     let mut hasher = Sha256::new();
     hasher.update(url.as_bytes());
@@ -55,15 +97,19 @@ fn cache_path_for_url(cache_root: &Path, url: &str, variant: &str, ext: &str) ->
         .join(format!("{hash}.{ext}"))
 }
 
-fn encode_grid_jpeg(img: image::DynamicImage, cache_path: &Path) -> Result<(), AppError> {
+fn encode_preview_jpeg(
+    img: image::DynamicImage,
+    cache_path: &Path,
+    max_edge: u32,
+    jpeg_quality: u8,
+) -> Result<(), AppError> {
     if let Some(parent) = cache_path.parent() {
         std::fs::create_dir_all(parent).map_err(io_err)?;
     }
-    let preview = img.thumbnail(GRID_MAX_EDGE, GRID_MAX_EDGE);
+    let preview = img.thumbnail(max_edge, max_edge);
     let rgb = preview.to_rgb8();
     let mut out = std::fs::File::create(cache_path).map_err(io_err)?;
-    let mut encoder =
-        image::codecs::jpeg::JpegEncoder::new_with_quality(&mut out, GRID_JPEG_QUALITY);
+    let mut encoder = image::codecs::jpeg::JpegEncoder::new_with_quality(&mut out, jpeg_quality);
     encoder
         .encode(
             rgb.as_raw(),
@@ -106,7 +152,7 @@ pub async fn resolve(url: &str, variant: &str, cache_root: &Path) -> Result<Stri
         ));
     }
 
-    let max_edge = max_edge_for_variant(variant)?;
+    let spec = variant_spec(variant)?;
 
     let jpg_cache = cache_path_for_url(cache_root, url, variant, "jpg");
     if jpg_cache.is_file() {
@@ -122,13 +168,7 @@ pub async fn resolve(url: &str, variant: &str, cache_root: &Path) -> Result<Stri
             AppError::keyed_vars("error.media.httpClient", json!({ "detail": e.to_string() }))
         })?;
 
-    let mut candidates = vec![url.to_string()];
-    if variant == "grid" && is_f95_attachment(url) {
-        let thumb = to_thumb_url(url);
-        if thumb != url {
-            candidates.insert(0, thumb);
-        }
-    }
+    let candidates = download_candidates(url, variant);
 
     let mut bytes: Option<Vec<u8>> = None;
     let mut last_err: Option<AppError> = None;
@@ -148,6 +188,8 @@ pub async fn resolve(url: &str, variant: &str, cache_root: &Path) -> Result<Stri
     let cache_root = cache_root.to_path_buf();
     let url = url.to_string();
     let variant = variant.to_string();
+    let max_edge = spec.max_edge;
+    let jpeg_quality = spec.jpeg_quality;
 
     tokio::task::spawn_blocking(move || -> Result<String, AppError> {
         let format = image::guess_format(&bytes).map_err(|e| {
@@ -175,7 +217,7 @@ pub async fn resolve(url: &str, variant: &str, cache_root: &Path) -> Result<Stri
             return Ok(jpg_cache.to_string_lossy().into_owned());
         }
 
-        encode_grid_jpeg(img, &jpg_cache)?;
+        encode_preview_jpeg(img, &jpg_cache, max_edge, jpeg_quality)?;
         Ok(jpg_cache.to_string_lossy().into_owned())
     })
     .await
