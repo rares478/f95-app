@@ -1,4 +1,5 @@
-import { Outlet } from 'react-router-dom';
+import { useEffect } from 'react';
+import { Outlet, useNavigate } from 'react-router-dom';
 import { DownloadsProvider } from '../contexts/Downloads';
 import { DownloadSettingsProvider } from '../contexts/DownloadSettings';
 import { StoreSettingsProvider } from '../contexts/StoreSettings';
@@ -11,6 +12,9 @@ import { LaunchingOverlay } from './LaunchingOverlay';
 import { CatalogBootstrap } from './store/CatalogBootstrap';
 import { PrefixCatalogProvider } from '../contexts/PrefixCatalogContext';
 import { TagCatalogProvider } from '../contexts/TagCatalogContext';
+import { tStandalone } from '../lib/i18n';
+import { startTrayActionBridge } from '../lib/trayActions';
+import { startTrayIconSync } from '../lib/tray';
 import type { ProfileDto } from '../types';
 
 interface Props {
@@ -24,6 +28,24 @@ interface Props {
  * the sidebar nav and the routed main content.
  */
 export function AppShell({ profile, onLoggedOut }: Props) {
+  const navigate = useNavigate();
+
+  // Start tray after the main shell mounts — settings DB is ready by then.
+  useEffect(() => startTrayIconSync(tStandalone), []);
+
+  useEffect(
+    () =>
+      startTrayActionBridge({
+        navigate: (to) => {
+          navigate(to);
+        },
+        openChangelog: () => {
+          window.dispatchEvent(new CustomEvent('f95:open-version-modal'));
+        },
+      }),
+    [navigate],
+  );
+
   return (
     <RunningGamesProvider>
       <DownloadSettingsProvider>

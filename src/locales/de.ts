@@ -26,7 +26,10 @@ const de: Record<string, string> = {
   'statusbar.downloading': 'Lädt {name} — {pct}%',
   'statusbar.resolving': '{state}: {name}',
   'statusbar.more': '(+{count} weitere)',
-  'statusbar.versionTitle': 'App-Version',
+  'statusbar.versionTitle': 'App-Version — Klicken für Changelog und Updates',
+  'statusbar.versionModal.title': 'Version & Änderungsprotokoll',
+  'statusbar.versionModal.current': 'Aktuelle Version: v{version}',
+  'statusbar.versionModal.currentUnknown': 'Aktuelle Version: unbekannt',
 
   // ─── Offline mode ───────────────────────────────────────────────────────
   'offline.title': 'Du bist offline',
@@ -77,6 +80,7 @@ const de: Record<string, string> = {
 
   // ─── Common ─────────────────────────────────────────────────────────────
   'common.cancel': 'Abbrechen',
+  'common.close': 'Schließen',
   'common.save': 'Speichern',
   'common.confirm': 'Bestätigen',
   'common.ok': 'OK',
@@ -485,7 +489,16 @@ const de: Record<string, string> = {
   'settings.tray.section': 'Systemtray',
   'settings.tray.hint': 'App im Infobereich behalten. Wenn aktiv, blendet Schließen das Fenster aus, statt die App zu beenden.',
   'settings.tray.enabled': 'Tray-Symbol anzeigen',
+  'tray.menu.label': 'Tray-Menü',
   'tray.show': 'F95 App anzeigen',
+  'tray.library': 'Bibliothek',
+  'tray.recentGames': 'Zuletzt gespielt',
+  'tray.recent.empty': 'Keine kürzlich gespielten Spiele',
+  'tray.recent.loading': 'Laden…',
+  'tray.downloads': 'Downloads',
+  'tray.settings': 'Einstellungen',
+  'tray.changelog': 'Änderungsprotokoll',
+  'tray.checkUpdates': 'Nach Updates suchen',
   'tray.quit': 'Beenden',
 
   'settings.changelog.section': 'Änderungsprotokoll',
