@@ -32,6 +32,14 @@ export function TagCatalogProvider({ children }: { children: ReactNode }) {
     const next = buildTagCatalogFromRecord(record);
     if (next.size === 0) return;
     setCatalog((prev) => {
+      let changed = false;
+      for (const [id, name] of next) {
+        if (prev.get(id) !== name) {
+          changed = true;
+          break;
+        }
+      }
+      if (!changed) return prev;
       const merged = mergeTagCatalogs(prev, next);
       saveTagCatalog(merged);
       return merged;
