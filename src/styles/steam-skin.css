@@ -214,6 +214,11 @@
   border-radius: 2px;
 }
 
+/* Collection folder cards follow the squared Steam corners. */
+:root[data-skin='steam'] .collection-folder {
+  border-radius: 3px;
+}
+
 /* Store & library cards use inline styles → !important required. The
  * border-color override is scoped to :not(:hover) so the accent border
  * highlight on hover (App.css, also !important) keeps working. */
@@ -571,6 +576,69 @@
   overflow: hidden;
   white-space: nowrap;
   text-overflow: ellipsis;
+}
+
+/* Collection groups — collapsible sections like Steam collections. */
+:root[data-skin='steam'] .steam-library-group {
+  margin-bottom: 2px;
+}
+
+:root[data-skin='steam'] .steam-library-group-head {
+  display: flex;
+  align-items: center;
+  gap: 6px;
+  width: 100%;
+  padding: 6px 12px 4px;
+  background: transparent;
+  border: none;
+  border-radius: 0;
+  cursor: pointer;
+  font-family: inherit;
+  font-size: 10px;
+  font-weight: 700;
+  letter-spacing: 0.8px;
+  text-transform: uppercase;
+  color: var(--text-faint);
+  text-align: left;
+  transition: color 0.1s ease;
+}
+
+:root[data-skin='steam'] .steam-library-group-head:hover {
+  color: var(--text-secondary);
+}
+
+:root[data-skin='steam'] .steam-library-group-chevron {
+  display: inline-block;
+  width: 0;
+  height: 0;
+  border-left: 4px solid transparent;
+  border-right: 4px solid transparent;
+  border-top: 5px solid currentColor;
+  transition: transform 0.12s ease;
+  flex-shrink: 0;
+}
+
+:root[data-skin='steam'] .steam-library-group--collapsed .steam-library-group-chevron {
+  transform: rotate(-90deg);
+}
+
+:root[data-skin='steam'] .steam-library-group-name {
+  min-width: 0;
+  overflow: hidden;
+  white-space: nowrap;
+  text-overflow: ellipsis;
+}
+
+:root[data-skin='steam'] .steam-library-group-count {
+  color: var(--text-faint);
+  font-weight: 600;
+  flex-shrink: 0;
+}
+
+:root[data-skin='steam'] .steam-library-group-list {
+  list-style: none;
+  margin: 0;
+  padding: 0;
 }
 
 /* No padding here: each routed page (library home, game detail) brings

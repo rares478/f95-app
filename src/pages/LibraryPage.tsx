@@ -2,6 +2,7 @@ import { useCallback, useEffect, useMemo, useState } from 'react';
 import { useSearchParams } from 'react-router-dom';
 import { LibraryCategoryBar } from '../components/library/LibraryCategoryBar';
 import { LibraryCard } from '../components/library/LibraryCard';
+import { CollectionFolderCard } from '../components/library/CollectionFolderCard';
 import { ContinuePlayingRow } from '../components/library/ContinuePlayingRow';
 import { GameCardGridSkeleton } from '../components/ui/GameCardSkeleton';
 import { parseSamCategory } from '../constants/samCategories';
@@ -11,6 +12,13 @@ import { useSkin } from '../hooks/useSkin';
 import { useT } from '../lib/i18n';
 import { dialog } from '../lib/dialog';
 import * as library from '../lib/library';
+import {
+  COLLECTIONS_CHANGE_EVENT,
+  listCollections,
+  listMemberships,
+  type CollectionMembership,
+  type LibraryCollection,
+} from '../lib/collections';
 import * as updates from '../lib/updates';
 import type {
   InstallStatus,
@@ -54,6 +62,10 @@ export function LibraryPage() {
   const [sort, setSort] = useState<LibrarySort>('added');
   const [error, setError] = useState<string | null>(null);
   const [checking, setChecking] = useState<{ done: number; total: number } | null>(null);
+  const [collections, setCollections] = useState<LibraryCollection[]>([]);
+  const [memberships, setMemberships] = useState<CollectionMembership[]>([]);
+  // Full library snapshot (all categories) feeding the folder mosaics.
+  const [allGames, setAllGames] = useState<LibraryGame[]>([]);
   const setCategory = useCallback(
     (next: SamCategory) => {
       const params = new URLSearchParams(searchParams);
@@ -86,6 +98,55 @@ export function LibraryPage() {
     const t = setTimeout(reload, search ? 200 : 0);
     return () => clearTimeout(t);
   }, [reload, search]);
+
+  // Collections power the folder shelf; refresh whenever they change
+  // anywhere in the app (picker modal, Steam sidebar, collection page).
+  useEffect(() => {
+    let cancelled = false;
+    const load = async () => {
+      try {
+        const [cols, mems, all] = await Promise.all([
+          listCollections(),
+          listMemberships(),
+          library.list({}),
+        ]);
+        if (!cancelled) {
+          setCollections(cols);
+          setMemberships(mems);
+          setAllGames(all);
+        }
+      } catch (err) {
+        console.warn('[collections] load failed', err);
+      }
+    };
+    void load();
+    const onChange = () => {
+      void load();
+    };
+    window.addEventListener(COLLECTIONS_CHANGE_EVENT, onChange);
+    return () => {
+      cancelled = true;
+      window.removeEventListener(COLLECTIONS_CHANGE_EVENT, onChange);
+    };
+  }, []);
+
+  // One folder card per collection, scoped to the active category tab:
+  // mosaic + count only consider members of this content type, and
+  // collections without any member of it are hidden entirely (they show
+  // up as soon as content of the type is associated).
+  const collectionCards = useMemo(() => {
+    if (collections.length === 0) return [];
+    const byId = new Map(allGames.map((g) => [g.threadId, g]));
+    return collections
+      .map((collection) => ({
+        collection,
+        games: memberships
+          .filter((m) => m.collectionId === collection.id)
+          .map((m) => byId.get(m.threadId))
+          .filter((g): g is LibraryGame => g !== undefined && g.category === category),
+      }))
+      .filter((card) => card.games.length > 0);
+  }, [collections, memberships, allGames, category]);
 
   const stats = useMemo(
     () => ({
@@ -229,6 +290,19 @@ export function LibraryPage() {
 
       {error && <div style={errorBox}>{error}</div>}
 
+      {/* Folder shelf — real folders, like Steam collections: click opens
+          the collection page. Hidden while searching to keep results focused. */}
+      {collectionCards.length > 0 && !search.trim() && (
+        <>
+          <h2 style={allGamesHeadingStyle}>{t('library.collections.manageTitle')}</h2>
+          <div className="collection-folder-grid">
+            {collectionCards.map(({ collection, games }) => (
+              <CollectionFolderCard key={collection.id} collection={collection} games={games} />
+            ))}
+          </div>
+        </>
+      )}
+
       {loading && items.length === 0 ? (
         <GameCardGridSkeleton count={8} />
       ) : items.length === 0 ? (
@@ -243,7 +317,7 @@ export function LibraryPage() {
             />
           )}
 
-          {continuePlaying.length > 0 && (
+          {(continuePlaying.length > 0 || collectionCards.length > 0) && (
             <h2 style={allGamesHeadingStyle}>{t('library.section.all')}</h2>
           )}
 

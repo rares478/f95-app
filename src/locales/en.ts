@@ -149,6 +149,20 @@ const en: Record<string, string> = {
   'library.updates.found': '{count} game(s) with updates available.',
   'library.updates.none': 'No updates found.',
   'library.category.nav': 'Library categories',
+
+  'library.collections.manageTitle': 'Collections',
+  'library.collections.empty': 'No collections yet. Create the first one below.',
+  'library.collections.emptyCollection':
+    'This collection is empty. Right-click an item and use "Add to collection…".',
+  'library.collections.notFound': 'Collection not found.',
+  'library.collections.namePlaceholder': 'New collection name',
+  'library.collections.create': 'Create',
+  'library.collections.uncategorized': 'Uncategorized',
+  'library.collections.rename': 'Rename',
+  'library.collections.renamePrompt': 'New collection name:',
+  'library.collections.delete': 'Delete collection',
+  'library.collections.deleteConfirm':
+    'Delete the collection "{name}"? Items stay in your library.',
   'library.empty.games': 'No games in your library.',
   'library.empty.mods': 'No mods in your library.',
   'library.empty.comics': 'No comics in your library.',
@@ -825,6 +839,7 @@ const en: Record<string, string> = {
   'contextMenu.update': 'Update',
   'contextMenu.updateTo': 'Update to {version}',
   'contextMenu.openDetail': 'Open details',
+  'contextMenu.addToCollection': 'Add to collection…',
   'contextMenu.openFolder': 'Open install folder',
   'contextMenu.openMediaViewer': 'Open media viewer',
   'contextMenu.checkUpdate': 'Check for updates',

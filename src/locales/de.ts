@@ -147,6 +147,20 @@ const de: Record<string, string> = {
   'library.updates.found': '{count} Spiel(e) mit verfügbarem Update.',
   'library.updates.none': 'Keine Updates gefunden.',
   'library.category.nav': 'Bibliothekskategorien',
+
+  'library.collections.manageTitle': 'Sammlungen',
+  'library.collections.empty': 'Noch keine Sammlungen. Lege unten die erste an.',
+  'library.collections.emptyCollection':
+    'Diese Sammlung ist leer. Rechtsklicke einen Eintrag und nutze "Zur Sammlung hinzufügen…".',
+  'library.collections.notFound': 'Sammlung nicht gefunden.',
+  'library.collections.namePlaceholder': 'Name der neuen Sammlung',
+  'library.collections.create': 'Erstellen',
+  'library.collections.uncategorized': 'Ohne Sammlung',
+  'library.collections.rename': 'Umbenennen',
+  'library.collections.renamePrompt': 'Neuer Name der Sammlung:',
+  'library.collections.delete': 'Sammlung löschen',
+  'library.collections.deleteConfirm':
+    'Sammlung "{name}" löschen? Die Einträge bleiben in der Bibliothek.',
   'library.empty.games': 'Keine Spiele in der Bibliothek.',
   'library.empty.mods': 'Keine Mods in der Bibliothek.',
   'library.empty.comics': 'Keine Comics in der Bibliothek.',
@@ -819,6 +833,7 @@ const de: Record<string, string> = {
   'contextMenu.update': 'Aktualisieren',
   'contextMenu.updateTo': 'Aktualisieren auf {version}',
   'contextMenu.openDetail': 'Details öffnen',
+  'contextMenu.addToCollection': 'Zur Sammlung hinzufügen…',
   'contextMenu.openFolder': 'Installationsordner öffnen',
   'contextMenu.openMediaViewer': 'Medienviewer öffnen',
   'contextMenu.checkUpdate': 'Auf Updates prüfen',
