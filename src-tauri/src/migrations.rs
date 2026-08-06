@@ -169,3 +169,25 @@ CREATE TABLE rss_seen_guids (
   seen_at  TEXT NOT NULL DEFAULT (datetime('now'))
 );
 "#;
+
+/// v8 adds Steam-style library collections: user-named folders that group
+/// library entries. Membership is N:N — a game can live in any number of
+/// collections (junction rows are removed explicitly on delete since the
+/// SQLite plugin doesn't enable foreign_keys enforcement).
+pub const V8_LIBRARY_COLLECTIONS: &str = r#"
+CREATE TABLE library_collections (
+  id         INTEGER PRIMARY KEY AUTOINCREMENT,
+  name       TEXT NOT NULL,
+  position   INTEGER NOT NULL DEFAULT 0,
+  created_at TEXT NOT NULL DEFAULT (datetime('now'))
+);
+
+CREATE TABLE library_collection_games (
+  collection_id INTEGER NOT NULL,
+  thread_id     TEXT NOT NULL,
+  added_at      TEXT NOT NULL DEFAULT (datetime('now')),
+  PRIMARY KEY (collection_id, thread_id),
+  FOREIGN KEY (collection_id) REFERENCES library_collections(id) ON DELETE CASCADE
+);
+CREATE INDEX idx_collection_games_thread ON library_collection_games(thread_id);
+"#;
