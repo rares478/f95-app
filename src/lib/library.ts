@@ -198,9 +198,21 @@ export async function list(filter: LibraryFilter = {}): Promise<LibraryGame[]> {
     args.push(filter.status);
   }
   if (filter.search) {
-    where.push(`(LOWER(title) LIKE ? OR LOWER(notes) LIKE ?)`);
-    const needle = `%${filter.search.toLowerCase()}%`;
-    args.push(needle, needle);
+    const tokens = filter.search
+      .toLowerCase()
+      .normalize('NFKD')
+      .replace(/[\u0300-\u036f]/g, '')
+      .split(/\s+/)
+      .map((t) => t.trim())
+      .filter((t) => t.length >= 2);
+    const needles = tokens.length > 0 ? tokens : [filter.search.toLowerCase().trim()].filter(Boolean);
+    for (const token of needles) {
+      where.push(
+        `(LOWER(title) LIKE ? OR LOWER(IFNULL(notes, '')) LIKE ? OR LOWER(IFNULL(custom_tags_json, '')) LIKE ?)`,
+      );
+      const needle = `%${token}%`;
+      args.push(needle, needle, needle);
+    }
   }
   const orderBy = sortClause(filter.sort ?? 'added');
   const sql =

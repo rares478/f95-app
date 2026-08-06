@@ -353,7 +353,7 @@ function TagFilterInput({
   max: number;
 }) {
   const { t } = useT();
-  const { catalog } = useTagCatalog();
+  const { catalog, setFromRecord } = useTagCatalog();
   const [query, setQuery] = useState('');
   const [suggestions, setSuggestions] = useState<SamTag[]>([]);
   const [loading, setLoading] = useState(false);
@@ -369,16 +369,31 @@ function TagFilterInput({
 
   const localSuggestions = useMemo(() => {
     const q = query.trim().toLowerCase();
-    if (!q) return [];
-    const out: SamTag[] = [];
+    const tokens = q ? q.split(/\s+/).filter(Boolean) : [];
+    const scored: { tag: SamTag; score: number }[] = [];
+
     for (const [id, name] of catalog) {
       if (selectedIds.has(id)) continue;
-      if (name.toLowerCase().includes(q)) {
-        out.push({ id, name });
-        if (out.length >= 24) break;
+      const lower = name.toLowerCase();
+      let score = 0;
+      if (!q) {
+        score = 1;
+      } else if (lower === q) {
+        score = 100;
+      } else if (lower.startsWith(q)) {
+        score = 80;
+      } else if (lower.includes(q)) {
+        score = 50;
+      } else if (tokens.length > 0 && tokens.every((t) => lower.includes(t))) {
+        score = 40;
+      } else {
+        continue;
       }
+      scored.push({ tag: { id, name }, score });
     }
-    return out;
+
+    scored.sort((a, b) => b.score - a.score || a.tag.name.localeCompare(b.tag.name));
+    return scored.slice(0, q ? 24 : 20).map((s) => s.tag);
   }, [catalog, query, selectedIds]);
 
   useEffect(() => {
@@ -389,11 +404,22 @@ function TagFilterInput({
 
   useEffect(() => {
     if (!open) return;
+
+    // Instant local results while the remote request is in flight / fails.
+    setSuggestions(localSuggestions);
+
+    let cancelled = false;
     const tmr = setTimeout(() => {
       setLoading(true);
       ipc
         .samTagSearch(category, query)
         .then((rows) => {
+          if (cancelled) return;
+          if (rows.length > 0) {
+            const record: Record<string, string> = {};
+            for (const tag of rows) record[String(tag.id)] = tag.name;
+            setFromRecord(record);
+          }
           const merged = new Map<number, SamTag>();
           for (const tag of rows) {
             if (!selectedIds.has(tag.id)) merged.set(tag.id, tag);
@@ -405,23 +431,18 @@ function TagFilterInput({
         })
         .catch((err) => {
           console.warn('[filter] tag search failed', err);
-          setSuggestions([]);
+          if (!cancelled) setSuggestions(localSuggestions);
         })
-        .finally(() => setLoading(false));
-    }, query ? 220 : 0);
-    return () => clearTimeout(tmr);
-  }, [category, query, open, selectedIds, localSuggestions]);
+        .finally(() => {
+          if (!cancelled) setLoading(false);
+        });
+    }, query.trim() ? 220 : 0);
 
-  useEffect(() => {
-    if (!open || query.trim()) return;
-    const popular: SamTag[] = [];
-    for (const [id, name] of catalog) {
-      if (selectedIds.has(id)) continue;
-      popular.push({ id, name });
-      if (popular.length >= 20) break;
-    }
-    setSuggestions(popular);
-  }, [open, query, catalog, selectedIds]);
+    return () => {
+      cancelled = true;
+      clearTimeout(tmr);
+    };
+  }, [category, query, open, selectedIds, localSuggestions, setFromRecord]);
 
   const updateMenuPosition = useCallback(() => {
     const input = inputRef.current;
