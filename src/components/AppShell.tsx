@@ -6,8 +6,10 @@ import { StoreSettingsProvider } from '../contexts/StoreSettings';
 import { RunningGamesProvider } from '../contexts/RunningGames';
 import { NotificationsProvider } from '../contexts/Notifications';
 import { Sidebar } from './Sidebar';
+import { SteamTopNav } from './SteamTopNav';
 import { TitleBar } from './TitleBar';
 import { StatusBar } from './StatusBar';
+import { useSkin } from '../hooks/useSkin';
 import { LaunchingOverlay } from './LaunchingOverlay';
 import { CatalogBootstrap } from './store/CatalogBootstrap';
 import { PrefixCatalogProvider } from '../contexts/PrefixCatalogContext';
@@ -29,6 +31,8 @@ interface Props {
  */
 export function AppShell({ profile, onLoggedOut }: Props) {
   const navigate = useNavigate();
+  // Steam skin swaps the left sidebar for a Steam-style top nav.
+  const steamNav = useSkin() === 'steam';
 
   // Start tray after the main shell mounts — settings DB is ready by then.
   useEffect(() => startTrayIconSync(tStandalone), []);
@@ -57,8 +61,9 @@ export function AppShell({ profile, onLoggedOut }: Props) {
                 <CatalogBootstrap />
                 <div style={rootStyle} className="app-shell">
                   <TitleBar />
+                  {steamNav && <SteamTopNav profile={profile} />}
                   <div style={bodyStyle} className="app-shell-body">
-                    <Sidebar profile={profile} />
+                    {!steamNav && <Sidebar profile={profile} />}
                     <main style={contentStyle} className="app-main">
                       <Outlet context={{ profile, onLoggedOut }} />
                     </main>
