@@ -147,6 +147,20 @@ const ru: Record<string, string> = {
   'library.updates.found': '{count} игр(ы) с доступными обновлениями.',
   'library.updates.none': 'Обновлений не найдено.',
   'library.category.nav': 'Категории библиотеки',
+
+  'library.collections.manageTitle': 'Коллекции',
+  'library.collections.empty': 'Коллекций пока нет. Создайте первую ниже.',
+  'library.collections.emptyCollection':
+    'Эта коллекция пуста. Щёлкните элемент правой кнопкой и выберите «Добавить в коллекцию…».',
+  'library.collections.notFound': 'Коллекция не найдена.',
+  'library.collections.namePlaceholder': 'Название новой коллекции',
+  'library.collections.create': 'Создать',
+  'library.collections.uncategorized': 'Без коллекции',
+  'library.collections.rename': 'Переименовать',
+  'library.collections.renamePrompt': 'Новое название коллекции:',
+  'library.collections.delete': 'Удалить коллекцию',
+  'library.collections.deleteConfirm':
+    'Удалить коллекцию «{name}»? Элементы останутся в библиотеке.',
   'library.empty.games': 'В библиотеке нет игр.',
   'library.empty.mods': 'В библиотеке нет модов.',
   'library.empty.comics': 'В библиотеке нет комиксов.',
@@ -819,6 +833,7 @@ const ru: Record<string, string> = {
   'contextMenu.update': 'Обновить',
   'contextMenu.updateTo': 'Обновить до {version}',
   'contextMenu.openDetail': 'Открыть детали',
+  'contextMenu.addToCollection': 'Добавить в коллекцию…',
   'contextMenu.openFolder': 'Открыть папку установки',
   'contextMenu.openMediaViewer': 'Открыть просмотр медиа',
   'contextMenu.checkUpdate': 'Проверить обновления',

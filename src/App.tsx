@@ -32,6 +32,7 @@ import './styles/settings-changelog.css';
 import './styles/version-info-modal.css';
 import './styles/nav-accent.css';
 import './styles/custom-video-fullscreen.css';
+import './styles/collections.css';
 
 type AppWindowKind = 'login' | 'main' | 'overlay' | 'overlay-hint' | 'tray-menu';
 
