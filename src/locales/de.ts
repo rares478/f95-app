@@ -274,6 +274,10 @@ const de: Record<string, string> = {
   'settings.theme.hint': 'Wird sofort angewendet. Die Auswahl bleibt für den nächsten Start gespeichert.',
   'settings.theme.active': 'AKTIV',
 
+  'settings.skin.section': 'App-Stil',
+  'settings.skin.hint':
+    'Ändert Struktur und Layout der App (Menü, Shop und Bibliothek), behält aber die Farben des oben gewählten Designs.',
+
   'settings.store.section': 'Shop',
   'settings.store.hint': 'Wie Ergebnisse im Shop-Tab durchblättert werden.',
   'settings.store.infinite': 'Unendliches Scrollen',
