@@ -33,6 +33,7 @@ import './styles/version-info-modal.css';
 import './styles/nav-accent.css';
 import './styles/custom-video-fullscreen.css';
 import './styles/collections.css';
+import './styles/profile.css';
 
 type AppWindowKind = 'login' | 'main' | 'overlay' | 'overlay-hint' | 'tray-menu';
 
