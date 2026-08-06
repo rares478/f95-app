@@ -277,6 +277,10 @@ const en: Record<string, string> = {
   'settings.theme.hint': 'Applied immediately. Saved and restored on next launch.',
   'settings.theme.active': 'ACTIVE',
 
+  'settings.skin.section': 'App style',
+  'settings.skin.hint':
+    'Changes the app structure and layout (menu, store and library) while keeping the colors of the theme selected above.',
+
   'settings.store.section': 'Store',
   'settings.store.hint': 'How to browse results on the Store tab.',
   'settings.store.infinite': 'Infinite scroll',

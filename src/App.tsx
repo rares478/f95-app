@@ -22,6 +22,7 @@ import { runStartupUpdateCheck } from './lib/appUpdater';
 import { tStandalone } from './lib/i18n';
 import type { ProfileDto } from './types';
 import './App.css';
+import './styles/steam-skin.css';
 import './styles/store-filter.css';
 import './styles/offline.css';
 import './styles/context-menu.css';
@@ -61,8 +62,12 @@ function App() {
 
   useEffect(() => {
     (async () => {
-      const saved = await theme.loadSavedTheme();
-      theme.applyTheme(saved);
+      const [savedTheme, savedSkin] = await Promise.all([
+        theme.loadSavedTheme(),
+        theme.loadSavedSkin(),
+      ]);
+      theme.applyTheme(savedTheme);
+      theme.applySkin(savedSkin);
       setThemeReady(true);
     })();
   }, []);

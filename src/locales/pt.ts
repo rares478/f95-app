@@ -276,6 +276,10 @@ const pt: Record<string, string> = {
   'settings.theme.hint': 'Aplica imediatamente. A escolha fica salva e volta no próximo launch.',
   'settings.theme.active': 'ATIVO',
 
+  'settings.skin.section': 'Estilo do aplicativo',
+  'settings.skin.hint':
+    'Muda a estrutura e o layout do app (menu, loja e biblioteca) mantendo as cores do tema selecionado acima.',
+
   'settings.store.section': 'Loja',
   'settings.store.hint': 'Como navegar pelos resultados na aba Loja.',
   'settings.store.infinite': 'Rolagem infinita',

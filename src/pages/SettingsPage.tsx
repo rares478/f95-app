@@ -13,7 +13,7 @@ import { useT, LOCALES, type Locale } from '../lib/i18n';
 import { execute, query } from '../lib/db';
 import { clearCredentials } from '../lib/stronghold';
 import type { InstallLibraryWithDisk } from '../types/install-library';
-import type { ThemeId } from '../lib/theme';
+import type { SkinId, ThemeId } from '../lib/theme';
 import { useDownloadSettings } from '../contexts/DownloadSettings';
 import { useStoreSettings } from '../contexts/StoreSettings';
 import type { StoreScrollMode } from '../lib/storeSettings';
@@ -123,6 +123,7 @@ export function SettingsPage({ onLoggedOut: _onLoggedOut }: Props) {
   const [libsLoading, setLibsLoading] = useState(true);
   const [activeSection, setActiveSection] = useState<SettingsSectionId>('appearance');
   const [activeTheme, setActiveTheme] = useState<ThemeId>(theme.currentTheme());
+  const [activeSkin, setActiveSkin] = useState<SkinId>(theme.currentSkin());
   const [gofileToken, setGofileToken] = useState('');
   const [gofileAccountId, setGofileAccountId] = useState('');
   const [gofileSaved, setGofileSaved] = useState<{ token: string | null; accountId: string | null }>({
@@ -772,6 +773,15 @@ export function SettingsPage({ onLoggedOut: _onLoggedOut }: Props) {
     }
   }
 
+  async function onPickSkin(id: SkinId) {
+    setActiveSkin(id);
+    try {
+      await theme.setSkin(id);
+    } catch (err) {
+      console.warn('[skin] persist failed', err);
+    }
+  }
+
   async function onPickLocale(id: Locale) {
     try {
       await setLocale(id);
@@ -917,6 +927,76 @@ export function SettingsPage({ onLoggedOut: _onLoggedOut }: Props) {
                         {selected && <span className="settings-pill">{t('settings.theme.active')}</span>}
                       </div>
                       <span className="settings-theme-desc">{th.description}</span>
+                    </button>
+                  );
+                })}
+              </div>
+            </div>
+
+            <div className="settings-card">
+              <h3 className="settings-card-title">{t('settings.skin.section')}</h3>
+              <p className="settings-card-hint">{t('settings.skin.hint')}</p>
+              <div className="settings-theme-grid">
+                {theme.SKINS.map((sk) => {
+                  const selected = sk.id === activeSkin;
+                  const isSteam = sk.id === 'steam';
+                  return (
+                    <button
+                      key={sk.id}
+                      type="button"
+                      className={`settings-theme-card${selected ? ' settings-theme-card-active' : ''}`}
+                      onClick={() => onPickSkin(sk.id)}
+                      title={sk.description}
+                    >
+                      {/* Mini mockup drawn with the ACTIVE theme's variables, so it
+                          shows how each skin looks with the colors picked above. */}
+                      <div
+                        className="settings-theme-swatch"
+                        style={{
+                          background: 'var(--bg-base)',
+                          border: '1px solid var(--border)',
+                        }}
+                      >
+                        <div
+                          className="settings-theme-swatch-inner"
+                          style={{
+                            background: isSteam
+                              ? 'linear-gradient(180deg, color-mix(in srgb, var(--bg-elevated) 96%, #fff), color-mix(in srgb, var(--bg-elevated) 93%, #000))'
+                              : 'var(--bg-elevated)',
+                            border: isSteam
+                              ? '1px solid color-mix(in srgb, var(--border) 65%, #000)'
+                              : '1px solid var(--border)',
+                            borderRadius: isSteam ? 2 : 10,
+                          }}
+                        >
+                          <span
+                            style={{
+                              color: 'var(--text-secondary)',
+                              fontFamily: isSteam
+                                ? "'Motiva Sans', Arial, 'Segoe UI', sans-serif"
+                                : undefined,
+                            }}
+                          >
+                            Aa
+                          </span>
+                          <span
+                            style={{
+                              width: 34,
+                              height: 13,
+                              flexShrink: 0,
+                              borderRadius: isSteam ? 2 : 999,
+                              background: isSteam
+                                ? 'linear-gradient(90deg, color-mix(in srgb, var(--accent) 78%, #fff), color-mix(in srgb, var(--accent) 80%, #000))'
+                                : 'var(--accent)',
+                            }}
+                          />
+                        </div>
+                      </div>
+                      <div className="settings-theme-meta">
+                        <strong>{sk.label}</strong>
+                        {selected && <span className="settings-pill">{t('settings.theme.active')}</span>}
+                      </div>
+                      <span className="settings-theme-desc">{sk.description}</span>
                     </button>
                   );
                 })}
