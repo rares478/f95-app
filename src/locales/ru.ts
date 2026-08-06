@@ -26,7 +26,10 @@ const ru: Record<string, string> = {
   'statusbar.downloading': 'Загрузка {name} — {pct}%',
   'statusbar.resolving': '{state}: {name}',
   'statusbar.more': '(+{count} ещё)',
-  'statusbar.versionTitle': 'Версия приложения',
+  'statusbar.versionTitle': 'Версия приложения — нажмите для списка изменений и обновлений',
+  'statusbar.versionModal.title': 'Версия и список изменений',
+  'statusbar.versionModal.current': 'Текущая версия: v{version}',
+  'statusbar.versionModal.currentUnknown': 'Текущая версия: неизвестна',
 
   // ─── Offline mode ───────────────────────────────────────────────────────
   'offline.title': 'Вы offline',
@@ -77,6 +80,7 @@ const ru: Record<string, string> = {
 
   // ─── Common ─────────────────────────────────────────────────────────────
   'common.cancel': 'Отмена',
+  'common.close': 'Закрыть',
   'common.save': 'Сохранить',
   'common.confirm': 'Подтвердить',
   'common.ok': 'ОК',
@@ -485,7 +489,16 @@ const ru: Record<string, string> = {
   'settings.tray.section': 'Системный трей',
   'settings.tray.hint': 'Держать приложение в области уведомлений. При включении закрытие окна скрывает приложение вместо выхода.',
   'settings.tray.enabled': 'Показывать значок в трее',
+  'tray.menu.label': 'Меню трея',
   'tray.show': 'Показать F95 App',
+  'tray.library': 'Библиотека',
+  'tray.recentGames': 'Недавние игры',
+  'tray.recent.empty': 'Нет недавних игр',
+  'tray.recent.loading': 'Загрузка…',
+  'tray.downloads': 'Загрузки',
+  'tray.settings': 'Настройки',
+  'tray.changelog': 'Список изменений',
+  'tray.checkUpdates': 'Проверить обновления',
   'tray.quit': 'Выйти',
 
   'settings.changelog.section': 'Список изменений',
