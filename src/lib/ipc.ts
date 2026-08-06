@@ -5,7 +5,7 @@ import type { SamCategory } from '../types/sam';
 import type { GameDetail } from '../types/game';
 import type { CbzPreviewResult, InstallMediaIndex } from '../types/media';
 import type { F95AlertsListResult, F95AlertsPopupResult } from '../types/alerts';
-import type { FollowedUser } from '../types/social';
+import type { FollowedUser, MemberProfileDto } from '../types/social';
 import type { RssFeed, RssFeedOptions } from '../types/rss';
 import type { RunningInfo } from '../types/session';
 import type {
@@ -67,6 +67,10 @@ export async function getFollowing(): Promise<FollowedUser[]> {
 
 export async function getProfile(): Promise<ProfileDto> {
   return invoke<ProfileDto>('get_profile');
+}
+
+export async function getMemberProfile(userId: string): Promise<MemberProfileDto> {
+  return invoke<MemberProfileDto>('get_member_profile', { userId });
 }
 
 export async function fetchRssFeed(options: RssFeedOptions = {}): Promise<RssFeed> {

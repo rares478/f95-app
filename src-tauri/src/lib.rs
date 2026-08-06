@@ -26,7 +26,8 @@ use commands::{
     default_downloads_path, delete_install_dir, delete_path, disk_info, download_cancel,
     download_continue_captcha, download_continue_choice, download_start, extract_archive,
     extract_cbz_preview, fetch_alerts_list, fetch_alerts_popup, fetch_rss_feed, game_detail,
-    get_following, get_profile, has_local_session, init_overlay_windows, is_logged_in, launch_game,
+    get_following, get_member_profile, get_profile, has_local_session, init_overlay_windows,
+    is_logged_in, launch_game,
     login, login_mega, login_uploadhaven, logout, migrate_saves, move_install_cancel,
     move_install_start, open_captcha_window, overlay_clear_context, overlay_ensure,
     overlay_get_anchor_status, overlay_get_context, overlay_get_game_hint_payload, overlay_hide,
@@ -142,6 +143,7 @@ pub fn run() {
         .invoke_handler(tauri::generate_handler![
             login,
             get_profile,
+            get_member_profile,
             is_logged_in,
             has_local_session,
             check_network,
