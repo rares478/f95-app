@@ -274,6 +274,10 @@ const ru: Record<string, string> = {
   'settings.theme.hint': 'Применяется сразу. Выбор сохраняется и восстанавливается при следующем запуске.',
   'settings.theme.active': 'АКТИВНА',
 
+  'settings.skin.section': 'Стиль приложения',
+  'settings.skin.hint':
+    'Меняет структуру и раскладку приложения (меню, магазин и библиотека), сохраняя цвета выбранной выше темы.',
+
   'settings.store.section': 'Магазин',
   'settings.store.hint': 'Как листать результаты на вкладке Магазин.',
   'settings.store.infinite': 'Бесконечная прокрутка',

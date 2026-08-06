@@ -101,10 +101,13 @@ export function OverlayHintRoot() {
   }, []);
 
   useEffect(() => {
-    void theme.loadSavedTheme().then((saved) => {
-      theme.applyTheme(saved);
-      setThemeReady(true);
-    });
+    void Promise.all([theme.loadSavedTheme(), theme.loadSavedSkin()]).then(
+      ([savedTheme, savedSkin]) => {
+        theme.applyTheme(savedTheme);
+        theme.applySkin(savedSkin);
+        setThemeReady(true);
+      },
+    );
   }, []);
 
   if (!themeReady && !payload && !errorMessage) return null;
