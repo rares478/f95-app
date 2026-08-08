@@ -5,14 +5,15 @@
 Generate once (do not commit the private key):
 
 ```bash
-# Prefer no password so CI does not need TAURI_SIGNING_PRIVATE_KEY_PASSWORD
-npm run tauri signer generate -- -w ~/.tauri/f95-app.key --ci
+# With a password (recommended for this repo — also set TAURI_SIGNING_PRIVATE_KEY_PASSWORD)
+npm run tauri signer generate -- -w ~/.tauri/f95-app.key -p 'YOUR_PASSWORD' -f --ci
 ```
 
 - Put the **public** key contents into `src-tauri/tauri.conf.json` → `plugins.updater.pubkey`.
-- Store only the private key as a GitHub Actions secret:
+- Store GitHub Actions secrets:
   - `TAURI_SIGNING_PRIVATE_KEY` — full file contents of the private key
-- **Do not** create `TAURI_SIGNING_PRIVATE_KEY_PASSWORD` unless you generated the key with a real password. GitHub cannot store an empty secret; a space/placeholder will fail with “Wrong password for that key”.
+  - `TAURI_SIGNING_PRIVATE_KEY_PASSWORD` — the password used when generating the key
+- Changing the pubkey requires a new app build; already-installed versions with the old pubkey cannot verify updates signed by the new key (one-time manual install).
 
 ## Release procedure
 
