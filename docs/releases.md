@@ -51,7 +51,7 @@ The workflow creates a **draft** GitHub Release with Windows installers and upda
 
 ### 5. Verify `latest.json`
 
-Confirm the release includes `latest.json` and that it is reachable at the configured updater endpoint:
+Confirm the release includes `latest.json` and that it is reachable at the configured updater endpoint. The workflow sets `updaterJsonPreferNsis: true` so Windows updates prefer NSIS over MSI when both are built:
 
 `https://github.com/rares478/f95-app/releases/latest/download/latest.json`
 
