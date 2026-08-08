@@ -25,8 +25,6 @@ import {
   GameDetailMain,
   GameDetailShell,
   GameDetailSection,
-  GameDetailStat,
-  GameDetailStatGrid,
   GameDetailTag,
   GameDetailTagList,
   GameDetailAside,
@@ -306,17 +304,6 @@ function GameDetailPageInner() {
           </>
         }
       />
-
-      {(g.fields['Developer'] || g.fields['Publisher']) && (
-        <GameDetailStatGrid>
-          {g.fields['Developer'] && (
-            <GameDetailStat label={t('gamedetail.field.developer')} value={g.fields['Developer']} />
-          )}
-          {g.fields['Publisher'] && (
-            <GameDetailStat label={t('gamedetail.field.publisher')} value={g.fields['Publisher']} />
-          )}
-        </GameDetailStatGrid>
-      )}
 
       <GameDetailBody>
         <GameDetailMain>
