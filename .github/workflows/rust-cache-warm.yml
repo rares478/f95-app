@@ -1,0 +1,39 @@
+# Warm the Windows Rust cache on `main` so tag-triggered release jobs
+# can restore it (GitHub only shares caches from the default branch to tags).
+name: rust-cache-warm
+
+on:
+  push:
+    branches: [main]
+    paths:
+      - 'src-tauri/Cargo.lock'
+      - 'src-tauri/Cargo.toml'
+      - 'src-tauri/src/**'
+      - 'src-tauri/build.rs'
+      - 'src-tauri/capabilities/**'
+      - 'src-tauri/tauri.conf.json'
+      - '.github/workflows/rust-cache-warm.yml'
+      - '.github/workflows/release.yml'
+  workflow_dispatch:
+
+jobs:
+  warm:
+    runs-on: windows-latest
+    steps:
+      - uses: actions/checkout@v4
+
+      - name: Install Rust stable
+        uses: dtolnay/rust-toolchain@stable
+
+      - name: Rust cache
+        uses: swatinem/rust-cache@v2
+        with:
+          workspaces: './src-tauri -> target'
+          # Must match release.yml so tag builds can restore this cache.
+          shared-key: 'windows-tauri'
+          cache-on-failure: true
+
+      # Release profile matches `tauri build` (not `cargo check` / debug).
+      - name: Warm release build
+        working-directory: src-tauri
+        run: cargo build --release

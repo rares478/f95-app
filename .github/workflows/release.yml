@@ -50,6 +50,8 @@ jobs:
         uses: swatinem/rust-cache@v2
         with:
           workspaces: './src-tauri -> target'
+          # Shared with rust-cache-warm.yml (main) so tag releases can restore it.
+          shared-key: 'windows-tauri'
 
       - name: Use published browser-rest-api for sidecar
         shell: pwsh
