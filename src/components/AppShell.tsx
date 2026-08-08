@@ -9,6 +9,7 @@ import { Sidebar } from './Sidebar';
 import { TitleBar } from './TitleBar';
 import { StatusBar } from './StatusBar';
 import { LaunchingOverlay } from './LaunchingOverlay';
+import { AppUpdateBootstrap } from './AppUpdateBootstrap';
 import { CatalogBootstrap } from './store/CatalogBootstrap';
 import { PrefixCatalogProvider } from '../contexts/PrefixCatalogContext';
 import { TagCatalogProvider } from '../contexts/TagCatalogContext';
@@ -35,6 +36,7 @@ export function AppShell({ profile, onLoggedOut }: Props) {
             <TagCatalogProvider>
               <PrefixCatalogProvider>
                 <CatalogBootstrap />
+                <AppUpdateBootstrap />
                 <div style={rootStyle} className="app-shell">
                   <TitleBar />
                   <div style={bodyStyle} className="app-shell-body">
