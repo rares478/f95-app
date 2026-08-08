@@ -33,6 +33,17 @@ jobs:
           shared-key: 'windows-tauri'
           cache-on-failure: true
 
+      # tauri-build validates bundle.resources paths exist even for plain cargo.
+      # Stubs are enough to compile Rust; release.yml builds the real sidecar.
+      - name: Stub sidecar resources
+        shell: pwsh
+        working-directory: src-tauri
+        run: |
+          New-Item -ItemType Directory -Force -Path sidecar/dist/node_modules, sidecar/dist/ms-playwright | Out-Null
+          Set-Content -Path sidecar/dist/bundle.cjs -Value '// cache-warm stub'
+          # Empty file is enough for the existence check (not executed).
+          New-Item -ItemType File -Force -Path sidecar/dist/node.exe | Out-Null
+
       # Release profile matches `tauri build` (not `cargo check` / debug).
       - name: Warm release build
         working-directory: src-tauri
