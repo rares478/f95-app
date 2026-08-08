@@ -15,6 +15,7 @@ export function ScreenshotGallery({ images }: Props) {
   const [selectedIndex, setSelectedIndex] = useState(0);
   const [openIndex, setOpenIndex] = useState<number | null>(null);
   const thumbRefs = useRef<(HTMLButtonElement | null)[]>([]);
+  const stripRef = useRef<HTMLDivElement | null>(null);
 
   useEffect(() => {
     setSelectedIndex((i) => clampGalleryIndex(i, images.length));
@@ -53,9 +54,16 @@ export function ScreenshotGallery({ images }: Props) {
   }, [openIndex, selectedIndex, images]);
 
   useEffect(() => {
-    const el = thumbRefs.current[selectedIndex];
-    if (!el) return;
-    el.scrollIntoView({ behavior: 'smooth', inline: 'nearest', block: 'nearest' });
+    const strip = stripRef.current;
+    const thumb = thumbRefs.current[selectedIndex];
+    if (!strip || !thumb) return;
+    const thumbTop = thumb.offsetTop;
+    const thumbBottom = thumbTop + thumb.offsetHeight;
+    if (thumbTop < strip.scrollTop) {
+      strip.scrollTo({ top: thumbTop, behavior: 'smooth' });
+    } else if (thumbBottom > strip.scrollTop + strip.clientHeight) {
+      strip.scrollTo({ top: thumbBottom - strip.clientHeight, behavior: 'smooth' });
+    }
   }, [selectedIndex]);
 
   if (images.length === 0) return null;
@@ -74,14 +82,19 @@ export function ScreenshotGallery({ images }: Props) {
           <LazyRemoteImage
             src={featuredSrc}
             previewSrc={toF95ThumbUrl(featuredSrc)}
-            upgrade="grid"
+            upgrade="full"
+            priority={0}
             className="game-detail-screenshot-img"
             rootMargin="80px 0px"
           />
         </button>
 
         {images.length > 1 && (
-          <div className="game-detail-screenshot-strip" role="list">
+          <div
+            ref={stripRef}
+            className="game-detail-screenshot-strip"
+            role="list"
+          >
             {images.map((src, i) => (
               <button
                 key={`${i}-${src}`}
@@ -102,7 +115,7 @@ export function ScreenshotGallery({ images }: Props) {
                 <LazyRemoteImage
                   src={src}
                   previewSrc={toF95ThumbUrl(src)}
-                  upgrade="grid"
+                  upgrade="none"
                   className="game-detail-screenshot-img"
                   rootMargin="80px 0px"
                 />

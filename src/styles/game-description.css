@@ -109,19 +109,26 @@
 
 .game-detail-screenshot-gallery {
   display: flex;
-  flex-direction: column;
+  flex-direction: row;
+  align-items: stretch;
   gap: 10px;
+  width: 100%;
+  height: min(400px, 50vh);
+  min-height: 240px;
 }
 
 .game-detail-screenshot-stage {
+  flex: 1 1 auto;
+  min-width: 0;
+  min-height: 0;
+  height: auto;
+  display: block;
   padding: 0;
   border: 1px solid var(--border);
   background: var(--bg-sunken);
   border-radius: 4px;
   cursor: zoom-in;
   overflow: hidden;
-  aspect-ratio: 16 / 9;
-  width: 100%;
   transition: border-color 0.12s ease;
 }
 
@@ -130,11 +137,18 @@
 }
 
 .game-detail-screenshot-strip {
+  box-sizing: border-box;
+  width: 112px;
+  flex: 0 0 112px;
+  min-height: 0;
+  max-height: 100%;
   display: flex;
+  flex-direction: column;
   gap: 8px;
-  overflow-x: auto;
-  overflow-y: hidden;
-  padding-bottom: 2px;
+  overflow-x: hidden;
+  overflow-y: auto;
+  overscroll-behavior: contain;
+  padding-right: 2px;
   scrollbar-width: thin;
 }
 
@@ -146,10 +160,8 @@
   cursor: pointer;
   overflow: hidden;
   aspect-ratio: 16 / 9;
-  width: 104px;
+  width: 100%;
   flex: 0 0 auto;
-  content-visibility: auto;
-  contain-intrinsic-size: 104px 58px;
   transition: border-color 0.12s ease, transform 0.12s ease, opacity 0.12s ease;
   opacity: 0.72;
 }
@@ -175,6 +187,11 @@
   pointer-events: none;
 }
 
+.game-detail-screenshot-stage .game-detail-screenshot-img {
+  object-fit: contain;
+  background: var(--bg-sunken);
+}
+
 .game-detail-screenshot-img--placeholder,
 .lazy-remote-image__placeholder {
   display: block;
@@ -182,6 +199,36 @@
   height: 100%;
   min-height: 90px;
   background: var(--bg-hover);
+}
+
+@media (max-width: 720px) {
+  .game-detail-screenshot-gallery {
+    flex-direction: column;
+    height: auto;
+    min-height: 0;
+  }
+
+  .game-detail-screenshot-stage {
+    width: 100%;
+    height: auto;
+    aspect-ratio: 16 / 9;
+    max-height: min(320px, 45vh);
+  }
+
+  .game-detail-screenshot-strip {
+    width: 100%;
+    flex: 0 0 auto;
+    max-height: none;
+    flex-direction: row;
+    overflow-x: auto;
+    overflow-y: hidden;
+    padding-right: 0;
+    padding-bottom: 2px;
+  }
+
+  .game-detail-screenshot-thumb {
+    width: 104px;
+  }
 }
 
 .lazy-remote-image {
