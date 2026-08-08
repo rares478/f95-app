@@ -66,6 +66,7 @@
   "bundle": {
     "active": true,
     "targets": "all",
+    "createUpdaterArtifacts": true,
     "publisher": "F95 App",
     "copyright": "Copyright © 2026 F95 App",
     "category": "Utility",
@@ -107,6 +108,17 @@
         "language": ["en-US", "pt-BR"],
         "bannerPath": "windows/installer/wix-banner.bmp",
         "dialogImagePath": "windows/installer/wix-dialog.bmp"
+      }
+    }
+  },
+  "plugins": {
+    "updater": {
+      "pubkey": "REPLACE_WITH_TAURI_UPDATER_PUBLIC_KEY",
+      "endpoints": [
+        "https://github.com/rares478/f95-app/releases/latest/download/latest.json"
+      ],
+      "windows": {
+        "installMode": "passive"
       }
     }
   }
