@@ -40,9 +40,11 @@ Pushing a `v*.*.*` tag starts `.github/workflows/release.yml`. You can also run 
 | Secret | Purpose |
 | --- | --- |
 | `TAURI_SIGNING_PRIVATE_KEY` | Private key for updater artifact signatures |
-| `TAURI_SIGNING_PRIVATE_KEY_PASSWORD` | Key password (use an empty string secret if none) |
+| `TAURI_SIGNING_PRIVATE_KEY_PASSWORD` | Only if the key was generated with a password (omit otherwise) |
 
 `GITHUB_TOKEN` is provided by Actions. Repo **Settings → Actions → General → Workflow permissions** must allow **Read and write** so the job can create draft releases and upload assets.
+
+Tag builds restore the Windows Rust cache from `main`. That cache is warmed by `.github/workflows/rust-cache-warm.yml` (pushes to `main` that touch `src-tauri`, or **Actions → rust-cache-warm → Run workflow**). Both workflows use `shared-key: windows-tauri`.
 
 ### 4. Publish the draft release
 
