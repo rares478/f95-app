@@ -1,7 +1,8 @@
-import { useEffect, useState } from 'react';
+import { useEffect, useRef, useState } from 'react';
 import { useT } from '../../lib/i18n';
 import { toF95ThumbUrl } from '../../lib/f95ImageUrl';
 import { prefetchRemoteImage } from '../../lib/remoteImageQueue';
+import { clampGalleryIndex } from '../../lib/screenshotGalleryIndex';
 import { LazyRemoteImage } from './LazyRemoteImage';
 import '../../styles/game-description.css';
 
@@ -11,17 +12,34 @@ interface Props {
 
 export function ScreenshotGallery({ images }: Props) {
   const { t } = useT();
+  const [selectedIndex, setSelectedIndex] = useState(0);
   const [openIndex, setOpenIndex] = useState<number | null>(null);
+  const thumbRefs = useRef<(HTMLButtonElement | null)[]>([]);
+
+  useEffect(() => {
+    setSelectedIndex((i) => clampGalleryIndex(i, images.length));
+    setOpenIndex((i) => (i === null ? null : clampGalleryIndex(i, images.length)));
+  }, [images.length]);
 
   useEffect(() => {
     if (openIndex === null) return;
     function onKey(e: KeyboardEvent) {
       if (e.key === 'Escape') setOpenIndex(null);
       if (e.key === 'ArrowRight') {
-        setOpenIndex((i) => (i === null ? null : Math.min(images.length - 1, i + 1)));
+        setOpenIndex((i) => {
+          if (i === null) return null;
+          const next = clampGalleryIndex(i + 1, images.length);
+          setSelectedIndex(next);
+          return next;
+        });
       }
       if (e.key === 'ArrowLeft') {
-        setOpenIndex((i) => (i === null ? null : Math.max(0, i - 1)));
+        setOpenIndex((i) => {
+          if (i === null) return null;
+          const next = clampGalleryIndex(i - 1, images.length);
+          setSelectedIndex(next);
+          return next;
+        });
       }
     }
     window.addEventListener('keydown', onKey);
@@ -29,33 +47,69 @@ export function ScreenshotGallery({ images }: Props) {
   }, [openIndex, images.length]);
 
   useEffect(() => {
-    if (openIndex === null) return;
-    if (openIndex + 1 < images.length) prefetchRemoteImage(images[openIndex + 1], 0);
-    if (openIndex > 0) prefetchRemoteImage(images[openIndex - 1], 1);
-  }, [openIndex, images]);
+    const idx = openIndex ?? selectedIndex;
+    if (idx + 1 < images.length) prefetchRemoteImage(images[idx + 1], 0);
+    if (idx > 0) prefetchRemoteImage(images[idx - 1], 1);
+  }, [openIndex, selectedIndex, images]);
+
+  useEffect(() => {
+    const el = thumbRefs.current[selectedIndex];
+    if (!el) return;
+    el.scrollIntoView({ behavior: 'smooth', inline: 'nearest', block: 'nearest' });
+  }, [selectedIndex]);
 
   if (images.length === 0) return null;
 
+  const featuredSrc = images[selectedIndex];
+
   return (
     <>
-      <div className="game-detail-screenshot-grid">
-        {images.map((src, i) => (
-          <button
-            key={`${i}-${src}`}
-            type="button"
-            className="game-detail-screenshot-btn"
-            onClick={() => setOpenIndex(i)}
-            aria-label={t('gamedetail.screenshot.open', { n: i + 1 })}
-          >
-            <LazyRemoteImage
-              src={src}
-              previewSrc={toF95ThumbUrl(src)}
-              upgrade="grid"
-              className="game-detail-screenshot-img"
-              rootMargin="80px 0px"
-            />
-          </button>
-        ))}
+      <div className="game-detail-screenshot-gallery">
+        <button
+          type="button"
+          className="game-detail-screenshot-stage"
+          onClick={() => setOpenIndex(selectedIndex)}
+          aria-label={t('gamedetail.screenshot.open', { n: selectedIndex + 1 })}
+        >
+          <LazyRemoteImage
+            src={featuredSrc}
+            previewSrc={toF95ThumbUrl(featuredSrc)}
+            upgrade="grid"
+            className="game-detail-screenshot-img"
+            rootMargin="80px 0px"
+          />
+        </button>
+
+        {images.length > 1 && (
+          <div className="game-detail-screenshot-strip" role="list">
+            {images.map((src, i) => (
+              <button
+                key={`${i}-${src}`}
+                type="button"
+                role="listitem"
+                ref={(el) => {
+                  thumbRefs.current[i] = el;
+                }}
+                className={
+                  i === selectedIndex
+                    ? 'game-detail-screenshot-thumb game-detail-screenshot-thumb--active'
+                    : 'game-detail-screenshot-thumb'
+                }
+                aria-current={i === selectedIndex ? 'true' : undefined}
+                aria-label={t('gamedetail.screenshot.show', { n: i + 1 })}
+                onClick={() => setSelectedIndex(i)}
+              >
+                <LazyRemoteImage
+                  src={src}
+                  previewSrc={toF95ThumbUrl(src)}
+                  upgrade="grid"
+                  className="game-detail-screenshot-img"
+                  rootMargin="80px 0px"
+                />
+              </button>
+            ))}
+          </div>
+        )}
       </div>
 
       {openIndex !== null && (
@@ -81,7 +135,9 @@ export function ScreenshotGallery({ images }: Props) {
               style={{ ...lightboxNavStyle, left: 16 }}
               onClick={(e) => {
                 e.stopPropagation();
-                setOpenIndex((i) => (i === null ? null : Math.max(0, i - 1)));
+                const next = clampGalleryIndex(openIndex - 1, images.length);
+                setOpenIndex(next);
+                setSelectedIndex(next);
               }}
               aria-label={t('gamedetail.screenshot.prev')}
             >
@@ -94,7 +150,9 @@ export function ScreenshotGallery({ images }: Props) {
               style={{ ...lightboxNavStyle, right: 16 }}
               onClick={(e) => {
                 e.stopPropagation();
-                setOpenIndex((i) => (i === null ? null : Math.min(images.length - 1, i + 1)));
+                const next = clampGalleryIndex(openIndex + 1, images.length);
+                setOpenIndex(next);
+                setSelectedIndex(next);
               }}
               aria-label={t('gamedetail.screenshot.next')}
             >
