@@ -113,7 +113,7 @@
   },
   "plugins": {
     "updater": {
-      "pubkey": "dW50cnVzdGVkIGNvbW1lbnQ6IG1pbmlzaWduIHB1YmxpYyBrZXk6IDUzQ0M0RDhBMTUwMkZFMjMKUldRai9nSVZpazNNVTRlYVhQcTZzMVE3YjQvZEpHWm1wMG1IZXBSTVhiS3l5WXRONkppU1Z6VFU=",
+      "pubkey": "dW50cnVzdGVkIGNvbW1lbnQ6IG1pbmlzaWduIHB1YmxpYyBrZXk6IDU2OUZBNkIzQzExNUIwNDYKUldSR3NCWEJzNmFmVnUzN3I5NWdycDBqdkpldWpLR1BucG5jWU5GUTA2VGFhcDV1dGNpQ3BBelEK",
       "endpoints": [
         "https://github.com/rares478/f95-app/releases/latest/download/latest.json"
       ],
