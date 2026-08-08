@@ -13,8 +13,10 @@ import { Spinner } from './ui/Spinner';
 import { AppUpdateBanner } from './AppUpdateBanner';
 
 /**
- * Main-shell launch update check. Auto-installs when enabled; otherwise shows
- * a dismissible banner with Update now. Mount only from AppShell.
+ * Main-shell launch update check. Prefer auto-install on the login window
+ * (overlaps session loading). Here: notify banner when auto-update is off,
+ * plus a fallback auto-install if login could not handle it. Mount only from
+ * AppShell.
  */
 export function AppUpdateBootstrap() {
   const { t } = useT();
