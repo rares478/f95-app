@@ -118,6 +118,7 @@ const pt: Record<string, string> = {
   'gamedetail.field.downloads': 'Links de download',
   'gamedetail.field.downloadsCount': '{count} links',
   'gamedetail.screenshot.open': 'Abrir screenshot {n}',
+  'gamedetail.screenshot.show': 'Mostrar screenshot {n}',
   'gamedetail.screenshot.prev': 'Anterior',
   'gamedetail.screenshot.next': 'Próximo',
 

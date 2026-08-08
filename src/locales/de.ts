@@ -118,6 +118,7 @@ const de: Record<string, string> = {
   'gamedetail.field.downloads': 'Download-Links',
   'gamedetail.field.downloadsCount': '{count} Links',
   'gamedetail.screenshot.open': 'Screenshot {n} öffnen',
+  'gamedetail.screenshot.show': 'Screenshot {n} anzeigen',
   'gamedetail.screenshot.prev': 'Zurück',
   'gamedetail.screenshot.next': 'Weiter',
 
