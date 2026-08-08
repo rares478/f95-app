@@ -73,8 +73,7 @@ jobs:
         env:
           GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
           TAURI_SIGNING_PRIVATE_KEY: ${{ secrets.TAURI_SIGNING_PRIVATE_KEY }}
-          # No TAURI_SIGNING_PRIVATE_KEY_PASSWORD — current key has no password.
-          # Do not create that secret (a space/placeholder breaks signing).
+          TAURI_SIGNING_PRIVATE_KEY_PASSWORD: ${{ secrets.TAURI_SIGNING_PRIVATE_KEY_PASSWORD }}
         with:
           tagName: ${{ steps.release_tag.outputs.tag }}
           releaseName: 'F95 App ${{ steps.release_tag.outputs.tag }}'
