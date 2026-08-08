@@ -24,6 +24,8 @@ interface DbRow {
   total_playtime_seconds: number;
   custom_tags_json: string | null;
   notes: string | null;
+  steam_appid: string | null;
+  ach_save_scan: number | null;
 }
 
 function rowToGame(r: DbRow): LibraryGame {
@@ -52,6 +54,8 @@ function rowToGame(r: DbRow): LibraryGame {
     totalPlaytimeSeconds: r.total_playtime_seconds ?? 0,
     customTags,
     notes: r.notes ?? '',
+    steamAppid: r.steam_appid,
+    achSaveScan: (r.ach_save_scan ?? 0) !== 0,
   };
 }
 
@@ -280,6 +284,36 @@ export async function clearExe(threadId: string): Promise<void> {
         WHERE thread_id = ?`,
     [threadId],
   );
+}
+
+/** Vincula (ou desvincula, com null) o AppID Steam usado pelos achievements. */
+export async function setSteamAppid(
+  threadId: string,
+  steamAppid: string | null,
+): Promise<void> {
+  await execute(
+    `UPDATE library_games SET steam_appid = ? WHERE thread_id = ?`,
+    [steamAppid, threadId],
+  );
+}
+
+/** Liga/desliga a detecção de conquistas via saves do próprio jogo. */
+export async function setAchSaveScan(
+  threadId: string,
+  enabled: boolean,
+): Promise<void> {
+  await execute(
+    `UPDATE library_games SET ach_save_scan = ? WHERE thread_id = ?`,
+    [enabled ? 1 : 0, threadId],
+  );
+}
+
+/** Jogos com AppID Steam vinculado — o conjunto observado pelo watcher. */
+export async function listWithSteamAppid(): Promise<LibraryGame[]> {
+  const rows = await query<DbRow>(
+    `SELECT * FROM library_games WHERE steam_appid IS NOT NULL AND steam_appid != ''`,
+  );
+  return rows.map(rowToGame);
 }
 
 export async function setNotes(threadId: string, notes: string): Promise<void> {

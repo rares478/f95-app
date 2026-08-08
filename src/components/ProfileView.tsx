@@ -15,6 +15,7 @@ import {
   MemberSection,
   MemberStatsRow,
 } from './profile/MemberProfileParts';
+import { ProfileAchievements } from './profile/ProfileAchievements';
 
 interface Props {
   profile: ProfileDto;
@@ -141,6 +142,8 @@ export function ProfileView({ profile, onLoggedOut: _onLoggedOut }: Props) {
           </div>
         </MemberSection>
       )}
+
+      <ProfileAchievements />
 
       <MemberSection title={t('profile.tab.activity')}>
         <MemberActivityList items={profile.activity} />
