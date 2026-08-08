@@ -534,6 +534,7 @@ const de: Record<string, string> = {
   'settings.updates.uptodate': 'Du bist auf dem neuesten Stand.',
   'settings.updates.available': 'Version {version} ist verfügbar.',
   'settings.updates.failed': 'Updates konnten nicht geprüft werden: {error}',
+  'settings.updates.installFailed': 'Update konnte nicht installiert werden: {error}',
   'settings.updates.installing': 'Update wird installiert…',
   'appUpdate.banner.title': 'Update verfügbar',
   'appUpdate.banner.body': 'Version {version} ist bereit zur Installation.',

@@ -13,8 +13,6 @@ npm run tauri signer generate -- -w ~/.tauri/f95-app.key
   - `TAURI_SIGNING_PRIVATE_KEY`
   - `TAURI_SIGNING_PRIVATE_KEY_PASSWORD` (empty string secret if none)
 
-Replace the Task 1 placeholder pubkey before relying on signed in-app updates.
-
 ## Release procedure
 
 ### 1. Bump version
@@ -34,7 +32,7 @@ git push origin HEAD
 git push origin vX.Y.Z
 ```
 
-Pushing a `v*.*.*` tag starts `.github/workflows/release.yml`. You can also run the workflow manually via **Actions → release → Run workflow**.
+Pushing a `v*.*.*` tag starts `.github/workflows/release.yml`. You can also run the workflow manually via **Actions → release → Run workflow**, but you must pass a `tag` input (`vX.Y.Z`). Manual runs never use the branch name as the release tag; the job fails early if the tag is missing or not `v*.*.*`.
 
 ### 3. Required GitHub secrets
 

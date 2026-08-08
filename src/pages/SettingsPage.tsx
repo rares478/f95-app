@@ -108,7 +108,15 @@ export function SettingsPage({ onLoggedOut: _onLoggedOut }: Props) {
   async function onCheckUpdates() {
     setUpdateBusy(true);
     try {
-      const update = await checkForAppUpdate({ throwOnError: true });
+      let update;
+      try {
+        update = await checkForAppUpdate({ throwOnError: true });
+      } catch (err) {
+        await dialog.alert(t('settings.updates.failed', { error: formatIpcError(err) }), {
+          kind: 'error',
+        });
+        return;
+      }
       if (!update) {
         await dialog.alert(t('settings.updates.uptodate'), { kind: 'info' });
         return;
@@ -119,11 +127,16 @@ export function SettingsPage({ onLoggedOut: _onLoggedOut }: Props) {
       );
       if (ok) {
         setInstalling(true);
-        await installAppUpdate(update);
+        try {
+          await installAppUpdate(update);
+        } catch (err) {
+          setInstalling(false);
+          await dialog.alert(
+            t('settings.updates.installFailed', { error: formatIpcError(err) }),
+            { kind: 'error' },
+          );
+        }
       }
-    } catch (err) {
-      setInstalling(false);
-      await dialog.alert(t('settings.updates.failed', { error: formatIpcError(err) }));
     } finally {
       setUpdateBusy(false);
     }

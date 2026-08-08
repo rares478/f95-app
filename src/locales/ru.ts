@@ -534,6 +534,7 @@ const ru: Record<string, string> = {
   'settings.updates.uptodate': 'У вас актуальная версия.',
   'settings.updates.available': 'Доступна версия {version}.',
   'settings.updates.failed': 'Не удалось проверить обновления: {error}',
+  'settings.updates.installFailed': 'Не удалось установить обновление: {error}',
   'settings.updates.installing': 'Установка обновления…',
   'appUpdate.banner.title': 'Доступно обновление',
   'appUpdate.banner.body': 'Версия {version} готова к установке.',

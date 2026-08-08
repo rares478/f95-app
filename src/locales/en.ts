@@ -540,6 +540,7 @@ const en: Record<string, string> = {
   'settings.updates.uptodate': 'You’re up to date.',
   'settings.updates.available': 'Version {version} is available.',
   'settings.updates.failed': 'Could not check for updates: {error}',
+  'settings.updates.installFailed': 'Could not install the update: {error}',
   'settings.updates.installing': 'Installing update…',
   'appUpdate.banner.title': 'Update available',
   'appUpdate.banner.body': 'Version {version} is ready to install.',
