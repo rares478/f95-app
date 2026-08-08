@@ -19,6 +19,14 @@ export function shouldRunLaunchUpdateCheck(opts: {
   return true;
 }
 
+/** Start an update check during login loading (overlaps F95 session work). */
+export function shouldStartLoginUpdateCheck(opts: {
+  isDev: boolean;
+  offline: boolean;
+}): boolean {
+  return !opts.isDev && !opts.offline;
+}
+
 export function resolveLaunchUpdateAction(opts: {
   autoUpdate: boolean;
   hasUpdate: boolean;
@@ -47,6 +55,41 @@ export async function installAppUpdate(
 ): Promise<void> {
   await update.downloadAndInstall(onEvent);
   await relaunch();
+}
+
+/**
+ * Login-window gate: when auto-update is on and an update exists, install
+ * here and skip opening the main shell. Soft-fails to `continue` on errors
+ * so login can still proceed.
+ */
+export async function tryLoginAutoInstall(opts: {
+  isDev: boolean;
+  offline: boolean;
+  /** Pre-started check overlapping session/login work; otherwise checks now. */
+  updatePromise?: Promise<Update | null> | null;
+  onInstalling?: () => void;
+}): Promise<'installed' | 'continue'> {
+  if (!shouldStartLoginUpdateCheck({
+    isDev: opts.isDev,
+    offline: opts.offline,
+  })) {
+    return 'continue';
+  }
+
+  const autoUpdate = await getAutoUpdateEnabled();
+  if (!autoUpdate) return 'continue';
+
+  const update = await (opts.updatePromise ?? checkForAppUpdate());
+  if (!update) return 'continue';
+
+  opts.onInstalling?.();
+  try {
+    await installAppUpdate(update);
+    return 'installed';
+  } catch (err) {
+    console.warn('[appUpdater] login auto-install failed', err);
+    return 'continue';
+  }
 }
 
 export async function runLaunchUpdateFlow(): Promise<{
