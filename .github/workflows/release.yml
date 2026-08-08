@@ -81,4 +81,4 @@ jobs:
           prerelease: false
           uploadUpdaterJson: true
           updaterJsonPreferNsis: true
-          args: '--bundles nsis'
+          # Default bundle.targets ("all") → NSIS + MSI. Updater still prefers NSIS.
