@@ -307,36 +307,16 @@ function GameDetailPageInner() {
         }
       />
 
-      <GameDetailStatGrid>
-        {g.fields['Developer'] && (
-          <GameDetailStat label={t('gamedetail.field.developer')} value={g.fields['Developer']} />
-        )}
-        {g.fields['Publisher'] && (
-          <GameDetailStat label={t('gamedetail.field.publisher')} value={g.fields['Publisher']} />
-        )}
-        {g.version && (
-          <GameDetailStat label={t('gamedetail.field.version')} value={g.version} highlight />
-        )}
-        {g.fields['Thread Updated'] && (
-          <GameDetailStat
-            label={t('gamedetail.field.updated')}
-            value={g.fields['Thread Updated']}
-          />
-        )}
-        {g.fields['OS'] && (
-          <GameDetailStat
-            label={t('gamedetail.field.os')}
-            value={g.fields['OS']}
-            className="game-detail-stat-wide"
-          />
-        )}
-        {g.downloads.length > 0 && (
-          <GameDetailStat
-            label={t('gamedetail.field.downloads')}
-            value={t('gamedetail.field.downloadsCount', { count: g.downloads.length })}
-          />
-        )}
-      </GameDetailStatGrid>
+      {(g.fields['Developer'] || g.fields['Publisher']) && (
+        <GameDetailStatGrid>
+          {g.fields['Developer'] && (
+            <GameDetailStat label={t('gamedetail.field.developer')} value={g.fields['Developer']} />
+          )}
+          {g.fields['Publisher'] && (
+            <GameDetailStat label={t('gamedetail.field.publisher')} value={g.fields['Publisher']} />
+          )}
+        </GameDetailStatGrid>
+      )}
 
       <GameDetailBody>
         <GameDetailMain>
