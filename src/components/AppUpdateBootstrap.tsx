@@ -6,6 +6,8 @@ import {
   runLaunchUpdateFlow,
   shouldRunLaunchUpdateCheck,
 } from '../lib/appUpdater';
+import { dialog } from '../lib/dialog';
+import { formatIpcError } from '../lib/ipcError';
 import { useT } from '../lib/i18n';
 import { Spinner } from './ui/Spinner';
 import { AppUpdateBanner } from './AppUpdateBanner';
@@ -41,10 +43,13 @@ export function AppUpdateBootstrap() {
         try {
           await installAppUpdate(update);
         } catch (err) {
-          console.warn('[AppUpdateBootstrap] auto-install failed', err);
           if (!cancelled) {
             setPending(update);
             setInstalling(false);
+            await dialog.alert(
+              t('settings.updates.installFailed', { error: formatIpcError(err) }),
+              { kind: 'error' },
+            );
           }
         }
       } else if (action === 'notify') {
@@ -65,9 +70,12 @@ export function AppUpdateBootstrap() {
       try {
         await installAppUpdate(pending);
       } catch (err) {
-        console.warn('[AppUpdateBootstrap] install failed', err);
         setInstalling(false);
         setBusy(false);
+        await dialog.alert(
+          t('settings.updates.installFailed', { error: formatIpcError(err) }),
+          { kind: 'error' },
+        );
       }
     })();
   };
