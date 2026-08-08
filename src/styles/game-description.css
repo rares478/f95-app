@@ -107,9 +107,63 @@
   vertical-align: middle;
 }
 
-.game-detail-screenshot-btn {
+.game-detail-screenshot-gallery {
+  display: flex;
+  flex-direction: column;
+  gap: 10px;
+}
+
+.game-detail-screenshot-stage {
+  padding: 0;
+  border: 1px solid var(--border);
+  background: var(--bg-sunken);
+  border-radius: 4px;
+  cursor: zoom-in;
+  overflow: hidden;
+  aspect-ratio: 16 / 9;
+  width: 100%;
+  transition: border-color 0.12s ease;
+}
+
+.game-detail-screenshot-stage:hover {
+  border-color: var(--accent);
+}
+
+.game-detail-screenshot-strip {
+  display: flex;
+  gap: 8px;
+  overflow-x: auto;
+  overflow-y: hidden;
+  padding-bottom: 2px;
+  scrollbar-width: thin;
+}
+
+.game-detail-screenshot-thumb {
+  padding: 0;
+  border: 1px solid var(--border);
+  background: var(--bg-sunken);
+  border-radius: 4px;
+  cursor: pointer;
+  overflow: hidden;
+  aspect-ratio: 16 / 9;
+  width: 104px;
+  flex: 0 0 auto;
   content-visibility: auto;
-  contain-intrinsic-size: 160px 120px;
+  contain-intrinsic-size: 104px 58px;
+  transition: border-color 0.12s ease, transform 0.12s ease, opacity 0.12s ease;
+  opacity: 0.72;
+}
+
+.game-detail-screenshot-thumb:hover {
+  border-color: var(--accent);
+  opacity: 1;
+  transform: scale(1.02);
+}
+
+.game-detail-screenshot-thumb--active {
+  border-color: var(--accent);
+  opacity: 1;
+  box-shadow: 0 0 0 1px var(--accent);
 }
 
 .game-detail-screenshot-img {
@@ -118,6 +172,7 @@
   object-fit: cover;
   display: block;
   background: var(--bg-hover);
+  pointer-events: none;
 }
 
 .game-detail-screenshot-img--placeholder,
