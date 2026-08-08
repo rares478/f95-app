@@ -1575,7 +1575,7 @@ dependencies = [
 
 [[package]]
 name = "f95-app"
-version = "1.6.3"
+version = "1.6.4"
 dependencies = [
  "anyhow",
  "fs4",
