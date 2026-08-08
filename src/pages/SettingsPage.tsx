@@ -42,6 +42,8 @@ import {
   isOverlayHotkeyRegistered,
   syncOverlayHotkey,
 } from '../lib/overlayHotkey';
+import { getAutoUpdateEnabled, setAutoUpdateEnabled } from '../lib/appUpdateSettings';
+import { checkForAppUpdate, installAppUpdate } from '../lib/appUpdater';
 import { LoadingState } from '../components/ui/LoadingState';
 import { useScrollSpy } from '../hooks/useScrollSpy';
 
@@ -103,6 +105,30 @@ export function SettingsPage({ onLoggedOut: _onLoggedOut }: Props) {
     return false;
   }
 
+  async function onCheckUpdates() {
+    setUpdateBusy(true);
+    try {
+      const update = await checkForAppUpdate();
+      if (!update) {
+        await dialog.alert(t('settings.updates.uptodate'), { kind: 'info' });
+        return;
+      }
+      const ok = await dialog.confirm(
+        t('settings.updates.available', { version: update.version }),
+        { title: t('settings.updates.section'), kind: 'info' },
+      );
+      if (ok) {
+        setInstalling(true);
+        await installAppUpdate(update);
+      }
+    } catch (err) {
+      setInstalling(false);
+      await dialog.alert(t('settings.updates.failed', { error: formatIpcError(err) }));
+    } finally {
+      setUpdateBusy(false);
+    }
+  }
+
   /** Translate host verify/login `message` payloads (locale key or key|json). */
   function hostMessage(raw: string): string {
     return translateBackendMessage(raw, t);
@@ -115,6 +141,9 @@ export function SettingsPage({ onLoggedOut: _onLoggedOut }: Props) {
   const [info, setInfo] = useState<AppInfo | null>(null);
   const [counts, setCounts] = useState<CacheCounts | null>(null);
   const [busy, setBusy] = useState<string | null>(null);
+  const [autoUpdate, setAutoUpdate] = useState(true);
+  const [updateBusy, setUpdateBusy] = useState(false);
+  const [installing, setInstalling] = useState(false);
   const [libs, setLibs] = useState<InstallLibraryWithDisk[]>([]);
   const [libsLoading, setLibsLoading] = useState(true);
   const [activeSection, setActiveSection] = useState<SettingsSectionId>('appearance');
@@ -211,6 +240,12 @@ export function SettingsPage({ onLoggedOut: _onLoggedOut }: Props) {
       refreshLibs();
       refreshHostTokens();
     })();
+  }, []);
+
+  useEffect(() => {
+    void getAutoUpdateEnabled().then(setAutoUpdate).catch((err) => {
+      console.warn('[settings] failed to load auto-update setting', err);
+    });
   }, []);
 
   useEffect(() => {
@@ -1882,6 +1917,38 @@ export function SettingsPage({ onLoggedOut: _onLoggedOut }: Props) {
                 value={counts ? String(counts.sessions) : '…'}
                 hint={t('settings.maintenance.sessionsHint')}
               />
+            </div>
+
+            <div className="settings-card">
+              <h3 className="settings-card-title">{t('settings.updates.section')}</h3>
+              <p className="settings-card-hint">{t('settings.updates.autoHint')}</p>
+              <div className="settings-checklist">
+                <label className="settings-check-row">
+                  <input
+                    type="checkbox"
+                    checked={autoUpdate}
+                    onChange={(e) => {
+                      const next = e.target.checked;
+                      void setAutoUpdateEnabled(next).then(() => setAutoUpdate(next));
+                    }}
+                  />
+                  <span>{t('settings.updates.auto')}</span>
+                </label>
+              </div>
+              <div className="settings-offline-actions">
+                <button
+                  type="button"
+                  className="settings-btn"
+                  disabled={updateBusy}
+                  onClick={() => void onCheckUpdates()}
+                >
+                  {installing
+                    ? t('settings.updates.installing')
+                    : updateBusy
+                      ? t('settings.updates.checking')
+                      : t('settings.updates.check')}
+                </button>
+              </div>
             </div>
 
             <div className="settings-card settings-about-card">
