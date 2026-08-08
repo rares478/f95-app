@@ -120,6 +120,7 @@ const en: Record<string, string> = {
   'gamedetail.field.downloads': 'Download links',
   'gamedetail.field.downloadsCount': '{count} links',
   'gamedetail.screenshot.open': 'Open screenshot {n}',
+  'gamedetail.screenshot.show': 'Show screenshot {n}',
   'gamedetail.screenshot.prev': 'Previous',
   'gamedetail.screenshot.next': 'Next',
 

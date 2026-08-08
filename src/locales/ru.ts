@@ -118,6 +118,7 @@ const ru: Record<string, string> = {
   'gamedetail.field.downloads': 'Ссылки для загрузки',
   'gamedetail.field.downloadsCount': '{count} ссылок',
   'gamedetail.screenshot.open': 'Открыть скриншот {n}',
+  'gamedetail.screenshot.show': 'Показать скриншот {n}',
   'gamedetail.screenshot.prev': 'Назад',
   'gamedetail.screenshot.next': 'Далее',
 
