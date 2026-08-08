@@ -27,12 +27,16 @@ export function resolveLaunchUpdateAction(opts: {
   return opts.autoUpdate ? 'install' : 'notify';
 }
 
-export async function checkForAppUpdate(): Promise<Update | null> {
+export async function checkForAppUpdate(opts?: {
+  /** When true, rethrow check failures (manual Settings check). Launch flow keeps soft-fail. */
+  throwOnError?: boolean;
+}): Promise<Update | null> {
   try {
     const update = await check();
     return update ?? null;
   } catch (err) {
     console.warn('[appUpdater] check failed', err);
+    if (opts?.throwOnError) throw err;
     return null;
   }
 }

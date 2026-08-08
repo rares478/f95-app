@@ -108,7 +108,7 @@ export function SettingsPage({ onLoggedOut: _onLoggedOut }: Props) {
   async function onCheckUpdates() {
     setUpdateBusy(true);
     try {
-      const update = await checkForAppUpdate();
+      const update = await checkForAppUpdate({ throwOnError: true });
       if (!update) {
         await dialog.alert(t('settings.updates.uptodate'), { kind: 'info' });
         return;
