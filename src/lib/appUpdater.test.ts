@@ -1,5 +1,16 @@
-import { describe, expect, it } from 'vitest';
+import { beforeEach, describe, expect, it, vi } from 'vitest';
+
+vi.mock('@tauri-apps/plugin-updater', () => ({
+  check: vi.fn(),
+}));
+
+vi.mock('@tauri-apps/plugin-process', () => ({
+  relaunch: vi.fn(),
+}));
+
+import { check } from '@tauri-apps/plugin-updater';
 import {
+  checkForAppUpdate,
   resolveLaunchUpdateAction,
   shouldRunLaunchUpdateCheck,
 } from './appUpdater';
@@ -32,5 +43,28 @@ describe('resolveLaunchUpdateAction', () => {
 
   it('notifies when auto off and update exists', () => {
     expect(resolveLaunchUpdateAction({ autoUpdate: false, hasUpdate: true })).toBe('notify');
+  });
+});
+
+describe('checkForAppUpdate', () => {
+  beforeEach(() => {
+    vi.mocked(check).mockReset();
+  });
+
+  it('returns null when soft-failing on check error', async () => {
+    vi.mocked(check).mockRejectedValue(new Error('network down'));
+    await expect(checkForAppUpdate()).resolves.toBeNull();
+  });
+
+  it('rethrows when throwOnError is true', async () => {
+    const err = new Error('network down');
+    vi.mocked(check).mockRejectedValue(err);
+    await expect(checkForAppUpdate({ throwOnError: true })).rejects.toBe(err);
+  });
+
+  it('returns update when check succeeds', async () => {
+    const update = { version: '1.2.3' };
+    vi.mocked(check).mockResolvedValue(update as never);
+    await expect(checkForAppUpdate()).resolves.toBe(update);
   });
 });
