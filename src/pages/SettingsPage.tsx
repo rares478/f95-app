@@ -41,6 +41,7 @@ import {
   syncOverlayHotkey,
 } from '../lib/overlayHotkey';
 import { LoadingState } from '../components/ui/LoadingState';
+import { AchievementsSettingsCard } from '../components/settings/AchievementsSettingsCard';
 import { useScrollSpy } from '../hooks/useScrollSpy';
 import {
   loadAppRuntimeSettings,
@@ -1889,6 +1890,8 @@ export function SettingsPage({ onLoggedOut: _onLoggedOut }: Props) {
                 </div>
               </>
             )}
+
+            <AchievementsSettingsCard />
 
             <div id="settings-offline" className="settings-card">
               <h3 className="settings-card-title">{t('settings.offline.section')}</h3>

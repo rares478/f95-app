@@ -34,6 +34,7 @@ import './styles/nav-accent.css';
 import './styles/custom-video-fullscreen.css';
 import './styles/collections.css';
 import './styles/profile.css';
+import './styles/achievements.css';
 
 type AppWindowKind = 'login' | 'main' | 'overlay' | 'overlay-hint' | 'tray-menu';
 

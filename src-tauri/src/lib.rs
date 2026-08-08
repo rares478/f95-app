@@ -1,3 +1,4 @@
+mod achievements;
 mod bridge;
 mod buzzheavier;
 mod commands;
@@ -22,7 +23,8 @@ mod sidecar;
 mod uploadhaven;
 
 use commands::{
-    build_state, check_network, close_captcha_window, complete_login, create_game_shortcuts,
+    achievement_toast, achievements_configure, achievements_scan_now, build_state, check_network,
+    close_captcha_window, complete_login, create_game_shortcuts,
     default_downloads_path, delete_install_dir, delete_path, disk_info, download_cancel,
     download_continue_captcha, download_continue_choice, download_start, extract_archive,
     extract_cbz_preview, fetch_alerts_list, fetch_alerts_popup, fetch_rss_feed, game_detail,
@@ -36,7 +38,8 @@ use commands::{
     overlay_toggle, ping_sidecar, resolve_media_preview, resolve_remote_image_preview,
     restart_to_login, reveal_in_explorer, running_games, sam_list, sam_options, sam_tag_search,
     scan_install_media, set_buzzheavier_account, set_datanodes_key, set_gofile_credentials,
-    set_mega_session, set_mixdrop_credentials, set_uploadhaven_session, stop_game,
+    set_mega_session, set_mixdrop_credentials, set_uploadhaven_session, steam_detect_appid,
+    steam_fetch_achievement_schema, steam_search_games, stop_game,
     verify_buzzheavier_account, verify_datanodes_key, verify_gofile_credentials,
     verify_mega_session, verify_mixdrop_credentials, verify_uploadhaven_session, AppState,
 };
@@ -92,6 +95,18 @@ pub fn run() {
             version: 8,
             description: "library_collections",
             sql: migrations::V8_LIBRARY_COLLECTIONS,
+            kind: MigrationKind::Up,
+        },
+        Migration {
+            version: 9,
+            description: "steam_achievements",
+            sql: migrations::V9_STEAM_ACHIEVEMENTS,
+            kind: MigrationKind::Up,
+        },
+        Migration {
+            version: 10,
+            description: "achievements_save_scan",
+            sql: migrations::V10_ACH_SAVE_SCAN,
             kind: MigrationKind::Up,
         },
     ];
@@ -210,7 +225,13 @@ pub fn run() {
             overlay_get_game_hint_payload,
             overlay_hide_game_hint,
             overlay_pause_follow,
-            overlay_sync_compact_from_window
+            overlay_sync_compact_from_window,
+            achievements_configure,
+            achievements_scan_now,
+            achievement_toast,
+            steam_fetch_achievement_schema,
+            steam_search_games,
+            steam_detect_appid
         ])
         .build(tauri::generate_context!())
         .expect("error while running tauri application")

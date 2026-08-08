@@ -15,6 +15,7 @@ import { NewsPage } from './pages/NewsPage';
 import { FriendsPage } from './pages/FriendsPage';
 import { FriendProfilePage } from './pages/FriendProfilePage';
 import { AlertsPage } from './pages/AlertsPage';
+import { AchievementsHubPage } from './pages/AchievementsHubPage';
 import { SettingsPage } from './pages/SettingsPage';
 
 interface BuildOpts {
@@ -53,6 +54,7 @@ export function buildRouter({ profile, onLoggedOut }: BuildOpts) {
         { path: 'friends', element: <FriendsPage /> },
         { path: 'friends/:userId', element: <FriendProfilePage /> },
         { path: 'profile', element: <ProfilePage /> },
+        { path: 'achievements', element: <AchievementsHubPage /> },
         { path: 'alerts', element: <AlertsPage /> },
         { path: 'settings', element: <SettingsPage onLoggedOut={onLoggedOut} /> },
         { path: '*', element: <Navigate to="/store" replace /> },

@@ -5,6 +5,7 @@ import { DownloadSettingsProvider } from '../contexts/DownloadSettings';
 import { StoreSettingsProvider } from '../contexts/StoreSettings';
 import { RunningGamesProvider } from '../contexts/RunningGames';
 import { NotificationsProvider } from '../contexts/Notifications';
+import { AchievementsBridge } from './AchievementsBridge';
 import { Sidebar } from './Sidebar';
 import { SteamTopNav } from './SteamTopNav';
 import { TitleBar } from './TitleBar';
@@ -60,6 +61,7 @@ export function AppShell({ profile, onLoggedOut }: Props) {
             <TagCatalogProvider>
               <PrefixCatalogProvider>
                 <CatalogBootstrap />
+                <AchievementsBridge />
                 <div style={rootStyle} className="app-shell">
                   <TitleBar />
                   {steamNav && <SteamTopNav profile={profile} />}
