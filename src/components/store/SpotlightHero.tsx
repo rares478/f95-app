@@ -1,6 +1,7 @@
-import { useEffect, useState, type MouseEvent } from 'react';
+import { useEffect, useRef, useState, type MouseEvent } from 'react';
 import { Link } from 'react-router-dom';
 import { useStoreContextMenu } from '../../hooks/useStoreContextMenu';
+import { toF95FullUrl } from '../../lib/f95ImageUrl';
 import { useT } from '../../lib/i18n';
 import { useIsInLibrary } from '../../lib/libraryMembership';
 import type { SamCategory, SamGameCard } from '../../types/sam';
@@ -13,17 +14,30 @@ interface Props {
 }
 
 const AUTO_ADVANCE_MS = 6000;
+/** Keep in sync with `.spotlight-slide--front.is-animate` duration. */
+const FADE_MS = 900;
 
 /**
  * Layout B spotlight: large active slide + “Up next” queue.
- * Auto-advances every 6s; pauses on hover/focus; selecting a queue row
- * (or dot) switches the active slide and resets the timer.
+ * Front layer fades in via CSS animation on mount; back layer holds the
+ * previous slide underneath until the fade finishes.
  */
 export function SpotlightHero({ slides, category }: Props) {
   const { t } = useT();
   const { openStoreContextMenu } = useStoreContextMenu(category);
   const [active, setActive] = useState(0);
   const [paused, setPaused] = useState(false);
+
+  const activeGame =
+    slides.length > 0 ? slides[Math.min(active, slides.length - 1)]! : null;
+
+  const [front, setFront] = useState<SamGameCard | null>(null);
+  const [back, setBack] = useState<SamGameCard | null>(null);
+  const [animateFront, setAnimateFront] = useState(false);
+  const frontIdRef = useRef<string | null>(null);
+  const backClearRef = useRef<number | null>(null);
+  const slidesRef = useRef(slides);
+  slidesRef.current = slides;
 
   useEffect(() => {
     if (slides.length === 0) return;
@@ -38,10 +52,58 @@ export function SpotlightHero({ slides, category }: Props) {
     return () => window.clearInterval(id);
   }, [paused, slides.length, active]);
 
-  if (slides.length === 0) return null;
+  useEffect(() => {
+    if (!activeGame) {
+      frontIdRef.current = null;
+      setFront(null);
+      setBack(null);
+      setAnimateFront(false);
+      return;
+    }
 
-  const game = slides[Math.min(active, slides.length - 1)]!;
-  const detailTo = `/store/game/${game.threadId}?cat=${category}`;
+    const nextId = activeGame.threadId;
+    if (frontIdRef.current === nextId) {
+      setFront(activeGame);
+      return;
+    }
+
+    const prevId = frontIdRef.current;
+    const previous =
+      prevId != null
+        ? slidesRef.current.find((s) => s.threadId === prevId) ?? null
+        : null;
+
+    if (backClearRef.current != null) {
+      window.clearTimeout(backClearRef.current);
+      backClearRef.current = null;
+    }
+
+    if (previous && previous.threadId !== nextId) {
+      setBack(previous);
+      setAnimateFront(true);
+      backClearRef.current = window.setTimeout(() => {
+        setBack(null);
+        setAnimateFront(false);
+        backClearRef.current = null;
+      }, FADE_MS);
+    } else {
+      setBack(null);
+      setAnimateFront(false);
+    }
+
+    frontIdRef.current = nextId;
+    setFront(activeGame);
+  }, [activeGame]);
+
+  useEffect(() => {
+    return () => {
+      if (backClearRef.current != null) {
+        window.clearTimeout(backClearRef.current);
+      }
+    };
+  }, []);
+
+  if (!activeGame || !front) return null;
 
   return (
     <section
@@ -56,11 +118,25 @@ export function SpotlightHero({ slides, category }: Props) {
       }}
     >
       <div className="spotlight-main">
-        <SpotlightSlide
-          game={game}
-          detailTo={detailTo}
-          onContextMenu={(e) => void openStoreContextMenu(e, game)}
-        />
+        <div className="spotlight-stage">
+          {back && (
+            <SpotlightSlide
+              key={`back-${back.threadId}`}
+              game={back}
+              detailTo={`/store/game/${back.threadId}?cat=${category}`}
+              onContextMenu={(e) => void openStoreContextMenu(e, back)}
+              layer="back"
+            />
+          )}
+          <SpotlightSlide
+            key={`front-${front.threadId}`}
+            game={front}
+            detailTo={`/store/game/${front.threadId}?cat=${category}`}
+            onContextMenu={(e) => void openStoreContextMenu(e, front)}
+            layer="front"
+            animate={animateFront}
+          />
+        </div>
 
         {slides.length > 1 && (
           <div className="spotlight-dots" role="tablist" aria-label={t('store.home.upNext')}>
@@ -117,22 +193,42 @@ function SpotlightSlide({
   game,
   detailTo,
   onContextMenu,
+  layer,
+  animate = false,
 }: {
   game: SamGameCard;
   detailTo: string;
   onContextMenu: (e: MouseEvent) => void;
+  layer: 'front' | 'back';
+  animate?: boolean;
 }) {
   const { t } = useT();
   const inLibrary = useIsInLibrary(game.threadId);
+  const imageSrc = game.thumbnailUrl ? toF95FullUrl(game.thumbnailUrl) : null;
+  const className = [
+    'spotlight-slide',
+    `spotlight-slide--${layer}`,
+    animate ? 'is-animate' : '',
+  ]
+    .filter(Boolean)
+    .join(' ');
 
   return (
-    <Link to={detailTo} className="spotlight-slide" onContextMenu={onContextMenu}>
-      {game.thumbnailUrl ? (
+    <Link
+      to={detailTo}
+      className={className}
+      onContextMenu={onContextMenu}
+      tabIndex={layer === 'back' ? -1 : undefined}
+      aria-hidden={layer === 'back' ? true : undefined}
+    >
+      {imageSrc ? (
         <img
-          src={game.thumbnailUrl}
+          key={imageSrc}
+          src={imageSrc}
           alt={game.title}
           className="spotlight-slide-img"
           loading="eager"
+          decoding="async"
         />
       ) : (
         <div className="spotlight-slide-fallback">{game.title.slice(0, 1).toUpperCase()}</div>

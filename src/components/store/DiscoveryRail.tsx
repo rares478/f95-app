@@ -1,3 +1,4 @@
+import { useCallback, useEffect, useRef, useState } from 'react';
 import { useT } from '../../lib/i18n';
 import type { SamCategory, SamGameCard } from '../../types/sam';
 import { Skeleton } from '../ui/Skeleton';
@@ -27,10 +28,49 @@ export function DiscoveryRail({
   onRetry,
 }: Props) {
   const { t } = useT();
+  const trackRef = useRef<HTMLDivElement>(null);
+  const [canPrev, setCanPrev] = useState(false);
+  const [canNext, setCanNext] = useState(false);
+
+  const updateScrollState = useCallback(() => {
+    const el = trackRef.current;
+    if (!el) {
+      setCanPrev(false);
+      setCanNext(false);
+      return;
+    }
+    const max = el.scrollWidth - el.clientWidth;
+    setCanPrev(el.scrollLeft > 2);
+    setCanNext(max > 2 && el.scrollLeft < max - 2);
+  }, []);
+
+  useEffect(() => {
+    const el = trackRef.current;
+    if (!el) return;
+
+    updateScrollState();
+    el.addEventListener('scroll', updateScrollState, { passive: true });
+    const ro = new ResizeObserver(() => updateScrollState());
+    ro.observe(el);
+    return () => {
+      el.removeEventListener('scroll', updateScrollState);
+      ro.disconnect();
+    };
+  }, [items.length, loading, updateScrollState]);
+
+  const scrollByPage = (dir: -1 | 1) => {
+    const el = trackRef.current;
+    if (!el) return;
+    const amount = Math.max(el.clientWidth * 0.85, 200);
+    el.scrollBy({ left: dir * amount, behavior: 'smooth' });
+  };
 
   if (!loading && !error && items.length === 0) {
     return null;
   }
+
+  const showTrack = items.length > 0;
+  const showSkeleton = loading && items.length === 0;
 
   return (
     <section className="discovery-rail">
@@ -54,23 +94,54 @@ export function DiscoveryRail({
         </div>
       )}
 
-      {loading && items.length === 0 && (
-        <div className="discovery-rail-skeleton discovery-rail-track" aria-busy="true" aria-label={t('common.loading')}>
-          {Array.from({ length: SKELETON_COUNT }, (_, i) => (
-            <div key={i} className="rail-game-card-skeleton" aria-hidden="true">
-              <Skeleton className="rail-game-card-skeleton-thumb" />
-              <Skeleton className="rail-game-card-skeleton-title" />
-              <Skeleton className="rail-game-card-skeleton-title rail-game-card-skeleton-title--short" />
-            </div>
-          ))}
-        </div>
-      )}
+      {(showTrack || showSkeleton) && (
+        <div className="discovery-rail-scroller">
+          {showTrack && (
+            <button
+              type="button"
+              className="discovery-rail-nav discovery-rail-nav--prev"
+              aria-label={t('store.home.rail.prev')}
+              disabled={!canPrev}
+              onClick={() => scrollByPage(-1)}
+            >
+              ‹
+            </button>
+          )}
 
-      {items.length > 0 && (
-        <div className="discovery-rail-track">
-          {items.map((g) => (
-            <RailGameCard key={g.threadId} game={g} category={category} />
-          ))}
+          <div
+            ref={showTrack ? trackRef : undefined}
+            className={
+              showSkeleton
+                ? 'discovery-rail-skeleton discovery-rail-track'
+                : 'discovery-rail-track'
+            }
+            aria-busy={showSkeleton || undefined}
+            aria-label={showSkeleton ? t('common.loading') : undefined}
+          >
+            {showSkeleton
+              ? Array.from({ length: SKELETON_COUNT }, (_, i) => (
+                  <div key={i} className="rail-game-card-skeleton" aria-hidden="true">
+                    <Skeleton className="rail-game-card-skeleton-thumb" />
+                    <Skeleton className="rail-game-card-skeleton-title" />
+                    <Skeleton className="rail-game-card-skeleton-title rail-game-card-skeleton-title--short" />
+                  </div>
+                ))
+              : items.map((g) => (
+                  <RailGameCard key={g.threadId} game={g} category={category} />
+                ))}
+          </div>
+
+          {showTrack && (
+            <button
+              type="button"
+              className="discovery-rail-nav discovery-rail-nav--next"
+              aria-label={t('store.home.rail.next')}
+              disabled={!canNext}
+              onClick={() => scrollByPage(1)}
+            >
+              ›
+            </button>
+          )}
         </div>
       )}
     </section>
