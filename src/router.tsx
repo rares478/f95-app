@@ -3,7 +3,9 @@ import type { ProfileDto } from './types';
 import { AppShell } from './components/AppShell';
 import { useOffline } from './contexts/Offline';
 import { ProfilePage } from './pages/ProfilePage';
+import { StoreBrowsePage } from './pages/StoreBrowsePage';
 import { StorePage } from './pages/StorePage';
+import { StoreBrowsePage } from './pages/StoreBrowsePage';
 import { GameDetailPage } from './pages/GameDetailPage';
 import { LibraryPage } from './pages/LibraryPage';
 import { LibraryGamePage } from './pages/LibraryGamePage';
@@ -32,6 +34,7 @@ export function buildRouter({ profile, onLoggedOut }: BuildOpts) {
       children: [
         { index: true, element: <HomeRedirect /> },
         { path: 'store', element: <StorePage /> },
+        { path: 'store/browse', element: <StoreBrowsePage /> },
         { path: 'store/game/:threadId', element: <GameDetailPage /> },
         { path: 'library', element: <LibraryPage /> },
         { path: 'library/game/:threadId', element: <LibraryGamePage /> },
