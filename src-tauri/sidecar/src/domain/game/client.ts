@@ -23,6 +23,13 @@ import {
   parseThreadReplyResponse,
   type ThreadReplyResult,
 } from './reply';
+import {
+  parseDownloadBlock,
+  resolveDownloadRoot,
+  type GameDownload,
+} from './downloadBlock';
+
+export type { GameDownload } from './downloadBlock';
 
 const BASE = F95_BASE;
 
@@ -52,20 +59,6 @@ export interface GamePrefix {
 export interface GameTag {
   slug: string;
   name: string;
-}
-export interface GameDownload {
-  host: string;
-  url: string;
-  /** Inner text of the anchor (often the host name in caps). */
-  text: string;
-  /** Composite display path, e.g. "Season 1-2 · Win/Linux · Part 1". */
-  group: string | null;
-  edition: string | null;
-  platform: string | null;
-  part: number | null;
-  kindHint: 'full' | 'split' | 'patch' | 'extra' | 'other' | null;
-  /** True when edition is Current (null) or a named heading outside spoilers. */
-  topLevel?: boolean;
 }
 export interface SocialLink {
   host: string;
@@ -575,41 +568,26 @@ function collectLinks(
   $: cheerio.CheerioAPI,
   opBody: cheerio.Cheerio<Element>,
 ): { downloads: GameDownload[]; social: SocialLink[] } {
-  const downloads: GameDownload[] = [];
   const social: SocialLink[] = [];
-  const seenDownload = new Set<string>();
   const seenSocial = new Set<string>();
 
   opBody.find('a[href]').each((_, el) => {
-    const $el = $(el);
-    const href = $el.attr('href');
+    const href = $(el).attr('href');
     if (!href || href.startsWith('#')) return;
     const url = absoluteUrl(href);
     const info = classifyHost(url);
-    if (!info) return;
-
-    const text = cleanText($el.text());
-    if (info.category === 'direct') {
-      if (seenDownload.has(url)) return;
-      seenDownload.add(url);
-      const path = resolveDownloadPath($, el);
-      downloads.push({
-        host: info.host,
-        url,
-        text: text || info.host,
-        group: path.group,
-        edition: path.edition,
-        platform: path.platform,
-        part: path.part,
-        kindHint: path.kindHint,
-        topLevel: path.topLevel,
-      });
-    } else if (info.category === 'social') {
-      if (seenSocial.has(url)) return;
-      seenSocial.add(url);
-      social.push({ host: info.host, url, text: text || info.host });
-    }
+    if (!info || info.category !== 'social') return;
+    if (seenSocial.has(url)) return;
+    seenSocial.add(url);
+    social.push({
+      host: info.host,
+      url,
+      text: cleanText($(el).text()) || info.host,
+    });
   });
+
+  const root = resolveDownloadRoot($, opBody);
+  const downloads = root ? parseDownloadBlock($, root) : [];
 
   return { downloads, social };
 }
@@ -661,6 +639,7 @@ export type DownloadPath = {
 /**
  * Resolve structured download path (edition / platform / part) from the OP
  * DOM around a host link, including XF spoiler context.
+ * @deprecated Task 6 — kept so old tests still compile.
  */
 export function resolveDownloadPath(
   $: cheerio.CheerioAPI,
