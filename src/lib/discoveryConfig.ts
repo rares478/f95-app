@@ -5,8 +5,30 @@ export const RECENT_TTL_MS = 60 * 60 * 1000;
 export const SLOW_POOL_TTL_MS = 24 * 60 * 60 * 1000;
 export const RAIL_DISPLAY_COUNT = 12;
 export const SPOTLIGHT_COUNT = 5;
-/** Resolve these names via tag catalog at runtime. */
-export const TAG_RAIL_NAMES = ['VN', 'Fantasy', 'Romance'] as const;
+/** Curated pool; daily rails are a seeded subset of this list. */
+export const TAG_RAIL_POOL = [
+  'Fantasy',
+  'Romance',
+  'Sci-Fi',
+  'Adventure',
+  'RPG',
+  'Sandbox',
+  'School setting',
+  'Male protagonist',
+  'Female protagonist',
+  'Monster girl',
+  'NTR',
+  'Big tits',
+  'Oral sex',
+  'Creampie',
+  'Voyeurism',
+  'Lesbian',
+  'Furry',
+  'MILF',
+  'Corruption',
+  'Mind control',
+] as const;
+export const TAG_RAIL_COUNT = 3;
 
 export const VIEW_HISTORY_CAP = 24;
 export const MIN_PLAYTIME_SECONDS = 300;
