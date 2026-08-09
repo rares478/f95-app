@@ -835,6 +835,17 @@ const pt: Record<string, string> = {
   'store.pagination.page': 'Página {page} de {total}',
   'store.featured': 'Em destaque',
   'store.featured.viewDetails': 'Ver detalhes',
+  'store.home.browseAll': 'Ver tudo',
+  'store.home.searchPlaceholder': 'Buscar jogos…',
+  'store.home.upNext': 'A seguir',
+  'store.home.seeAll': 'Ver tudo',
+  'store.home.rail.recent': 'Atualizados recentemente',
+  'store.home.rail.likes': 'Mais curtidos',
+  'store.home.rail.views': 'Mais vistos',
+  'store.home.rail.rating': 'Melhor avaliados',
+  'store.home.rail.tag': 'Tag · {name}',
+  'store.home.retry': 'Tentar de novo',
+  'store.home.loadFailed': 'Não foi possível carregar a descoberta.',
   'store.section.more': 'Mais jogos',
 
   // ─── News ───────────────────────────────────────────────────────────────

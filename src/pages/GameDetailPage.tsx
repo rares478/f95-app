@@ -38,6 +38,7 @@ import { ThreadDiscussion } from '../components/game/ThreadDiscussion';
 import { useContextMenu } from '../components/contextMenu';
 import { useOffline } from '../contexts/Offline';
 import { useStoreFilters } from '../contexts/StoreFilters';
+import { BROWSE_PATH } from '../lib/browseHandoff';
 import { useTagCatalog } from '../contexts/TagCatalogContext';
 import { buildStoreMenu } from '../lib/contextMenus/buildStoreMenu';
 import { useT } from '../lib/i18n';
@@ -180,7 +181,7 @@ export function GameDetailPage() {
       return;
     }
     filterByTag(sam, category);
-    navigate('/store');
+    navigate(BROWSE_PATH);
   }
 
   async function onAddToLibrary() {

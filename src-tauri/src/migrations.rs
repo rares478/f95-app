@@ -252,3 +252,12 @@ pub const V11_INSTALL_JOB_BUNDLE: &str = r#"
 ALTER TABLE install_jobs ADD COLUMN bundle_id TEXT;
 CREATE INDEX idx_install_jobs_bundle ON install_jobs(bundle_id);
 "#;
+
+/// v12: cached SAM list pools for Store discovery Home.
+pub const V12_DISCOVERY_POOLS: &str = r#"
+CREATE TABLE IF NOT EXISTS discovery_pools (
+  key TEXT PRIMARY KEY NOT NULL,
+  payload TEXT NOT NULL,
+  fetched_at INTEGER NOT NULL
+);
+"#;

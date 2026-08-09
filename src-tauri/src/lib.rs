@@ -114,6 +114,12 @@ pub fn run() {
             sql: migrations::V11_INSTALL_JOB_BUNDLE,
             kind: MigrationKind::Up,
         },
+        Migration {
+            version: 12,
+            description: "discovery_pools",
+            sql: migrations::V12_DISCOVERY_POOLS,
+            kind: MigrationKind::Up,
+        },
     ];
 
     tauri::Builder::default()
