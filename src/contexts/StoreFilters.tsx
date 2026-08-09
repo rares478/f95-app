@@ -43,6 +43,8 @@ interface StoreFiltersValue extends StoreFiltersState {
   changeCategory: (category: SamCategory) => void;
   /** Reset other filters and include a single tag (used from game detail). */
   filterByTag: (tag: SamTag, category?: SamCategory) => void;
+  /** Reset to defaults, then apply provided fields (Browse handoff). */
+  seedFilters: (partial: Partial<StoreFiltersState>) => void;
   clearAll: () => void;
 }
 
@@ -70,6 +72,14 @@ export function StoreFiltersProvider({ children }: { children: ReactNode }) {
     }));
   }, []);
 
+  const seedFilters = useCallback((partial: Partial<StoreFiltersState>) => {
+    setState({
+      ...DEFAULT_FILTERS,
+      ...partial,
+      category: partial.category ?? DEFAULT_FILTERS.category,
+    });
+  }, []);
+
   const value: StoreFiltersValue = {
     ...state,
     setSearch: (search) => setState((prev) => ({ ...prev, search })),
@@ -80,6 +90,7 @@ export function StoreFiltersProvider({ children }: { children: ReactNode }) {
     setTagMode: (tagMode) => setState((prev) => ({ ...prev, tagMode })),
     changeCategory,
     filterByTag,
+    seedFilters,
     clearAll,
   };
 
