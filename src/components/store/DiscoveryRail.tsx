@@ -3,8 +3,11 @@ import { useT } from '../../lib/i18n';
 import type { SamCategory, SamGameCard } from '../../types/sam';
 import { Skeleton } from '../ui/Skeleton';
 import { RailGameCard } from './RailGameCard';
+import { WideCapsuleCard } from './WideCapsuleCard';
 
 const SKELETON_COUNT = 6;
+
+export type DiscoveryRailVariant = 'default' | 'compact' | 'capsule';
 
 interface Props {
   title: string;
@@ -15,6 +18,7 @@ interface Props {
   loading?: boolean;
   error?: string | null;
   onRetry?: () => void;
+  variant?: DiscoveryRailVariant;
 }
 
 export function DiscoveryRail({
@@ -26,6 +30,7 @@ export function DiscoveryRail({
   loading = false,
   error = null,
   onRetry,
+  variant = 'default',
 }: Props) {
   const { t } = useT();
   const trackRef = useRef<HTMLDivElement>(null);
@@ -71,9 +76,16 @@ export function DiscoveryRail({
 
   const showTrack = items.length > 0;
   const showSkeleton = loading && items.length === 0;
+  const isCapsule = variant === 'capsule';
+  const railClass =
+    variant === 'compact'
+      ? 'discovery-rail is-compact'
+      : isCapsule
+        ? 'discovery-rail is-capsule'
+        : 'discovery-rail';
 
   return (
-    <section className="discovery-rail">
+    <section className={railClass}>
       <header className="discovery-rail-header">
         <h2 className="discovery-rail-title">{title}</h2>
         {onSeeAll && (
@@ -119,16 +131,26 @@ export function DiscoveryRail({
             aria-label={showSkeleton ? t('common.loading') : undefined}
           >
             {showSkeleton
-              ? Array.from({ length: SKELETON_COUNT }, (_, i) => (
-                  <div key={i} className="rail-game-card-skeleton" aria-hidden="true">
-                    <Skeleton className="rail-game-card-skeleton-thumb" />
-                    <Skeleton className="rail-game-card-skeleton-title" />
-                    <Skeleton className="rail-game-card-skeleton-title rail-game-card-skeleton-title--short" />
-                  </div>
-                ))
-              : items.map((g) => (
-                  <RailGameCard key={g.threadId} game={g} category={category} />
-                ))}
+              ? Array.from({ length: SKELETON_COUNT }, (_, i) =>
+                  isCapsule ? (
+                    <div key={i} className="wide-capsule-card-skeleton" aria-hidden="true">
+                      <Skeleton className="wide-capsule-card-skeleton-thumb" />
+                    </div>
+                  ) : (
+                    <div key={i} className="rail-game-card-skeleton" aria-hidden="true">
+                      <Skeleton className="rail-game-card-skeleton-thumb" />
+                      <Skeleton className="rail-game-card-skeleton-title" />
+                      <Skeleton className="rail-game-card-skeleton-title rail-game-card-skeleton-title--short" />
+                    </div>
+                  ),
+                )
+              : items.map((g) =>
+                  isCapsule ? (
+                    <WideCapsuleCard key={g.threadId} game={g} category={category} />
+                  ) : (
+                    <RailGameCard key={g.threadId} game={g} category={category} />
+                  ),
+                )}
           </div>
 
           {showTrack && (
