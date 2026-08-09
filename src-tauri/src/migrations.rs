@@ -261,3 +261,17 @@ CREATE TABLE IF NOT EXISTS discovery_pools (
   fetched_at INTEGER NOT NULL
 );
 "#;
+
+/// v13: durable Store Home recently-viewed history.
+pub const V13_STORE_VIEW_HISTORY: &str = r#"
+CREATE TABLE IF NOT EXISTS store_view_history (
+  thread_id TEXT PRIMARY KEY NOT NULL,
+  category TEXT NOT NULL,
+  title TEXT NOT NULL,
+  thumbnail_url TEXT,
+  thread_url TEXT NOT NULL,
+  viewed_at TEXT NOT NULL
+);
+CREATE INDEX IF NOT EXISTS idx_store_view_history_viewed_at
+  ON store_view_history(viewed_at DESC);
+"#;

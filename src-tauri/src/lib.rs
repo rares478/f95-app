@@ -120,6 +120,12 @@ pub fn run() {
             sql: migrations::V12_DISCOVERY_POOLS,
             kind: MigrationKind::Up,
         },
+        Migration {
+            version: 13,
+            description: "store_view_history",
+            sql: migrations::V13_STORE_VIEW_HISTORY,
+            kind: MigrationKind::Up,
+        },
     ];
 
     tauri::Builder::default()
