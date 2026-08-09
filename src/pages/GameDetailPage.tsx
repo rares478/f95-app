@@ -11,6 +11,7 @@ import { saveLinksFromDetail } from '../lib/libraryDownloadLinks';
 import { GameDescription } from '../components/game/GameDescription';
 import { clearGridPreviewCache } from '../lib/gridPreviewQueue';
 import { clearRemoteImageQueue } from '../lib/remoteImageQueue';
+import { recordStoreView } from '../lib/storeViewHistory';
 import { ScreenshotGallery } from '../components/game/ScreenshotGallery';
 import { DownloadLinks } from '../components/game/DownloadLinks';
 import {
@@ -44,6 +45,7 @@ import { buildStoreMenu } from '../lib/contextMenus/buildStoreMenu';
 import { useT } from '../lib/i18n';
 import { formatIpcError } from '../lib/ipcError';
 import { findSamTagByNameOrSlug } from '../lib/tagCatalog';
+import { recordStoreView } from '../lib/storeViewHistory';
 import type { GameDetail, GamePrefix, GameTag } from '../types/game';
 import type { SamTag } from '../types/sam';
 
@@ -146,6 +148,17 @@ export function GameDetailPage() {
       state.data.prefixes.map((p) => p.name),
     );
   }, [state]);
+
+  useEffect(() => {
+    if (state.kind !== 'ready') return;
+    void recordStoreView({
+      threadId: state.data.threadId,
+      category,
+      title: state.data.title,
+      thumbnailUrl: state.data.bannerUrl,
+      threadUrl: state.data.threadUrl,
+    });
+  }, [state, category]);
 
   useEffect(
     () => () => {
