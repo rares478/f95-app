@@ -14,7 +14,7 @@ export function StoreHomePage() {
   const { t } = useT();
   const navigate = useNavigate();
   const { seedFilters } = useStoreFilters();
-  const { category, spotlight, rails, bootstrapping, fatalError } = useStoreDiscovery();
+  const { category, spotlight, rails, bootstrapping, fatalError, reload } = useStoreDiscovery();
   const [search, setSearch] = useState('');
 
   const goBrowse = (handoff: Parameters<typeof buildBrowseHandoff>[0]) => {
@@ -86,6 +86,9 @@ export function StoreHomePage() {
           <div className="store-home-fatal" role="alert">
             <span>{t('store.home.loadFailed')}</span>
             {fatalError && <span className="store-home-fatal-detail">{fatalError}</span>}
+            <button type="button" className="store-home-fatal-retry" onClick={reload}>
+              {t('store.home.retry')}
+            </button>
           </div>
         )}
 
