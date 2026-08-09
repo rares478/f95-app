@@ -1,6 +1,6 @@
 import { parseSamCategory } from '../constants/samCategories';
 import type { SamCategory, SamGameCard } from '../types/sam';
-import { VIEW_HISTORY_CAP } from './discoveryConfig';
+import { RAIL_DISPLAY_COUNT, VIEW_HISTORY_CAP } from './discoveryConfig';
 import { execute, query } from './db';
 
 export interface StoreViewRecord {
@@ -93,7 +93,9 @@ export async function recordStoreView(
   );
 }
 
-export async function listRecentStoreViews(limit = 12): Promise<StoreViewRecord[]> {
+export async function listRecentStoreViews(
+  limit = RAIL_DISPLAY_COUNT,
+): Promise<StoreViewRecord[]> {
   const rows = await query<DbRow>(
     `SELECT thread_id, category, title, thumbnail_url, thread_url, viewed_at
      FROM store_view_history

@@ -199,12 +199,14 @@ export function useStoreDiscovery(): StoreDiscoveryState {
     setReloadToken((n) => n + 1);
   }, []);
 
-  const loadHistory = useCallback(async () => {
+  const loadHistory = useCallback(async (opts?: { isCancelled?: () => boolean }) => {
     try {
       const rows = await listRecentStoreViews(RAIL_DISPLAY_COUNT);
+      if (opts?.isCancelled?.()) return;
       historyIdsRef.current = new Set(rows.map((r) => r.threadId));
       setHistoryRail(historyRailFromViews(rows.map(viewRecordToSamCard)));
     } catch (err) {
+      if (opts?.isCancelled?.()) return;
       historyIdsRef.current = new Set();
       setHistoryRail(historyRailFromViews([], formatIpcError(err)));
     }
@@ -305,10 +307,7 @@ export function useStoreDiscovery(): StoreDiscoveryState {
 
   useEffect(() => {
     let cancelled = false;
-    void (async () => {
-      await loadHistory();
-      if (cancelled) return;
-    })();
+    void loadHistory({ isCancelled: () => cancelled });
     return () => {
       cancelled = true;
     };

@@ -265,6 +265,69 @@ describe('loadPersonalizationRail', () => {
     expect(result.items.map((c) => c.threadId)).toEqual(['new-1']);
   });
 
+  it('successful empty fetch preserves prior non-empty cache', async () => {
+    vi.mocked(library.list).mockResolvedValue([seedGame]);
+    const now = 1_700_000_000_000;
+    const cachedItems = [card('prev-1'), card('prev-2'), card('prev-3'), card('prev-4')];
+    const priorPayload = {
+      fingerprint: 'other@fp',
+      seedTitle: 'Prev Title',
+      items: cachedItems,
+    };
+
+    query.mockResolvedValueOnce([
+      {
+        payload: JSON.stringify(priorPayload),
+        fetched_at: now - PERSONAL_TTL_MS - 5_000,
+      },
+    ]);
+    vi.mocked(getCachedTagIds).mockResolvedValueOnce([1]);
+    vi.mocked(fetchMoreLikeThis).mockResolvedValueOnce([]);
+
+    const result = await loadPersonalizationRail({
+      category: 'games',
+      libraryThreadIds: new Set(['seed-1']),
+      nowMs: now,
+      resolveTagIds,
+    });
+
+    expect(result).toEqual({
+      items: [],
+      seedTitle: 'Seed Game Title',
+      fingerprint,
+      fromCache: false,
+    });
+    expect(execute).not.toHaveBeenCalled();
+
+    // Next load within TTL should still hit the preserved prior cache
+    // once fingerprint matches — simulate prior row still present.
+    query.mockResolvedValueOnce([
+      {
+        payload: JSON.stringify({
+          ...priorPayload,
+          fingerprint,
+          seedTitle: 'Seed Game Title',
+        }),
+        fetched_at: now - 60_000,
+      },
+    ]);
+    const cached = await loadPersonalizationRail({
+      category: 'games',
+      libraryThreadIds: new Set(['seed-1']),
+      nowMs: now,
+      resolveTagIds,
+    });
+    expect(cached.fromCache).toBe(true);
+    expect(cached.items.map((c) => c.threadId)).toEqual([
+      'prev-1',
+      'prev-2',
+      'prev-3',
+      'prev-4',
+    ]);
+    expect(fetchMoreLikeThis).toHaveBeenCalledTimes(1);
+    expect(execute).not.toHaveBeenCalled();
+  });
+
   it('on fetch failure returns previous cache when present', async () => {
     vi.mocked(library.list).mockResolvedValue([seedGame]);
     const now = 1_700_000_000_000;

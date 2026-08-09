@@ -188,6 +188,13 @@ export async function loadPersonalizationRail(args: {
   }
 
   const items = softExcludeViewed(fetched, excludeViewedIds).slice(0, RAIL_DISPLAY_COUNT);
+
+  // Successful empty fetch: hide rail for this load, but keep a prior non-empty
+  // cache for TTL / failure fallback on the next visit.
+  if (items.length === 0 && previous && previous.payload.items.length > 0) {
+    return { seedTitle, items: [], fingerprint, fromCache: false };
+  }
+
   const payload: PersonalCachePayload = { fingerprint, seedTitle, items };
   await setPersonalCache(payload, now);
 

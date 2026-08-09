@@ -11,7 +11,7 @@ vi.mock('./db', () => ({
 }));
 
 import { recordStoreView, listRecentStoreViews, viewRecordToSamCard } from './storeViewHistory';
-import { VIEW_HISTORY_CAP } from './discoveryConfig';
+import { RAIL_DISPLAY_COUNT, VIEW_HISTORY_CAP } from './discoveryConfig';
 
 describe('storeViewHistory', () => {
   beforeEach(() => {
@@ -77,9 +77,10 @@ describe('storeViewHistory', () => {
       },
     ]);
 
-    const rows = await listRecentStoreViews(12);
+    const rows = await listRecentStoreViews();
     expect(rows.map((r) => r.threadId)).toEqual(['2', '1']);
     expect(String(query.mock.calls[0]![0])).toContain('ORDER BY viewed_at DESC');
+    expect(query.mock.calls[0]![1]).toEqual([RAIL_DISPLAY_COUNT]);
   });
 
   it('viewRecordToSamCard maps snapshot fields', () => {
