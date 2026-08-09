@@ -369,3 +369,42 @@ describe('parseDownloadBlock — DMD chapter spoilers', () => {
     }
   });
 });
+
+describe('parseDownloadBlock — Twisted Memories qualities', () => {
+  it('keeps High/Standard Quality separate from Split and not as Current', () => {
+    const { $, root } = loadRoot('download-block-twisted-memories.html');
+    const downloads = parseDownloadBlock($, root);
+
+    const hq = downloads.filter(
+      (d) => /high\s+quality/i.test(d.edition ?? '') && d.platform === 'Win/Linux',
+    );
+    expect(hq.length).toBeGreaterThan(0);
+    expect(hq.every((d) => d.kindHint === 'full')).toBe(true);
+    expect(hq.every((d) => d.topLevel === false)).toBe(true);
+    expect(hq.every((d) => !/split/i.test(d.edition ?? ''))).toBe(true);
+
+    const splits = downloads.filter(
+      (d) => d.kindHint === 'split' && d.part != null,
+    );
+    expect(splits.length).toBeGreaterThan(0);
+    expect(splits.every((d) => /split/i.test(d.edition ?? ''))).toBe(true);
+    expect(splits.every((d) => d.platform === 'Win/Linux')).toBe(true);
+
+    const std = downloads.filter(
+      (d) =>
+        /standard\s+quality/i.test(d.edition ?? '') &&
+        d.platform === 'Win/Linux' &&
+        d.kindHint === 'full',
+    );
+    expect(std.length).toBeGreaterThan(0);
+    expect(std.every((d) => d.topLevel === false)).toBe(true);
+    expect(std.every((d) => d.kindHint !== 'split')).toBe(true);
+    expect(std.every((d) => !/split/i.test(d.edition ?? ''))).toBe(true);
+
+    const stdMac = downloads.filter(
+      (d) =>
+        /standard\s+quality/i.test(d.edition ?? '') && d.platform === 'Mac',
+    );
+    expect(stdMac.length).toBeGreaterThan(0);
+  });
+});
