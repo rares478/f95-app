@@ -21,6 +21,7 @@ export interface StoreFiltersState {
   includeTags: SamTag[];
   excludeTags: SamTag[];
   tagMode: SamTagMode;
+  showIgnored: boolean;
 }
 
 const DEFAULT_FILTERS: StoreFiltersState = {
@@ -31,6 +32,7 @@ const DEFAULT_FILTERS: StoreFiltersState = {
   includeTags: [],
   excludeTags: [],
   tagMode: 'and',
+  showIgnored: false,
 };
 
 interface StoreFiltersValue extends StoreFiltersState {
@@ -40,6 +42,7 @@ interface StoreFiltersValue extends StoreFiltersState {
   setIncludeTags: (tags: SamTag[]) => void;
   setExcludeTags: (tags: SamTag[]) => void;
   setTagMode: (mode: SamTagMode) => void;
+  setShowIgnored: (showIgnored: boolean) => void;
   changeCategory: (category: SamCategory) => void;
   /** Reset other filters and include a single tag (used from game detail). */
   filterByTag: (tag: SamTag, category?: SamCategory) => void;
@@ -80,6 +83,10 @@ export function StoreFiltersProvider({ children }: { children: ReactNode }) {
     });
   }, []);
 
+  const setShowIgnored = useCallback((showIgnored: boolean) => {
+    setState((s) => ({ ...s, showIgnored }));
+  }, []);
+
   const value: StoreFiltersValue = {
     ...state,
     setSearch: (search) => setState((prev) => ({ ...prev, search })),
@@ -88,6 +95,7 @@ export function StoreFiltersProvider({ children }: { children: ReactNode }) {
     setIncludeTags: (includeTags) => setState((prev) => ({ ...prev, includeTags })),
     setExcludeTags: (excludeTags) => setState((prev) => ({ ...prev, excludeTags })),
     setTagMode: (tagMode) => setState((prev) => ({ ...prev, tagMode })),
+    setShowIgnored,
     changeCategory,
     filterByTag,
     seedFilters,

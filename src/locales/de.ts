@@ -819,6 +819,7 @@ const de: Record<string, string> = {
   'filter.tags.orHint': 'Threads mit mindestens einem eingeschlossenen Tag',
   'filter.tags.andHint': 'Threads mit allen eingeschlossenen Tags',
   'filter.clearAll': 'Alle löschen',
+  'filter.showIgnored': 'Ignorierte anzeigen',
   'store.loadMore': 'Mehr laden',
   'store.loading': 'Lädt…',
   'store.results': '{count} Ergebnisse',

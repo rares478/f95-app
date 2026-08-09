@@ -825,6 +825,7 @@ const en: Record<string, string> = {
   'filter.tags.orHint': 'Match threads with any included tag',
   'filter.tags.andHint': 'Match threads with all included tags',
   'filter.clearAll': 'Clear all',
+  'filter.showIgnored': 'Show ignored',
   'store.loadMore': 'Load more',
   'store.loading': 'Loading…',
   'store.results': '{count} results',
