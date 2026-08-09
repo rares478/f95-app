@@ -4,14 +4,42 @@ import { describe, expect, it } from 'vitest';
 import * as cheerio from 'cheerio';
 import type { Element } from 'domhandler';
 import {
+  parseDownloadBlock,
   resolveDownloadRoot,
   rootHasDirectHost,
 } from '../domain/game/downloadBlock';
+import { classifyHost } from '../domain/game/hosts';
+import { absoluteUrl } from '../domain/game/htmlNormalize';
 
 const scoped = readFileSync(
   join(__dirname, 'fixtures', 'download-root-scoped.html'),
   'utf8',
 );
+
+describe('scoped extraction integration', () => {
+  it('excludes Developer Notes mega and keeps real download hosts', () => {
+    const $ = cheerio.load(scoped);
+    const opBody = $('.message-body .bbWrapper').first() as cheerio.Cheerio<Element>;
+    const root = resolveDownloadRoot($, opBody);
+    expect(root).not.toBeNull();
+    const downloads = parseDownloadBlock($, root!);
+    expect(downloads.every((d) => !d.url.includes('notes-pollution'))).toBe(true);
+    expect(downloads.some((d) => d.url.includes('real-win'))).toBe(true);
+  });
+
+  it('still finds social links outside the download root', () => {
+    const $ = cheerio.load(scoped);
+    const opBody = $('.message-body .bbWrapper').first();
+    const social: string[] = [];
+    opBody.find('a[href]').each((_, el) => {
+      const href = $(el).attr('href');
+      if (!href) return;
+      const info = classifyHost(absoluteUrl(href));
+      if (info?.category === 'social') social.push(info.host);
+    });
+    expect(social).toContain('patreon');
+  });
+});
 
 describe('resolveDownloadRoot', () => {
   it('prefers the last bbWrapper div when it has host links', () => {
