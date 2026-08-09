@@ -55,6 +55,9 @@ export async function refreshPoolIfStale(args: {
       tags: args.tags,
       pages: args.pages,
     });
+    if (items.length === 0 && cached && cached.items.length > 0) {
+      return { items: cached.items, fetchedAt: cached.fetchedAt, refreshed: false };
+    }
     await upsertPool(args.key, items, now);
     return { items, fetchedAt: now, refreshed: true };
   } catch (err) {

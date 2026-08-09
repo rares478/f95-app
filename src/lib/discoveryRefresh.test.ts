@@ -76,6 +76,27 @@ describe('refreshPoolIfStale', () => {
     expect(result.fetchedAt).toBe(now - SLOW_POOL_TTL_MS - 1);
     expect(pools.upsertPool).not.toHaveBeenCalled();
   });
+
+  it('keeps previous cache items when fetch returns empty', async () => {
+    const now = 1_000_000;
+    const cachedItems = [{ threadId: 'good-1' } as SamGameCard];
+    const cachedAt = now - SLOW_POOL_TTL_MS - 1;
+    vi.mocked(ipc.samList).mockResolvedValue(page([], 1));
+
+    const result = await refreshPoolIfStale({
+      key: 'likes',
+      sort: 'likes',
+      pages: 1,
+      ttlMs: SLOW_POOL_TTL_MS,
+      nowMs: now,
+      cached: { key: 'likes', items: cachedItems, fetchedAt: cachedAt },
+    });
+
+    expect(result.refreshed).toBe(false);
+    expect(result.items).toEqual(cachedItems);
+    expect(result.fetchedAt).toBe(cachedAt);
+    expect(pools.upsertPool).not.toHaveBeenCalled();
+  });
 });
 
 describe('refreshPoolsSequential', () => {
