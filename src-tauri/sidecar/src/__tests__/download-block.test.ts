@@ -83,3 +83,55 @@ describe('parseDownloadBlock — nested spoilers', () => {
     });
   });
 });
+
+describe('parseDownloadBlock — kinds and wrapped labels', () => {
+  it('reads platform from bold inside styled span', () => {
+    const { $, root } = loadRoot('download-block-kinds.html');
+    const downloads = parseDownloadBlock($, root);
+    expect(byUrl(downloads, 'kinds-win')[0]).toMatchObject({
+      platform: 'Win/Linux',
+      topLevel: true,
+      kindHint: 'full',
+    });
+  });
+
+  it('marks patch and extra kinds', () => {
+    const { $, root } = loadRoot('download-block-kinds.html');
+    const downloads = parseDownloadBlock($, root);
+    expect(byUrl(downloads, 'kinds-patch')[0]).toMatchObject({
+      kindHint: 'patch',
+      platform: 'Win/Linux',
+      topLevel: false,
+    });
+    expect(byUrl(downloads, 'kinds-extra')[0]).toMatchObject({
+      kindHint: 'extra',
+      topLevel: false,
+    });
+  });
+
+  it('labels OST spoiler from preceding heading', () => {
+    const { $, root } = loadRoot('download-block-kinds.html');
+    const downloads = parseDownloadBlock($, root);
+    expect(byUrl(downloads, 'kinds-ost-win')[0]).toMatchObject({
+      edition: 'v0.8.5 (Original Soundtrack)',
+      platform: 'Win/Linux',
+      kindHint: 'extra',
+      topLevel: false,
+    });
+  });
+
+  it('assigns split parts under Splits spoiler', () => {
+    const { $, root } = loadRoot('download-block-kinds.html');
+    const downloads = parseDownloadBlock($, root);
+    expect(byUrl(downloads, 'kinds-p1')[0]).toMatchObject({
+      edition: 'Splits',
+      platform: 'Win/Linux',
+      part: 1,
+      kindHint: 'split',
+    });
+    expect(byUrl(downloads, 'kinds-p2')[0]).toMatchObject({
+      part: 2,
+      kindHint: 'split',
+    });
+  });
+});

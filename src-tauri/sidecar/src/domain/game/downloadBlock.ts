@@ -164,6 +164,65 @@ function spoilerTitle(
   return buttonText && !/^spoiler$/i.test(buttonText) ? buttonText : null;
 }
 
+/**
+ * Label from b/strong, or from span/p whose first meaningful child is b/strong.
+ */
+function extractLabelFromElement(
+  $: cheerio.CheerioAPI,
+  el: Element,
+): { text: string; boldEl: Element } | null {
+  if (el.tagName === 'b' || el.tagName === 'strong') {
+    return { text: cleanText($(el).text()), boldEl: el };
+  }
+  if (el.tagName !== 'span' && el.tagName !== 'p') return null;
+
+  const $el = $(el);
+  const bold = $el.find('b, strong').first();
+  const boldNode = bold.get(0);
+  if (!boldNode) return null;
+
+  // Bold must be the first meaningful content under this node.
+  for (const n of $el.contents().toArray()) {
+    if (n === boldNode) break;
+    if (
+      n.type === 'text' &&
+      !cleanText((n as unknown as { data?: string }).data ?? '')
+    ) {
+      continue;
+    }
+    return null;
+  }
+
+  const text = cleanText(bold.text());
+  if (!text) return null;
+  return { text, boldEl: boldNode as Element };
+}
+
+function applyLabel(
+  ctx: WalkCtx,
+  classified: ReturnType<typeof classifyBoldLabel>,
+): void {
+  if (classified.type === 'download') return;
+  if (classified.type === 'edition') {
+    ctx.editionStack = [classified.text];
+    ctx.kindStack = [classified.kind ?? null];
+    ctx.platform = null;
+    ctx.part = null;
+    return;
+  }
+  if (classified.type === 'part') {
+    ctx.part = classified.part ?? null;
+    return;
+  }
+  ctx.platform = classified.text;
+  ctx.part = null;
+}
+
+function activeAuxKind(ctx: WalkCtx): GameDownload['kindHint'] | null {
+  const stacked = [...ctx.kindStack].reverse().find(Boolean);
+  return stacked === 'patch' || stacked === 'extra' ? stacked : null;
+}
+
 export function parseDownloadBlock(
   $: cheerio.CheerioAPI,
   root: cheerio.Cheerio<Element>,
@@ -187,9 +246,11 @@ export function parseDownloadBlock(
     if (seen.has(url)) return;
     seen.add(url);
 
-    // Only emit when a structural row exists (platform or part set), or
-    // edition/kind context alone with no row → still skip inventing from URL.
-    if (ctx.platform == null && ctx.part == null) return;
+    // Emit when a structural row exists, or when patch/extra heading has
+    // host links with no platform row (Extras: exception).
+    if (ctx.platform == null && ctx.part == null && !activeAuxKind(ctx)) {
+      return;
+    }
 
     const edition =
       ctx.editionStack.filter(Boolean).slice(-1)[0] ?? null;
@@ -214,7 +275,9 @@ export function parseDownloadBlock(
     });
   };
 
-  const walk = (node: Element) => {
+  const walk = (node: Element, skipBold: Element | null = null) => {
+    if (skipBold && node === skipBold) return;
+
     const $node = $(node);
     if ($node.is(SPOILER_SEL)) {
       const title = spoilerTitle($, node);
@@ -262,22 +325,22 @@ export function parseDownloadBlock(
       return;
     }
 
+    // span/p with leading b/strong: classify once, skip re-walking that bold.
+    if (node.tagName === 'span' || node.tagName === 'p') {
+      const extracted = extractLabelFromElement($, node);
+      if (extracted) {
+        applyLabel(ctx, classifyBoldLabel(extracted.text));
+        for (const child of $node.contents().toArray()) {
+          if (child.type === 'tag') {
+            walk(child as Element, extracted.boldEl);
+          }
+        }
+        return;
+      }
+    }
+
     if (node.tagName === 'b' || node.tagName === 'strong') {
-      const classified = classifyBoldLabel($node.text());
-      if (classified.type === 'download') return;
-      if (classified.type === 'edition') {
-        ctx.editionStack = [classified.text];
-        ctx.kindStack = [classified.kind ?? null];
-        ctx.platform = null;
-        ctx.part = null;
-        return;
-      }
-      if (classified.type === 'part') {
-        ctx.part = classified.part ?? null;
-        return;
-      }
-      ctx.platform = classified.text;
-      ctx.part = null;
+      applyLabel(ctx, classifyBoldLabel($node.text()));
       return;
     }
 
