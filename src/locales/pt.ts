@@ -844,6 +844,8 @@ const pt: Record<string, string> = {
   'store.home.rail.views': 'Mais vistos',
   'store.home.rail.rating': 'Melhor avaliados',
   'store.home.rail.tag': 'Tag · {name}',
+  'store.home.rail.prev': 'Rolar para a esquerda',
+  'store.home.rail.next': 'Rolar para a direita',
   'store.home.retry': 'Tentar de novo',
   'store.home.loadFailed': 'Não foi possível carregar a descoberta.',
   'store.section.more': 'Mais jogos',
