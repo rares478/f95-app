@@ -844,6 +844,8 @@ const pt: Record<string, string> = {
   'store.home.rail.views': 'Mais vistos',
   'store.home.rail.rating': 'Melhor avaliados',
   'store.home.rail.tag': 'Tag · {name}',
+  'store.home.rail.recentlyViewed': 'Vistos recentemente',
+  'store.home.rail.becauseYouPlay': 'Porque jogas {title}',
   'store.home.rail.prev': 'Rolar para a esquerda',
   'store.home.rail.next': 'Rolar para a direita',
   'store.home.retry': 'Tentar de novo',
