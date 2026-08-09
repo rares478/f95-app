@@ -1,7 +1,6 @@
 import { useState, type ReactNode } from 'react';
 import { createPortal } from 'react-dom';
-import { openUrl } from '@tauri-apps/plugin-opener';
-import type { GameDownload, SocialLink } from '../../types/game';
+import type { GameDownload } from '../../types/game';
 import * as downloads from '../../lib/downloads';
 import * as library from '../../lib/library';
 import * as libraries from '../../lib/libraries';
@@ -35,7 +34,6 @@ export interface DownloadLinksGameInfo {
 interface Props {
   game: DownloadLinksGameInfo;
   downloads: GameDownload[];
-  social: SocialLink[];
   embedded?: boolean;
   /** Called after a wizard/download start succeeds (e.g. refresh library UI). */
   onStarted?: () => void;
@@ -44,7 +42,6 @@ interface Props {
 export function DownloadLinks({
   game,
   downloads: items,
-  social,
   embedded,
   onStarted,
 }: Props) {
@@ -135,7 +132,7 @@ export function DownloadLinks({
     await startDownload(dl, lib.path);
   }
 
-  if (items.length === 0 && social.length === 0) {
+  if (items.length === 0) {
     return <p className="dl-meta-text">{t('dl.empty')}</p>;
   }
 
@@ -194,27 +191,6 @@ export function DownloadLinks({
           </ul>
         </div>
       ))}
-
-      {social.length > 0 && (
-        <div style={{ marginTop: 16 }}>
-          <div className="dl-meta-text" style={{ marginBottom: 8, fontWeight: 600 }}>
-            {t('dl.support')}
-          </div>
-          <ul style={{ listStyle: 'none', margin: 0, padding: 0, display: 'grid', gap: 6 }}>
-            {social.map((link) => (
-              <li key={link.url}>
-                <button
-                  type="button"
-                  className="dl-link-btn"
-                  onClick={() => void openUrl(link.url)}
-                >
-                  {link.text?.trim() || link.host}
-                </button>
-              </li>
-            ))}
-          </ul>
-        </div>
-      )}
     </>
   );
 
@@ -222,17 +198,15 @@ export function DownloadLinks({
     <>
       {!embedded && <h3>{t('dl.section')}</h3>}
 
-      {(items.length > 0 || social.length > 0) && (
+      {items.length > 0 && (
         <div className="install-wizard-store-actions">
-          {items.length > 0 && (
-            <button
-              type="button"
-              className="dl-action-btn dl-action-btn-accent"
-              onClick={() => setWizardOpen(true)}
-            >
-              {t('libcard.cta.install')}
-            </button>
-          )}
+          <button
+            type="button"
+            className="dl-action-btn dl-action-btn-accent"
+            onClick={() => setWizardOpen(true)}
+          >
+            {t('libcard.cta.install')}
+          </button>
           <button
             type="button"
             className="dl-action-btn"
