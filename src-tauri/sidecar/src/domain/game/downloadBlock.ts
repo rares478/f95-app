@@ -71,7 +71,7 @@ export function resolveDownloadRoot(
   }
   if (!nodes.length) return null;
 
-  const wrap = $('<div></div>');
+  const wrap = $('<div></div>') as cheerio.Cheerio<Element>;
   for (const n of nodes) wrap.append($(n).clone());
   if (!rootHasDirectHost($, wrap)) return null;
   return wrap;

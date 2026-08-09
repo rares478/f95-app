@@ -3,7 +3,10 @@ import { join } from 'node:path';
 import { describe, expect, it } from 'vitest';
 import * as cheerio from 'cheerio';
 import type { Element } from 'domhandler';
-import { parseDownloadBlock } from '../domain/game/downloadBlock';
+import {
+  parseDownloadBlock,
+  type GameDownload,
+} from '../domain/game/downloadBlock';
 
 function loadRoot(name: string) {
   const html = readFileSync(join(__dirname, 'fixtures', name), 'utf8');
@@ -12,7 +15,7 @@ function loadRoot(name: string) {
   return { $, root };
 }
 
-function byUrl(downloads: { url: string }[], frag: string) {
+function byUrl(downloads: GameDownload[], frag: string): GameDownload[] {
   return downloads.filter((d) => d.url.includes(frag));
 }
 
