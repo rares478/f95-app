@@ -3,7 +3,7 @@ import {
   SPOTLIGHT_COUNT,
 } from './discoveryConfig';
 import type { DiscoveryPoolRecord } from './discoveryPools';
-import { buildSpotlight, pickHead, pickSample } from './discoverySelection';
+import { buildSpotlight, pickHead, pickSample, withoutIgnored } from './discoverySelection';
 import type { SamGameCard, SamSort, SamTag } from '../types/sam';
 
 export interface DiscoveryTagRail {
@@ -79,16 +79,14 @@ export function buildDiscoveryHomeModel(args: {
 }): DiscoveryHomeModel {
   const { pools, tagRails, seed, loadingKeys, errorKeys } = args;
 
-  const spotlight = buildSpotlight(
-    itemsOf(pools, 'recent'),
-    itemsOf(pools, 'likes'),
-    itemsOf(pools, 'views'),
-    SPOTLIGHT_COUNT,
-    seed,
-  );
+  const recent = withoutIgnored(itemsOf(pools, 'recent'));
+  const likes = withoutIgnored(itemsOf(pools, 'likes'));
+  const views = withoutIgnored(itemsOf(pools, 'views'));
+
+  const spotlight = buildSpotlight(recent, likes, views, SPOTLIGHT_COUNT, seed);
 
   const rails: DiscoveryHomeRail[] = SORT_RAILS.map((spec) => {
-    const poolItems = itemsOf(pools, spec.poolKey);
+    const poolItems = withoutIgnored(itemsOf(pools, spec.poolKey));
     const items =
       spec.mode === 'head'
         ? pickHead(poolItems, RAIL_DISPLAY_COUNT)
@@ -105,7 +103,7 @@ export function buildDiscoveryHomeModel(args: {
   });
 
   for (const tagRail of tagRails) {
-    const poolItems = itemsOf(pools, tagRail.key);
+    const poolItems = withoutIgnored(itemsOf(pools, tagRail.key));
     rails.push({
       id: tagRail.key,
       poolKey: tagRail.key,
@@ -118,8 +116,8 @@ export function buildDiscoveryHomeModel(args: {
     });
   }
 
-  const user = (args.userRails ?? []).filter(
-    (r) => r.loading || r.error || r.items.length > 0,
-  );
+  const user = (args.userRails ?? [])
+    .map((r) => ({ ...r, items: withoutIgnored(r.items) }))
+    .filter((r) => r.loading || r.error || r.items.length > 0);
   return { spotlight, rails: [...user, ...rails] };
 }

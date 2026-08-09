@@ -15,6 +15,10 @@ export function dedupeByThreadId(items: SamGameCard[]): SamGameCard[] {
   return out;
 }
 
+export function withoutIgnored(items: SamGameCard[]): SamGameCard[] {
+  return items.filter((item) => !item.ignored);
+}
+
 export function pickHead(items: SamGameCard[], n: number): SamGameCard[] {
   return items.slice(0, Math.max(0, n));
 }

@@ -5,6 +5,7 @@ import {
   isPoolFresh,
   pickHead,
   pickSample,
+  withoutIgnored,
 } from './discoverySelection';
 import type { SamGameCard } from '../types/sam';
 
@@ -68,5 +69,17 @@ describe('pickHead / pickSample / buildSpotlight', () => {
     const slides = buildSpotlight(recent, likes, views, 5, 'seed');
     expect(slides).toHaveLength(5);
     expect(new Set(slides.map((s) => s.threadId)).size).toBe(5);
+  });
+});
+
+describe('withoutIgnored', () => {
+  it('drops ignored cards and keeps others', () => {
+    const keep = card('1');
+    const drop = { ...card('2'), ignored: true };
+    expect(withoutIgnored([keep, drop]).map((c) => c.threadId)).toEqual(['1']);
+  });
+
+  it('returns empty when all ignored', () => {
+    expect(withoutIgnored([{ ...card('9'), ignored: true }])).toEqual([]);
   });
 });

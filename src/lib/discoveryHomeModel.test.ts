@@ -224,4 +224,43 @@ describe('buildDiscoveryHomeModel', () => {
       'rating',
     ]);
   });
+
+  it('excludes ignored cards from spotlight, sort rails, and user rails', () => {
+    const ignored = { ...card('bad'), ignored: true };
+    const pools = new Map<string, DiscoveryPoolRecord>([
+      ['recent', { key: 'recent', items: [ignored, card('r1')], fetchedAt: 1 }],
+      ['likes', { key: 'likes', items: [ignored, card('l1')], fetchedAt: 1 }],
+      ['views', { key: 'views', items: [card('v1')], fetchedAt: 1 }],
+      ['rating', { key: 'rating', items: [card('a1')], fetchedAt: 1 }],
+    ]);
+
+    const model = buildDiscoveryHomeModel({
+      pools,
+      tagRails: [],
+      seed: 'seed-1',
+      loadingKeys: new Set(),
+      errorKeys: new Map(),
+      userRails: [
+        {
+          id: 'because-you-play',
+          poolKey: 'because-you-play',
+          titleKey: 'store.home.rail.becauseYouPlay',
+          titleParams: { title: 'X' },
+          items: [ignored, card('ok')],
+          loading: false,
+          error: null,
+          seeAll: {},
+        },
+      ],
+    });
+
+    const allIds = [
+      ...model.spotlight.map((c) => c.threadId),
+      ...model.rails.flatMap((r) => r.items.map((c) => c.threadId)),
+    ];
+    expect(allIds).not.toContain('bad');
+    expect(model.rails.find((r) => r.id === 'because-you-play')?.items.map((c) => c.threadId)).toEqual([
+      'ok',
+    ]);
+  });
 });
