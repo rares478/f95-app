@@ -8,6 +8,7 @@ import { useSamList } from '../hooks/useSamList';
 import { useStoreSettings } from '../contexts/StoreSettings';
 import { useStoreFilters } from '../contexts/StoreFilters';
 import { OfflineGate } from '../components/OfflineGate';
+import { withoutIgnored } from '../lib/discoverySelection';
 import { useT } from '../lib/i18n';
 
 const STORE_VIEW_STATE_KEY = 'f95-app:store-browse-view-state';
@@ -84,12 +85,14 @@ export function StoreBrowsePage() {
     includeTags,
     excludeTags,
     tagMode,
+    showIgnored,
     setSearch,
     setSort,
     setPrefixFilter,
     setIncludeTags,
     setExcludeTags,
     setTagMode,
+    setShowIgnored,
     changeCategory,
     clearAll,
   } = useStoreFilters();
@@ -129,6 +132,8 @@ export function StoreBrowsePage() {
       notags: excludeTags.length ? excludeTags.map((tg) => tg.id) : undefined,
       tagtype: includeTags.length > 1 ? tagMode : undefined,
     });
+
+  const visibleItems = showIgnored ? items : withoutIgnored(items);
 
   const scrollModeRef = useRef(storeSettings.scrollMode);
   useEffect(() => {
@@ -216,6 +221,8 @@ export function StoreBrowsePage() {
           onExcludeTags={setExcludeTags}
           tagMode={tagMode}
           onTagMode={setTagMode}
+          showIgnored={showIgnored}
+          onShowIgnored={setShowIgnored}
           onClearAll={clearAllFilters}
           hasActiveFilters={hasActiveFilters}
         />
@@ -239,12 +246,12 @@ export function StoreBrowsePage() {
 
           {loading && items.length === 0 && !error && <GameCardGridSkeleton count={10} />}
 
-          {items.length === 0 && !loading && !error && (
+          {visibleItems.length === 0 && !loading && !error && (
             <div className="store-empty">{t('store.noResults')}</div>
           )}
 
           <div className="store-grid">
-            {items.map((game) => (
+            {visibleItems.map((game) => (
               <GameCard key={game.threadId} game={game} category={category} />
             ))}
           </div>

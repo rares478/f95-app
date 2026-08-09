@@ -824,6 +824,7 @@ const pt: Record<string, string> = {
   'filter.tags.orHint': 'Mostrar threads com qualquer tag incluída',
   'filter.tags.andHint': 'Mostrar threads com todas as tags incluídas',
   'filter.clearAll': 'Limpar tudo',
+  'filter.showIgnored': 'Mostrar ignorados',
   'store.loadMore': 'Carregar mais',
   'store.loading': 'Carregando…',
   'store.results': '{count} resultados',

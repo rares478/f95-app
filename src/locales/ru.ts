@@ -819,6 +819,7 @@ const ru: Record<string, string> = {
   'filter.tags.orHint': 'Показать темы с любым из включённых тегов',
   'filter.tags.andHint': 'Показать темы со всеми включёнными тегами',
   'filter.clearAll': 'Сбросить все',
+  'filter.showIgnored': 'Показывать игнорируемые',
   'store.loadMore': 'Загрузить ещё',
   'store.loading': 'Загрузка…',
   'store.results': '{count} результатов',

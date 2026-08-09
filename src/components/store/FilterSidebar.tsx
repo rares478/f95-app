@@ -46,6 +46,8 @@ interface Props {
   onExcludeTags: (tags: SamTag[]) => void;
   tagMode: SamTagMode;
   onTagMode: (mode: SamTagMode) => void;
+  showIgnored: boolean;
+  onShowIgnored: (v: boolean) => void;
   onClearAll: () => void;
   hasActiveFilters: boolean;
 }
@@ -75,6 +77,8 @@ export function FilterSidebar(props: Props) {
     onExcludeTags,
     tagMode,
     onTagMode,
+    showIgnored,
+    onShowIgnored,
     onClearAll,
     hasActiveFilters,
   } = props;
@@ -182,6 +186,14 @@ export function FilterSidebar(props: Props) {
             ))}
           </select>
         </div>
+        <label className="settings-check-row">
+          <input
+            type="checkbox"
+            checked={showIgnored}
+            onChange={(e) => onShowIgnored(e.target.checked)}
+          />
+          <span>{t('filter.showIgnored')}</span>
+        </label>
       </FilterSection>
 
       <FilterSection title={t('filter.prefixes')}>
