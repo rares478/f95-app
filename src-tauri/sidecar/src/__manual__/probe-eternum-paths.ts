@@ -1,7 +1,9 @@
 import * as cheerio from 'cheerio';
 import fs from 'fs';
-import { resolveDownloadPath } from '../domain/game/client.ts';
-import { classifyHost } from '../domain/game/hosts.ts';
+import {
+  parseDownloadBlock,
+  resolveDownloadRoot,
+} from '../domain/game/downloadBlock.ts';
 
 const html = fs.readFileSync('thread-93340.html', 'utf8');
 const $ = cheerio.load(html);
@@ -47,26 +49,14 @@ op.find('.bbCodeSpoiler').each((i, el) => {
   );
 });
 
-console.log('\n=== Download paths for host links ===');
-const rows: unknown[] = [];
-op.find('a[href]').each((_, el) => {
-  const href = $(el).attr('href');
-  if (!href) return;
-  const info = classifyHost(href.startsWith('http') ? href : `https://f95zone.to${href}`);
-  if (!info || info.category !== 'direct') return;
-  const path = resolveDownloadPath($, el as any);
-  rows.push({
-    host: info.host,
-    text: $(el).text().trim().slice(0, 40),
-    ...path,
-  });
-});
-console.log(JSON.stringify(rows, null, 2));
+console.log('\n=== Download block for host links ===');
+const root = resolveDownloadRoot($, op as cheerio.Cheerio<cheerio.Element>);
+const downloads = root ? parseDownloadBlock($, root) : [];
+console.log(JSON.stringify(downloads, null, 2));
 
-// Group by group string
 const byGroup = new Map<string, number>();
-for (const r of rows as { group: string | null }[]) {
-  const k = r.group ?? '(null)';
+for (const d of downloads) {
+  const k = d.group ?? '(null)';
   byGroup.set(k, (byGroup.get(k) ?? 0) + 1);
 }
 console.log('\n=== Counts by group ===');

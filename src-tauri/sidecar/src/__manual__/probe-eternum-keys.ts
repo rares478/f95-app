@@ -1,6 +1,9 @@
 import * as cheerio from 'cheerio';
 import fs from 'fs';
-import { resolveDownloadPath } from '../domain/game/client.ts';
+import {
+  parseDownloadBlock,
+  resolveDownloadRoot,
+} from '../domain/game/downloadBlock.ts';
 
 const html = fs.readFileSync('thread-93340.html', 'utf8');
 const $ = cheerio.load(html);
@@ -13,14 +16,14 @@ const targets = [
   'Eternum-0.9.5-Android.zip',
 ];
 
+const root = resolveDownloadRoot($, op as cheerio.Cheerio<cheerio.Element>);
+const downloads = root ? parseDownloadBlock($, root) : [];
+
 for (const needle of targets) {
-  const a = op.find(`a[href*="${needle}"]`).first();
-  if (!a.length) {
+  const hits = downloads.filter((d) => d.url.includes(needle));
+  if (!hits.length) {
     console.log(needle, 'NOT FOUND');
     continue;
   }
-  const el = a.get(0)!;
-  const path = resolveDownloadPath($, el as any);
-  const inSpoiler = $(el).closest('.bbCodeSpoiler').length > 0;
-  console.log(needle, { inSpoiler, ...path });
+  console.log(needle, hits);
 }

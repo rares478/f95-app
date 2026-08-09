@@ -134,4 +134,62 @@ describe('parseDownloadBlock — kinds and wrapped labels', () => {
       kindHint: 'split',
     });
   });
+
+  it('does not treat dispatch/modern substrings as patch/extra', () => {
+    const { $, root } = loadRoot('download-block-kinds.html');
+    const downloads = parseDownloadBlock($, root);
+    const dispatch = byUrl(downloads, 'dispatch-notes')[0];
+    expect(dispatch?.kindHint).not.toBe('patch');
+    expect(dispatch?.kindHint).not.toBe('extra');
+    const modern = byUrl(downloads, 'modern-build')[0];
+    expect(modern?.kindHint).not.toBe('patch');
+    expect(modern?.kindHint).not.toBe('extra');
+  });
+
+  it('preserves Win64 and OSX platform labels as written', () => {
+    const { $, root } = loadRoot('download-block-kinds.html');
+    const downloads = parseDownloadBlock($, root);
+    expect(byUrl(downloads, 'lom-b3-win')[0]).toMatchObject({
+      edition: 'Book 3 (Act XI-XVI and New Game+)',
+      platform: 'Win64',
+      kindHint: 'full',
+    });
+    expect(byUrl(downloads, 'lom-b3-mac')[0]).toMatchObject({
+      platform: 'OSX',
+      kindHint: 'full',
+    });
+  });
+});
+
+describe('parseDownloadBlock — Hard to Love nested acts', () => {
+  it('keeps Act2 current separate from Act 1 spoiler content', () => {
+    const { $, root } = loadRoot('download-block-hard-to-love.html');
+    const downloads = parseDownloadBlock($, root);
+    expect(byUrl(downloads, 'act2-win')[0]).toMatchObject({
+      platform: 'Win/Linux',
+      kindHint: 'full',
+      topLevel: true,
+    });
+    expect(byUrl(downloads, 'act1-hq-win')[0]).toMatchObject({
+      edition: 'Act 1 (v1.0)',
+      platform: 'Win/Linux',
+      kindHint: 'full',
+      topLevel: false,
+    });
+  });
+
+  it('does not lump Before Remake seasons into Act 1', () => {
+    const { $, root } = loadRoot('download-block-hard-to-love.html');
+    const downloads = parseDownloadBlock($, root);
+    expect(byUrl(downloads, 's2-win')[0]).toMatchObject({
+      edition: 'SEASON 2',
+      platform: 'Win/Linux',
+    });
+    expect(byUrl(downloads, 's1-win')[0]).toMatchObject({
+      edition: 'SEASON 1',
+      platform: 'Win/Linux',
+    });
+    expect(byUrl(downloads, 's2-win')[0].edition).not.toMatch(/Act 1/i);
+    expect(byUrl(downloads, 'act1-hq-win')[0].edition).not.toMatch(/SEASON/i);
+  });
 });

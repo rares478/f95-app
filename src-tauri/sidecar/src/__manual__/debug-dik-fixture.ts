@@ -1,13 +1,17 @@
 import { readFileSync } from 'fs';
 import * as cheerio from 'cheerio';
-import { resolveDownloadPath } from '../domain/game/client.ts';
+import { parseDownloadBlock } from '../domain/game/downloadBlock.ts';
 
 const html = readFileSync(
-  './src/__tests__/fixtures/download-path-dik-patch.html',
+  './src/__tests__/fixtures/download-block-kinds.html',
   'utf8',
 );
 const $ = cheerio.load(html);
-for (const frag of ['s3-full-win', 'patch-ep11', 'patch-ep10', 's3-p1']) {
-  const el = $(`a[href*="${frag}"]`).get(0);
-  console.log(frag, resolveDownloadPath($, el as any));
+const root = $('.download-root').first();
+const downloads = parseDownloadBlock($, root as cheerio.Cheerio<cheerio.Element>);
+for (const frag of ['kinds-win', 'kinds-patch', 'kinds-extra', 'kinds-p1']) {
+  console.log(
+    frag,
+    downloads.filter((d) => d.url.includes(frag)),
+  );
 }
