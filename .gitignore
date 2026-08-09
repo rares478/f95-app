@@ -26,6 +26,9 @@ dist-ssr
 # Git worktrees (local isolation)
 .worktrees/
 
+# Local agent scratch (brainstorm / SDD)
+.superpowers/
+
 # Local debug / scrape artifacts
 tmp-*
 uh-post-*.html
