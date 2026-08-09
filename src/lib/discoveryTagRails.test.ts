@@ -26,12 +26,10 @@ describe('pickTagRailsForDay', () => {
     expect(a.map((r) => r.tag.id)).toEqual(b.map((r) => r.tag.id));
   });
 
-  it('can differ across dayKeys', () => {
+  it('differs across known dayKeys with bundled catalog', () => {
     const a = pickTagRailsForDay({ catalog, dayKey: '2026-08-09' });
     const b = pickTagRailsForDay({ catalog, dayKey: '2026-08-10' });
-    if (a.length === 3 && b.length === 3) {
-      expect(a.map((r) => r.tag.id).join(',')).not.toEqual(b.map((r) => r.tag.id).join(','));
-    }
+    expect(a.map((r) => r.tag.id)).not.toEqual(b.map((r) => r.tag.id));
   });
 
   it('skips unresolved names', () => {
