@@ -584,9 +584,20 @@
   scroll-behavior: smooth;
   -webkit-overflow-scrolling: touch;
   scrollbar-width: none;
-  /* Room for Steam-style hover pop without clipping neighbors as hard */
-  padding: 18px 4px 22px;
+  position: relative;
+  z-index: 0;
+  /*
+   * Side padding clears the 36px edge navs and leaves room for hover
+   * scale(1.08) (~9px/side) so first/last cards are not clipped by overflow-x.
+   * Vertical-only negative margin keeps the row aligned with the title.
+   */
+  padding: 18px 40px 22px;
   margin: -16px 0 -12px;
+}
+
+/* Hovered card z-index alone cannot beat sibling nav; lift the track instead. */
+.discovery-rail-track:has(.rail-game-card.is-hovered) {
+  z-index: 4;
 }
 
 .discovery-rail-track::-webkit-scrollbar,
@@ -600,7 +611,7 @@
   position: absolute;
   top: 18px;
   bottom: 22px;
-  z-index: 3;
+  z-index: 2;
   width: 36px;
   border: 1px solid var(--border);
   border-radius: 4px;
