@@ -84,7 +84,8 @@ const OS_LABEL_RE =
 const PART_LABEL_RE = /^part\s*(\d+)$/i;
 const EDITION_HEADING_RE =
   /\b(season|act\s*\d*|chapter|episode|volume|vol\.?|archive|before\s+remake|ost|soundtrack|splits?|patch(?:es)?|extras?|translations?|mods?)\b/i;
-const QUALITY_LABEL_RE = /^(high|low)\s+quality$/i;
+const QUALITY_LABEL_RE =
+  /^(high|low|standard|medium)\s+quality\b/i;
 const AUX_KIND_RE = /^(patch(?:es)?|extras?|translations?|mods?|ost|soundtrack)\b/i;
 
 type WalkCtx = {
@@ -142,7 +143,15 @@ function classifyBoldLabel(raw: string): {
     return { type: 'part', text, part: Number.parseInt(partMatch[1], 10) };
   }
   if (QUALITY_LABEL_RE.test(text)) {
-    return { type: 'quality', text };
+    const m = text.match(/^((?:high|low|standard|medium)\s+quality)/i);
+    const qualityText = m ? m[1] : text;
+    const os = osTokenFromLabel(text);
+    return {
+      type: 'quality',
+      text: qualityText,
+      kind: 'full',
+      platform: os ?? undefined,
+    };
   }
   if (AUX_KIND_RE.test(text) || EDITION_HEADING_RE.test(text)) {
     let kind: GameDownload['kindHint'] = 'full';
@@ -199,6 +208,9 @@ function sanitizeEditionTitle(raw: string): string | null {
   if (DOWNLOAD_HEADING_RE.test(t)) return null;
   if (t.length > 80) return null;
   if (HOST_DUMP_RE.test(t)) return null;
+  // OS-only labels are platform rows, not edition titles (Split → Win/Linux → Spoiler).
+  const osOnly = osTokenFromLabel(t);
+  if (osOnly && !stripOsFromLabel(t)) return null;
   return t;
 }
 
@@ -313,8 +325,20 @@ function applyLabel(
     return;
   }
   if (classified.type === 'quality') {
-    ctx.quality = classified.text;
-    ctx.platform = null;
+    // Peer quality sections at root (High/Standard Quality) replace leftover
+    // Split/edition context. Nested under an act/season → quality suffix.
+    if (ctx.spoilerDepth === 0) {
+      ctx.editionStack = [classified.text];
+      ctx.kindStack = [classified.kind ?? 'full'];
+      ctx.quality = null;
+    } else if (ctx.editionStack.some(Boolean)) {
+      ctx.quality = classified.text;
+    } else {
+      ctx.editionStack = [classified.text];
+      ctx.kindStack = [classified.kind ?? 'full'];
+      ctx.quality = null;
+    }
+    ctx.platform = classified.platform ?? null;
     ctx.part = null;
     return;
   }
@@ -366,11 +390,14 @@ export function parseDownloadBlock(
     const platform = ctx.platform;
     const part = ctx.part;
     const kindHint = inferKind(ctx, platform, part);
+    const qualityEdition = /\bquality\b/i.test(edition ?? '');
     // Root-level current builds stay topLevel even when labeled (e.g. Act2).
+    // Quality variants (High/Standard Quality) are not the unnamed Current bucket.
     const topLevel =
       kindHint !== 'patch' &&
       kindHint !== 'extra' &&
-      ctx.spoilerDepth === 0;
+      ctx.spoilerDepth === 0 &&
+      !qualityEdition;
 
     downloads.push({
       host: info.host,
@@ -429,11 +456,24 @@ export function parseDownloadBlock(
       const prevPart = ctx.part;
       const prevQuality = ctx.quality;
       const prevSplit = ctx.splitSpoiler;
-      ctx.platform = null;
+      // Twisted Memories: `Split` + `Win/Linux` then Spoiler with Part N —
+      // keep the platform row across the spoiler boundary.
+      const keepPlatform =
+        ctx.platform != null &&
+        (kind === 'split' ||
+          ctx.kindStack.some((k) => k === 'split') ||
+          /\bsplits?\b/i.test(composeEdition(ctx) ?? ''));
+      if (!keepPlatform) ctx.platform = null;
       ctx.part = null;
       ctx.quality = null;
       ctx.spoilerDepth += 1;
-      if (kind === 'split') ctx.splitSpoiler = true;
+      if (
+        kind === 'split' ||
+        ctx.kindStack.some((k) => k === 'split') ||
+        /\bsplits?\b/i.test(composeEdition(ctx) ?? '')
+      ) {
+        ctx.splitSpoiler = true;
+      }
 
       const content = $node
         .find('> .bbCodeSpoiler-content, > .bbCodeBlock-content, > summary + *')
