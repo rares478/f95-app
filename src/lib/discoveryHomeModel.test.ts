@@ -178,4 +178,50 @@ describe('buildDiscoveryHomeModel', () => {
     expect(model.rails[0]!.loading).toBe(true);
     expect(model.rails[4]!.loading).toBe(true);
   });
+
+  it('prepends user rails before global rails and omits empty non-loading user rails', () => {
+    const pools = new Map<string, DiscoveryPoolRecord>([
+      ['recent', pool('recent', ['r1'])],
+      ['likes', pool('likes', [])],
+      ['views', pool('views', [])],
+      ['rating', pool('rating', [])],
+    ]);
+
+    const model = buildDiscoveryHomeModel({
+      pools,
+      tagRails: [],
+      seed: 's',
+      loadingKeys: new Set(),
+      errorKeys: new Map(),
+      userRails: [
+        {
+          id: 'recently-viewed',
+          poolKey: 'recently-viewed',
+          titleKey: 'store.home.rail.recentlyViewed',
+          items: [card('v1')],
+          loading: false,
+          error: null,
+          seeAll: {},
+        },
+        {
+          id: 'because-you-play',
+          poolKey: 'because-you-play',
+          titleKey: 'store.home.rail.becauseYouPlay',
+          titleParams: { title: 'Seed' },
+          items: [],
+          loading: false,
+          error: null,
+          seeAll: {},
+        },
+      ],
+    });
+
+    expect(model.rails.map((r) => r.id)).toEqual([
+      'recently-viewed',
+      'recent',
+      'likes',
+      'views',
+      'rating',
+    ]);
+  });
 });

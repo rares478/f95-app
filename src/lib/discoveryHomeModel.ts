@@ -75,6 +75,7 @@ export function buildDiscoveryHomeModel(args: {
   seed: string;
   loadingKeys: Set<string>;
   errorKeys: Map<string, string>;
+  userRails?: DiscoveryHomeRail[];
 }): DiscoveryHomeModel {
   const { pools, tagRails, seed, loadingKeys, errorKeys } = args;
 
@@ -117,5 +118,8 @@ export function buildDiscoveryHomeModel(args: {
     });
   }
 
-  return { spotlight, rails };
+  const user = (args.userRails ?? []).filter(
+    (r) => r.loading || r.error || r.items.length > 0,
+  );
+  return { spotlight, rails: [...user, ...rails] };
 }
