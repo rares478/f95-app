@@ -1,6 +1,7 @@
 import { useEffect, useRef, useState } from 'react';
 import { Link } from 'react-router-dom';
 import { useStoreContextMenu } from '../../hooks/useStoreContextMenu';
+import { toF95FullUrl } from '../../lib/f95ImageUrl';
 import { useT } from '../../lib/i18n';
 import { useIsInLibrary } from '../../lib/libraryMembership';
 import type { SamCategory, SamGameCard } from '../../types/sam';
@@ -57,6 +58,7 @@ export function WideCapsuleCard({ game, category }: Props) {
   };
 
   const meta = game.version || shortUpdatedAt(game.updatedAt);
+  const imageSrc = game.thumbnailUrl ? toF95FullUrl(game.thumbnailUrl) : null;
 
   return (
     <Link
@@ -69,11 +71,12 @@ export function WideCapsuleCard({ game, category }: Props) {
       onBlur={onLeave}
     >
       <div className="wide-capsule-card-thumb">
-        {game.thumbnailUrl ? (
+        {imageSrc ? (
           <img
-            src={game.thumbnailUrl}
+            src={imageSrc}
             alt={game.title}
             loading="lazy"
+            decoding="async"
             className="wide-capsule-card-img"
             onError={(e) => {
               (e.target as HTMLImageElement).style.display = 'none';
