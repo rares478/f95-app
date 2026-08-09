@@ -34,7 +34,6 @@ import {
 } from '../components/game/GameDetailLayout';
 import { MoreLikeThis } from '../components/game/MoreLikeThis';
 import { ThreadDiscussion } from '../components/game/ThreadDiscussion';
-import { OfflineGate } from '../components/OfflineGate';
 import { useContextMenu } from '../components/contextMenu';
 import { useOffline } from '../contexts/Offline';
 import { useStoreFilters } from '../contexts/StoreFilters';
@@ -65,15 +64,9 @@ const FIELD_ORDER = [
 
 const SKIP_FIELDS = new Set(['Overview', 'Genre', 'Installation', 'Changelog']);
 
+/** Not wrapped in OfflineGate: hard-gating remounts this page whenever the
+ *  periodic connectivity probe flickers, wiping loaded detail back to loading. */
 export function GameDetailPage() {
-  return (
-    <OfflineGate>
-      <GameDetailPageInner />
-    </OfflineGate>
-  );
-}
-
-function GameDetailPageInner() {
   const { threadId } = useParams<{ threadId: string }>();
   const [searchParams] = useSearchParams();
   const category = parseSamCategory(searchParams.get('cat'));
@@ -191,6 +184,10 @@ function GameDetailPageInner() {
 
   async function onAddToLibrary() {
     if (state.kind !== 'ready' || adding) return;
+    if (isOffline) {
+      await dialog.alert(t('offline.actionBlocked'), { kind: 'info' });
+      return;
+    }
     setAdding(true);
     try {
       await library.add({
