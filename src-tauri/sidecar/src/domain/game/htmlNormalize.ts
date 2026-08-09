@@ -67,8 +67,11 @@ export function normalizeOpHtml(
   });
 
   // Rewrite XF spoiler containers into native <details> for collapsibility.
-  clone.find('.bbCodeSpoiler').each((_, el) => {
+  // Deepest-first so nested spoilers (common in Changelog) convert before parents.
+  const spoilerNodes = clone.find('.bbCodeSpoiler').toArray().reverse();
+  for (const el of spoilerNodes) {
     const $el = $(el);
+    if ($el.hasClass('x-spoiler') || $el.is('details')) continue;
     const title =
       cleanText($el.find('.bbCodeSpoiler-button-title').first().text()) ||
       'Spoiler';
@@ -77,7 +80,7 @@ export function normalizeOpHtml(
     $el.replaceWith(
       `<details class="x-spoiler"><summary>${escapeHtml(title)}</summary>${content}</details>`,
     );
-  });
+  }
 
   // Rewrite XF quote blocks into a clean blockquote + expand control.
   // Deepest-first so nested quotes normalize before their parents.
