@@ -261,12 +261,3 @@ CREATE TABLE IF NOT EXISTS discovery_pools (
   fetched_at INTEGER NOT NULL
 );
 "#;
-
-/// v12: cached SAM list pools for Store discovery Home.
-pub const V12_DISCOVERY_POOLS: &str = r#"
-CREATE TABLE IF NOT EXISTS discovery_pools (
-  key TEXT PRIMARY KEY NOT NULL,
-  payload TEXT NOT NULL,
-  fetched_at INTEGER NOT NULL
-);
-"#;
