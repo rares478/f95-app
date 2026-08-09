@@ -161,6 +161,127 @@ describe('parseDownloadBlock — kinds and wrapped labels', () => {
   });
 });
 
+describe('parseDownloadBlock — Being a DIK combined season+OS', () => {
+  it('keeps Season 3 full Win/Linux hosts separate from Patch', () => {
+    const { $, root } = loadRoot('download-block-dik-patch.html');
+    const downloads = parseDownloadBlock($, root);
+
+    const s3 = byUrl(downloads, 's3-full-win');
+    expect(s3).toHaveLength(2);
+    expect(s3[0]).toMatchObject({
+      edition: 'Season 3 Interlude + Episode 11',
+      platform: 'Win/Linux',
+      part: null,
+      kindHint: 'full',
+    });
+    expect(s3.map((d) => d.host).sort()).toEqual(['gofile', 'mega']);
+
+    expect(byUrl(downloads, 's3-full-mac')[0]).toMatchObject({
+      edition: 'Season 3 Interlude + Episode 11',
+      platform: 'Mac',
+      kindHint: 'full',
+    });
+
+    expect(byUrl(downloads, 'patch-ep11')[0]).toMatchObject({
+      kindHint: 'patch',
+      platform: 'Win/Linux',
+    });
+    expect(byUrl(downloads, 'patch-ep11')[0].edition).toMatch(/Patch/i);
+    expect(byUrl(downloads, 'patch-ep10')[0]).toMatchObject({
+      kindHint: 'patch',
+      platform: 'Win/Linux',
+    });
+
+    expect(byUrl(downloads, 'patch-ep11')[0].group).not.toContain('Season 3');
+    expect(byUrl(downloads, 's3-full-win')[0].kindHint).toBe('full');
+  });
+});
+
+describe('parseDownloadBlock — Eternum real markup', () => {
+  it('keeps top-level Current Win/Linux, Splits parts, and OST heading', () => {
+    const { $, root } = loadRoot('download-block-eternum-real.html');
+    const downloads = parseDownloadBlock($, root);
+
+    expect(byUrl(downloads, 'Eternum-0.9.5-pc.zip')[0]).toMatchObject({
+      edition: null,
+      platform: 'Win/Linux',
+      part: null,
+      kindHint: 'full',
+      group: 'Win/Linux',
+      topLevel: true,
+    });
+
+    expect(byUrl(downloads, 'Eternum-0.9.5-pc.zip.part1.rar')[0]).toMatchObject({
+      edition: 'Splits',
+      platform: 'Win/Linux',
+      part: 1,
+      kindHint: 'split',
+      group: 'Splits · Win/Linux · Part 1',
+    });
+
+    expect(
+      byUrl(downloads, 'Eternum-0.9.5-pc.zip.part2.rar')[0].platform,
+    ).toBe('Win/Linux');
+    expect(byUrl(downloads, 'Eternum-0.9.5-mac.zip.part1.rar')[0]).toMatchObject({
+      platform: 'Mac',
+      part: 1,
+      edition: 'Splits',
+    });
+
+    expect(byUrl(downloads, 'ost-win')[0]).toMatchObject({
+      edition: 'v0.8.5 (Original Soundtrack)',
+      platform: 'Win/Linux',
+      part: null,
+      kindHint: 'extra',
+    });
+  });
+});
+
+describe('parseDownloadBlock — multi-season nested splits', () => {
+  it('keeps Current, nested Splits, Archive spoiler, and after-spoiler rows', () => {
+    const { $, root } = loadRoot('download-block-multi-season.html');
+    const downloads = parseDownloadBlock($, root);
+
+    expect(byUrl(downloads, 's3-win-full')[0]).toMatchObject({
+      edition: null,
+      platform: 'Win/Linux',
+      kindHint: 'full',
+      topLevel: true,
+    });
+    expect(byUrl(downloads, 's12-win-full')[0]).toMatchObject({
+      edition: 'Season 1 - 2',
+      platform: 'Win/Linux',
+      topLevel: false,
+    });
+    expect(byUrl(downloads, 's12-win-p1')[0]).toMatchObject({
+      edition: 'Season 1 - 2 · Splits-S1&2',
+      platform: 'Win/Linux',
+      part: 1,
+      kindHint: 'split',
+    });
+    expect(byUrl(downloads, 's3-win-p1')[0]).toMatchObject({
+      edition: 'Season 3 splits',
+      platform: 'Win/Linux',
+      part: 1,
+      kindHint: 'split',
+    });
+    expect(byUrl(downloads, 'outer-split-p1')[0]).toMatchObject({
+      edition: 'SPLIT-S3',
+      part: 1,
+      kindHint: 'split',
+    });
+    expect(byUrl(downloads, 'archive-spoiler-win')[0]).toMatchObject({
+      edition: 'Archive · Old builds',
+      platform: 'Win/Linux',
+    });
+    expect(byUrl(downloads, 'after-spoiler-win')[0]).toMatchObject({
+      edition: 'Archive',
+      platform: 'Win/Linux',
+      topLevel: true,
+    });
+  });
+});
+
 describe('parseDownloadBlock — Hard to Love nested acts', () => {
   it('labels Act2 current and composes Act 1 quality editions', () => {
     const { $, root } = loadRoot('download-block-hard-to-love.html');
@@ -198,11 +319,11 @@ describe('parseDownloadBlock — Hard to Love nested acts', () => {
     const { $, root } = loadRoot('download-block-hard-to-love.html');
     const downloads = parseDownloadBlock($, root);
     expect(byUrl(downloads, 's2-win')[0]).toMatchObject({
-      edition: 'SEASON 2',
+      edition: 'Before Remake · SEASON 2',
       platform: 'Win/Linux',
     });
     expect(byUrl(downloads, 's1-win')[0]).toMatchObject({
-      edition: 'SEASON 1',
+      edition: 'Before Remake · SEASON 1',
       platform: 'Win/Linux',
     });
     expect(byUrl(downloads, 's2-win')[0].edition).not.toMatch(/Act 1/i);
