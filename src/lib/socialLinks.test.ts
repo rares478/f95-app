@@ -54,3 +54,11 @@ describe('KNOWN_SOCIAL_HOSTS', () => {
     );
   });
 });
+
+import { KNOWN_SOCIAL_ICON_HOSTS } from '../components/game/socialIcons';
+
+describe('social icon coverage', () => {
+  it('provides an icon entry for every known social host', () => {
+    expect([...KNOWN_SOCIAL_ICON_HOSTS].sort()).toEqual([...KNOWN_SOCIAL_HOSTS].sort());
+  });
+});
