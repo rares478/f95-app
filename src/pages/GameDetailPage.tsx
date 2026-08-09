@@ -393,16 +393,20 @@ function buildHeroMeta(
   };
 
   if (g.developer) {
+    const key = normMetaKey(g.developer);
     push(
-      normMetaKey(g.developer),
-      <GameDetailChip title={t('gamedetail.meta.developer')}>{g.developer}</GameDetailChip>,
+      key,
+      <GameDetailChip key={key} title={t('gamedetail.meta.developer')}>
+        {g.developer}
+      </GameDetailChip>,
     );
   }
 
   if (g.version) {
+    const key = normMetaKey(g.version);
     push(
-      normMetaKey(g.version),
-      <GameDetailChip accent title={t('gamedetail.meta.version')}>
+      key,
+      <GameDetailChip key={key} accent title={t('gamedetail.meta.version')}>
         {g.version}
       </GameDetailChip>,
     );
@@ -412,18 +416,22 @@ function buildHeroMeta(
   if (release && !metaValuesMatch(release, g.version ?? '')) {
     const updated = g.fields['Thread Updated']?.trim() ?? '';
     if (!updated || !metaValuesMatch(release, updated)) {
+      const key = normMetaKey(release);
       push(
-        normMetaKey(release),
-        <GameDetailChip title={t('gamedetail.meta.releaseDate')}>{release}</GameDetailChip>,
+        key,
+        <GameDetailChip key={key} title={t('gamedetail.meta.releaseDate')}>
+          {release}
+        </GameDetailChip>,
       );
     }
   }
 
   const os = g.fields['OS']?.trim();
   if (os) {
+    const key = normMetaKey(os);
     push(
-      normMetaKey(os),
-      <GameDetailChip title={os} className="game-detail-chip-truncate">
+      key,
+      <GameDetailChip key={key} title={os} className="game-detail-chip-truncate">
         {truncateChip(os)}
       </GameDetailChip>,
     );
