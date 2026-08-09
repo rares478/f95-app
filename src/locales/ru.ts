@@ -839,6 +839,8 @@ const ru: Record<string, string> = {
   'store.home.rail.views': 'Самые просматриваемые',
   'store.home.rail.rating': 'С лучшим рейтингом',
   'store.home.rail.tag': 'Тег · {name}',
+  'store.home.rail.recentlyViewed': 'Недавно просмотренные',
+  'store.home.rail.becauseYouPlay': 'Потому что вы играете в {title}',
   'store.home.rail.prev': 'Прокрутить влево',
   'store.home.rail.next': 'Прокрутить вправо',
   'store.home.retry': 'Повторить',

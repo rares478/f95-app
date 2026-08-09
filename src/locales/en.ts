@@ -845,6 +845,8 @@ const en: Record<string, string> = {
   'store.home.rail.views': 'Most viewed',
   'store.home.rail.rating': 'Best rated',
   'store.home.rail.tag': 'Tag · {name}',
+  'store.home.rail.recentlyViewed': 'Recently viewed',
+  'store.home.rail.becauseYouPlay': 'Because you play {title}',
   'store.home.rail.prev': 'Scroll left',
   'store.home.rail.next': 'Scroll right',
   'store.home.retry': 'Retry',

@@ -839,6 +839,8 @@ const de: Record<string, string> = {
   'store.home.rail.views': 'Am meisten angesehen',
   'store.home.rail.rating': 'Am besten bewertet',
   'store.home.rail.tag': 'Tag · {name}',
+  'store.home.rail.recentlyViewed': 'Zuletzt angesehen',
+  'store.home.rail.becauseYouPlay': 'Weil du {title} spielst',
   'store.home.rail.prev': 'Nach links scrollen',
   'store.home.rail.next': 'Nach rechts scrollen',
   'store.home.retry': 'Erneut versuchen',

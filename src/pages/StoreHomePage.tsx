@@ -94,24 +94,30 @@ export function StoreHomePage() {
 
         {spotlight.length > 0 && <SpotlightHero slides={spotlight} category={category} />}
 
-        {rails.map((rail) => (
-          <DiscoveryRail
-            key={rail.id}
-            title={t(rail.titleKey, rail.titleParams)}
-            seeAllLabel={t('store.home.seeAll')}
-            onSeeAll={() =>
-              goBrowse({
-                sort: rail.seeAll.sort,
-                includeTag: rail.seeAll.includeTag,
-              })
-            }
-            items={rail.items}
-            category={category}
-            loading={rail.loading || (bootstrapping && rail.items.length === 0)}
-            error={rail.error}
-            onRetry={rail.retry}
-          />
-        ))}
+        {rails.map((rail) => {
+          const canSeeAll = Boolean(rail.seeAll.sort || rail.seeAll.includeTag);
+          return (
+            <DiscoveryRail
+              key={rail.id}
+              title={t(rail.titleKey, rail.titleParams)}
+              seeAllLabel={canSeeAll ? t('store.home.seeAll') : undefined}
+              onSeeAll={
+                canSeeAll
+                  ? () =>
+                      goBrowse({
+                        sort: rail.seeAll.sort,
+                        includeTag: rail.seeAll.includeTag,
+                      })
+                  : undefined
+              }
+              items={rail.items}
+              category={category}
+              loading={rail.loading || (bootstrapping && rail.items.length === 0)}
+              error={rail.error}
+              onRetry={rail.retry}
+            />
+          );
+        })}
       </div>
     </OfflineGate>
   );
