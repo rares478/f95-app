@@ -830,6 +830,7 @@ const ru: Record<string, string> = {
   'store.pagination.page': 'Страница {page} из {total}',
   'store.featured': 'В центре внимания',
   'store.featured.viewDetails': 'Подробнее',
+  'store.home.upNext': 'Далее',
   'store.section.more': 'Ещё игры',
 
   // ─── News ───────────────────────────────────────────────────────────────

@@ -1,4 +1,316 @@
-/* Store discovery Home — rails (spotlight styles land in Task 7). */
+/* Store discovery Home — spotlight (Layout B) + rails. */
+
+/* ── Spotlight (Layout B) ─────────────────────────────────────────────── */
+
+.spotlight {
+  display: grid;
+  grid-template-columns: minmax(0, 2.2fr) minmax(180px, 1fr);
+  gap: 12px;
+  margin: 0 0 28px;
+  min-width: 0;
+}
+
+.spotlight-main {
+  position: relative;
+  min-width: 0;
+}
+
+.spotlight-slide {
+  position: relative;
+  display: block;
+  width: 100%;
+  height: 320px;
+  border-radius: 8px;
+  overflow: hidden;
+  text-decoration: none;
+  color: var(--text-primary);
+  background: var(--bg-sunken);
+  box-shadow: 0 4px 20px rgba(0, 0, 0, 0.35);
+  transition: transform 0.15s ease, box-shadow 0.15s ease;
+}
+
+.spotlight-slide:hover {
+  transform: translateY(-1px);
+  box-shadow: 0 6px 24px rgba(0, 0, 0, 0.4);
+  text-decoration: none;
+}
+
+.spotlight-slide-img {
+  position: absolute;
+  inset: 0;
+  width: 100%;
+  height: 100%;
+  object-fit: cover;
+  display: block;
+}
+
+.spotlight-slide-fallback {
+  position: absolute;
+  inset: 0;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  font-size: 96px;
+  font-weight: 800;
+  color: var(--text-faint);
+  background: linear-gradient(135deg, var(--bg-elevated), var(--bg-sunken));
+}
+
+.spotlight-slide-overlay {
+  position: absolute;
+  inset: 0;
+  background: linear-gradient(
+    0deg,
+    rgba(10, 10, 10, 0.92) 0%,
+    rgba(10, 10, 10, 0.55) 45%,
+    rgba(10, 10, 10, 0.15) 80%,
+    transparent 100%
+  );
+}
+
+.spotlight-library {
+  position: absolute;
+  top: 14px;
+  right: 14px;
+  z-index: 2;
+  background: var(--status-success);
+  color: var(--text-primary);
+  padding: 3px 10px;
+  border-radius: 2px;
+  font-size: 11px;
+  font-weight: 700;
+  letter-spacing: 0.3px;
+}
+
+.spotlight-slide-content {
+  position: absolute;
+  left: 0;
+  right: 0;
+  bottom: 0;
+  /* Extra bottom padding so optional dots don't cover the CTA */
+  padding: 24px 28px 40px;
+  display: flex;
+  flex-direction: column;
+  gap: 10px;
+  z-index: 1;
+}
+
+.spotlight-slide-title {
+  margin: 0;
+  font-size: 28px;
+  font-weight: 800;
+  letter-spacing: -0.3px;
+  text-shadow: 0 2px 12px rgba(0, 0, 0, 0.5);
+  color: #ffffff;
+  line-height: 1.1;
+  overflow: hidden;
+  display: -webkit-box;
+  -webkit-line-clamp: 2;
+  -webkit-box-orient: vertical;
+}
+
+.spotlight-slide-meta {
+  display: flex;
+  align-items: center;
+  gap: 12px;
+  flex-wrap: wrap;
+  font-size: 13px;
+}
+
+.spotlight-creator {
+  color: rgba(255, 255, 255, 0.85);
+  font-weight: 600;
+  text-shadow: 0 1px 4px rgba(0, 0, 0, 0.6);
+}
+
+.spotlight-stat {
+  display: inline-flex;
+  align-items: center;
+  gap: 4px;
+  background: rgba(0, 0, 0, 0.55);
+  color: #ffffff;
+  padding: 2px 8px;
+  border-radius: 2px;
+  font-size: 12px;
+  font-weight: 600;
+}
+
+.spotlight-stat-icon {
+  color: var(--status-warning);
+}
+
+.spotlight-pills {
+  display: flex;
+  gap: 6px;
+  flex-wrap: wrap;
+}
+
+.spotlight-cta-row {
+  margin-top: 4px;
+}
+
+.spotlight-cta {
+  display: inline-block;
+  background: var(--accent);
+  color: var(--accent-text);
+  padding: 8px 18px;
+  border-radius: 3px;
+  font-size: 13px;
+  font-weight: 700;
+  letter-spacing: 0.3px;
+}
+
+.spotlight-dots {
+  display: flex;
+  gap: 6px;
+  margin-top: 8px;
+  padding-left: 4px;
+}
+
+.spotlight-dot {
+  width: 8px;
+  height: 8px;
+  padding: 0;
+  border: none;
+  border-radius: 50%;
+  background: rgba(255, 255, 255, 0.35);
+  cursor: pointer;
+  transition: background 0.12s ease, transform 0.12s ease;
+}
+
+.spotlight-dot.is-active {
+  background: var(--accent);
+  transform: scale(1.15);
+}
+
+.spotlight-dot:hover {
+  background: rgba(255, 255, 255, 0.7);
+}
+
+.spotlight-up-next {
+  display: flex;
+  flex-direction: column;
+  min-width: 0;
+  min-height: 0;
+  background: var(--bg-elevated);
+  border: 1px solid var(--border);
+  border-radius: 8px;
+  overflow: hidden;
+}
+
+.spotlight-up-next-title {
+  margin: 0;
+  padding: 12px 14px 8px;
+  font-size: 12px;
+  font-weight: 700;
+  letter-spacing: 0.4px;
+  text-transform: uppercase;
+  color: var(--text-muted);
+}
+
+.spotlight-up-next-list {
+  display: flex;
+  flex-direction: column;
+  gap: 4px;
+  padding: 0 8px 8px;
+  overflow-y: auto;
+  flex: 1;
+  min-height: 0;
+}
+
+.spotlight-up-next-item {
+  display: flex;
+  align-items: center;
+  gap: 10px;
+  width: 100%;
+  padding: 8px;
+  border: 1px solid transparent;
+  border-radius: 4px;
+  background: transparent;
+  color: var(--text-secondary);
+  font-family: inherit;
+  text-align: left;
+  cursor: pointer;
+  transition: border-color 0.12s ease, background 0.12s ease;
+}
+
+.spotlight-up-next-item:hover {
+  background: var(--bg-sunken);
+  color: var(--text-primary);
+}
+
+.spotlight-up-next-item.is-active {
+  border-color: var(--accent);
+  background: var(--accent-soft-bg);
+  color: var(--text-primary);
+}
+
+.spotlight-up-next-thumb {
+  flex: 0 0 56px;
+  width: 56px;
+  height: 32px;
+  border-radius: 3px;
+  overflow: hidden;
+  background: var(--bg-sunken);
+  position: relative;
+}
+
+.spotlight-up-next-thumb img {
+  width: 100%;
+  height: 100%;
+  object-fit: cover;
+  display: block;
+}
+
+.spotlight-up-next-fallback {
+  position: absolute;
+  inset: 0;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  font-size: 14px;
+  font-weight: 800;
+  color: var(--text-faint);
+}
+
+.spotlight-up-next-meta {
+  display: flex;
+  flex-direction: column;
+  gap: 2px;
+  min-width: 0;
+  flex: 1;
+}
+
+.spotlight-up-next-name {
+  font-size: 12px;
+  font-weight: 600;
+  color: inherit;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+.spotlight-up-next-creator {
+  font-size: 11px;
+  color: var(--text-muted);
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+@media (max-width: 720px) {
+  .spotlight {
+    grid-template-columns: 1fr;
+  }
+
+  .spotlight-slide {
+    height: 260px;
+  }
+
+  .spotlight-up-next {
+    max-height: 220px;
+  }
+}
 
 .discovery-rail {
   margin: 0 0 28px;
