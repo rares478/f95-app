@@ -97,13 +97,45 @@ type WalkCtx = {
   spoilerDepth: number;
 };
 
+function stripOsFromLabel(raw: string): string {
+  return cleanText(raw)
+    .replace(OS_LABEL_RE, ' ')
+    .replace(/[/|,]+/g, ' ')
+    .replace(/\s+/g, ' ')
+    .replace(/:\s*$/, '')
+    .trim();
+}
+
+/** OS token from a label; null when none. */
+function osTokenFromLabel(raw: string): string | null {
+  const m = cleanText(raw).match(OS_LABEL_RE);
+  return m ? m[0] : null;
+}
+
+/**
+ * Platform row text: keep free-form labels as written (e.g. Android (Compressed));
+ * when a non-OS prefix shares the bold with an OS token, use the OS token only.
+ */
+function platformFromRowLabel(text: string): string {
+  const os = osTokenFromLabel(text);
+  if (!os) return text;
+  if (text === os) return text;
+  const idx = text.search(OS_LABEL_RE);
+  if (idx > 0) return os;
+  return text;
+}
+
 function classifyBoldLabel(raw: string): {
   type: 'download' | 'edition' | 'quality' | 'part' | 'row';
   text: string;
   part?: number;
   kind?: GameDownload['kindHint'];
+  /** When edition heading also embeds an OS token (DIK-style). */
+  platform?: string;
 } {
-  const text = cleanText(raw).replace(/:\s*$/, '');
+  const text = cleanText(raw)
+    .replace(/^\*+\s*/, '')
+    .replace(/:\s*$/, '');
   if (DOWNLOAD_HEADING_RE.test(text)) return { type: 'download', text };
   const partMatch = text.match(PART_LABEL_RE);
   if (partMatch) {
@@ -118,9 +150,14 @@ function classifyBoldLabel(raw: string): {
     else if (/\b(extras?|translations?|mods?|ost|soundtrack)\b/i.test(text))
       kind = 'extra';
     else if (/\bsplits?\b/i.test(text)) kind = 'split';
+    const os = osTokenFromLabel(text);
+    if (os) {
+      const editionText = stripOsFromLabel(text) || text;
+      return { type: 'edition', text: editionText, kind, platform: os };
+    }
     return { type: 'edition', text, kind };
   }
-  return { type: 'row', text };
+  return { type: 'row', text: platformFromRowLabel(text) };
 }
 
 function emitGroup(
@@ -158,16 +195,20 @@ function spoilerTitle(
     $sp.find('.bbCodeSpoiler-button, button').first().text(),
   );
   if (buttonText && !/^spoiler$/i.test(buttonText)) {
-    return buttonText;
+    return buttonText.replace(/^\*+\s*/, '').replace(/:\s*$/, '');
   }
   const prevs = $sp.prevAll().toArray();
   for (const p of prevs) {
-    const t = cleanText($(p).text());
+    const t = cleanText($(p).text())
+      .replace(/^\*+\s*/, '')
+      .replace(/:\s*$/, '');
     if (!t) continue;
-    if (DOWNLOAD_HEADING_RE.test(t.replace(/:\s*$/, ''))) continue;
-    return t.replace(/:\s*$/, '');
+    if (DOWNLOAD_HEADING_RE.test(t)) continue;
+    return t;
   }
-  return buttonText && !/^spoiler$/i.test(buttonText) ? buttonText : null;
+  return buttonText && !/^spoiler$/i.test(buttonText)
+    ? buttonText.replace(/^\*+\s*/, '').replace(/:\s*$/, '')
+    : null;
 }
 
 /**
@@ -205,9 +246,25 @@ function extractLabelFromElement(
 }
 
 function composeEdition(ctx: WalkCtx): string | null {
-  const base = ctx.editionStack.filter(Boolean).slice(-1)[0] ?? null;
+  const parts = ctx.editionStack.filter(Boolean);
+  const base = parts.length ? parts.join(' · ') : null;
   if (base && ctx.quality) return `${base} · ${ctx.quality}`;
   return base ?? ctx.quality;
+}
+
+/**
+ * Generic Spoiler buttons: use preceding sibling text as edition only when it
+ * looks like a single edition/section name — not compound headers like
+ * "Act 1 & Before Remake".
+ */
+function spoilerStackLabel(
+  title: string | null,
+  genericButton: boolean,
+): string {
+  if (!title) return '';
+  if (!genericButton) return title;
+  if (/\s&\s/.test(title)) return '';
+  return title;
 }
 
 function applyLabel(
@@ -216,9 +273,19 @@ function applyLabel(
 ): void {
   if (classified.type === 'download') return;
   if (classified.type === 'edition') {
-    ctx.editionStack = [classified.text];
-    ctx.kindStack = [classified.kind ?? null];
-    ctx.platform = null;
+    if (ctx.spoilerDepth > 0) {
+      // Keep spoiler title frames; replace any prior bold heading at this depth.
+      while (ctx.editionStack.length > ctx.spoilerDepth) {
+        ctx.editionStack.pop();
+        ctx.kindStack.pop();
+      }
+      ctx.editionStack.push(classified.text);
+      ctx.kindStack.push(classified.kind ?? null);
+    } else {
+      ctx.editionStack = [classified.text];
+      ctx.kindStack = [classified.kind ?? null];
+    }
+    ctx.platform = classified.platform ?? null;
     ctx.part = null;
     ctx.quality = null;
     return;
@@ -302,6 +369,10 @@ export function parseDownloadBlock(
     const $node = $(node);
     if ($node.is(SPOILER_SEL)) {
       const title = spoilerTitle($, node);
+      const buttonText = cleanText(
+        $node.find('.bbCodeSpoiler-button, button').first().text(),
+      );
+      const genericButton = !buttonText || /^spoiler$/i.test(buttonText);
       const kind: GameDownload['kindHint'] =
         title && /\bsplits?\b/i.test(title)
           ? 'split'
@@ -311,6 +382,7 @@ export function parseDownloadBlock(
                 /\b(extras?|translations?|mods?|ost|soundtrack)\b/i.test(title)
               ? 'extra'
               : null;
+      const stackLabel = spoilerStackLabel(title, genericButton);
       // Preceding bold edition headings that a spoiler consumes as its title
       // must not remain as a permanent top-level edition after the spoiler.
       if (
@@ -321,7 +393,7 @@ export function parseDownloadBlock(
         ctx.editionStack = [];
         ctx.kindStack = [];
       }
-      ctx.editionStack.push(title ?? '');
+      ctx.editionStack.push(stackLabel);
       ctx.kindStack.push(kind);
       const prevPlatform = ctx.platform;
       const prevPart = ctx.part;
