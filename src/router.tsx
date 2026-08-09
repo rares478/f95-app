@@ -5,7 +5,6 @@ import { useOffline } from './contexts/Offline';
 import { ProfilePage } from './pages/ProfilePage';
 import { StoreBrowsePage } from './pages/StoreBrowsePage';
 import { StorePage } from './pages/StorePage';
-import { StoreBrowsePage } from './pages/StoreBrowsePage';
 import { GameDetailPage } from './pages/GameDetailPage';
 import { LibraryPage } from './pages/LibraryPage';
 import { LibraryGamePage } from './pages/LibraryGamePage';
