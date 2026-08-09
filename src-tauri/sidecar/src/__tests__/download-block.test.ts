@@ -46,3 +46,40 @@ describe('parseDownloadBlock — basic rows', () => {
     });
   });
 });
+
+describe('parseDownloadBlock — nested spoilers', () => {
+  it('keeps Current separate from spoiler edition platform rows', () => {
+    const { $, root } = loadRoot('download-block-nested.html');
+    const downloads = parseDownloadBlock($, root);
+
+    expect(byUrl(downloads, 'nested-current-win')[0]).toMatchObject({
+      edition: null,
+      platform: 'Win/Linux',
+      topLevel: true,
+      kindHint: 'full',
+    });
+    expect(byUrl(downloads, 'nested-s12-win')[0]).toMatchObject({
+      edition: 'Season 1 - 2',
+      platform: 'Win/Linux',
+      topLevel: false,
+      kindHint: 'full',
+    });
+    expect(byUrl(downloads, 'nested-s12-mac')[0]).toMatchObject({
+      edition: 'Season 1 - 2',
+      platform: 'Mac',
+      topLevel: false,
+    });
+  });
+
+  it('uses preceding bold when spoiler title is generic Spoiler', () => {
+    const { $, root } = loadRoot('download-block-nested.html');
+    const downloads = parseDownloadBlock($, root);
+    expect(byUrl(downloads, 'nested-s3-p1')[0]).toMatchObject({
+      edition: 'Season 3 splits',
+      platform: 'Win/Linux',
+      part: 1,
+      kindHint: 'split',
+      topLevel: false,
+    });
+  });
+});

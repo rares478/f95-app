@@ -143,6 +143,27 @@ function inferKind(
   return 'other';
 }
 
+function spoilerTitle(
+  $: cheerio.CheerioAPI,
+  spoilerEl: Element,
+): string | null {
+  const $sp = $(spoilerEl);
+  const buttonText = cleanText(
+    $sp.find('.bbCodeSpoiler-button, button').first().text(),
+  );
+  if (buttonText && !/^spoiler$/i.test(buttonText)) {
+    return buttonText;
+  }
+  const prevs = $sp.prevAll().toArray();
+  for (const p of prevs) {
+    const t = cleanText($(p).text());
+    if (!t) continue;
+    if (DOWNLOAD_HEADING_RE.test(t.replace(/:\s*$/, ''))) continue;
+    return t.replace(/:\s*$/, '');
+  }
+  return buttonText && !/^spoiler$/i.test(buttonText) ? buttonText : null;
+}
+
 export function parseDownloadBlock(
   $: cheerio.CheerioAPI,
   root: cheerio.Cheerio<Element>,
@@ -196,8 +217,48 @@ export function parseDownloadBlock(
   const walk = (node: Element) => {
     const $node = $(node);
     if ($node.is(SPOILER_SEL)) {
-      // Task 3 implements spoiler push/pop; for now skip entering spoilers
-      // OR treat as opaque (Task 2 fixtures have none).
+      const title = spoilerTitle($, node);
+      const kind: GameDownload['kindHint'] =
+        title && /\bsplits?\b/i.test(title)
+          ? 'split'
+          : title && /\bpatch(?:es)?\b/i.test(title)
+            ? 'patch'
+            : title &&
+                /\b(extras?|translations?|mods?|ost|soundtrack)\b/i.test(title)
+              ? 'extra'
+              : null;
+      // Preceding bold edition headings that a spoiler consumes as its title
+      // must not remain as a permanent top-level edition after the spoiler.
+      if (
+        title &&
+        ctx.editionStack.length === 1 &&
+        ctx.editionStack[0] === title
+      ) {
+        ctx.editionStack = [];
+        ctx.kindStack = [];
+      }
+      ctx.editionStack.push(title ?? '');
+      ctx.kindStack.push(kind);
+      const prevPlatform = ctx.platform;
+      const prevPart = ctx.part;
+      const prevSplit = ctx.splitSpoiler;
+      ctx.platform = null;
+      ctx.part = null;
+      if (kind === 'split') ctx.splitSpoiler = true;
+
+      const content = $node
+        .find('> .bbCodeSpoiler-content, > .bbCodeBlock-content, > summary + *')
+        .first();
+      const walkTarget = content.length ? content : $node;
+      for (const child of walkTarget.contents().toArray()) {
+        if (child.type === 'tag') walk(child as Element);
+      }
+
+      ctx.editionStack.pop();
+      ctx.kindStack.pop();
+      ctx.platform = prevPlatform;
+      ctx.part = prevPart;
+      ctx.splitSpoiler = prevSplit;
       return;
     }
 
