@@ -28,6 +28,7 @@ dist-ssr
 
 # Local agent scratch (brainstorm / SDD)
 .superpowers/
+docs/superpowers/
 
 # Local debug / scrape artifacts
 tmp-*
