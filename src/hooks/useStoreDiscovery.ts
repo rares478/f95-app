@@ -6,6 +6,7 @@ import {
   RECENT_TTL_MS,
   SLOW_POOL_PAGES,
   SLOW_POOL_TTL_MS,
+  TAG_RAIL_COUNT,
 } from '../lib/discoveryConfig';
 import {
   buildDiscoveryHomeModel,
@@ -67,10 +68,6 @@ function resolveGameTagIds(catalog: Map<number, string>, tags: GameTag[]): numbe
     ids.push(sam.id);
   }
   return ids;
-}
-
-function resolveTagRails(catalog: Map<number, string>): DiscoveryTagRail[] {
-  return pickTagRailsForDay({ catalog, dayKey: localDayKey() });
 }
 
 function buildPoolSpecs(tagRails: DiscoveryTagRail[]): PoolSpec[] {
@@ -160,7 +157,11 @@ function personalReadyRail(
 
 export function useStoreDiscovery(): StoreDiscoveryState {
   const { catalog } = useTagCatalog();
-  const tagRails = useMemo(() => resolveTagRails(catalog), [catalog]);
+  const dayKey = localDayKey();
+  const tagRails = useMemo(
+    () => pickTagRailsForDay({ catalog, dayKey, count: TAG_RAIL_COUNT }),
+    [catalog, dayKey],
+  );
   const poolSpecs = useMemo(() => buildPoolSpecs(tagRails), [tagRails]);
   const poolKeysKey = poolSpecs.map((s) => s.key).join(',');
 
