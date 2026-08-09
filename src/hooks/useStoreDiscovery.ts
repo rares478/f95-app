@@ -6,7 +6,6 @@ import {
   RECENT_TTL_MS,
   SLOW_POOL_PAGES,
   SLOW_POOL_TTL_MS,
-  TAG_RAIL_NAMES,
 } from '../lib/discoveryConfig';
 import {
   buildDiscoveryHomeModel,
@@ -15,6 +14,7 @@ import {
 } from '../lib/discoveryHomeModel';
 import { getPools, type DiscoveryPoolRecord } from '../lib/discoveryPools';
 import { refreshPoolIfStale, type PoolSpec } from '../lib/discoveryRefresh';
+import { localDayKey, pickTagRailsForDay } from '../lib/discoveryTagRails';
 import { formatIpcError } from '../lib/ipcError';
 import * as library from '../lib/library';
 import { loadPersonalizationRail } from '../lib/personalizationRail';
@@ -57,10 +57,6 @@ function sampleSeed(nowMs = Date.now()): string {
   return `${Math.floor(nowMs / RECENT_TTL_MS)}`;
 }
 
-function tagPoolKey(tagId: number): string {
-  return `tag:${tagId}`;
-}
-
 function resolveGameTagIds(catalog: Map<number, string>, tags: GameTag[]): number[] {
   const ids: number[] = [];
   const seen = new Set<number>();
@@ -74,13 +70,7 @@ function resolveGameTagIds(catalog: Map<number, string>, tags: GameTag[]): numbe
 }
 
 function resolveTagRails(catalog: Map<number, string>): DiscoveryTagRail[] {
-  const out: DiscoveryTagRail[] = [];
-  for (const name of TAG_RAIL_NAMES) {
-    const tag = findSamTagByNameOrSlug(catalog, { slug: name, name });
-    if (!tag) continue;
-    out.push({ key: tagPoolKey(tag.id), tag, name: tag.name });
-  }
-  return out;
+  return pickTagRailsForDay({ catalog, dayKey: localDayKey() });
 }
 
 function buildPoolSpecs(tagRails: DiscoveryTagRail[]): PoolSpec[] {
