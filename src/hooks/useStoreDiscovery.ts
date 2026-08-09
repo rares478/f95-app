@@ -187,6 +187,7 @@ export function useStoreDiscovery(): StoreDiscoveryState {
         });
 
         const nextErrors = new Map<string, string>();
+        const mergedPools = new Map(cached);
         for (const spec of specsRef.current) {
           if (cancelled || genRef.current !== myGen) return;
           try {
@@ -194,19 +195,42 @@ export function useStoreDiscovery(): StoreDiscoveryState {
               ...spec,
               cached: poolsRef.current.get(spec.key) ?? cached.get(spec.key) ?? null,
             });
+            if (cancelled || genRef.current !== myGen) return;
+            const next = await getPools([spec.key]);
+            if (cancelled || genRef.current !== myGen) return;
+            const rec = next.get(spec.key);
+            if (rec) mergedPools.set(spec.key, rec);
+            setPools((prev) => {
+              const merged = new Map(prev);
+              if (rec) merged.set(spec.key, rec);
+              return merged;
+            });
+            setErrorKeys((prev) => {
+              if (!prev.has(spec.key)) return prev;
+              const cleared = new Map(prev);
+              cleared.delete(spec.key);
+              return cleared;
+            });
           } catch (err) {
-            nextErrors.set(spec.key, formatIpcError(err));
+            if (cancelled || genRef.current !== myGen) return;
+            const message = formatIpcError(err);
+            nextErrors.set(spec.key, message);
+            setErrorKeys((prev) => new Map(prev).set(spec.key, message));
+          } finally {
+            if (!cancelled && genRef.current === myGen) {
+              setLoadingKeys((prev) => {
+                const next = new Set(prev);
+                next.delete(spec.key);
+                return next;
+              });
+            }
           }
         }
         if (cancelled || genRef.current !== myGen) return;
 
-        const refreshed = await getPools(keys);
-        if (cancelled || genRef.current !== myGen) return;
-        setPools(refreshed);
-        setErrorKeys(nextErrors);
         setBootstrapping(false);
 
-        if (!hasAnyCachedItems(refreshed) && nextErrors.size > 0) {
+        if (!hasAnyCachedItems(mergedPools) && nextErrors.size > 0) {
           setFatalError([...nextErrors.values()][0] ?? null);
         }
       } catch (err) {
