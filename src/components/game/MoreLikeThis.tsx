@@ -2,40 +2,21 @@ import { useCallback, useEffect, useRef, useState } from 'react';
 import { Link } from 'react-router-dom';
 import { useStoreContextMenu } from '../../hooks/useStoreContextMenu';
 import { useTagCatalog } from '../../contexts/TagCatalogContext';
-import { samList } from '../../lib/ipc';
 import { formatIpcError } from '../../lib/ipcError';
 import { useT } from '../../lib/i18n';
 import { useIsInLibrary } from '../../lib/libraryMembership';
+import { fetchMoreLikeThis } from '../../lib/moreLikeThisFetch';
 import { findSamTagByNameOrSlug } from '../../lib/tagCatalog';
 import type { GameTag } from '../../types/game';
-import type { SamCategory, SamGameCard, SamSort } from '../../types/sam';
+import type { SamCategory, SamGameCard } from '../../types/sam';
 import '../../styles/game-description.css';
 
-/** AND this many tags per query — tighter than OR of common tags. */
-const TAGS_PER_QUERY = 3;
-const PARALLEL_QUERIES = 3;
-const ROWS_PER_QUERY = 20;
-/** Sample from the first N SAM pages so results are not stuck on page 1. */
-const MAX_PAGE_JITTER = 8;
-const RESULT_TOTAL = 12;
 const CARD_WIDTH = 168;
-
-const QUERY_SORTS: SamSort[] = ['date', 'rating', 'likes'];
 
 interface Props {
   threadId: string;
   category: SamCategory;
   tags: GameTag[];
-}
-
-function pickRandom<T>(items: T[], max: number): T[] {
-  if (items.length <= max) return items;
-  const copy = [...items];
-  for (let i = copy.length - 1; i > 0; i--) {
-    const j = Math.floor(Math.random() * (i + 1));
-    [copy[i], copy[j]] = [copy[j], copy[i]];
-  }
-  return copy.slice(0, max);
 }
 
 function resolveTagIds(catalog: Map<number, string>, tags: GameTag[]): number[] {
@@ -48,76 +29,6 @@ function resolveTagIds(catalog: Map<number, string>, tags: GameTag[]): number[] 
     ids.push(sam.id);
   }
   return ids;
-}
-
-function randomPage(totalPages: number): number {
-  const max = Math.min(Math.max(1, totalPages), MAX_PAGE_JITTER);
-  return 1 + Math.floor(Math.random() * max);
-}
-
-/**
- * Similar games via several random AND tag queries.
- * Avoids likes+OR+page1, which always returned the same mega-popular titles.
- */
-async function fetchMoreLikeThis(args: {
-  category: SamCategory;
-  threadId: string;
-  tagIds: number[];
-}): Promise<SamGameCard[]> {
-  const { category, threadId, tagIds } = args;
-  if (tagIds.length === 0) return [];
-
-  const tagCount = Math.min(TAGS_PER_QUERY, tagIds.length);
-  const queryCount = tagIds.length <= 1 ? 1 : PARALLEL_QUERIES;
-  const batches = Array.from({ length: queryCount }, (_, i) => ({
-    tags: pickRandom(tagIds, tagCount),
-    sort: QUERY_SORTS[i % QUERY_SORTS.length]!,
-  }));
-
-  const pools = await Promise.all(
-    batches.map(async ({ tags, sort }) => {
-      const base = {
-        category,
-        tags,
-        tagtype: tags.length > 1 ? ('and' as const) : undefined,
-        sort,
-        rows: ROWS_PER_QUERY,
-      };
-      const first = await samList({ ...base, page: 1 });
-      const items = [...first.items];
-
-      const page = randomPage(first.totalPages);
-      if (page > 1) {
-        const deeper = await samList({ ...base, page });
-        items.push(...deeper.items);
-      }
-
-      // AND of rare tags can be sparse — loosen once so the rail is not blank.
-      if (items.length < 4 && tags.length > 1) {
-        const loose = await samList({
-          ...base,
-          tagtype: 'or',
-          sort: 'date',
-          page: randomPage(Math.max(first.totalPages, 1)),
-        });
-        items.push(...loose.items);
-      }
-
-      return items;
-    }),
-  );
-
-  const exclude = new Set<string>([threadId]);
-  const out: SamGameCard[] = [];
-  for (const items of pools) {
-    for (const g of items) {
-      if (exclude.has(g.threadId)) continue;
-      exclude.add(g.threadId);
-      out.push(g);
-    }
-  }
-
-  return pickRandom(out, RESULT_TOTAL);
 }
 
 function IconChevron({ dir }: { dir: 'left' | 'right' }) {
@@ -248,7 +159,11 @@ export function MoreLikeThis({ threadId, category, tags }: Props) {
     let cancelled = false;
     setLoading(true);
     setError(null);
-    fetchMoreLikeThis({ category, threadId, tagIds })
+    fetchMoreLikeThis({
+      category,
+      excludeThreadIds: [threadId],
+      tagIds,
+    })
       .then((next) => {
         if (!cancelled) setItems(next);
       })
