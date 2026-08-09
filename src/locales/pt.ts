@@ -835,6 +835,7 @@ const pt: Record<string, string> = {
   'store.pagination.page': 'Página {page} de {total}',
   'store.featured': 'Em destaque',
   'store.featured.viewDetails': 'Ver detalhes',
+  'store.home.upNext': 'A seguir',
   'store.section.more': 'Mais jogos',
 
   // ─── News ───────────────────────────────────────────────────────────────

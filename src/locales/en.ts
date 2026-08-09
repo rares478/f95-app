@@ -836,6 +836,7 @@ const en: Record<string, string> = {
   'store.pagination.page': 'Page {page} of {total}',
   'store.featured': 'Featured',
   'store.featured.viewDetails': 'View details',
+  'store.home.upNext': 'Up next',
   'store.section.more': 'More games',
 
   // ─── News page ──────────────────────────────────────────────────────────
