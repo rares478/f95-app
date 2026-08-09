@@ -239,15 +239,15 @@ export function useStoreDiscovery(): StoreDiscoveryState {
       setPersonalRail(personalReadyRail(title, result.items));
     } catch (err) {
       if (personalGenRef.current !== myGen) return;
-      setPersonalRail({
-        id: PERSONAL_RAIL_ID,
-        poolKey: PERSONAL_RAIL_ID,
-        titleKey: 'store.home.rail.becauseYouPlay',
-        titleParams: { title: '…' },
-        items: [],
-        loading: false,
-        error: formatIpcError(err),
-        seeAll: {},
+      // Only surface retry UI if we already knew seeds (had a loading rail).
+      setPersonalRail((prev) => {
+        if (!prev || prev.id !== PERSONAL_RAIL_ID) return null;
+        return {
+          ...prev,
+          items: [],
+          loading: false,
+          error: formatIpcError(err),
+        };
       });
     }
   }, []);
