@@ -501,7 +501,8 @@ function isPlaceholder(src: string): boolean {
   );
 }
 
-function collectFields(
+/** Exported for unit tests of Developer/field sibling parsing. */
+export function collectFields(
   $: cheerio.CheerioAPI,
   opBody: cheerio.Cheerio<Element>,
 ): Record<string, string> {
@@ -514,7 +515,7 @@ function collectFields(
     if (!FIELD_LABELS.has(key)) return;
     const value = readSiblingsUntilBreak($, el);
     if (!value) return;
-    const cleaned = cleanText(value).replace(/^:\s*/, '');
+    const cleaned = cleanFieldValue(value);
     if (!cleaned) return;
     // Use original-case label key for display.
     const displayLabel = label.replace(/:\s*$/, '');
@@ -525,19 +526,56 @@ function collectFields(
   return fields;
 }
 
+function isGenericDevLinkLabel(text: string): boolean {
+  return /^(website|site|homepage|home|link|steam|gog|bluesky|bsky)$/i.test(
+    text.trim(),
+  );
+}
+
+function isSocialPlatformLabel(text: string): boolean {
+  return /^(patreon|discord|itch\.?io|subscribestar|subscribe\s*star|twitter|x|ko-?fi|youtube)$/i.test(
+    text.trim(),
+  );
+}
+
+/** Strip leading colon and trailing " - " / "|" separators left by skipped links. */
+function cleanFieldValue(raw: string): string {
+  return cleanText(raw)
+    .replace(/^:\s*/, '')
+    .replace(/(\s*[-–—|/]\s*)+$/u, '');
+}
+
 function readSiblingsUntilBreak(
   $: cheerio.CheerioAPI,
   startEl: Element,
 ): string {
-  // Read the value text following a label `<b>` until we hit a line break,
-  // another label `<b>`, or an `<a>` element. Stopping at `<a>` is what keeps
-  // social-link suffixes (Patreon / Discord / X buttons after "Developer:")
-  // from being absorbed into the value.
+  // Read the value text following a label `<b>` until a line break or another
+  // label. Social anchors (Patreon/Discord/…) mark the end of the value so
+  // their button labels are not absorbed — unless the value is empty and the
+  // social link text is the developer name itself (not "Patreon").
   const parts: string[] = [];
   let n: AnyNode | null = startEl.next ?? null;
   while (n) {
     if (isElement(n)) {
-      if (n.tagName === 'br' || n.tagName === 'b' || n.tagName === 'a') break;
+      if (n.tagName === 'br' || n.tagName === 'b') break;
+      if (n.tagName === 'a') {
+        const hrefRaw = $(n).attr('href') ?? '';
+        const href = hrefRaw ? absoluteUrl(hrefRaw) : '';
+        const info = href ? classifyHost(href) : null;
+        const linkText = cleanText($(n).text());
+        if (info?.category === 'social') {
+          const haveName = cleanFieldValue(parts.join('')).length > 0;
+          if (!haveName && linkText && !isSocialPlatformLabel(linkText)) {
+            parts.push(linkText);
+          }
+          break;
+        }
+        if (linkText && !isGenericDevLinkLabel(linkText)) {
+          parts.push(linkText);
+        }
+        n = n.next ?? null;
+        continue;
+      }
       parts.push($(n).text());
     } else if (isText(n)) {
       parts.push(n.data);
