@@ -1,6 +1,6 @@
 import { describe, expect, it } from 'vitest';
 import { buildDiscoveryHomeModel } from './discoveryHomeModel';
-import { RAIL_DISPLAY_COUNT, SPOTLIGHT_COUNT } from './discoveryConfig';
+import { RAIL_DISPLAY_COUNT, SPOTLIGHT_COUNT, TAG_PANEL_DISPLAY_COUNT } from './discoveryConfig';
 import { pickHead, pickSample, buildSpotlight } from './discoverySelection';
 import type { DiscoveryPoolRecord } from './discoveryPools';
 import type { SamGameCard, SamTag } from '../types/sam';
@@ -262,5 +262,36 @@ describe('buildDiscoveryHomeModel', () => {
     expect(model.rails.find((r) => r.id === 'because-you-play')?.items.map((c) => c.threadId)).toEqual([
       'ok',
     ]);
+  });
+
+  it('samples tag rails with tagSeed and TAG_PANEL_DISPLAY_COUNT', () => {
+    const ids = Array.from({ length: 20 }, (_, i) => `t${i}`);
+    const pools = new Map<string, DiscoveryPoolRecord>([
+      ['recent', pool('recent', [])],
+      ['likes', pool('likes', [])],
+      ['views', pool('views', [])],
+      ['rating', pool('rating', [])],
+      ['tag:42', pool('tag:42', ids)],
+    ]);
+    const seed = 'hour-seed';
+    const tagSeed = 'day:tag:1';
+
+    const model = buildDiscoveryHomeModel({
+      pools,
+      tagRails: [{ key: 'tag:42', tag: fantasy, name: 'Fantasy' }],
+      seed,
+      tagSeed,
+      loadingKeys: new Set(),
+      errorKeys: new Map(),
+    });
+
+    const tagRail = model.rails.find((r) => r.id === 'tag:42')!;
+    expect(tagRail.items).toHaveLength(TAG_PANEL_DISPLAY_COUNT);
+    expect(tagRail.items.map((c) => c.threadId)).toEqual(
+      pickSample(ids.map(card), TAG_PANEL_DISPLAY_COUNT, tagSeed).map((c) => c.threadId),
+    );
+    expect(tagRail.items.map((c) => c.threadId)).not.toEqual(
+      pickSample(ids.map(card), TAG_PANEL_DISPLAY_COUNT, seed).map((c) => c.threadId),
+    );
   });
 });

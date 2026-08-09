@@ -1,6 +1,7 @@
 import {
   RAIL_DISPLAY_COUNT,
   SPOTLIGHT_COUNT,
+  TAG_PANEL_DISPLAY_COUNT,
 } from './discoveryConfig';
 import type { DiscoveryPoolRecord } from './discoveryPools';
 import { buildSpotlight, pickHead, pickSample, withoutIgnored } from './discoverySelection';
@@ -73,6 +74,7 @@ export function buildDiscoveryHomeModel(args: {
   pools: Map<string, DiscoveryPoolRecord>;
   tagRails: DiscoveryTagRail[];
   seed: string;
+  tagSeed?: string;
   loadingKeys: Set<string>;
   errorKeys: Map<string, string>;
   userRails?: DiscoveryHomeRail[];
@@ -102,6 +104,7 @@ export function buildDiscoveryHomeModel(args: {
     };
   });
 
+  const sampleSeed = args.tagSeed ?? seed;
   for (const tagRail of tagRails) {
     const poolItems = withoutIgnored(itemsOf(pools, tagRail.key));
     rails.push({
@@ -109,7 +112,7 @@ export function buildDiscoveryHomeModel(args: {
       poolKey: tagRail.key,
       titleKey: 'store.home.rail.tag',
       titleParams: { name: tagRail.name },
-      items: pickSample(poolItems, RAIL_DISPLAY_COUNT, seed),
+      items: pickSample(poolItems, TAG_PANEL_DISPLAY_COUNT, sampleSeed),
       loading: loadingKeys.has(tagRail.key),
       error: errorKeys.get(tagRail.key) ?? null,
       seeAll: { sort: 'likes', includeTag: tagRail.tag },

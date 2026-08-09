@@ -16,6 +16,10 @@ import {
 import { getPools, type DiscoveryPoolRecord } from '../lib/discoveryPools';
 import { refreshPoolIfStale, type PoolSpec } from '../lib/discoveryRefresh';
 import { localDayKey, pickTagRailsForDay } from '../lib/discoveryTagRails';
+import {
+  msUntilNextTagSampleWindow,
+  tagSampleSeed,
+} from '../lib/discoveryTagSample';
 import { formatIpcError } from '../lib/ipcError';
 import * as library from '../lib/library';
 import { loadPersonalizationRail } from '../lib/personalizationRail';
@@ -172,8 +176,29 @@ export function useStoreDiscovery(): StoreDiscoveryState {
   const [fatalError, setFatalError] = useState<string | null>(null);
   const [reloadToken, setReloadToken] = useState(0);
   const [seed] = useState(() => sampleSeed());
+  const [tagSeed, setTagSeed] = useState(() => tagSampleSeed(dayKey));
   const [historyRail, setHistoryRail] = useState<DiscoveryHomeRail | null>(null);
   const [personalRail, setPersonalRail] = useState<DiscoveryHomeRail | null>(null);
+
+  useEffect(() => {
+    let cancelled = false;
+    let timer: number | undefined;
+
+    const schedule = () => {
+      setTagSeed(tagSampleSeed(localDayKey()));
+      const wait = msUntilNextTagSampleWindow();
+      timer = window.setTimeout(() => {
+        if (cancelled) return;
+        schedule();
+      }, wait);
+    };
+
+    schedule();
+    return () => {
+      cancelled = true;
+      if (timer != null) window.clearTimeout(timer);
+    };
+  }, []);
 
   const poolsRef = useRef(pools);
   poolsRef.current = pools;
@@ -417,6 +442,7 @@ export function useStoreDiscovery(): StoreDiscoveryState {
     pools,
     tagRails,
     seed,
+    tagSeed,
     loadingKeys,
     errorKeys,
     userRails,

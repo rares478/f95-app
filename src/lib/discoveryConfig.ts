@@ -28,7 +28,9 @@ export const TAG_RAIL_POOL = [
   'Corruption',
   'Mind control',
 ] as const;
-export const TAG_RAIL_COUNT = 3;
+export const TAG_RAIL_COUNT = 4;
+export const TAG_PANEL_DISPLAY_COUNT = 4;
+export const TAG_SAMPLE_ROTATE_MS = 30 * 60 * 1000;
 
 export const VIEW_HISTORY_CAP = 24;
 export const MIN_PLAYTIME_SECONDS = 300;
