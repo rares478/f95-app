@@ -22,6 +22,7 @@ import { startOverlayHotkeySync } from './lib/overlayHotkey';
 import type { ProfileDto } from './types';
 import './App.css';
 import './styles/store-filter.css';
+import './styles/store-discovery.css';
 import './styles/sidebar.css';
 import './styles/offline.css';
 import './styles/context-menu.css';
