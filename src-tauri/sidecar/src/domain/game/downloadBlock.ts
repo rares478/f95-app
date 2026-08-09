@@ -186,6 +186,22 @@ function inferKind(
   return 'other';
 }
 
+/** Host-list dumps used as false spoiler titles (DMD Chapter 1-3 span). */
+const HOST_DUMP_RE =
+  /\b(gofile|mega|mixdrop|pixeldrain|uploadhaven|mediafire|datanodes|workupload|nopy)\b/i;
+
+function sanitizeEditionTitle(raw: string): string | null {
+  const t = cleanText(raw)
+    .replace(/^\*+\s*/, '')
+    .replace(/:\s*$/, '')
+    .trim();
+  if (!t) return null;
+  if (DOWNLOAD_HEADING_RE.test(t)) return null;
+  if (t.length > 80) return null;
+  if (HOST_DUMP_RE.test(t)) return null;
+  return t;
+}
+
 function spoilerTitle(
   $: cheerio.CheerioAPI,
   spoilerEl: Element,
@@ -195,20 +211,26 @@ function spoilerTitle(
     $sp.find('.bbCodeSpoiler-button, button').first().text(),
   );
   if (buttonText && !/^spoiler$/i.test(buttonText)) {
-    return buttonText.replace(/^\*+\s*/, '').replace(/:\s*$/, '');
+    return sanitizeEditionTitle(buttonText);
   }
+  // Prefer the nearest preceding bold/strong label (not the full previous
+  // sibling text — XF often leaves Chapter headings inside the same span as
+  // the prior platform's host links).
   const prevs = $sp.prevAll().toArray();
   for (const p of prevs) {
-    const t = cleanText($(p).text())
-      .replace(/^\*+\s*/, '')
-      .replace(/:\s*$/, '');
-    if (!t) continue;
-    if (DOWNLOAD_HEADING_RE.test(t)) continue;
-    return t;
+    const $p = $(p);
+    if (p.type === 'tag' && (p.tagName === 'b' || p.tagName === 'strong')) {
+      const t = sanitizeEditionTitle($p.text());
+      if (t) return t;
+      continue;
+    }
+    const bold = $p.find('b, strong').last();
+    if (bold.length) {
+      const t = sanitizeEditionTitle(bold.text());
+      if (t) return t;
+    }
   }
-  return buttonText && !/^spoiler$/i.test(buttonText)
-    ? buttonText.replace(/^\*+\s*/, '').replace(/:\s*$/, '')
-    : null;
+  return null;
 }
 
 /**
@@ -393,8 +415,16 @@ export function parseDownloadBlock(
         ctx.editionStack = [];
         ctx.kindStack = [];
       }
-      ctx.editionStack.push(stackLabel);
-      ctx.kindStack.push(kind);
+      // Avoid "Chapter 1 · Chapter 1" when a bold heading and its Spoiler
+      // both contribute the same label.
+      const top = ctx.editionStack.filter(Boolean).slice(-1)[0] ?? null;
+      if (stackLabel && top && top.toLowerCase() === stackLabel.toLowerCase()) {
+        ctx.editionStack.push('');
+        ctx.kindStack.push(kind);
+      } else {
+        ctx.editionStack.push(stackLabel);
+        ctx.kindStack.push(kind);
+      }
       const prevPlatform = ctx.platform;
       const prevPart = ctx.part;
       const prevQuality = ctx.quality;

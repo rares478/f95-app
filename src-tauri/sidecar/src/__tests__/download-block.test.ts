@@ -330,3 +330,39 @@ describe('parseDownloadBlock — Hard to Love nested acts', () => {
     expect(byUrl(downloads, 'act1-hq-win')[0].edition).not.toMatch(/SEASON/i);
   });
 });
+
+describe('parseDownloadBlock — DMD chapter spoilers', () => {
+  it('does not pollute editions with host-list text from the span before Spoiler', () => {
+    const { $, root } = loadRoot('download-block-dmd-chapters.html');
+    const downloads = parseDownloadBlock($, root);
+
+    expect(downloads.length).toBeGreaterThan(10);
+
+    const current = downloads.filter((d) => d.topLevel && d.platform === 'Win/Linux');
+    expect(current.length).toBeGreaterThan(0);
+    expect(current.every((d) => d.edition == null)).toBe(true);
+
+    const chapterOnes = downloads.filter(
+      (d) => d.edition != null && /Chapter\s*1\b/i.test(d.edition) && d.platform === 'Win/Linux',
+    );
+    expect(chapterOnes.length).toBeGreaterThan(0);
+    for (const d of chapterOnes) {
+      expect(d.edition).not.toMatch(
+        /GOFILE|MEGA|MIXDROP|PIXELDRAIN|UPLOADHAVEN|Information/i,
+      );
+      expect(d.group).not.toMatch(
+        /GOFILE|MEGA|MIXDROP|PIXELDRAIN|UPLOADHAVEN|Information/i,
+      );
+    }
+
+    const chapterTwos = downloads.filter(
+      (d) => d.edition != null && /Chapter\s*2\b/i.test(d.edition) && d.platform === 'Win/Linux',
+    );
+    expect(chapterTwos.length).toBeGreaterThan(0);
+    for (const d of chapterTwos) {
+      expect(d.edition).not.toMatch(
+        /GOFILE|MEGA|MIXDROP|PIXELDRAIN|UPLOADHAVEN|Information/i,
+      );
+    }
+  });
+});
