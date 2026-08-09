@@ -88,36 +88,34 @@
   height: 8px;
 }
 
-.discovery-rail-skeleton-card {
+.rail-game-card-skeleton {
   flex: 0 0 160px;
   width: 160px;
   display: flex;
   flex-direction: column;
+  gap: 6px;
+  padding-bottom: 10px;
   background: var(--bg-elevated);
   border: 1px solid var(--border);
   border-radius: 4px;
   overflow: hidden;
 }
 
-.discovery-rail-skeleton-thumb {
+.rail-game-card-skeleton-thumb {
   width: 100%;
   padding-top: 56.25%;
   border-radius: 0;
+  margin-bottom: 2px;
 }
 
-.discovery-rail-skeleton-body {
-  padding: 8px 10px 10px;
-  display: flex;
-  flex-direction: column;
-  gap: 6px;
-}
-
-.discovery-rail-skeleton-line {
+.rail-game-card-skeleton-title {
   height: 12px;
-  width: 100%;
+  width: calc(100% - 20px);
+  margin-left: 10px;
+  margin-right: 10px;
 }
 
-.discovery-rail-skeleton-line--short {
+.rail-game-card-skeleton-title--short {
   width: 65%;
 }
 
