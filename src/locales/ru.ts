@@ -830,7 +830,17 @@ const ru: Record<string, string> = {
   'store.pagination.page': 'Страница {page} из {total}',
   'store.featured': 'В центре внимания',
   'store.featured.viewDetails': 'Подробнее',
+  'store.home.browseAll': 'Смотреть всё',
+  'store.home.searchPlaceholder': 'Искать игры…',
   'store.home.upNext': 'Далее',
+  'store.home.seeAll': 'Смотреть всё',
+  'store.home.rail.recent': 'Недавно обновлённые',
+  'store.home.rail.likes': 'Самые популярные',
+  'store.home.rail.views': 'Самые просматриваемые',
+  'store.home.rail.rating': 'С лучшим рейтингом',
+  'store.home.rail.tag': 'Тег · {name}',
+  'store.home.retry': 'Повторить',
+  'store.home.loadFailed': 'Не удалось загрузить подборку.',
   'store.section.more': 'Ещё игры',
 
   // ─── News ───────────────────────────────────────────────────────────────

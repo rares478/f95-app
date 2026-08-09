@@ -4,7 +4,7 @@ import { AppShell } from './components/AppShell';
 import { useOffline } from './contexts/Offline';
 import { ProfilePage } from './pages/ProfilePage';
 import { StoreBrowsePage } from './pages/StoreBrowsePage';
-import { StorePage } from './pages/StorePage';
+import { StoreHomePage } from './pages/StoreHomePage';
 import { GameDetailPage } from './pages/GameDetailPage';
 import { LibraryPage } from './pages/LibraryPage';
 import { LibraryGamePage } from './pages/LibraryGamePage';
@@ -32,7 +32,7 @@ export function buildRouter({ profile, onLoggedOut }: BuildOpts) {
       element: <AppShell profile={profile} onLoggedOut={onLoggedOut} />,
       children: [
         { index: true, element: <HomeRedirect /> },
-        { path: 'store', element: <StorePage /> },
+        { path: 'store', element: <StoreHomePage /> },
         { path: 'store/browse', element: <StoreBrowsePage /> },
         { path: 'store/game/:threadId', element: <GameDetailPage /> },
         { path: 'library', element: <LibraryPage /> },

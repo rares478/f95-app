@@ -830,7 +830,17 @@ const de: Record<string, string> = {
   'store.pagination.page': 'Seite {page} von {total}',
   'store.featured': 'Im Fokus',
   'store.featured.viewDetails': 'Details anzeigen',
+  'store.home.browseAll': 'Alles durchsuchen',
+  'store.home.searchPlaceholder': 'Spiele suchen…',
   'store.home.upNext': 'Als Nächstes',
+  'store.home.seeAll': 'Alle anzeigen',
+  'store.home.rail.recent': 'Kürzlich aktualisiert',
+  'store.home.rail.likes': 'Am meisten geliked',
+  'store.home.rail.views': 'Am meisten angesehen',
+  'store.home.rail.rating': 'Am besten bewertet',
+  'store.home.rail.tag': 'Tag · {name}',
+  'store.home.retry': 'Erneut versuchen',
+  'store.home.loadFailed': 'Entdeckung konnte nicht geladen werden.',
   'store.section.more': 'Weitere Spiele',
 
   // ─── News ───────────────────────────────────────────────────────────────
