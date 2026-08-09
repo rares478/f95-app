@@ -83,7 +83,8 @@ const OS_LABEL_RE =
   /\b(win(?:dows)?(?:32|64)?(?:\s*\/\s*linux)?|linux|mac(?:os)?|osx|android|ios|browser|all platforms?)\b/i;
 const PART_LABEL_RE = /^part\s*(\d+)$/i;
 const EDITION_HEADING_RE =
-  /\b(season|act|chapter|episode|volume|vol\.?|archive|before\s+remake|ost|soundtrack|splits?|patch(?:es)?|extras?|translations?|mods?)\b/i;
+  /\b(season|act\s*\d*|chapter|episode|volume|vol\.?|archive|before\s+remake|ost|soundtrack|splits?|patch(?:es)?|extras?|translations?|mods?)\b/i;
+const QUALITY_LABEL_RE = /^(high|low)\s+quality$/i;
 const AUX_KIND_RE = /^(patch(?:es)?|extras?|translations?|mods?|ost|soundtrack)\b/i;
 
 type WalkCtx = {
@@ -91,11 +92,13 @@ type WalkCtx = {
   kindStack: Array<GameDownload['kindHint']>;
   platform: string | null;
   part: number | null;
+  quality: string | null;
   splitSpoiler: boolean;
+  spoilerDepth: number;
 };
 
 function classifyBoldLabel(raw: string): {
-  type: 'download' | 'edition' | 'part' | 'row';
+  type: 'download' | 'edition' | 'quality' | 'part' | 'row';
   text: string;
   part?: number;
   kind?: GameDownload['kindHint'];
@@ -105,6 +108,9 @@ function classifyBoldLabel(raw: string): {
   const partMatch = text.match(PART_LABEL_RE);
   if (partMatch) {
     return { type: 'part', text, part: Number.parseInt(partMatch[1], 10) };
+  }
+  if (QUALITY_LABEL_RE.test(text)) {
+    return { type: 'quality', text };
   }
   if (AUX_KIND_RE.test(text) || EDITION_HEADING_RE.test(text)) {
     let kind: GameDownload['kindHint'] = 'full';
@@ -198,6 +204,12 @@ function extractLabelFromElement(
   return { text, boldEl: boldNode as Element };
 }
 
+function composeEdition(ctx: WalkCtx): string | null {
+  const base = ctx.editionStack.filter(Boolean).slice(-1)[0] ?? null;
+  if (base && ctx.quality) return `${base} · ${ctx.quality}`;
+  return base ?? ctx.quality;
+}
+
 function applyLabel(
   ctx: WalkCtx,
   classified: ReturnType<typeof classifyBoldLabel>,
@@ -206,6 +218,13 @@ function applyLabel(
   if (classified.type === 'edition') {
     ctx.editionStack = [classified.text];
     ctx.kindStack = [classified.kind ?? null];
+    ctx.platform = null;
+    ctx.part = null;
+    ctx.quality = null;
+    return;
+  }
+  if (classified.type === 'quality') {
+    ctx.quality = classified.text;
     ctx.platform = null;
     ctx.part = null;
     return;
@@ -234,7 +253,9 @@ export function parseDownloadBlock(
     kindStack: [],
     platform: null,
     part: null,
+    quality: null,
     splitSpoiler: false,
+    spoilerDepth: 0,
   };
 
   const pushLink = (el: Element) => {
@@ -252,15 +273,15 @@ export function parseDownloadBlock(
       return;
     }
 
-    const edition =
-      ctx.editionStack.filter(Boolean).slice(-1)[0] ?? null;
+    const edition = composeEdition(ctx);
     const platform = ctx.platform;
     const part = ctx.part;
     const kindHint = inferKind(ctx, platform, part);
+    // Root-level current builds stay topLevel even when labeled (e.g. Act2).
     const topLevel =
       kindHint !== 'patch' &&
       kindHint !== 'extra' &&
-      ctx.editionStack.length === 0;
+      ctx.spoilerDepth === 0;
 
     downloads.push({
       host: info.host,
@@ -304,9 +325,12 @@ export function parseDownloadBlock(
       ctx.kindStack.push(kind);
       const prevPlatform = ctx.platform;
       const prevPart = ctx.part;
+      const prevQuality = ctx.quality;
       const prevSplit = ctx.splitSpoiler;
       ctx.platform = null;
       ctx.part = null;
+      ctx.quality = null;
+      ctx.spoilerDepth += 1;
       if (kind === 'split') ctx.splitSpoiler = true;
 
       const content = $node
@@ -321,7 +345,9 @@ export function parseDownloadBlock(
       ctx.kindStack.pop();
       ctx.platform = prevPlatform;
       ctx.part = prevPart;
+      ctx.quality = prevQuality;
       ctx.splitSpoiler = prevSplit;
+      ctx.spoilerDepth -= 1;
       return;
     }
 

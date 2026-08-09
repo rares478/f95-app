@@ -162,20 +162,36 @@ describe('parseDownloadBlock — kinds and wrapped labels', () => {
 });
 
 describe('parseDownloadBlock — Hard to Love nested acts', () => {
-  it('keeps Act2 current separate from Act 1 spoiler content', () => {
+  it('labels Act2 current and composes Act 1 quality editions', () => {
     const { $, root } = loadRoot('download-block-hard-to-love.html');
     const downloads = parseDownloadBlock($, root);
-    expect(byUrl(downloads, 'act2-win')[0]).toMatchObject({
+
+    const act2 = byUrl(downloads, 'act2-win')[0];
+    expect(act2).toMatchObject({
       platform: 'Win/Linux',
       kindHint: 'full',
       topLevel: true,
     });
-    expect(byUrl(downloads, 'act1-hq-win')[0]).toMatchObject({
-      edition: 'Act 1 (v1.0)',
+    expect(act2.edition).toMatch(/Act\s*2/i);
+
+    const hq = byUrl(downloads, 'act1-hq-win')[0];
+    expect(hq).toMatchObject({
       platform: 'Win/Linux',
       kindHint: 'full',
       topLevel: false,
     });
+    expect(hq.edition).toMatch(/Act\s*1/i);
+    expect(hq.edition).toMatch(/High Quality/i);
+
+    const lq = byUrl(downloads, 'act1-lq-win')[0];
+    expect(lq).toMatchObject({
+      platform: 'Win/Linux',
+      kindHint: 'full',
+      topLevel: false,
+    });
+    expect(lq.edition).toMatch(/Act\s*1/i);
+    expect(lq.edition).toMatch(/Low Quality/i);
+    expect(lq.edition).not.toMatch(/High Quality/i);
   });
 
   it('does not lump Before Remake seasons into Act 1', () => {
