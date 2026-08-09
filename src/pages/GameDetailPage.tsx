@@ -365,7 +365,6 @@ export function GameDetailPage() {
                 version: g.version,
               }}
               downloads={g.downloads}
-              social={g.social}
               onStarted={() => setInLibrary(true)}
             />
           </GameDetailSection>
