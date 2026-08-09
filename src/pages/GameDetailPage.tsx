@@ -32,6 +32,7 @@ import {
   GameDetailBtnSecondary,
   PrefixPill,
 } from '../components/game/GameDetailLayout';
+import { SocialLinkChips } from '../components/game/SocialLinkChips';
 import { MoreLikeThis } from '../components/game/MoreLikeThis';
 import { ThreadDiscussion } from '../components/game/ThreadDiscussion';
 import { useContextMenu } from '../components/contextMenu';
@@ -248,6 +249,8 @@ export function GameDetailPage() {
   const extraFields = Object.entries(g.fields).filter(
     ([k]) => !FIELD_ORDER.includes(k) && !SKIP_FIELDS.has(k),
   );
+  const developerName = (g.fields.Developer ?? g.developer ?? '').trim();
+  const showDeveloperRow = Boolean(developerName) || g.social.length > 0;
 
   return (
     <GameDetailShell onContextMenu={openDetailContextMenu}>
@@ -325,12 +328,28 @@ export function GameDetailPage() {
         <GameDetailAside>
           <GameDetailSection title={t('gamedetail.section.info')}>
             <GameDetailFields>
-              {orderedFields.map((k) => (
-                <GameDetailField key={k} label={k} value={g.fields[k]} />
-              ))}
-              {extraFields.map(([k, v]) => (
-                <GameDetailField key={k} label={k} value={v} />
-              ))}
+              {showDeveloperRow && (
+                <GameDetailField
+                  key="Developer"
+                  label="Developer"
+                  value={
+                    <>
+                      {developerName}
+                      <SocialLinkChips links={g.social} />
+                    </>
+                  }
+                />
+              )}
+              {orderedFields
+                .filter((k) => k !== 'Developer')
+                .map((k) => (
+                  <GameDetailField key={k} label={k} value={g.fields[k]} />
+                ))}
+              {extraFields
+                .filter(([k]) => k !== 'Developer')
+                .map(([k, v]) => (
+                  <GameDetailField key={k} label={k} value={v} />
+                ))}
             </GameDetailFields>
           </GameDetailSection>
 
