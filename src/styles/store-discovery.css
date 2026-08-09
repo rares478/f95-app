@@ -1,0 +1,226 @@
+/* Store discovery Home — rails (spotlight styles land in Task 7). */
+
+.discovery-rail {
+  margin: 0 0 28px;
+  min-width: 0;
+}
+
+.discovery-rail-header {
+  display: flex;
+  align-items: baseline;
+  justify-content: space-between;
+  gap: 12px;
+  margin-bottom: 12px;
+}
+
+.discovery-rail-title {
+  margin: 0;
+  font-size: 15px;
+  font-weight: 700;
+  color: var(--text-primary);
+  letter-spacing: 0.2px;
+}
+
+.discovery-rail-see-all {
+  flex-shrink: 0;
+  background: transparent;
+  border: none;
+  color: var(--text-muted);
+  font-size: 12px;
+  font-weight: 600;
+  font-family: inherit;
+  cursor: pointer;
+  padding: 2px 0;
+  transition: color 0.12s ease;
+}
+
+.discovery-rail-see-all:hover {
+  color: var(--accent);
+}
+
+.discovery-rail-error {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 12px;
+  background: var(--status-danger-bg);
+  border: 1px solid var(--accent-strong);
+  color: var(--status-danger-text);
+  padding: 10px 14px;
+  border-radius: 4px;
+  margin-bottom: 12px;
+  font-size: 12px;
+}
+
+.discovery-rail-retry {
+  flex-shrink: 0;
+  background: transparent;
+  border: 1px solid var(--accent-strong);
+  color: var(--status-danger-text);
+  padding: 4px 10px;
+  border-radius: 3px;
+  font-size: 11px;
+  font-weight: 600;
+  font-family: inherit;
+  cursor: pointer;
+  transition: background 0.12s ease, color 0.12s ease;
+}
+
+.discovery-rail-retry:hover {
+  background: var(--accent-soft-bg);
+  color: var(--text-primary);
+}
+
+.discovery-rail-track,
+.discovery-rail-skeleton {
+  display: flex;
+  flex-direction: row;
+  gap: 12px;
+  overflow-x: auto;
+  overflow-y: hidden;
+  padding-bottom: 6px;
+  scrollbar-width: thin;
+  -webkit-overflow-scrolling: touch;
+}
+
+.discovery-rail-track::-webkit-scrollbar,
+.discovery-rail-skeleton::-webkit-scrollbar {
+  height: 8px;
+}
+
+.discovery-rail-skeleton-card {
+  flex: 0 0 160px;
+  width: 160px;
+  display: flex;
+  flex-direction: column;
+  background: var(--bg-elevated);
+  border: 1px solid var(--border);
+  border-radius: 4px;
+  overflow: hidden;
+}
+
+.discovery-rail-skeleton-thumb {
+  width: 100%;
+  padding-top: 56.25%;
+  border-radius: 0;
+}
+
+.discovery-rail-skeleton-body {
+  padding: 8px 10px 10px;
+  display: flex;
+  flex-direction: column;
+  gap: 6px;
+}
+
+.discovery-rail-skeleton-line {
+  height: 12px;
+  width: 100%;
+}
+
+.discovery-rail-skeleton-line--short {
+  width: 65%;
+}
+
+/* Compact rail card (~160px) */
+.rail-game-card {
+  flex: 0 0 160px;
+  width: 160px;
+  display: flex;
+  flex-direction: column;
+  background: var(--bg-elevated);
+  border: 1px solid var(--border);
+  border-radius: 4px;
+  overflow: hidden;
+  text-decoration: none;
+  color: var(--text-secondary);
+  transition: transform 0.12s ease, border-color 0.12s ease, box-shadow 0.12s ease;
+}
+
+.rail-game-card:hover {
+  transform: translateY(-2px);
+  border-color: var(--accent);
+  box-shadow: 0 4px 14px rgba(0, 0, 0, 0.35);
+  text-decoration: none;
+}
+
+.rail-game-card:hover .rail-game-card-title {
+  color: var(--accent);
+}
+
+.rail-game-card-thumb {
+  position: relative;
+  width: 100%;
+  padding-top: 56.25%;
+  background: var(--bg-sunken);
+  overflow: hidden;
+}
+
+.rail-game-card-img {
+  position: absolute;
+  inset: 0;
+  width: 100%;
+  height: 100%;
+  object-fit: cover;
+  display: block;
+}
+
+.rail-game-card-fallback {
+  position: absolute;
+  inset: 0;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  font-size: 28px;
+  color: var(--text-faint);
+  font-weight: 800;
+}
+
+.rail-game-card-library {
+  position: absolute;
+  top: 6px;
+  right: 6px;
+  background: var(--status-success);
+  color: var(--text-primary);
+  padding: 2px 6px;
+  border-radius: 2px;
+  font-size: 9px;
+  font-weight: 700;
+  letter-spacing: 0.3px;
+  max-width: calc(100% - 12px);
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+.rail-game-card-version {
+  position: absolute;
+  bottom: 6px;
+  right: 6px;
+  background: rgba(0, 0, 0, 0.75);
+  color: var(--text-primary);
+  padding: 2px 6px;
+  border-radius: 3px;
+  font-size: 10px;
+  font-weight: 600;
+  max-width: calc(100% - 12px);
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+.rail-game-card-body {
+  padding: 8px 10px 10px;
+}
+
+.rail-game-card-title {
+  color: var(--text-primary);
+  font-size: 13px;
+  font-weight: 600;
+  line-height: 1.3;
+  overflow: hidden;
+  display: -webkit-box;
+  -webkit-line-clamp: 2;
+  -webkit-box-orient: vertical;
+  min-height: 2.6em;
+  transition: color 0.12s ease;
+}
