@@ -11,6 +11,7 @@ import { saveLinksFromDetail } from '../lib/libraryDownloadLinks';
 import { GameDescription } from '../components/game/GameDescription';
 import { clearGridPreviewCache } from '../lib/gridPreviewQueue';
 import { clearRemoteImageQueue } from '../lib/remoteImageQueue';
+import { recordStoreView } from '../lib/storeViewHistory';
 import { ScreenshotGallery } from '../components/game/ScreenshotGallery';
 import { DownloadLinks } from '../components/game/DownloadLinks';
 import {
