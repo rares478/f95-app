@@ -1,5 +1,6 @@
 import { Link } from 'react-router-dom';
 import { useStoreContextMenu } from '../../hooks/useStoreContextMenu';
+import { toF95FullUrl } from '../../lib/f95ImageUrl';
 import { useT } from '../../lib/i18n';
 import { useIsInLibrary } from '../../lib/libraryMembership';
 import type { SamCategory, SamGameCard } from '../../types/sam';
@@ -28,6 +29,8 @@ export function TagPanelTile({ game, category }: Props) {
         ? { kind: 'likes' as const, text: formatCount(game.likes) }
         : null;
 
+  const imageSrc = game.thumbnailUrl ? toF95FullUrl(game.thumbnailUrl) : null;
+
   return (
     <Link
       to={`/store/game/${game.threadId}?cat=${category}`}
@@ -35,11 +38,12 @@ export function TagPanelTile({ game, category }: Props) {
       onContextMenu={(e) => void openStoreContextMenu(e, game)}
     >
       <div className="tag-panel-tile-thumb">
-        {game.thumbnailUrl ? (
+        {imageSrc ? (
           <img
-            src={game.thumbnailUrl}
+            src={imageSrc}
             alt={game.title}
             loading="lazy"
+            decoding="async"
             className="tag-panel-tile-img"
             onError={(e) => {
               (e.target as HTMLImageElement).style.display = 'none';
