@@ -836,7 +836,17 @@ const en: Record<string, string> = {
   'store.pagination.page': 'Page {page} of {total}',
   'store.featured': 'Featured',
   'store.featured.viewDetails': 'View details',
+  'store.home.browseAll': 'Browse all',
+  'store.home.searchPlaceholder': 'Search games…',
   'store.home.upNext': 'Up next',
+  'store.home.seeAll': 'See all',
+  'store.home.rail.recent': 'Recently updated',
+  'store.home.rail.likes': 'Most liked',
+  'store.home.rail.views': 'Most viewed',
+  'store.home.rail.rating': 'Best rated',
+  'store.home.rail.tag': 'Tag · {name}',
+  'store.home.retry': 'Retry',
+  'store.home.loadFailed': 'Could not load discovery.',
   'store.section.more': 'More games',
 
   // ─── News page ──────────────────────────────────────────────────────────
