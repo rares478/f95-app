@@ -35,6 +35,7 @@ export interface StoreDiscoveryState {
   rails: StoreDiscoveryRail[];
   bootstrapping: boolean;
   fatalError: string | null;
+  reload: () => void;
 }
 
 function sampleSeed(nowMs = Date.now()): string {
@@ -105,6 +106,7 @@ export function useStoreDiscovery(): StoreDiscoveryState {
   const [errorKeys, setErrorKeys] = useState<Map<string, string>>(() => new Map());
   const [bootstrapping, setBootstrapping] = useState(true);
   const [fatalError, setFatalError] = useState<string | null>(null);
+  const [reloadToken, setReloadToken] = useState(0);
   const [seed] = useState(() => sampleSeed());
 
   const poolsRef = useRef(pools);
@@ -112,6 +114,10 @@ export function useStoreDiscovery(): StoreDiscoveryState {
   const specsRef = useRef(poolSpecs);
   specsRef.current = poolSpecs;
   const genRef = useRef(0);
+
+  const reload = useCallback(() => {
+    setReloadToken((n) => n + 1);
+  }, []);
 
   const retryOne = useCallback(async (poolKey: string) => {
     const spec = specsRef.current.find((s) => s.key === poolKey);
@@ -218,7 +224,7 @@ export function useStoreDiscovery(): StoreDiscoveryState {
     return () => {
       cancelled = true;
     };
-  }, [poolKeysKey]);
+  }, [poolKeysKey, reloadToken]);
 
   const model = buildDiscoveryHomeModel({
     pools,
@@ -236,5 +242,6 @@ export function useStoreDiscovery(): StoreDiscoveryState {
     }),
     bootstrapping,
     fatalError,
+    reload,
   };
 }
