@@ -1,9 +1,15 @@
-import { useCallback, useState, type FormEvent } from 'react';
+import { useCallback, useRef, useState, type FormEvent } from 'react';
 import { useNavigate } from 'react-router-dom';
 import { ForumSearchResultRow } from '../components/search/ForumSearchResultRow';
 import { Spinner } from '../components/ui/Spinner';
 import { useOffline } from '../contexts/Offline';
 import * as ipc from '../lib/ipc';
+import {
+  isSearchFiltersDirty,
+  shouldApplySearchResult,
+  type ForumSearchAttemptSnapshot,
+  type ForumSearchFilterSnapshot,
+} from '../lib/forumSearchUi';
 import { useT } from '../lib/i18n';
 import { formatIpcError } from '../lib/ipcError';
 import { openThreadFromSearch } from '../lib/openThreadFromSearch';
@@ -21,27 +27,37 @@ export function ForumSearchPage() {
   const [searchIn, setSearchIn] = useState<ForumSearchIn>('posts');
   const [sort, setSort] = useState<ForumSearchSort>('relevance');
   const [page, setPage] = useState(1);
+  const [requestedPage, setRequestedPage] = useState(1);
   const [results, setResults] = useState<ForumSearchHit[]>([]);
   const [hasMore, setHasMore] = useState(false);
   const [totalPages, setTotalPages] = useState<number | null>(null);
   const [status, setStatus] = useState<SearchStatus>('idle');
   const [errorMessage, setErrorMessage] = useState<string | null>(null);
-  const [activeQuery, setActiveQuery] = useState('');
+  const [activeAttempt, setActiveAttempt] = useState<ForumSearchAttemptSnapshot | null>(null);
+  const [lastAttempt, setLastAttempt] = useState<ForumSearchAttemptSnapshot | null>(null);
+  const searchGenRef = useRef(0);
+
+  const liveFilters: ForumSearchFilterSnapshot = { titleOnly, searchIn, sort };
+  const filtersDirty = isSearchFiltersDirty(liveFilters, activeAttempt);
 
   const runSearch = useCallback(
-    async (pageNum: number, q: string) => {
-      const trimmed = q.trim();
+    async (pageNum: number, attempt: ForumSearchAttemptSnapshot) => {
+      const trimmed = attempt.query.trim();
       if (!trimmed) {
+        searchGenRef.current += 1;
         setStatus('idle');
         setResults([]);
         setHasMore(false);
         setTotalPages(null);
         setPage(1);
-        setActiveQuery('');
+        setRequestedPage(1);
+        setActiveAttempt(null);
+        setLastAttempt(null);
         setErrorMessage(null);
         return;
       }
       if (isOffline) {
+        searchGenRef.current += 1;
         setStatus('idle');
         setResults([]);
         setHasMore(false);
@@ -50,23 +66,36 @@ export function ForumSearchPage() {
         return;
       }
 
+      const snapshot: ForumSearchAttemptSnapshot = {
+        query: trimmed,
+        titleOnly: attempt.titleOnly,
+        searchIn: attempt.searchIn,
+        sort: attempt.sort,
+      };
+      const generation = ++searchGenRef.current;
+      setRequestedPage(pageNum);
+      setLastAttempt(snapshot);
       setStatus('loading');
       setErrorMessage(null);
+
       try {
         const res = await ipc.forumSearch({
-          query: trimmed,
-          titleOnly,
-          searchIn,
-          sort,
+          query: snapshot.query,
+          titleOnly: snapshot.titleOnly,
+          searchIn: snapshot.searchIn,
+          sort: snapshot.sort,
           page: pageNum,
         });
+        if (!shouldApplySearchResult(generation, searchGenRef.current)) return;
         setResults(res.results);
         setHasMore(res.hasMore);
         setTotalPages(res.totalPages);
         setPage(res.page);
-        setActiveQuery(trimmed);
+        setRequestedPage(res.page);
+        setActiveAttempt(snapshot);
         setStatus('ready');
       } catch (err) {
+        if (!shouldApplySearchResult(generation, searchGenRef.current)) return;
         setResults([]);
         setHasMore(false);
         setTotalPages(null);
@@ -74,15 +103,26 @@ export function ForumSearchPage() {
         setStatus('error');
       }
     },
-    [isOffline, titleOnly, searchIn, sort],
+    [isOffline],
   );
 
   const onSubmit = (e: FormEvent) => {
     e.preventDefault();
-    void runSearch(1, query);
+    if (status === 'loading') return;
+    void runSearch(1, { query, titleOnly, searchIn, sort });
   };
 
-  const showPagination = status === 'ready' && (page > 1 || hasMore);
+  const retryAttempt =
+    lastAttempt ??
+    ({
+      query: activeAttempt?.query || query,
+      titleOnly: activeAttempt?.titleOnly ?? titleOnly,
+      searchIn: activeAttempt?.searchIn ?? searchIn,
+      sort: activeAttempt?.sort ?? sort,
+    } satisfies ForumSearchAttemptSnapshot);
+
+  const showPagination =
+    status === 'ready' && !filtersDirty && (page > 1 || hasMore);
   const pageLabel =
     totalPages && totalPages > 0
       ? t('search.pagination.page', { page: `${page} / ${totalPages}` })
@@ -114,7 +154,7 @@ export function ForumSearchPage() {
           <button
             type="submit"
             className="forum-search-btn forum-search-btn--primary"
-            disabled={isOffline || !query.trim()}
+            disabled={isOffline || !query.trim() || status === 'loading'}
           >
             {t('search.submit')}
           </button>
@@ -163,7 +203,7 @@ export function ForumSearchPage() {
           <button
             type="button"
             className="forum-search-btn"
-            onClick={() => void runSearch(page || 1, activeQuery || query)}
+            onClick={() => void runSearch(requestedPage || 1, retryAttempt)}
             disabled={isOffline}
           >
             {t('search.error.retry')}
@@ -196,9 +236,9 @@ export function ForumSearchPage() {
       {status === 'ready' && results.length > 0 && (
         <div className="forum-search-list-panel">
           <ul className="forum-search-list">
-            {results.map((hit) => (
+            {results.map((hit, index) => (
               <ForumSearchResultRow
-                key={`${hit.threadId}-${hit.threadUrl}-${hit.dateIso ?? hit.dateLabel ?? ''}`}
+                key={`${index}-${hit.threadId}`}
                 hit={hit}
                 onOpen={() => openThreadFromSearch(hit, navigate)}
               />
@@ -207,13 +247,13 @@ export function ForumSearchPage() {
         </div>
       )}
 
-      {showPagination && (
+      {showPagination && activeAttempt && (
         <div className="forum-search-pagination">
           <button
             type="button"
             className="forum-search-btn"
             disabled={page <= 1 || isOffline}
-            onClick={() => void runSearch(page - 1, activeQuery)}
+            onClick={() => void runSearch(page - 1, activeAttempt)}
           >
             {t('search.pagination.prev')}
           </button>
@@ -222,7 +262,7 @@ export function ForumSearchPage() {
             type="button"
             className="forum-search-btn forum-search-btn--primary"
             disabled={!hasMore || isOffline}
-            onClick={() => void runSearch(page + 1, activeQuery)}
+            onClick={() => void runSearch(page + 1, activeAttempt)}
           >
             {t('search.pagination.next')}
           </button>

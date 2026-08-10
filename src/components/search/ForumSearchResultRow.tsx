@@ -1,3 +1,4 @@
+import { useT } from '../../lib/i18n';
 import type { ForumSearchHit } from '../../types/forumSearch';
 
 interface Props {
@@ -6,6 +7,7 @@ interface Props {
 }
 
 export function ForumSearchResultRow({ hit, onOpen }: Props) {
+  const { t } = useT();
   const canOpen = Boolean(hit.threadId);
   const meta = [hit.forum, hit.author, hit.dateLabel].filter(Boolean).join(' · ');
 
@@ -21,7 +23,9 @@ export function ForumSearchResultRow({ hit, onOpen }: Props) {
         disabled={!canOpen}
       >
         <div className="forum-search-row-content">
-          <div className="forum-search-row-title">{hit.title || 'Untitled'}</div>
+          <div className="forum-search-row-title">
+            {hit.title || t('search.result.untitled')}
+          </div>
           {meta && <div className="forum-search-row-meta">{meta}</div>}
           {hit.snippet && <div className="forum-search-row-snippet">{hit.snippet}</div>}
         </div>
