@@ -1,8 +1,8 @@
 //! Global overlay hotkey — registered in Rust so it works while a game has focus.
 
 use crate::commands::overlay::{
-    overlay_toggle_cached, report_overlay_failure, OverlaySyncHotkeyResult, OVERLAY_HINT_WINDOW_LABEL,
-    OVERLAY_WINDOW_LABEL,
+    init_overlay_windows, overlay_toggle_cached, report_overlay_failure, OverlaySyncHotkeyResult,
+    OVERLAY_HINT_WINDOW_LABEL, OVERLAY_WINDOW_LABEL,
 };
 use crate::error::AppError;
 use serde_json::json;
@@ -221,17 +221,17 @@ fn register_hotkey_handler(app: &AppHandle, shortcut: Shortcut) -> Result<(), St
             #[cfg(not(windows))]
             let (should, reason) = should_handle_overlay_hotkey(&app).await;
             if !should {
-                eprintln!("[overlay] hotkey ignorado: {reason}");
+                eprintln!("[overlay] hotkey ignored: {reason}");
                 return;
             }
-            eprintln!("[overlay] hotkey acionado ({reason})");
+            eprintln!("[overlay] hotkey fired ({reason})");
             let state = app.state::<crate::commands::AppState>();
             let app_toggle = app.clone();
             match overlay_toggle_cached(app_toggle.clone(), state.inner()).await {
                 Ok(open) => eprintln!("[overlay] toggle via hotkey: open={open}"),
                 Err(e) => {
                     let msg = e.to_string();
-                    eprintln!("[overlay] toggle via hotkey falhou: {msg}");
+                    eprintln!("[overlay] toggle via hotkey failed: {msg}");
                     report_overlay_failure(&app_toggle, state.inner(), msg).await;
                 }
             }
@@ -255,12 +255,18 @@ pub fn sync_overlay_hotkey(app: &AppHandle, enabled: bool, hotkey: &str) -> Over
     }
 
     if !enabled {
-        eprintln!("[overlay] hotkey sync: overlay desativado");
+        eprintln!("[overlay] hotkey sync: overlay disabled");
         return OverlaySyncHotkeyResult {
             registered: true,
             hotkey: hotkey.to_string(),
             message: None,
         };
+    }
+
+    if let Err(e) = init_overlay_windows(app) {
+        eprintln!(
+            "[overlay] init on enable failed (will retry when opening overlay): {e}"
+        );
     }
 
     let trimmed = hotkey.trim();
@@ -331,7 +337,7 @@ pub fn sync_overlay_hotkey(app: &AppHandle, enabled: bool, hotkey: &str) -> Over
             }
         }
 
-        eprintln!("[overlay] hotkey registrado: {candidate}");
+        eprintln!("[overlay] hotkey registered: {candidate}");
         return OverlaySyncHotkeyResult {
             registered: true,
             hotkey: candidate.clone(),
@@ -339,7 +345,7 @@ pub fn sync_overlay_hotkey(app: &AppHandle, enabled: bool, hotkey: &str) -> Over
         };
     }
 
-    eprintln!("[overlay] hotkey NÃO registrado para \"{trimmed}\"");
+    eprintln!("[overlay] hotkey NOT registered for \"{trimmed}\"");
     OverlaySyncHotkeyResult {
         registered: false,
         hotkey: requested,
