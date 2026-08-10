@@ -1062,6 +1062,7 @@ const de: Record<string, string> = {
   'error.download.choiceMissing': 'Ausgewählte Datei nicht gefunden',
   'error.download.htmlInsteadOfFile': 'Download hat HTML statt einer Datei zurückgegeben — öffne den Link im Browser',
   'error.download.generic': 'Download: {detail}',
+  'error.download.insufficientSpace': 'Nicht genug Speicherplatz — {required} benötigt, nur {available} verfügbar',
   'error.download.shaMismatch': 'SHA-256 stimmt nicht — erwartet {expected}, erhalten {actual}. Datei verworfen.',
 
   // Captcha / extract / launch / overlay / FS / shortcuts

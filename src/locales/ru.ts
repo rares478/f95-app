@@ -1062,6 +1062,7 @@ const ru: Record<string, string> = {
   'error.download.choiceMissing': 'Выбранный файл не найден',
   'error.download.htmlInsteadOfFile': 'Загрузка вернула HTML вместо файла — откройте ссылку в браузере',
   'error.download.generic': 'Загрузка: {detail}',
+  'error.download.insufficientSpace': 'Недостаточно места на диске — нужно {required}, доступно только {available}',
   'error.download.shaMismatch': 'Несовпадение SHA-256 — ожидалось {expected}, получено {actual}. Файл отброшен.',
 
   // Captcha / extract / launch / overlay / FS / shortcuts
