@@ -35,7 +35,8 @@ export class SocialClient {
   }
 }
 
-function parseFollowing(html: string): FollowedUser[] {
+/** Exported for unit tests. */
+export function parseFollowing(html: string): FollowedUser[] {
   const $ = cheerio.load(html);
   const main = $('.p-body-main, .p-body, body');
 
@@ -58,20 +59,14 @@ function parseFollowing(html: string): FollowedUser[] {
   for (const sel of rowSelectors) {
     $(sel).each((_, el) => {
       const $row = $(el);
-      const $link = $row
-        .find('a[href*="/members/"]')
-        .filter((_i, a) => !!extractUserIdFromHref($(a).attr('href') ?? ''))
-        .first();
+      const $link = findMemberLink($, $row);
       if ($link.length === 0) return;
       const href = $link.attr('href') ?? '';
       const userId = extractUserIdFromHref(href);
       if (!userId || seen.has(userId)) return;
 
       const username = cleanText($link.text()) || extractUsernameFromHref(href);
-      const $avatar = $row.find('img.avatar, .avatarWrapper img, .memberList-avatar img').first();
-      const avatarUrl = absoluteUrl(
-        $avatar.attr('src') ?? $avatar.attr('data-src') ?? '',
-      );
+      const avatarUrl = findRowAvatarUrl($, $row);
       const customTitle =
         cleanText($row.find('.userTitle, .memberList-customTitle, .memberList-stats').first().text()) ||
         null;
@@ -79,7 +74,7 @@ function parseFollowing(html: string): FollowedUser[] {
       seen.set(userId, {
         userId,
         username: username || `User ${userId}`,
-        avatarUrl: avatarUrl && !avatarUrl.startsWith('data:') ? avatarUrl : null,
+        avatarUrl,
         profileUrl: absoluteUrl(href) ?? `${BASE}/members/${userId}/`,
         customTitle: customTitle && customTitle.length < 120 ? customTitle : null,
       });
@@ -88,6 +83,77 @@ function parseFollowing(html: string): FollowedUser[] {
   }
 
   return Array.from(seen.values());
+}
+
+function findMemberLink(
+  $: cheerio.CheerioAPI,
+  $row: cheerio.Cheerio<any>,
+): cheerio.Cheerio<any> {
+  const mainLink = $row
+    .find(
+      '.contentRow-main a[href*="/members/"], .memberList-main a[href*="/members/"], .memberCard-main a[href*="/members/"]',
+    )
+    .filter((_i, a) => !!extractUserIdFromHref($(a).attr('href') ?? ''))
+    .first();
+  if (mainLink.length > 0) return mainLink;
+  return $row
+    .find('a[href*="/members/"]')
+    .filter((_i, a) => !!extractUserIdFromHref($(a).attr('href') ?? ''))
+    .first();
+}
+
+function findRowAvatarUrl($: cheerio.CheerioAPI, $row: cheerio.Cheerio<any>): string | null {
+  const $img = $row
+    .find(
+      '.contentRow-figure img, img.avatar, .avatar img, .avatarWrapper img, .memberList-avatar img, a.avatar img',
+    )
+    .first();
+  const fromImg = findAvatarSrc($, $img);
+  if (fromImg) return fromImg;
+
+  const $avatarLink = $row
+    .find('a.avatar, .contentRow-figure a[href*="/members/"]')
+    .first();
+  const style =
+    $avatarLink.find('span').attr('style') ?? $avatarLink.attr('style') ?? '';
+  const bgMatch = style.match(/url\(['"]?([^'")]+)['"]?\)/i);
+  if (bgMatch?.[1]) {
+    const url = absoluteUrl(bgMatch[1]);
+    if (url && !isPlaceholder(url)) return url;
+  }
+
+  return null;
+}
+
+function findAvatarSrc(
+  $: cheerio.CheerioAPI,
+  img: cheerio.Cheerio<any>,
+): string | null {
+  if (img.length === 0) return null;
+  // XF lazy-loads avatars; the real URL lives in data-src while src may be a
+  // 1x1 placeholder. Prefer data-src when present.
+  const candidates = [
+    img.attr('data-src'),
+    img.attr('src'),
+    img.attr('data-original'),
+  ];
+  for (const c of candidates) {
+    if (c && !isPlaceholder(c)) {
+      const url = absoluteUrl(c);
+      return url && !url.startsWith('data:') ? url : null;
+    }
+  }
+  return null;
+}
+
+function isPlaceholder(src: string): boolean {
+  return (
+    src.startsWith('data:image/gif') ||
+    src.startsWith('data:image/png') ||
+    src.includes('blank.gif') ||
+    src.endsWith('/blank.png') ||
+    src.includes('/xenforo/avatars/blank')
+  );
 }
 
 function extractUserIdFromHref(href: string): string | null {
