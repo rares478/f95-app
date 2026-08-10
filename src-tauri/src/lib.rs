@@ -1,3 +1,4 @@
+mod app_log;
 mod bridge;
 mod buzzheavier;
 mod commands;
