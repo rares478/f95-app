@@ -70,11 +70,19 @@ function parseAuthor($row: cheerio.Cheerio<Element>): {
   author: string | null;
   authorId: string | null;
 } {
-  const $link = $row.find('a[href*="/members/"]').first();
-  if (!$link.length) return { author: null, authorId: null };
+  // Live XF rows put an empty-text avatar link before `a.username`.
+  const $username = $row.find('a.username[href*="/members/"]').first();
+  const $link = $username.length
+    ? $username
+    : $row.find('a[href*="/members/"]').first();
+  if (!$link.length) {
+    const dataAuthor = $row.attr('data-author')?.trim() || null;
+    return { author: dataAuthor, authorId: null };
+  }
   const href = $link.attr('href') ?? '';
   const idMatch = href.match(/\/members\/[^/]*\.(\d+)/);
-  const author = $link.text().trim() || null;
+  const author =
+    $link.text().trim() || $row.attr('data-author')?.trim() || null;
   return { author, authorId: idMatch ? idMatch[1] : null };
 }
 
