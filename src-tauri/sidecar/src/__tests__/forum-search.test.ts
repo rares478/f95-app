@@ -57,6 +57,30 @@ describe('parseForumSearchPage', () => {
     expect(page.results).toEqual([]);
     expect(page.hasMore).toBe(false);
   });
+
+  it('parses live XF markup (avatar-first author, labels, pagination)', () => {
+    const page = parseForumSearchPage(fix('forum-search-live-sample.html'), {
+      page: 1,
+    });
+    expect(page.results.length).toBeGreaterThanOrEqual(2);
+    expect(page.results[0]).toMatchObject({
+      threadId: '3222',
+      author: 'RedKing',
+      authorId: '595',
+      forum: 'Games',
+    });
+    expect(page.results[0].title).toMatch(/Parental Love/i);
+    expect(page.results[0].threadUrl).toContain('/threads/');
+    expect(page.results[0].dateIso).toBe('2017-06-13T00:03:49+0300');
+    expect(page.results[1]).toMatchObject({
+      threadId: '25146',
+      author: 'UncleVT',
+      authorId: '93691',
+      forum: 'Games',
+    });
+    expect(page.totalPages).toBe(48);
+    expect(page.hasMore).toBe(true);
+  });
 });
 
 describe('fetchForumSearch', () => {
