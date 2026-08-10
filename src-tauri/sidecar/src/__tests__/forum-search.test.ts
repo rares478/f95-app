@@ -25,12 +25,20 @@ type FakeRes = {
 function makeSearchHttp(opts: {
   account?: FakeRes | (() => FakeRes);
   post?: (url: string, init?: { body?: string; headers?: Record<string, string> }) => FakeRes;
-  getExtra?: (url: string) => FakeRes | null;
+  getExtra?: (
+    url: string,
+    init?: { headers?: Record<string, string> },
+  ) => FakeRes | null;
 }) {
   const posts: Array<{ url: string; body?: string; headers?: Record<string, string> }> = [];
+  const gets: Array<{ url: string; headers?: Record<string, string> }> = [];
   const http = {
     posts,
-    get: async (url: string): Promise<FakeRes> => {
+    gets,
+    get: async (
+      url: string,
+      init?: { headers?: Record<string, string> },
+    ): Promise<FakeRes> => {
       if (url.includes('/account')) {
         return typeof opts.account === 'function'
           ? opts.account()
@@ -41,7 +49,8 @@ function makeSearchHttp(opts: {
               headers: { 'content-type': 'text/html' },
             });
       }
-      const extra = opts.getExtra?.(url);
+      gets.push({ url, headers: init?.headers });
+      const extra = opts.getExtra?.(url, init);
       if (extra) return extra;
       return {
         status: 200,
@@ -156,7 +165,6 @@ describe('fetchForumSearch', () => {
       titleOnly: true,
       searchIn: 'titles',
       sort: 'date',
-      page: 2,
     });
     expect(http.posts).toHaveLength(1);
     expect(http.posts[0].url).toContain('/search/search');
@@ -165,13 +173,48 @@ describe('fetchForumSearch', () => {
     expect(http.posts[0].body).toMatch(/(?:^|&)t=thread(?:&|$)/);
     expect(http.posts[0].body).toMatch(/c(?:\[|%5B)title_only(?:\]|%5D)=1/);
     expect(http.posts[0].body).toMatch(/(?:^|&)o=date(?:&|$)/);
-    expect(http.posts[0].body).toMatch(/(?:^|&)page=2(?:&|$)/);
+    expect(http.posts[0].body).not.toMatch(/(?:^|&)page=/);
     expect(http.posts[0].headers?.['content-type']).toMatch(
       /application\/x-www-form-urlencoded/,
     );
+    expect(http.gets).toHaveLength(0);
     expect(page.results.length).toBeGreaterThanOrEqual(2);
     expect(page.results[0].threadId).toBe('3222');
+    expect(page.page).toBe(1);
+  });
+
+  it('GETs /search/{id}/?page=N after POST redirect when page > 1', async () => {
+    const http = makeSearchHttp({
+      post: () => ({
+        status: 200,
+        url: 'https://f95zone.to/search/12345/?q=x',
+        body: fix('forum-search-page-1.html'),
+        headers: okHeaders,
+      }),
+      getExtra: (url) => {
+        if (!url.includes('/search/12345/')) return null;
+        return {
+          status: 200,
+          url,
+          body: fix('forum-search-live-sample.html'),
+          headers: okHeaders,
+        };
+      },
+    });
+    const page = await fetchForumSearch(http, {
+      query: 'x',
+      page: 2,
+      sort: 'relevance',
+    });
+    expect(http.posts).toHaveLength(1);
+    expect(http.posts[0].body).not.toMatch(/(?:^|&)page=/);
+    expect(http.gets).toHaveLength(1);
+    expect(http.gets[0].url).toMatch(/\/search\/12345\/\?/);
+    expect(http.gets[0].url).toMatch(/[?&]page=2\b/);
+    expect(http.gets[0].url).toMatch(/[?&]q=x\b/);
     expect(page.page).toBe(2);
+    expect(page.results[0].threadId).toBe('3222');
+    expect(page.results.length).toBeGreaterThanOrEqual(2);
   });
 
   it('throws NOT_INITIALIZED on login redirect', async () => {

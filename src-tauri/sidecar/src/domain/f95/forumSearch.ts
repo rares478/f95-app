@@ -68,14 +68,36 @@ export function buildForumSearchUrl(params: ForumSearchParams): string {
   return `${F95_BASE}/search/?${buildForumSearchQueryParts(params).join('&')}`;
 }
 
-/** Form body for POST `/search/search` (includes CSRF). */
+/** Form body for POST `/search/search` (includes CSRF; page-1 fields only). */
 export function buildForumSearchPostBody(
   params: ForumSearchParams & { xfToken: string },
 ): string {
+  const { page: _page, ...rest } = params;
   return [
     `_xfToken=${encodeURIComponent(params.xfToken)}`,
-    ...buildForumSearchQueryParts(params),
+    ...buildForumSearchQueryParts(rest),
   ].join('&');
+}
+
+/** Numeric search-result id from a final XF redirect URL (`/search/{id}/…`). */
+export function extractForumSearchId(url: string): string | null {
+  const m = url.match(/\/search\/(\d+)(?:\/|\?|#|$)/i);
+  return m ? m[1] : null;
+}
+
+function assertForumSearchResponse(res: {
+  status: number;
+  url: string;
+  body: string;
+  headers: Record<string, string>;
+}): void {
+  assertNotCloudflareChallenge(res.body, res.headers);
+  if (res.url.includes('/login')) {
+    throw new RpcError(RPC_ERROR.NOT_INITIALIZED, 'not logged in');
+  }
+  if (res.status >= 400) {
+    throw new RpcError(RPC_ERROR.INTERNAL, `forum search HTTP ${res.status}`);
+  }
 }
 
 function extractThreadId(href: string): string | null {
@@ -204,7 +226,8 @@ export function parseForumSearchPage(
 
 /**
  * Live XF search requires POST `/search/search` with CSRF; GET `/search/?q=…`
- * only returns the empty search form.
+ * only returns the empty search form. Pagination uses GET `/search/{id}/?page=N`
+ * after the POST redirect creates a search id.
  */
 export async function fetchForumSearch(
   http: ForumSearchHttp,
@@ -227,13 +250,25 @@ export async function fetchForumSearch(
     },
     body,
   });
-  assertNotCloudflareChallenge(res.body, res.headers);
-  if (res.url.includes('/login')) {
-    throw new RpcError(RPC_ERROR.NOT_INITIALIZED, 'not logged in');
+  assertForumSearchResponse(res);
+
+  const searchId = extractForumSearchId(res.url);
+  if (page > 1 && searchId) {
+    const getUrl = `${F95_BASE}/search/${searchId}/?${buildForumSearchQueryParts({
+      ...params,
+      query,
+      page,
+    }).join('&')}`;
+    const pageRes = await http.get(getUrl, {
+      headers: {
+        referer: res.url,
+        accept: 'text/html',
+      },
+    });
+    assertForumSearchResponse(pageRes);
+    return parseForumSearchPage(pageRes.body, { page });
   }
-  if (res.status >= 400) {
-    throw new RpcError(RPC_ERROR.INTERNAL, `forum search HTTP ${res.status}`);
-  }
+
   // If XF returns a search form / error page with zero rows, return empty (do not throw)
   return parseForumSearchPage(res.body, { page });
 }
