@@ -14,6 +14,7 @@ import { NewsPage } from './pages/NewsPage';
 import { FriendsPage } from './pages/FriendsPage';
 import { MemberProfilePage } from './pages/MemberProfilePage';
 import { AlertsPage } from './pages/AlertsPage';
+import { ForumSearchPage } from './pages/ForumSearchPage';
 import { SettingsPage } from './pages/SettingsPage';
 
 interface BuildOpts {
@@ -36,6 +37,7 @@ export function buildRouter({ profile, onLoggedOut }: BuildOpts) {
         { path: 'store', element: <StoreHomePage /> },
         { path: 'store/browse', element: <StoreBrowsePage /> },
         { path: 'store/game/:threadId', element: <GameDetailPage /> },
+        { path: 'search', element: <ForumSearchPage /> },
         { path: 'library', element: <LibraryPage /> },
         { path: 'library/game/:threadId', element: <LibraryGamePage /> },
         { path: 'library/game/:threadId/view', element: <LibraryMediaViewerPage /> },
