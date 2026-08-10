@@ -39,7 +39,6 @@ use commands::{
     stop_game, thread_posts, thread_reply, bbcode_preview, verify_buzzheavier_account, verify_datanodes_key, verify_gofile_credentials,
     verify_mega_session, verify_mixdrop_credentials, verify_uploadhaven_session,
     overlay_clear_context, overlay_ensure, overlay_get_anchor_status, overlay_get_context,
-    init_overlay_windows,
     overlay_hide, overlay_hide_game_hint, overlay_is_visible, overlay_set_context, overlay_show,
     overlay_get_game_hint_payload, overlay_pause_follow, overlay_show_game_hint,
     overlay_sync_compact_from_window,
@@ -172,11 +171,6 @@ pub fn run() {
                     .app_local_data_dir()
                     .map_err(|e| format!("app_local_data_dir: {e}"))?;
                 crate::app_log::init(local.join("logs").join("app.log"));
-            }
-            if let Err(e) = init_overlay_windows(&app.handle()) {
-                eprintln!(
-                    "[overlay] init na inicialização falhou (será tentado ao abrir o overlay): {e}"
-                );
             }
             Ok(())
         })

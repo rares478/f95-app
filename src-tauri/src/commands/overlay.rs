@@ -151,7 +151,7 @@ fn destroy_stale_window_label(app: &AppHandle, label: &str) {
     if webview_by_label(app, label).is_some() {
         return;
     }
-    overlay_log(Some(app), format!("removendo shell fantasma: {label}"));
+    overlay_log(Some(app), format!("removing ghost shell: {label}"));
     for win in app.windows().values() {
         if win.label() == label {
             let _ = win.close();
@@ -201,7 +201,7 @@ fn create_overlay_window_fallback(app: &AppHandle, label: &str) -> Result<(), Ap
         }
         Err(e) => {
             let err = e.to_string();
-            overlay_log(Some(app), format!("build falhou {label}: {err}"));
+            overlay_log(Some(app), format!("build failed {label}: {err}"));
             if build_error_is_duplicate(&err) {
                 Ok(())
             } else {
@@ -213,7 +213,7 @@ fn create_overlay_window_fallback(app: &AppHandle, label: &str) -> Result<(), Ap
 
 fn ensure_overlay_window_built(app: &AppHandle, label: &str) -> Result<(), AppError> {
     if let Some(_) = webview_by_label(app, label) {
-        overlay_log(Some(app), format!("janela {label} já disponível"));
+        overlay_log(Some(app), format!("window {label} already available"));
         return Ok(());
     }
 
@@ -231,7 +231,7 @@ fn ensure_overlay_window_built(app: &AppHandle, label: &str) -> Result<(), AppEr
     if webview_by_label(app, label).is_none() {
         overlay_log(
             Some(app),
-            format!("primeira criação de {label} sem webview — tentando de novo"),
+            format!("first create of {label} had no webview — retrying"),
         );
         destroy_stale_window_label(app, label);
         create_overlay_window_fallback(app, label)?;
@@ -242,7 +242,7 @@ fn ensure_overlay_window_built(app: &AppHandle, label: &str) -> Result<(), AppEr
         if webview_by_label(app, label).is_some() {
             overlay_log(
                 Some(app),
-                format!("janela {label} registrada após {attempt} polls"),
+                format!("window {label} registered after {attempt} polls"),
             );
             return Ok(());
         }
@@ -262,7 +262,7 @@ fn ensure_overlay_window_built(app: &AppHandle, label: &str) -> Result<(), AppEr
     overlay_log(
         Some(app),
         format!(
-            "falha ao registrar {label}: webviews={known:?} shells={shell_labels:?}"
+            "failed to register {label}: webviews={known:?} shells={shell_labels:?}"
         ),
     );
     Err(AppError::Other(format!(
@@ -270,12 +270,13 @@ fn ensure_overlay_window_built(app: &AppHandle, label: &str) -> Result<(), AppEr
     )))
 }
 
-/// Cria as janelas `game-overlay` e `overlay-hint` na inicialização do app.
+/// Creates `game-overlay` and `overlay-hint` when the overlay feature is enabled.
+/// Also used as a fallback from show/toggle via [`ensure_overlay_window`].
 pub fn init_overlay_windows(app: &AppHandle) -> Result<(), AppError> {
-    overlay_log(Some(app), "init_overlay_windows: início");
+    overlay_log(Some(app), "init_overlay_windows: start");
     ensure_overlay_window_built(app, OVERLAY_WINDOW_LABEL)?;
     ensure_overlay_window_built(app, OVERLAY_HINT_WINDOW_LABEL)?;
-    overlay_log(Some(app), "init_overlay_windows: concluído");
+    overlay_log(Some(app), "init_overlay_windows: done");
     Ok(())
 }
 
@@ -482,7 +483,7 @@ async fn reveal_error_on_game(
     let Some(game_match) = game_match else {
         overlay_log(
             Some(app),
-            format!("erro overlay sem janela de jogo (pid={pid}): {friendly}"),
+            format!("overlay error with no game window (pid={pid}): {friendly}"),
         );
         return Ok(());
     };
@@ -508,7 +509,7 @@ async fn reveal_error_on_game(
 
 pub async fn report_overlay_failure(app: &AppHandle, state: &AppState, raw_message: String) {
     let friendly = user_overlay_error(&raw_message);
-    overlay_log(Some(app), format!("falha: {friendly} (raw: {raw_message})"));
+    overlay_log(Some(app), format!("failure: {friendly} (raw: {raw_message})"));
     #[cfg(windows)]
     {
         if let Ok(win) = ensure_hint_window(app) {
@@ -1119,7 +1120,7 @@ pub async fn overlay_show(
     state: State<'_, AppState>,
     layout: OverlayLayout,
 ) -> Result<OverlayAnchorStatus, AppError> {
-    overlay_log(Some(&app), "overlay_show: comando recebido");
+    overlay_log(Some(&app), "overlay_show: command received");
     match overlay_show_inner(app.clone(), state.inner(), layout).await {
         Ok(status) => {
             overlay_log(
