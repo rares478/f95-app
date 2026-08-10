@@ -1,5 +1,6 @@
 //! Background download manager.
 
+use super::disk_space::{check_disk_space, space_needed_for_download};
 use super::host::{
     clean_download_filename, host_label, host_of, is_f95_masked, masked_host, sanitize_segment,
 };
@@ -817,6 +818,15 @@ impl Manager {
             return Ok(());
         }
 
+        if let Some(total) = file_size {
+            let existing = fs::metadata(&part_path)
+                .await
+                .map(|m| m.len())
+                .unwrap_or(0);
+            let needed = space_needed_for_download(file_name, total, existing);
+            check_disk_space(root, needed)?;
+        }
+
         self.stream_to_part(
             app,
             id,
@@ -909,6 +919,15 @@ impl Manager {
                     .map(|c| if resuming { c + existing } else { c })
             })
             .or(hint_total);
+
+        if let Some(total) = total {
+            if let Some(name) = dest_path.file_name().and_then(|s| s.to_str()) {
+                let needed = space_needed_for_download(name, total, downloaded);
+                if let Some(parent) = dest_path.parent() {
+                    check_disk_space(parent, needed)?;
+                }
+            }
+        }
 
         // Hasher state. If resuming and we know an expected hash, we have to
         // rehash the bytes we already have on disk so the final digest covers
@@ -1074,6 +1093,9 @@ impl Manager {
                 "destPath": sample_dest.to_string_lossy(),
             }),
         );
+
+        let needed = space_needed_for_download(&info.primary_name, info.total_size, 0);
+        check_disk_space(root, needed)?;
 
         let paths =
             crate::mega::download_all_files(&client, &nodes, &dest_dir, app, id, info.total_size)
