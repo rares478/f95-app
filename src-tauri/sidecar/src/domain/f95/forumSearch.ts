@@ -1,5 +1,6 @@
 import * as cheerio from 'cheerio';
 import type { Element } from 'domhandler';
+import { assertNotCloudflareChallenge } from '../../shared/cloudflare';
 import { F95_BASE } from '../../shared/constants';
 
 export type ForumSearchSort = 'relevance' | 'date';
@@ -171,4 +172,23 @@ export function parseForumSearchPage(
     (totalPages == null && hasNextJump);
 
   return { results, page, totalPages, hasMore };
+}
+
+export async function fetchForumSearch(
+  http: {
+    get: (
+      url: string,
+    ) => Promise<{ status: number; url: string; body: string; headers: Record<string, string> }>;
+  },
+  params: ForumSearchParams,
+): Promise<ForumSearchPage> {
+  const query = params.query.trim();
+  if (!query) {
+    return { results: [], page: 1, totalPages: null, hasMore: false };
+  }
+  const url = buildForumSearchUrl({ ...params, query });
+  const res = await http.get(url);
+  assertNotCloudflareChallenge(res.body, res.headers);
+  // If XF returns a search form / error page with zero rows, return empty (do not throw)
+  return parseForumSearchPage(res.body, { page: params.page ?? 1 });
 }
