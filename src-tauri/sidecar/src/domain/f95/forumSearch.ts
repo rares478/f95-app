@@ -1,8 +1,10 @@
+import type { BrowserClient } from 'browser-rest-api';
 import * as cheerio from 'cheerio';
 import type { Element } from 'domhandler';
 import { RPC_ERROR, RpcError } from '../../rpc';
 import { assertNotCloudflareChallenge } from '../../shared/cloudflare';
 import { F95_BASE } from '../../shared/constants';
+import { loadXfToken } from './alerts';
 
 export type ForumSearchSort = 'relevance' | 'date';
 export type ForumSearchIn = 'titles' | 'posts';
@@ -34,6 +36,8 @@ export interface ForumSearchPage {
   hasMore: boolean;
 }
 
+type ForumSearchHttp = Pick<BrowserClient, 'get' | 'post'>;
+
 function absUrl(href: string | undefined | null): string | null {
   if (!href) return null;
   if (/^https?:\/\//i.test(href)) return href;
@@ -42,8 +46,8 @@ function absUrl(href: string | undefined | null): string | null {
   return null;
 }
 
-/** XenForo search GET — prefer `/search/?q=…` (not broken `/search/search`). */
-export function buildForumSearchUrl(params: ForumSearchParams): string {
+/** Shared query-string / form field parts for XenForo search (no CSRF). */
+export function buildForumSearchQueryParts(params: ForumSearchParams): string[] {
   // Keep `c[title_only]` brackets unencoded (URLSearchParams would use %5B/%5D).
   const parts: string[] = [
     `q=${encodeURIComponent(params.query)}`,
@@ -56,7 +60,22 @@ export function buildForumSearchUrl(params: ForumSearchParams): string {
   if (params.page != null && params.page > 1) {
     parts.push(`page=${params.page}`);
   }
-  return `${F95_BASE}/search/?${parts.join('&')}`;
+  return parts;
+}
+
+/** XenForo search GET URL — kept for query-string semantics / unit tests. */
+export function buildForumSearchUrl(params: ForumSearchParams): string {
+  return `${F95_BASE}/search/?${buildForumSearchQueryParts(params).join('&')}`;
+}
+
+/** Form body for POST `/search/search` (includes CSRF). */
+export function buildForumSearchPostBody(
+  params: ForumSearchParams & { xfToken: string },
+): string {
+  return [
+    `_xfToken=${encodeURIComponent(params.xfToken)}`,
+    ...buildForumSearchQueryParts(params),
+  ].join('&');
 }
 
 function extractThreadId(href: string): string | null {
@@ -183,20 +202,31 @@ export function parseForumSearchPage(
   return { results, page, totalPages, hasMore };
 }
 
+/**
+ * Live XF search requires POST `/search/search` with CSRF; GET `/search/?q=…`
+ * only returns the empty search form.
+ */
 export async function fetchForumSearch(
-  http: {
-    get: (
-      url: string,
-    ) => Promise<{ status: number; url: string; body: string; headers: Record<string, string> }>;
-  },
+  http: ForumSearchHttp,
   params: ForumSearchParams,
 ): Promise<ForumSearchPage> {
   const query = params.query.trim();
   if (!query) {
     return { results: [], page: 1, totalPages: null, hasMore: false };
   }
-  const url = buildForumSearchUrl({ ...params, query });
-  const res = await http.get(url);
+
+  const xfToken = await loadXfToken(http as BrowserClient);
+  const page = params.page ?? 1;
+  const body = buildForumSearchPostBody({ ...params, query, xfToken });
+  const res = await http.post(`${F95_BASE}/search/search`, {
+    headers: {
+      'content-type': 'application/x-www-form-urlencoded',
+      referer: `${F95_BASE}/search/`,
+      origin: F95_BASE,
+      accept: 'text/html',
+    },
+    body,
+  });
   assertNotCloudflareChallenge(res.body, res.headers);
   if (res.url.includes('/login')) {
     throw new RpcError(RPC_ERROR.NOT_INITIALIZED, 'not logged in');
@@ -205,5 +235,5 @@ export async function fetchForumSearch(
     throw new RpcError(RPC_ERROR.INTERNAL, `forum search HTTP ${res.status}`);
   }
   // If XF returns a search form / error page with zero rows, return empty (do not throw)
-  return parseForumSearchPage(res.body, { page: params.page ?? 1 });
+  return parseForumSearchPage(res.body, { page });
 }

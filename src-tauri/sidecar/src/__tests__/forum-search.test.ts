@@ -11,6 +11,62 @@ import { RPC_ERROR, RpcError } from '../rpc';
 const fix = (name: string) =>
   readFileSync(join(__dirname, 'fixtures', name), 'utf8');
 
+const ACCOUNT_HTML = `<html data-csrf="tok-abc"><body>
+  <input type="hidden" name="_xfToken" value="tok-abc" />
+</body></html>`;
+
+type FakeRes = {
+  status: number;
+  url: string;
+  body: string;
+  headers: Record<string, string>;
+};
+
+function makeSearchHttp(opts: {
+  account?: FakeRes | (() => FakeRes);
+  post?: (url: string, init?: { body?: string; headers?: Record<string, string> }) => FakeRes;
+  getExtra?: (url: string) => FakeRes | null;
+}) {
+  const posts: Array<{ url: string; body?: string; headers?: Record<string, string> }> = [];
+  const http = {
+    posts,
+    get: async (url: string): Promise<FakeRes> => {
+      if (url.includes('/account')) {
+        return typeof opts.account === 'function'
+          ? opts.account()
+          : (opts.account ?? {
+              status: 200,
+              url: 'https://f95zone.to/account/',
+              body: ACCOUNT_HTML,
+              headers: { 'content-type': 'text/html' },
+            });
+      }
+      const extra = opts.getExtra?.(url);
+      if (extra) return extra;
+      return {
+        status: 200,
+        url,
+        body: '<html></html>',
+        headers: { 'content-type': 'text/html' },
+      };
+    },
+    post: async (
+      url: string,
+      init?: { body?: string; headers?: Record<string, string> },
+    ): Promise<FakeRes> => {
+      posts.push({ url, body: init?.body, headers: init?.headers });
+      if (opts.post) return opts.post(url, init);
+      return {
+        status: 200,
+        url: 'https://f95zone.to/search/12345/?q=x',
+        body: fix('forum-search-page-1.html'),
+        headers: { 'content-type': 'text/html' },
+      };
+    },
+  };
+  return http;
+}
+
 describe('buildForumSearchUrl', () => {
   it('encodes query and default post search', () => {
     const url = buildForumSearchUrl({ query: 'Hard to Love' });
@@ -86,15 +142,47 @@ describe('parseForumSearchPage', () => {
 describe('fetchForumSearch', () => {
   const okHeaders = { 'content-type': 'text/html' };
 
+  it('POSTs /search/search with CSRF and parses redirected results', async () => {
+    const http = makeSearchHttp({
+      post: () => ({
+        status: 200,
+        url: 'https://f95zone.to/search/999/?q=Hard%20to%20Love',
+        body: fix('forum-search-live-sample.html'),
+        headers: okHeaders,
+      }),
+    });
+    const page = await fetchForumSearch(http, {
+      query: 'Hard to Love',
+      titleOnly: true,
+      searchIn: 'titles',
+      sort: 'date',
+      page: 2,
+    });
+    expect(http.posts).toHaveLength(1);
+    expect(http.posts[0].url).toContain('/search/search');
+    expect(http.posts[0].body).toMatch(/_xfToken=tok-abc/);
+    expect(http.posts[0].body).toMatch(/(?:^|&)q=Hard/);
+    expect(http.posts[0].body).toMatch(/(?:^|&)t=thread(?:&|$)/);
+    expect(http.posts[0].body).toMatch(/c(?:\[|%5B)title_only(?:\]|%5D)=1/);
+    expect(http.posts[0].body).toMatch(/(?:^|&)o=date(?:&|$)/);
+    expect(http.posts[0].body).toMatch(/(?:^|&)page=2(?:&|$)/);
+    expect(http.posts[0].headers?.['content-type']).toMatch(
+      /application\/x-www-form-urlencoded/,
+    );
+    expect(page.results.length).toBeGreaterThanOrEqual(2);
+    expect(page.results[0].threadId).toBe('3222');
+    expect(page.page).toBe(2);
+  });
+
   it('throws NOT_INITIALIZED on login redirect', async () => {
-    const http = {
-      get: async () => ({
+    const http = makeSearchHttp({
+      account: {
         status: 200,
         url: 'https://f95zone.to/login/',
         body: '<html></html>',
         headers: okHeaders,
-      }),
-    };
+      },
+    });
     await expect(fetchForumSearch(http, { query: 'x' })).rejects.toMatchObject({
       code: RPC_ERROR.NOT_INITIALIZED,
       message: 'not logged in',
@@ -103,14 +191,14 @@ describe('fetchForumSearch', () => {
   });
 
   it('throws INTERNAL on HTTP >= 400', async () => {
-    const http = {
-      get: async () => ({
+    const http = makeSearchHttp({
+      post: () => ({
         status: 503,
-        url: 'https://f95zone.to/search/?q=x',
+        url: 'https://f95zone.to/search/search',
         body: '<html>error</html>',
         headers: okHeaders,
       }),
-    };
+    });
     await expect(fetchForumSearch(http, { query: 'x' })).rejects.toMatchObject({
       code: RPC_ERROR.INTERNAL,
       message: 'forum search HTTP 503',
