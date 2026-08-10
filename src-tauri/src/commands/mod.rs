@@ -1,4 +1,5 @@
 mod alerts;
+mod app_log_cmd;
 mod auth;
 mod captcha;
 mod download;
@@ -13,6 +14,7 @@ mod state;
 mod window;
 
 pub use alerts::*;
+pub use app_log_cmd::*;
 pub use auth::*;
 pub use captcha::*;
 pub use download::*;
