@@ -40,6 +40,12 @@ const en: Record<string, string> = {
   'search.pagination.next': 'Next',
   'search.pagination.page': 'Page {page}',
 
+  // ─── Thread detail (non-catalog forum threads) ───────────────────────────
+  'threaddetail.openOnF95': 'Open on F95Zone',
+  'threaddetail.discussion': 'Discussion',
+  'threaddetail.error.back': 'Back to Search',
+  'threaddetail.offline': 'Thread viewing is unavailable offline.',
+
   // ─── Title bar ──────────────────────────────────────────────────────────
   'titlebar.minimize': 'Minimize',
   'titlebar.maximize': 'Maximize',
