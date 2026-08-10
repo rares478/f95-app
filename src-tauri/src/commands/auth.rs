@@ -1,6 +1,7 @@
 use super::state::{ensure_sidecar, AppState, ProfileDto};
 use crate::error::AppError;
 use crate::sidecar;
+use serde_json::Value;
 use tauri::State;
 
 fn auth_fail_label(err: &AppError) -> &'static str {
@@ -45,6 +46,37 @@ pub async fn login(
 pub async fn get_profile(state: State<'_, AppState>) -> Result<ProfileDto, AppError> {
     let client = ensure_sidecar(&state).await?;
     client.get_profile().await
+}
+
+#[tauri::command]
+pub async fn get_member_profile(
+    state: State<'_, AppState>,
+    user_id: String,
+) -> Result<ProfileDto, AppError> {
+    let client = ensure_sidecar(&state).await?;
+    client.get_member_profile(&user_id).await
+}
+
+#[tauri::command]
+pub async fn get_member_profile_posts(
+    state: State<'_, AppState>,
+    user_id: String,
+    page: Option<u32>,
+) -> Result<Value, AppError> {
+    let client = ensure_sidecar(&state).await?;
+    client
+        .get_member_profile_posts(&user_id, page.unwrap_or(1))
+        .await
+}
+
+#[tauri::command]
+pub async fn get_member_activity(
+    state: State<'_, AppState>,
+    user_id: String,
+    page: Option<u32>,
+) -> Result<Value, AppError> {
+    let client = ensure_sidecar(&state).await?;
+    client.get_member_activity(&user_id, page.unwrap_or(1)).await
 }
 
 /// No-op RPC used by the frontend to pre-spawn + init the sidecar without

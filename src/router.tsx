@@ -12,6 +12,7 @@ import { LibraryMediaViewerPage } from './pages/LibraryMediaViewerPage';
 import { DownloadsPage } from './pages/DownloadsPage';
 import { NewsPage } from './pages/NewsPage';
 import { FriendsPage } from './pages/FriendsPage';
+import { MemberProfilePage } from './pages/MemberProfilePage';
 import { AlertsPage } from './pages/AlertsPage';
 import { SettingsPage } from './pages/SettingsPage';
 
@@ -41,6 +42,7 @@ export function buildRouter({ profile, onLoggedOut }: BuildOpts) {
         { path: 'downloads', element: <DownloadsPage /> },
         { path: 'news', element: <NewsPage /> },
         { path: 'friends', element: <FriendsPage /> },
+        { path: 'members/:userId', element: <MemberProfilePage /> },
         { path: 'profile', element: <ProfilePage /> },
         { path: 'alerts', element: <AlertsPage /> },
         { path: 'settings', element: <SettingsPage onLoggedOut={onLoggedOut} /> },

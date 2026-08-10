@@ -6,6 +6,7 @@ import { RPC_ERROR, RpcError } from '../../rpc';
 import { log } from '../../logger';
 import { assertNotCloudflareChallenge } from '../../shared/cloudflare';
 import { F95_BASE, USER_AGENT } from '../../shared/constants';
+import { normalizeOpHtml } from '../game/htmlNormalize';
 import {
   fetchAlertsList,
   fetchAlertsPopup,
@@ -31,6 +32,41 @@ export interface ActivityItem {
   url: string | null;
 }
 
+export interface PaginatedProfilePosts {
+  items: ProfilePostItem[];
+  page: number;
+  totalPages: number | null;
+  hasMore: boolean;
+}
+
+export interface PaginatedActivity {
+  items: ActivityItem[];
+  page: number;
+  totalPages: number | null;
+  hasMore: boolean;
+}
+
+export interface ProfilePostItem {
+  authorName: string;
+  authorAvatarUrl: string | null;
+  messageHtml: string | null;
+  messageText: string;
+  date: string | null;
+  url: string | null;
+}
+
+export interface ProfileBadge {
+  label: string;
+  variant:
+    | 'moderator'
+    | 'staff'
+    | 'donor'
+    | 'compressor'
+    | 'uploader'
+    | 'developer'
+    | 'default';
+}
+
 export interface ProfileDto {
   username: string;
   avatarUrl: string | null;
@@ -47,6 +83,10 @@ export interface ProfileDto {
   trophyPoints: number | null;
   points: number | null;
   ratingsReceived: number | null;
+  donations: string | null;
+  userBanners: ProfileBadge[];
+  tags: string[];
+  profilePosts: ProfilePostItem[];
   extraStats: Record<string, string>;
   activity: ActivityItem[];
 }
@@ -181,54 +221,108 @@ export class F95Client {
     }
     const base = parseNavbar(accountRes.body);
 
-    if (base.profileUrl) {
-      try {
-        const memberRes = await this.client.get(base.profileUrl);
-        assertNotCloudflareChallenge(memberRes.body, memberRes.headers);
-        if (memberRes.status === 200) {
-          const header = parseMemberHeader(memberRes.body);
-          // Override the navbar avatar with the larger member-page avatar when present.
-          const avatarUrl = header.avatarUrl ?? base.avatarUrl;
-          const activity = await this.fetchActivity(base.profileUrl);
-          return { ...base, ...header, avatarUrl, activity };
-        }
-      } catch (err) {
-        if (err instanceof RpcError && err.code === RPC_ERROR.CLOUDFLARE_CHALLENGE) {
-          throw err;
-        }
-        log('member page fetch failed:', (err as Error).message);
-      }
+    if (!base.userId) {
+      return emptyProfile(base);
     }
-    return {
-      ...base,
-      userBanner: null,
-      customTitle: null,
-      joinedAt: null,
-      lastSeen: null,
-      messagesCount: null,
-      reactionScore: null,
-      trophyPoints: null,
-      points: null,
-      ratingsReceived: null,
-      extraStats: {},
-      activity: [],
-    };
-  }
 
-  private async fetchActivity(profileUrl: string): Promise<ActivityItem[]> {
-    const url = profileUrl.replace(/\/?$/, '/') + 'recent-content';
     try {
-      const res = await this.client.get(url);
-      assertNotCloudflareChallenge(res.body, res.headers);
-      if (res.status !== 200) return [];
-      return parseActivity(res.body);
+      const member = await this.getMemberProfile(base.userId);
+      return {
+        ...member,
+        username: member.username || base.username,
+        avatarUrl: member.avatarUrl ?? base.avatarUrl,
+        alerts: base.alerts,
+        conversations: base.conversations,
+      };
     } catch (err) {
       if (err instanceof RpcError && err.code === RPC_ERROR.CLOUDFLARE_CHALLENGE) {
         throw err;
       }
-      log('recent-activity fetch failed:', (err as Error).message);
-      return [];
+      log('member page fetch failed:', (err as Error).message);
+      return emptyProfile(base);
     }
+  }
+
+  async getMemberProfile(userId: string): Promise<ProfileDto> {
+    const id = userId.replace(/\D/g, '');
+    if (!id) {
+      throw new RpcError(RPC_ERROR.INVALID_PARAMS, 'userId required');
+    }
+    const profileUrl = `${BASE}/members/${id}/`;
+    log(`[profile] GET ${profileUrl}`);
+    const memberRes = await this.client.get(profileUrl);
+    assertNotCloudflareChallenge(memberRes.body, memberRes.headers);
+    if (memberRes.status === 404) {
+      throw new RpcError(RPC_ERROR.INTERNAL, 'member not found');
+    }
+    if (memberRes.status >= 400) {
+      throw new RpcError(
+        RPC_ERROR.INTERNAL,
+        `member profile HTTP ${memberRes.status}`,
+      );
+    }
+
+    const username = parseMemberUsername(memberRes.body) || `User ${id}`;
+    const header = parseMemberHeader(memberRes.body);
+    const $ = cheerio.load(memberRes.body);
+    const tags = parseMemberTags($);
+    const userBanners = parseMemberBadges($);
+    const activity: ActivityItem[] = [];
+
+    return {
+      username,
+      alerts: 0,
+      conversations: 0,
+      userId: id,
+      profileUrl,
+      ...header,
+      userBanners,
+      tags,
+      profilePosts: [],
+      activity,
+    };
+  }
+
+  async getMemberProfilePosts(
+    userId: string,
+    page = 1,
+  ): Promise<PaginatedProfilePosts> {
+    const id = userId.replace(/\D/g, '');
+    if (!id) {
+      throw new RpcError(RPC_ERROR.INVALID_PARAMS, 'userId required');
+    }
+    const url = memberProfilePageUrl(id, page);
+    log(`[profile] GET ${url} (posts page ${page})`);
+    const res = await this.client.get(url);
+    assertNotCloudflareChallenge(res.body, res.headers);
+    if (res.status >= 400) {
+      throw new RpcError(
+        RPC_ERROR.INTERNAL,
+        `profile posts HTTP ${res.status}`,
+      );
+    }
+    return parseProfilePostsPage(res.body, page);
+  }
+
+  async getMemberActivity(
+    userId: string,
+    page = 1,
+  ): Promise<PaginatedActivity> {
+    const id = userId.replace(/\D/g, '');
+    if (!id) {
+      throw new RpcError(RPC_ERROR.INVALID_PARAMS, 'userId required');
+    }
+    const url = memberActivityPageUrl(id, page);
+    log(`[profile] GET ${url} (activity page ${page})`);
+    const res = await this.client.get(url);
+    assertNotCloudflareChallenge(res.body, res.headers);
+    if (res.status >= 400) {
+      throw new RpcError(
+        RPC_ERROR.INTERNAL,
+        `profile activity HTTP ${res.status}`,
+      );
+    }
+    return parseActivityPage(res.body, page);
   }
 
   async fetchAlertsPopup(): Promise<F95AlertsPopupResult> {
@@ -358,10 +452,278 @@ interface MemberHeaderInfo {
   trophyPoints: number | null;
   points: number | null;
   ratingsReceived: number | null;
+  donations: string | null;
   extraStats: Record<string, string>;
 }
 
-function parseMemberHeader(html: string): MemberHeaderInfo {
+function emptyProfile(base: NavbarInfo): ProfileDto {
+  return {
+    ...base,
+    userBanner: null,
+    customTitle: null,
+    joinedAt: null,
+    lastSeen: null,
+    messagesCount: null,
+    reactionScore: null,
+    trophyPoints: null,
+    points: null,
+    ratingsReceived: null,
+    donations: null,
+    userBanners: [],
+    tags: [],
+    profilePosts: [],
+    extraStats: {},
+    activity: [],
+  };
+}
+
+function parseMemberUsername(html: string): string {
+  const $ = cheerio.load(html);
+  return (
+    cleanText($('.memberHeader-name .username').first().text()) ||
+    cleanText($('.memberHeader-name .username--staff').first().text()) ||
+    cleanText($('.memberHeader-name').first().text()) ||
+    cleanText($('h1.p-title-value').first().text())
+  );
+}
+
+/** Exported for unit tests. */
+export function parseMemberBadges($: cheerio.CheerioAPI): ProfileBadge[] {
+  const out: ProfileBadge[] = [];
+  $('.memberHeader .userBanner').each((_, el) => {
+    const $el = $(el);
+    const label =
+      cleanText($el.find('strong').first().text()) || cleanText($el.text());
+    if (!label) return;
+    out.push({
+      label,
+      variant: badgeVariant($el.attr('class') ?? '', label),
+    });
+  });
+  return out;
+}
+
+function badgeVariant(
+  cls: string,
+  label: string,
+): ProfileBadge['variant'] {
+  const hay = `${cls} ${label}`.toLowerCase();
+  if (/moderator/.test(hay)) return 'moderator';
+  if (/staff/.test(hay)) return 'staff';
+  if (/donor/.test(hay)) return 'donor';
+  if (/compressor/.test(hay)) return 'compressor';
+  if (/uploader/.test(hay)) return 'uploader';
+  if (/developer/.test(hay)) return 'developer';
+  return 'default';
+}
+
+function parseMemberTags($: cheerio.CheerioAPI): string[] {
+  const tags = new Set<string>();
+  $(
+    '.memberHeader .tagList a, .memberHeader-fields .tagList a, .memberAboutBlock .tagList a, .tagList--memberTag a',
+  ).each((_, el) => {
+    const t = cleanText($(el).text());
+    if (t) tags.add(t);
+  });
+
+  for (const [label, value] of Object.entries(
+    collectPairs($, 'dl.pairs, dl.pairs--columns, dl.pairs--rows'),
+  )) {
+    if (/^tags?$/i.test(label)) {
+      for (const part of value.split(/[,·|]/)) {
+        const t = cleanText(part);
+        if (t) tags.add(t);
+      }
+    }
+  }
+
+  return Array.from(tags);
+}
+
+/** Exported for unit tests. */
+export function parseProfilePosts(html: string): ProfilePostItem[] {
+  return parseProfilePostsPage(html, 1).items;
+}
+
+function memberProfilePageUrl(userId: string, page: number): string {
+  const base = `${BASE}/members/${userId}/`;
+  return page <= 1 ? base : `${base}page-${page}`;
+}
+
+function memberActivityPageUrl(userId: string, page: number): string {
+  const base = `${BASE}/members/${userId}/recent-content`;
+  return page <= 1 ? `${base}/` : `${base}?page=${page}`;
+}
+
+function parseProfilePostsPage(html: string, page: number): PaginatedProfilePosts {
+  const $ = cheerio.load(html);
+  const $block = $('[data-type="profile_post"]').first();
+  const $scope = $block.length > 0 ? $block : $('body');
+  const items: ProfilePostItem[] = [];
+
+  $scope
+    .find('article.message[data-content^="profile-post"], article.message--simple, article.message--profilePost')
+    .each((_, el) => {
+      const $msg = $(el);
+      if ($msg.parents('article.message').length > 0) return;
+
+      const post = extractProfilePost($, $msg);
+      if (post) items.push(post);
+    });
+
+  const totalPages = detectTotalPagesInScope($, $scope);
+  return {
+    items,
+    page,
+    totalPages,
+    hasMore: pageHasMoreInScope($, $scope, page, totalPages),
+  };
+}
+
+function detectTotalPagesInScope(
+  $: cheerio.CheerioAPI,
+  $scope: cheerio.Cheerio<any>,
+): number | null {
+  const nums: number[] = [];
+  const pushPage = (raw: string | undefined) => {
+    if (!raw) return;
+    const n = parseInt(raw, 10);
+    if (Number.isFinite(n) && n > 0) nums.push(n);
+  };
+  const pushFromHref = (href: string) => {
+    const path = href.match(/\/page-(\d+)/i);
+    const query = href.match(/[?&]page=(\d+)/i);
+    if (path) pushPage(path[1]);
+    if (query) pushPage(query[1]);
+  };
+
+  $scope.find('.pageNav-page a, .pageNav-page').each((_, el) => {
+    pushPage($(el).text().trim());
+  });
+  $scope.find('.pageNav a[href], .pageNav-main a[href], a.pageNav-jump[href]').each(
+    (_, el) => {
+      pushFromHref($(el).attr('href') ?? '');
+    },
+  );
+  const navText = $scope.find('.pageNav').first().text();
+  const ofMatch =
+    navText.match(/\bof\s+(\d+)\b/i) ||
+    navText.match(/\bde\s+(\d+)\b/i) ||
+    navText.match(/\bvon\s+(\d+)\b/i) ||
+    navText.match(/\bиз\s+(\d+)\b/i);
+  if (ofMatch) pushPage(ofMatch[1]);
+  return nums.length ? Math.max(...nums) : null;
+}
+
+function pageHasMoreInScope(
+  $: cheerio.CheerioAPI,
+  $scope: cheerio.Cheerio<any>,
+  page: number,
+  totalPages: number | null,
+): boolean {
+  if ($scope.find('.pageNav-jump--next, .pageNav-page--later').length > 0) return true;
+  return totalPages != null && page < totalPages;
+}
+
+function extractProfilePost(
+  $: cheerio.CheerioAPI,
+  $msg: cheerio.Cheerio<any>,
+): ProfilePostItem | null {
+  const $main = $msg.find('.message-cell--main').first();
+  const scope = $main.length > 0 ? $main : $msg;
+
+  const authorName =
+    cleanText(scope.find('.message-attribution-user .username').first().text()) ||
+    cleanText(scope.find('h4.attribution .username').first().text()) ||
+    cleanText(scope.find('.message-attribution-main .username').first().text()) ||
+    parseProfilePostAuthor($, $msg);
+
+  const dateEl = scope.find(
+    'header.message-attribution time, .message-attribution--plain time, .message-attribution time',
+  ).first();
+  const date =
+    cleanText(dateEl.attr('data-date-string') ?? '') ||
+    cleanText(dateEl.attr('title') ?? '') ||
+    cleanText(dateEl.text()) ||
+    cleanText($msg.find('footer time').first().attr('data-date-string') ?? '') ||
+    cleanText($msg.find('footer time').text()) ||
+    null;
+
+  const authorAvatarUrl = findAvatarSrc(
+    $,
+    $msg.find('.message-avatar img, .message-cell--user .avatar img').first(),
+  );
+
+  const $contentRoot = scope.find('.message-content, .message-main').first().clone();
+  $contentRoot
+    .find(
+      'header.message-attribution, .message-attribution, .message-minor, .message-editLink, .js-selectToQuoteEnd, .message-actionBar, footer',
+    )
+    .remove();
+
+  let $bodySource = $contentRoot.find('.bbWrapper').first();
+  if ($bodySource.length === 0) {
+    $bodySource = $contentRoot.find('article.message-body, .message-body').first();
+  }
+  if ($bodySource.length === 0) return null;
+
+  const messageHtml = normalizeOpHtml($, $bodySource, new Set()).trim();
+  const messageText = cleanText($bodySource.text());
+  if (!messageHtml && !messageText) return null;
+
+  const href =
+    scope.find('.message-attribution-main a[href*="/profile-posts/"]').first().attr('href') ??
+    scope.find('a[href*="/profile-posts/"]').first().attr('href') ??
+    $msg.find('a[href*="/profile-posts/"]').first().attr('href') ??
+    null;
+
+  return {
+    authorName,
+    authorAvatarUrl,
+    messageHtml: messageHtml || null,
+    messageText,
+    date,
+    url: href ? absoluteUrl(href) : null,
+  };
+}
+
+function parseActivityPage(html: string, page: number): PaginatedActivity {
+  const $ = cheerio.load(html);
+  const items = parseActivity(html);
+  const $scope = $('.p-body-main, .p-body, body').first();
+  const totalPages = detectTotalPagesInScope($, $scope);
+  return {
+    items,
+    page,
+    totalPages,
+    hasMore: pageHasMoreInScope($, $scope, page, totalPages),
+  };
+}
+
+function parseProfilePostAuthor(
+  $: cheerio.CheerioAPI,
+  $msg: cheerio.Cheerio<any>,
+): string {
+  const selectors = [
+    '.message-attribution-user .username',
+    'h4.attribution .username',
+    '.message-name .username',
+    '.message-userDetails .username',
+    '.message-attribution-main .username',
+    '.message-attribution .username',
+    '.message-cell--user .username',
+    'h4.message-name .username',
+    '.username',
+  ];
+  for (const sel of selectors) {
+    const t = cleanText($msg.find(sel).first().text());
+    if (t && t.length <= 64) return t;
+  }
+  return 'Unknown';
+}
+
+/** Exported for unit tests. */
+export function parseMemberHeader(html: string): MemberHeaderInfo {
   const $ = cheerio.load(html);
 
   // The big avatar lives at .memberHeader-avatar > .avatarWrapper > a.avatar--l.
@@ -376,15 +738,13 @@ function parseMemberHeader(html: string): MemberHeaderInfo {
     avatarUrl = findAvatarSrc($, $('.memberHeader-avatar img').first());
   }
 
-  // f95zone uses .userTitle (not .userBanner) for the rank badge ("New Member").
-  // Both fields end up holding the same string for users with no custom title,
-  // which the UI handles by not double-rendering.
-  const titleText =
+  // Custom title (e.g. "Birb Skull Fuckery") lives in .userTitle; role badges
+  // are separate .userBanner elements parsed via parseMemberBadges().
+  const customTitle =
     cleanText($('.memberHeader-blurb .userTitle').first().text()) ||
     cleanText($('.memberHeader .userTitle').first().text()) ||
     null;
-  const userBanner = titleText;
-  const customTitle = titleText;
+  const userBanner = null;
 
   const stats = collectPairs($, '.memberHeader-stats dl.pairs');
 
@@ -396,6 +756,15 @@ function parseMemberHeader(html: string): MemberHeaderInfo {
     'ratings received',
     'ratings',
     'avaliações recebidas',
+  ]);
+  const donations = pickStatRaw(stats, [
+    'donated',
+    'donations',
+    'donations received',
+    'total donated',
+    'doações',
+    'doação',
+    'doações recebidas',
   ]);
 
   const inlinePairs = collectPairs($, 'dl.pairs--inline');
@@ -416,6 +785,8 @@ function parseMemberHeader(html: string): MemberHeaderInfo {
     'points', 'pontos',
     'trophy points', 'troféus', 'trofeus',
     'ratings received', 'ratings', 'avaliações recebidas',
+    'donated', 'donations', 'donations received', 'total donated',
+    'doações', 'doação', 'doações recebidas',
     'joined', 'inscrito em',
     'last seen', 'visto pela última vez', 'última visita',
   ]);
@@ -435,6 +806,7 @@ function parseMemberHeader(html: string): MemberHeaderInfo {
     trophyPoints,
     points,
     ratingsReceived,
+    donations,
     extraStats,
   };
 }
@@ -475,6 +847,21 @@ function pickStat(
       if (k.toLowerCase() === want.toLowerCase()) {
         const n = parseInt(v.replace(/[^\d-]/g, ''), 10);
         if (Number.isFinite(n)) return n;
+      }
+    }
+  }
+  return null;
+}
+
+function pickStatRaw(
+  pairs: Record<string, string>,
+  labels: string[],
+): string | null {
+  for (const want of labels) {
+    for (const [k, v] of Object.entries(pairs)) {
+      if (k.toLowerCase() === want.toLowerCase()) {
+        const t = cleanText(v);
+        if (t) return t;
       }
     }
   }

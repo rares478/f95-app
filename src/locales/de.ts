@@ -887,6 +887,7 @@ const de: Record<string, string> = {
 
   // ─── Profile ────────────────────────────────────────────────────────────
   'profile.tab.activity': 'Aktivität',
+  'profile.tab.posts': 'Profilnachrichten',
   'profile.tab.stats': 'Statistiken',
   'profile.field.joinedAt': 'Mitglied seit',
   'profile.field.lastSeen': 'Zuletzt gesehen',
@@ -895,7 +896,11 @@ const de: Record<string, string> = {
   'profile.field.trophies': 'Trophäenpunkte',
   'profile.field.points': 'Punkte',
   'profile.field.ratings': 'Erhaltene Bewertungen',
+  'profile.field.donations': 'Spenden',
+  'profile.field.tags': 'Tags',
+  'profile.field.badges': 'Abzeichen',
   'profile.activity.empty': 'Keine kürzliche Aktivität.',
+  'profile.posts.empty': 'Es gibt noch keine Nachrichten auf dem Profil von {username}.',
   'profile.openOnF95': 'Auf F95Zone öffnen',
   'profile.banner.alt': 'Profilbanner',
   'profile.loadFailed': 'Profil konnte nicht geladen werden.',
@@ -1159,6 +1164,7 @@ const de: Record<string, string> = {
   // ─── Friends ────────────────────────────────────────────────────────────
   'friends.loadFailed': 'Laden fehlgeschlagen: {error}',
   'friends.openProfile': 'Profil öffnen',
+  'friends.viewProfile': 'Profil anzeigen',
   'friends.count': '{count} {count, plural}',
   'friends.count.one': 'Person',
   'friends.count.other': 'Personen',

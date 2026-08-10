@@ -887,6 +887,7 @@ const ru: Record<string, string> = {
 
   // ─── Profile ────────────────────────────────────────────────────────────
   'profile.tab.activity': 'Активность',
+  'profile.tab.posts': 'Сообщения профиля',
   'profile.tab.stats': 'Статистика',
   'profile.field.joinedAt': 'На сайте с',
   'profile.field.lastSeen': 'Последний визит',
@@ -895,7 +896,11 @@ const ru: Record<string, string> = {
   'profile.field.trophies': 'Очков трофеев',
   'profile.field.points': 'Очки',
   'profile.field.ratings': 'Полученных оценок',
+  'profile.field.donations': 'Пожертвования',
+  'profile.field.tags': 'Теги',
+  'profile.field.badges': 'Значки',
   'profile.activity.empty': 'Нет недавней активности.',
+  'profile.posts.empty': 'На профиле {username} пока нет сообщений.',
   'profile.openOnF95': 'Открыть на F95Zone',
   'profile.banner.alt': 'Баннер профиля',
   'profile.loadFailed': 'Не удалось загрузить профиль.',
@@ -1157,6 +1162,7 @@ const ru: Record<string, string> = {
   // ─── Friends ────────────────────────────────────────────────────────────
   'friends.loadFailed': 'Ошибка загрузки: {error}',
   'friends.openProfile': 'Открыть профиль',
+  'friends.viewProfile': 'Смотреть профиль',
   'friends.count': '{count} {count, plural}',
   'friends.count.one': 'человек',
   'friends.count.other': 'людей',

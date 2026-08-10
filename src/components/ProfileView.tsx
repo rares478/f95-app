@@ -1,21 +1,48 @@
-import { useState } from 'react';
-import type { ActivityItem, ProfileDto } from '../types';
+import { useCallback, useEffect, useState } from 'react';
+import DOMPurify from 'dompurify';
+import { openUrl } from '@tauri-apps/plugin-opener';
+import type {
+  ActivityItem,
+  PaginatedActivity,
+  PaginatedProfilePosts,
+  ProfileBadge,
+  ProfileDto,
+  ProfilePostItem,
+} from '../types';
 import { logout } from '../lib/ipc';
 import * as ipc from '../lib/ipc';
 import { clearCredentials } from '../lib/stronghold';
 import { useT } from '../lib/i18n';
 import { dialog } from '../lib/dialog';
+import { GameDescription } from './game/GameDescription';
+import { Spinner } from './ui/Spinner';
 
 interface Props {
   profile: ProfileDto;
-  onLoggedOut: () => void;
+  mode?: 'self' | 'member';
+  onLoggedOut?: () => void;
+  onBack?: () => void;
 }
 
 type Tab = 'profile-posts' | 'latest-activity' | 'about';
 
-export function ProfileView({ profile, onLoggedOut: _onLoggedOut }: Props) {
+function sanitizeProfileHtml(html: string): string {
+  return DOMPurify.sanitize(html, {
+    ADD_TAGS: ['details', 'summary', 'button'],
+    ADD_ATTR: ['target', 'rel', 'loading', 'type', 'hidden'],
+  });
+}
+
+export function ProfileView({
+  profile,
+  mode = 'self',
+  onLoggedOut: _onLoggedOut,
+  onBack,
+}: Props) {
   const [working, setWorking] = useState(false);
   const [tab, setTab] = useState<Tab>('latest-activity');
+  const isMember = mode === 'member';
+  const userId = profile.userId ?? undefined;
 
   async function onLogout() {
     setWorking(true);
@@ -32,50 +59,370 @@ export function ProfileView({ profile, onLoggedOut: _onLoggedOut }: Props) {
   }
 
   return (
-    <div style={page}>
-      <Header profile={profile} working={working} onLogout={onLogout} />
+    <div className="profile-page">
+      <Header
+        profile={profile}
+        working={working}
+        isMember={isMember}
+        onLogout={onLogout}
+        onBack={onBack}
+      />
 
       <Tabs current={tab} onChange={setTab} />
 
-      <div style={tabBody}>
-        {tab === 'profile-posts' && <ProfilePostsTab username={profile.username} />}
-        {tab === 'latest-activity' && <ActivityTab items={profile.activity} />}
+      <div className="profile-tab-body">
+        {tab === 'profile-posts' && userId && (
+          <ProfilePostsTab username={profile.username} userId={userId} />
+        )}
+        {tab === 'profile-posts' && !userId && (
+          <ProfilePostsTabStatic
+            username={profile.username}
+            posts={profile.profilePosts ?? []}
+          />
+        )}
+        {tab === 'latest-activity' && userId && (
+          <ActivityTab userId={userId} />
+        )}
+        {tab === 'latest-activity' && !userId && (
+          <ActivityTabStatic items={profile.activity} />
+        )}
         {tab === 'about' && <AboutTab profile={profile} />}
       </div>
     </div>
   );
 }
 
+function ProfilePager({
+  page,
+  totalPages,
+  hasMore,
+  loading,
+  onPage,
+}: {
+  page: number;
+  totalPages: number | null;
+  hasMore: boolean;
+  loading: boolean;
+  onPage: (page: number) => void;
+}) {
+  const { t } = useT();
+  const show =
+    page > 1 || hasMore || (totalPages != null && totalPages > 1);
+  if (!show) return null;
+
+  const canPrev = page > 1 && !loading;
+  const canNext = hasMore && !loading;
+  const label =
+    totalPages != null
+      ? t('gamedetail.discussion.pageOf', { page, total: totalPages })
+      : `${page}`;
+
+  return (
+    <div className="profile-pager">
+      <button
+        type="button"
+        className="profile-pager-btn"
+        disabled={!canPrev}
+        onClick={() => onPage(page - 1)}
+      >
+        {t('gamedetail.discussion.prev')}
+      </button>
+      <span className="profile-pager-label">{label}</span>
+      <button
+        type="button"
+        className="profile-pager-btn"
+        disabled={!canNext}
+        onClick={() => onPage(page + 1)}
+      >
+        {t('gamedetail.discussion.next')}
+      </button>
+    </div>
+  );
+}
+
+function ProfilePostsTab({
+  username,
+  userId,
+}: {
+  username: string;
+  userId: string;
+}) {
+  const { t } = useT();
+  const [page, setPage] = useState(1);
+  const [loading, setLoading] = useState(true);
+  const [data, setData] = useState<PaginatedProfilePosts | null>(null);
+  const [error, setError] = useState<string | null>(null);
+
+  const load = useCallback(async () => {
+    setLoading(true);
+    setError(null);
+    try {
+      const result = await ipc.getMemberProfilePosts(userId, page);
+      setData(result);
+    } catch (err) {
+      setError(String(err));
+      setData(null);
+    } finally {
+      setLoading(false);
+    }
+  }, [userId, page]);
+
+  useEffect(() => {
+    load();
+  }, [load]);
+
+  if (loading && !data) {
+    return (
+      <div className="profile-empty">
+        <Spinner size="sm" />
+      </div>
+    );
+  }
+  if (error) {
+    return <div className="profile-empty">{error}</div>;
+  }
+  if (!data || data.items.length === 0) {
+    return (
+      <div className="profile-empty">
+        {t('profile.posts.empty', { username })}
+      </div>
+    );
+  }
+
+  return (
+    <>
+      <ProfilePostsList posts={data.items} />
+      <ProfilePager
+        page={data.page}
+        totalPages={data.totalPages}
+        hasMore={data.hasMore}
+        loading={loading}
+        onPage={setPage}
+      />
+    </>
+  );
+}
+
+function ActivityTab({ userId }: { userId: string }) {
+  const { t } = useT();
+  const [page, setPage] = useState(1);
+  const [loading, setLoading] = useState(true);
+  const [data, setData] = useState<PaginatedActivity | null>(null);
+  const [error, setError] = useState<string | null>(null);
+
+  const load = useCallback(async () => {
+    setLoading(true);
+    setError(null);
+    try {
+      const result = await ipc.getMemberActivity(userId, page);
+      setData(result);
+    } catch (err) {
+      setError(String(err));
+      setData(null);
+    } finally {
+      setLoading(false);
+    }
+  }, [userId, page]);
+
+  useEffect(() => {
+    load();
+  }, [load]);
+
+  if (loading && !data) {
+    return (
+      <div className="profile-empty">
+        <Spinner size="sm" />
+      </div>
+    );
+  }
+  if (error) {
+    return <div className="profile-empty">{error}</div>;
+  }
+  if (!data || data.items.length === 0) {
+    return <div className="profile-empty">{t('profile.activity.empty')}</div>;
+  }
+
+  return (
+    <>
+      <ActivityList items={data.items} />
+      <ProfilePager
+        page={data.page}
+        totalPages={data.totalPages}
+        hasMore={data.hasMore}
+        loading={loading}
+        onPage={setPage}
+      />
+    </>
+  );
+}
+
+function ProfilePostsTabStatic({
+  username,
+  posts,
+}: {
+  username: string;
+  posts: ProfilePostItem[];
+}) {
+  const { t } = useT();
+  if (posts.length === 0) {
+    return (
+      <div className="profile-empty">
+        {t('profile.posts.empty', { username })}
+      </div>
+    );
+  }
+  return <ProfilePostsList posts={posts} />;
+}
+
+function ActivityTabStatic({ items }: { items: ActivityItem[] }) {
+  const { t } = useT();
+  if (items.length === 0) {
+    return <div className="profile-empty">{t('profile.activity.empty')}</div>;
+  }
+  return <ActivityList items={items} />;
+}
+
+function ProfilePostsList({ posts }: { posts: ProfilePostItem[] }) {
+  return (
+    <ul className="profile-list">
+      {posts.map((post, idx) => (
+        <li key={`${post.url ?? post.authorName}-${post.date ?? idx}`} className="profile-list-item">
+          <Avatar src={post.authorAvatarUrl} username={post.authorName} size={48} />
+          <div className="profile-list-main">
+            <div className="profile-list-title">{post.authorName}</div>
+            {post.messageHtml ? (
+              <GameDescription
+                html={sanitizeProfileHtml(post.messageHtml)}
+                className="profile-list-body"
+              />
+            ) : (
+              <div className="profile-list-snippet">{post.messageText}</div>
+            )}
+            {post.date && <div className="profile-list-date">{post.date}</div>}
+          </div>
+        </li>
+      ))}
+    </ul>
+  );
+}
+
+function ActivityList({ items }: { items: ActivityItem[] }) {
+  return (
+    <ul className="profile-list">
+      {items.map((it, idx) => (
+        <li key={it.url ?? idx} className="profile-list-item">
+          <Avatar src={it.avatarUrl} username="?" size={48} />
+          <div className="profile-list-main">
+            <div className="profile-list-title">{it.title}</div>
+            {it.snippet && <div className="profile-list-snippet">{it.snippet}</div>}
+            {it.date && <div className="profile-list-date">{it.date}</div>}
+          </div>
+          {it.url && (
+            <button
+              type="button"
+              onClick={() => openUrl(it.url!)}
+              className="profile-open-link"
+            >
+              open
+            </button>
+          )}
+        </li>
+      ))}
+    </ul>
+  );
+}
+
 function Header({
   profile,
   working,
+  isMember,
   onLogout,
+  onBack,
 }: {
   profile: ProfileDto;
   working: boolean;
+  isMember: boolean;
   onLogout: () => void;
+  onBack?: () => void;
 }) {
+  const { t } = useT();
+  const badges = profile.userBanners ?? [];
+
   return (
-    <div style={headerCard}>
-      <div style={{ display: 'flex', gap: 20, alignItems: 'flex-start' }}>
-        <Avatar src={profile.avatarUrl} username={profile.username} size={128} />
+    <div className="profile-header">
+      {isMember && onBack && (
+        <button type="button" onClick={onBack} className="profile-back-btn">
+          {t('common.back')}
+        </button>
+      )}
+      <div className="profile-header-top">
+        <div className="profile-header-row profile-header-main">
+          <div className="profile-avatar">
+            <Avatar src={profile.avatarUrl} username={profile.username} size={128} />
+          </div>
 
-        <div style={{ flex: 1, minWidth: 0 }}>
-          <h1 style={nameStyle}>{profile.username}</h1>
-          {profile.userBanner && <UserBanner text={profile.userBanner} />}
-          {profile.customTitle && profile.customTitle !== profile.userBanner && (
-            <div style={{ color: 'var(--text-tertiary)', fontSize: 14, marginTop: 4 }}>
-              {profile.customTitle}
-            </div>
-          )}
-
-          <StatsGrid profile={profile} />
+          <div style={{ flex: 1, minWidth: 0 }}>
+            <h1 className="profile-name">{profile.username}</h1>
+            {profile.customTitle && (
+              <div className="profile-custom-title">{profile.customTitle}</div>
+            )}
+            {badges.length > 0 && <BadgesRow badges={badges} />}
+            {(profile.tags?.length ?? 0) > 0 && (
+              <TagsRow tags={profile.tags ?? []} />
+            )}
+            <StatsGrid profile={profile} />
+          </div>
         </div>
 
-        <button onClick={onLogout} disabled={working} style={logoutBtn}>
-          <LogoutLabel working={working} />
-        </button>
+        <div className="profile-header-actions">
+          {isMember ? (
+            profile.profileUrl && (
+              <button
+                type="button"
+                onClick={() => openUrl(profile.profileUrl!)}
+                className="profile-action-btn"
+              >
+                {t('profile.openOnF95')}
+              </button>
+            )
+          ) : (
+            <button
+              onClick={onLogout}
+              disabled={working}
+              className="profile-action-btn"
+            >
+              <LogoutLabel working={working} />
+            </button>
+          )}
+        </div>
       </div>
+    </div>
+  );
+}
+
+function BadgesRow({ badges }: { badges: ProfileBadge[] }) {
+  return (
+    <div className="profile-badges">
+      {badges.map((badge) => (
+        <span
+          key={badge.label}
+          className={`profile-badge profile-badge--${badge.variant}`}
+        >
+          {badge.label}
+        </span>
+      ))}
+    </div>
+  );
+}
+
+function TagsRow({ tags }: { tags: string[] }) {
+  return (
+    <div className="profile-tags">
+      {tags.map((tag) => (
+        <span key={tag} className="profile-tag">
+          {tag}
+        </span>
+      ))}
     </div>
   );
 }
@@ -84,22 +431,26 @@ function StatsGrid({ profile }: { profile: ProfileDto }) {
   const { t } = useT();
   return (
     <>
-      <div style={statsGrid}>
+      <div className="profile-stats">
         <Stat label={t('profile.field.messages')} value={profile.messagesCount} />
         <Stat label={t('profile.field.reactions')} value={profile.reactionScore} />
         <Stat label={t('profile.field.points')} value={profile.points} />
         <Stat label={t('profile.field.ratings')} value={profile.ratingsReceived} />
+        <Stat label={t('profile.field.trophies')} value={profile.trophyPoints} />
+        <Stat label={t('profile.field.donations')} text={profile.donations} />
       </div>
 
-      <div style={metaLine}>
+      <div className="profile-meta">
         {profile.joinedAt && (
           <span>
-            <span style={metaLabel}>{t('profile.field.joinedAt')}:</span> {profile.joinedAt}
+            <span className="profile-meta-label">{t('profile.field.joinedAt')}:</span>{' '}
+            {profile.joinedAt}
           </span>
         )}
         {profile.lastSeen && (
           <span>
-            <span style={metaLabel}>{t('profile.field.lastSeen')}:</span> {profile.lastSeen}
+            <span className="profile-meta-label">{t('profile.field.lastSeen')}:</span>{' '}
+            {profile.lastSeen}
           </span>
         )}
       </div>
@@ -126,14 +477,8 @@ function Avatar({
       <img
         src={src}
         alt={username}
-        style={{
-          width: size,
-          height: size,
-          objectFit: 'cover',
-          borderRadius: 4,
-          background: 'var(--border-faint)',
-          flexShrink: 0,
-        }}
+        className="profile-avatar-img"
+        style={{ width: size, height: size, background: 'var(--border-faint)' }}
         onError={(e) => {
           (e.target as HTMLImageElement).style.display = 'none';
         }}
@@ -142,51 +487,30 @@ function Avatar({
   }
   return (
     <div
-      style={{
-        width: size,
-        height: size,
-        borderRadius: 4,
-        background: 'var(--border)',
-        display: 'flex',
-        alignItems: 'center',
-        justifyContent: 'center',
-        fontSize: size * 0.4,
-        color: 'var(--text-faint)',
-        flexShrink: 0,
-      }}
+      className="profile-avatar-fallback"
+      style={{ width: size, height: size, fontSize: size * 0.4 }}
     >
       {username.charAt(0).toUpperCase()}
     </div>
   );
 }
 
-function UserBanner({ text }: { text: string }) {
+function Stat({
+  label,
+  value,
+  text,
+}: {
+  label: string;
+  value?: number | null;
+  text?: string | null;
+}) {
+  const display =
+    text ??
+    (value === null || value === undefined ? '—' : value.toLocaleString('en-US'));
   return (
-    <div
-      style={{
-        display: 'inline-block',
-        marginTop: 6,
-        padding: '2px 10px',
-        borderRadius: 3,
-        background: 'var(--status-info)',
-        color: 'var(--text-primary)',
-        fontSize: 12,
-        fontWeight: 600,
-        letterSpacing: 0.3,
-      }}
-    >
-      {text}
-    </div>
-  );
-}
-
-function Stat({ label, value }: { label: string; value: number | null }) {
-  return (
-    <div style={statCell}>
-      <div style={statLabel}>{label}</div>
-      <div style={statValue}>
-        {value === null ? '—' : value.toLocaleString('en-US')}
-      </div>
+    <div>
+      <div className="profile-stat-label">{label}</div>
+      <div className="profile-stat-value">{display}</div>
     </div>
   );
 }
@@ -199,19 +523,18 @@ function Tabs({
   onChange: (t: Tab) => void;
 }) {
   const { t } = useT();
-  // Tab labels come from i18n; the `id` stays a stable string for routing.
   const items: { id: Tab; label: string }[] = [
-    { id: 'profile-posts', label: 'Profile Posts' },
+    { id: 'profile-posts', label: t('profile.tab.posts') },
     { id: 'latest-activity', label: t('profile.tab.activity') },
     { id: 'about', label: t('profile.tab.stats') },
   ];
   return (
-    <div style={tabsRow}>
+    <div className="profile-tabs">
       {items.map((it) => (
         <button
           key={it.id}
           onClick={() => onChange(it.id)}
-          style={{ ...tabBtn, ...(current === it.id ? tabBtnActive : {}) }}
+          className={`profile-tab${current === it.id ? ' profile-tab--active' : ''}`}
         >
           {it.label.toUpperCase()}
         </button>
@@ -220,240 +543,51 @@ function Tabs({
   );
 }
 
-function ProfilePostsTab({ username }: { username: string }) {
-  return (
-    <div style={emptyBlock}>There are no messages on {username}'s profile yet.</div>
-  );
-}
-
-function ActivityTab({ items }: { items: ActivityItem[] }) {
-  if (items.length === 0) {
-    return <div style={emptyBlock}>No recent activity to display.</div>;
-  }
-  return (
-    <ul style={{ listStyle: 'none', padding: 0, margin: 0 }}>
-      {items.map((it, idx) => (
-        <li key={idx} style={activityRow}>
-          <Avatar src={it.avatarUrl} username="?" size={48} />
-          <div style={{ flex: 1, minWidth: 0 }}>
-            <div style={activityTitle}>{it.title}</div>
-            {it.snippet && <div style={activitySnippet}>{it.snippet}</div>}
-            <div style={activityDate}>{it.date ?? ''}</div>
-          </div>
-          {it.url && (
-            <a href={it.url} target="_blank" rel="noreferrer" style={openLink}>
-              open
-            </a>
-          )}
-        </li>
-      ))}
-    </ul>
-  );
-}
-
 function AboutTab({ profile }: { profile: ProfileDto }) {
+  const { t } = useT();
   const rows: [string, string][] = [];
   if (profile.userId) rows.push(['User ID', `#${profile.userId}`]);
-  if (profile.joinedAt) rows.push(['Joined', profile.joinedAt]);
-  if (profile.lastSeen) rows.push(['Last seen', profile.lastSeen]);
-  if (profile.userBanner) rows.push(['Banner', profile.userBanner]);
+  if (profile.joinedAt) rows.push([t('profile.field.joinedAt'), profile.joinedAt]);
+  if (profile.lastSeen) rows.push([t('profile.field.lastSeen'), profile.lastSeen]);
   if (profile.customTitle) rows.push(['Title', profile.customTitle]);
-  if (profile.messagesCount !== null) rows.push(['Messages', String(profile.messagesCount)]);
-  if (profile.reactionScore !== null) rows.push(['Reaction score', String(profile.reactionScore)]);
-  if (profile.points !== null) rows.push(['Points', String(profile.points)]);
-  if (profile.trophyPoints !== null) rows.push(['Trophy points', String(profile.trophyPoints)]);
-  if (profile.ratingsReceived !== null) rows.push(['Ratings received', String(profile.ratingsReceived)]);
+  if ((profile.userBanners?.length ?? 0) > 0) {
+    rows.push([
+      t('profile.field.badges'),
+      profile.userBanners!.map((b) => b.label).join(', '),
+    ]);
+  }
+  if (profile.messagesCount !== null) {
+    rows.push([t('profile.field.messages'), String(profile.messagesCount)]);
+  }
+  if (profile.reactionScore !== null) {
+    rows.push([t('profile.field.reactions'), String(profile.reactionScore)]);
+  }
+  if (profile.points !== null) rows.push([t('profile.field.points'), String(profile.points)]);
+  if (profile.trophyPoints !== null) {
+    rows.push([t('profile.field.trophies'), String(profile.trophyPoints)]);
+  }
+  if (profile.ratingsReceived !== null) {
+    rows.push([t('profile.field.ratings'), String(profile.ratingsReceived)]);
+  }
+  if (profile.donations) {
+    rows.push([t('profile.field.donations'), profile.donations]);
+  }
+  if ((profile.tags?.length ?? 0) > 0) {
+    rows.push([t('profile.field.tags'), profile.tags!.join(', ')]);
+  }
   for (const [k, v] of Object.entries(profile.extraStats)) {
     rows.push([k, v]);
   }
   if (profile.profileUrl) rows.push(['Profile URL', profile.profileUrl]);
 
   return (
-    <dl style={aboutGrid}>
+    <dl className="profile-about-grid">
       {rows.map(([k, v]) => (
-        <div key={k} style={aboutRow}>
-          <dt style={aboutKey}>{k}</dt>
-          <dd style={aboutVal}>{v}</dd>
+        <div key={k} className="profile-about-row">
+          <dt className="profile-about-key">{k}</dt>
+          <dd className="profile-about-val">{v}</dd>
         </div>
       ))}
     </dl>
   );
 }
-
-// --- styles ---
-
-const page: React.CSSProperties = {
-  maxWidth: 980,
-  margin: '0 auto',
-  padding: '16px 8px 40px',
-  color: 'var(--text-secondary)',
-};
-
-const headerCard: React.CSSProperties = {
-  background: 'var(--bg-elevated)',
-  border: '1px solid var(--border)',
-  borderRadius: 6,
-  padding: '20px 24px',
-};
-
-const nameStyle: React.CSSProperties = {
-  fontSize: 24,
-  fontWeight: 700,
-  color: 'var(--text-primary)',
-  margin: 0,
-};
-
-const statsGrid: React.CSSProperties = {
-  display: 'grid',
-  gridTemplateColumns: 'repeat(4, 1fr)',
-  gap: 24,
-  marginTop: 20,
-  paddingTop: 16,
-  borderTop: '1px solid var(--border)',
-};
-
-const statCell: React.CSSProperties = {
-  textAlign: 'left',
-};
-
-const statLabel: React.CSSProperties = {
-  fontSize: 12,
-  color: 'var(--text-muted)',
-  marginBottom: 4,
-};
-
-const statValue: React.CSSProperties = {
-  fontSize: 22,
-  fontWeight: 700,
-  color: 'var(--text-primary)',
-};
-
-const metaLine: React.CSSProperties = {
-  marginTop: 18,
-  fontSize: 13,
-  color: 'var(--text-muted)',
-  display: 'flex',
-  flexWrap: 'wrap',
-  gap: 18,
-};
-
-const metaLabel: React.CSSProperties = {
-  color: '#777',
-  marginRight: 4,
-};
-
-const logoutBtn: React.CSSProperties = {
-  alignSelf: 'flex-start',
-  padding: '6px 14px',
-  background: 'transparent',
-  color: 'var(--accent)',
-  border: '1px solid var(--accent)',
-  borderRadius: 3,
-  cursor: 'pointer',
-  fontSize: 13,
-  fontWeight: 600,
-  letterSpacing: 0.3,
-};
-
-const tabsRow: React.CSSProperties = {
-  display: 'flex',
-  borderBottom: '1px solid var(--border)',
-  marginTop: 24,
-  paddingLeft: 8,
-};
-
-const tabBtn: React.CSSProperties = {
-  background: 'transparent',
-  border: 'none',
-  color: 'var(--text-muted)',
-  padding: '12px 18px',
-  fontSize: 12,
-  fontWeight: 700,
-  letterSpacing: 0.6,
-  cursor: 'pointer',
-  borderBottom: '3px solid transparent',
-  marginBottom: -1,
-};
-
-const tabBtnActive: React.CSSProperties = {
-  color: 'var(--accent)',
-  borderBottom: '3px solid var(--accent)',
-};
-
-const tabBody: React.CSSProperties = {
-  background: 'var(--bg-elevated)',
-  border: '1px solid var(--border)',
-  borderTop: 'none',
-  borderRadius: '0 0 6px 6px',
-  padding: '8px 0',
-};
-
-const emptyBlock: React.CSSProperties = {
-  padding: '40px 24px',
-  textAlign: 'center',
-  color: 'var(--text-muted)',
-  fontSize: 14,
-};
-
-const activityRow: React.CSSProperties = {
-  display: 'flex',
-  alignItems: 'flex-start',
-  gap: 16,
-  padding: '14px 20px',
-  borderBottom: '1px solid var(--bg-elevated)',
-};
-
-const activityTitle: React.CSSProperties = {
-  color: 'var(--text-secondary)',
-  fontSize: 14,
-  lineHeight: 1.45,
-};
-
-const activitySnippet: React.CSSProperties = {
-  color: 'var(--text-muted)',
-  fontSize: 13,
-  fontStyle: 'italic',
-  marginTop: 4,
-  display: '-webkit-box',
-  WebkitLineClamp: 2,
-  WebkitBoxOrient: 'vertical',
-  overflow: 'hidden',
-};
-
-const activityDate: React.CSSProperties = {
-  color: '#6c6c6c',
-  fontSize: 12,
-  marginTop: 6,
-};
-
-const openLink: React.CSSProperties = {
-  color: 'var(--accent)',
-  textDecoration: 'none',
-  fontSize: 12,
-  alignSelf: 'center',
-};
-
-const aboutGrid: React.CSSProperties = {
-  margin: 0,
-  padding: '8px 0',
-};
-
-const aboutRow: React.CSSProperties = {
-  display: 'grid',
-  gridTemplateColumns: '180px 1fr',
-  gap: 12,
-  padding: '8px 24px',
-  borderBottom: '1px solid var(--bg-elevated)',
-  fontSize: 13,
-};
-
-const aboutKey: React.CSSProperties = {
-  color: 'var(--text-muted)',
-  margin: 0,
-};
-
-const aboutVal: React.CSSProperties = {
-  color: 'var(--text-secondary)',
-  margin: 0,
-  wordBreak: 'break-word',
-};

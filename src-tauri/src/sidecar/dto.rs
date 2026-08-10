@@ -40,8 +40,36 @@ pub struct ProfileDto {
     pub points: Option<i64>,
     #[serde(rename = "ratingsReceived", default)]
     pub ratings_received: Option<i64>,
+    #[serde(default)]
+    pub donations: Option<String>,
+    #[serde(rename = "userBanners", default)]
+    pub user_banners: Vec<ProfileBadge>,
+    #[serde(default)]
+    pub tags: Vec<String>,
+    #[serde(rename = "profilePosts", default)]
+    pub profile_posts: Vec<ProfilePostItem>,
     #[serde(rename = "extraStats", default)]
     pub extra_stats: BTreeMap<String, String>,
     #[serde(default)]
     pub activity: Vec<ActivityItem>,
+}
+
+#[derive(Debug, Serialize, Deserialize)]
+pub struct ProfileBadge {
+    pub label: String,
+    pub variant: String,
+}
+
+#[derive(Debug, Serialize, Deserialize)]
+pub struct ProfilePostItem {
+    #[serde(rename = "authorName")]
+    pub author_name: String,
+    #[serde(rename = "authorAvatarUrl")]
+    pub author_avatar_url: Option<String>,
+    #[serde(rename = "messageHtml")]
+    pub message_html: Option<String>,
+    #[serde(rename = "messageText")]
+    pub message_text: String,
+    pub date: Option<String>,
+    pub url: Option<String>,
 }

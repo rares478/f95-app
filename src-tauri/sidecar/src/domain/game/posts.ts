@@ -46,7 +46,7 @@ function parsePostId($el: cheerio.Cheerio<Element>): string | null {
 }
 
 /** Best-effort last page index from XF pagination chrome only (never post bodies). */
-function detectTotalPages($: cheerio.CheerioAPI): number | null {
+export function detectTotalPages($: cheerio.CheerioAPI): number | null {
   const nums: number[] = [];
   const pushPage = (raw: string | undefined) => {
     if (!raw) return;
