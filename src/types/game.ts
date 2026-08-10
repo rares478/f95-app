@@ -35,6 +35,8 @@ export interface GameDetail {
   rawTitle: string;
   version: string | null;
   developer: string | null;
+  author: string | null;
+  authorAvatarUrl: string | null;
   bannerUrl: string | null;
   screenshots: string[];
   descriptionHtml: string;

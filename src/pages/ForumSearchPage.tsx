@@ -1,11 +1,13 @@
-import { useCallback, useRef, useState, type FormEvent } from 'react';
-import { useNavigate } from 'react-router-dom';
+import { useCallback, useEffect, useMemo, useRef, useState, type FormEvent } from 'react';
+import { useLocation, useNavigate, useSearchParams } from 'react-router-dom';
 import { ForumSearchResultRow } from '../components/search/ForumSearchResultRow';
 import { Spinner } from '../components/ui/Spinner';
 import { useOffline } from '../contexts/Offline';
 import * as ipc from '../lib/ipc';
 import {
+  forumSearchToSearchParams,
   isSearchFiltersDirty,
+  parseForumSearchSearchParams,
   shouldApplySearchResult,
   type ForumSearchAttemptSnapshot,
   type ForumSearchFilterSnapshot,
@@ -20,25 +22,56 @@ type SearchStatus = 'idle' | 'loading' | 'ready' | 'error';
 export function ForumSearchPage() {
   const { t } = useT();
   const navigate = useNavigate();
+  const location = useLocation();
+  const [searchParams, setSearchParams] = useSearchParams();
   const { isOffline } = useOffline();
 
-  const [query, setQuery] = useState('');
-  const [titleOnly, setTitleOnly] = useState(false);
-  const [searchIn, setSearchIn] = useState<ForumSearchIn>('posts');
-  const [sort, setSort] = useState<ForumSearchSort>('relevance');
-  const [page, setPage] = useState(1);
-  const [requestedPage, setRequestedPage] = useState(1);
+  const initialFromUrl = useMemo(
+    () => parseForumSearchSearchParams(searchParams),
+    // Only hydrate controls from the entry URL; later param writes come from us.
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+    [],
+  );
+
+  const [query, setQuery] = useState(initialFromUrl?.query ?? '');
+  const [titleOnly, setTitleOnly] = useState(initialFromUrl?.titleOnly ?? false);
+  const [searchIn, setSearchIn] = useState<ForumSearchIn>(
+    initialFromUrl?.searchIn ?? 'posts',
+  );
+  const [sort, setSort] = useState<ForumSearchSort>(
+    initialFromUrl?.sort ?? 'relevance',
+  );
+  const [page, setPage] = useState(initialFromUrl?.page ?? 1);
+  const [requestedPage, setRequestedPage] = useState(initialFromUrl?.page ?? 1);
   const [results, setResults] = useState<ForumSearchHit[]>([]);
   const [hasMore, setHasMore] = useState(false);
   const [totalPages, setTotalPages] = useState<number | null>(null);
-  const [status, setStatus] = useState<SearchStatus>('idle');
+  const [status, setStatus] = useState<SearchStatus>(
+    initialFromUrl ? 'loading' : 'idle',
+  );
   const [errorMessage, setErrorMessage] = useState<string | null>(null);
   const [activeAttempt, setActiveAttempt] = useState<ForumSearchAttemptSnapshot | null>(null);
   const [lastAttempt, setLastAttempt] = useState<ForumSearchAttemptSnapshot | null>(null);
   const searchGenRef = useRef(0);
+  const didRestoreRef = useRef(false);
 
   const liveFilters: ForumSearchFilterSnapshot = { titleOnly, searchIn, sort };
   const filtersDirty = isSearchFiltersDirty(liveFilters, activeAttempt);
+
+  const syncUrl = useCallback(
+    (attempt: ForumSearchAttemptSnapshot, pageNum: number) => {
+      setSearchParams(
+        forumSearchToSearchParams({ ...attempt, page: pageNum }),
+        { replace: true },
+      );
+    },
+    [setSearchParams],
+  );
+
+  const clearUrl = useCallback(() => {
+    if ([...searchParams.keys()].length === 0) return;
+    setSearchParams({}, { replace: true });
+  }, [searchParams, setSearchParams]);
 
   const runSearch = useCallback(
     async (pageNum: number, attempt: ForumSearchAttemptSnapshot) => {
@@ -54,6 +87,7 @@ export function ForumSearchPage() {
         setActiveAttempt(null);
         setLastAttempt(null);
         setErrorMessage(null);
+        clearUrl();
         return;
       }
       if (isOffline) {
@@ -77,6 +111,7 @@ export function ForumSearchPage() {
       setLastAttempt(snapshot);
       setStatus('loading');
       setErrorMessage(null);
+      syncUrl(snapshot, pageNum);
 
       try {
         const res = await ipc.forumSearch({
@@ -94,6 +129,7 @@ export function ForumSearchPage() {
         setRequestedPage(res.page);
         setActiveAttempt(snapshot);
         setStatus('ready');
+        syncUrl(snapshot, res.page);
       } catch (err) {
         if (!shouldApplySearchResult(generation, searchGenRef.current)) return;
         setResults([]);
@@ -103,14 +139,23 @@ export function ForumSearchPage() {
         setStatus('error');
       }
     },
-    [isOffline],
+    [clearUrl, isOffline, syncUrl],
   );
+
+  useEffect(() => {
+    if (didRestoreRef.current) return;
+    didRestoreRef.current = true;
+    if (!initialFromUrl) return;
+    void runSearch(initialFromUrl.page, initialFromUrl);
+  }, [initialFromUrl, runSearch]);
 
   const onSubmit = (e: FormEvent) => {
     e.preventDefault();
     if (status === 'loading') return;
     void runSearch(1, { query, titleOnly, searchIn, sort });
   };
+
+  const searchReturnTo = `${location.pathname}${location.search}`;
 
   const retryAttempt =
     lastAttempt ??
@@ -240,7 +285,9 @@ export function ForumSearchPage() {
               <ForumSearchResultRow
                 key={`${index}-${hit.threadId}`}
                 hit={hit}
-                onOpen={() => openThreadFromSearch(hit, navigate)}
+                onOpen={() =>
+                  openThreadFromSearch(hit, navigate, { searchReturnTo })
+                }
               />
             ))}
           </ul>

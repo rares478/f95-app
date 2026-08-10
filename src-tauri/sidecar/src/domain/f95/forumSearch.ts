@@ -1,10 +1,10 @@
-import type { BrowserClient } from 'browser-rest-api';
 import * as cheerio from 'cheerio';
 import type { Element } from 'domhandler';
 import { RPC_ERROR, RpcError } from '../../rpc';
 import { assertNotCloudflareChallenge } from '../../shared/cloudflare';
 import { F95_BASE } from '../../shared/constants';
-import { loadXfToken } from './alerts';
+import { loadXfToken, type XfHttpGet, type XfHttpResponse } from './alerts';
+import { log } from '../../logger';
 
 export type ForumSearchSort = 'relevance' | 'date';
 export type ForumSearchIn = 'titles' | 'posts';
@@ -17,12 +17,19 @@ export interface ForumSearchParams {
   page?: number;
 }
 
+export interface ForumSearchPrefix {
+  name: string;
+  cssClass: string | null;
+}
+
 export interface ForumSearchHit {
   threadId: string;
   title: string;
+  prefixes: ForumSearchPrefix[];
   snippet: string;
   author: string | null;
   authorId: string | null;
+  avatarUrl: string | null;
   forum: string;
   dateLabel: string | null;
   dateIso: string | null;
@@ -36,7 +43,12 @@ export interface ForumSearchPage {
   hasMore: boolean;
 }
 
-type ForumSearchHttp = Pick<BrowserClient, 'get' | 'post'>;
+type ForumSearchHttp = XfHttpGet & {
+  post: (
+    url: string,
+    init?: { body?: string; headers?: Record<string, string> },
+  ) => Promise<XfHttpResponse>;
+};
 
 function absUrl(href: string | undefined | null): string | null {
   if (!href) return null;
@@ -46,14 +58,11 @@ function absUrl(href: string | undefined | null): string | null {
   return null;
 }
 
-/** Shared query-string / form field parts for XenForo search (no CSRF). */
+/** GET query parts for result URLs (`/search/{id}/?q=…`) — XF uses `q`/`o` here. */
 export function buildForumSearchQueryParts(params: ForumSearchParams): string[] {
   // Keep `c[title_only]` brackets unencoded (URLSearchParams would use %5B/%5D).
-  const parts: string[] = [
-    `q=${encodeURIComponent(params.query)}`,
-    `t=${params.searchIn === 'titles' ? 'thread' : 'post'}`,
-  ];
-  if (params.titleOnly) {
+  const parts: string[] = [`q=${encodeURIComponent(params.query)}`];
+  if (params.titleOnly || params.searchIn === 'titles') {
     parts.push('c[title_only]=1');
   }
   parts.push(`o=${params.sort === 'date' ? 'date' : 'relevance'}`);
@@ -68,15 +77,22 @@ export function buildForumSearchUrl(params: ForumSearchParams): string {
   return `${F95_BASE}/search/?${buildForumSearchQueryParts(params).join('&')}`;
 }
 
-/** Form body for POST `/search/search` (includes CSRF; page-1 fields only). */
+/**
+ * Form body for POST `/search/search`.
+ * Live XF expects `keywords` + `order` (not GET-style `q`/`o`/`t`) or it returns Oops/error.
+ */
 export function buildForumSearchPostBody(
   params: ForumSearchParams & { xfToken: string },
 ): string {
-  const { page: _page, ...rest } = params;
-  return [
+  const parts: string[] = [
     `_xfToken=${encodeURIComponent(params.xfToken)}`,
-    ...buildForumSearchQueryParts(rest),
-  ].join('&');
+    `keywords=${encodeURIComponent(params.query)}`,
+    `order=${params.sort === 'date' ? 'date' : 'relevance'}`,
+  ];
+  if (params.titleOnly || params.searchIn === 'titles') {
+    parts.push('c[title_only]=1');
+  }
+  return parts.join('&');
 }
 
 /** Numeric search-result id from a final XF redirect URL (`/search/{id}/…`). */
@@ -97,6 +113,11 @@ function assertForumSearchResponse(res: {
   }
   if (res.status >= 400) {
     throw new RpcError(RPC_ERROR.INTERNAL, `forum search HTTP ${res.status}`);
+  }
+  // XF returns 200 + error template when the POST body is invalid (e.g. `q` instead of `keywords`).
+  // Do NOT match the Oops string alone — phrase catalogs on success pages include that text.
+  if (/data-template="error"/i.test(res.body)) {
+    throw new RpcError(RPC_ERROR.INTERNAL, 'forum search rejected by XenForo');
   }
 }
 
@@ -125,6 +146,43 @@ function parseAuthor($row: cheerio.Cheerio<Element>): {
   const author =
     $link.text().trim() || $row.attr('data-author')?.trim() || null;
   return { author, authorId: idMatch ? idMatch[1] : null };
+}
+
+function parseAvatarUrl($row: cheerio.Cheerio<Element>): string | null {
+  const $img = $row
+    .find('.contentRow-figure img.avatar, .contentRow-figure img, .avatar img')
+    .first();
+  if (!$img.length) return null;
+  return absUrl($img.attr('src'));
+}
+
+function parseTitleAndPrefixes(
+  $: cheerio.CheerioAPI,
+  $titleLink: cheerio.Cheerio<Element>,
+): { title: string; prefixes: ForumSearchPrefix[] } {
+  const prefixes: ForumSearchPrefix[] = [];
+  $titleLink.find('span.label, span[class*="pre-"]').each((_, el) => {
+    const $el = $(el);
+    const name = $el.text().replace(/\u00a0/g, ' ').trim();
+    if (!name) return;
+    const cssClass = ($el.attr('class') ?? '').trim() || null;
+    prefixes.push({ name, cssClass });
+  });
+
+  const $clone = $titleLink.clone();
+  $clone
+    .find('span.label, span.label-append, span[class*="pre-"]')
+    .remove();
+  const title = $clone
+    .text()
+    .replace(/\u00a0/g, ' ')
+    .replace(/\s+/g, ' ')
+    .trim();
+
+  return {
+    title: title || $titleLink.text().replace(/\s+/g, ' ').trim(),
+    prefixes,
+  };
 }
 
 function detectTotalPages($: cheerio.CheerioAPI): number | null {
@@ -164,9 +222,10 @@ function parseHit(
   if (!threadId) return null;
 
   const threadUrl = absUrl(href) ?? `${F95_BASE}${href.startsWith('/') ? href : `/${href}`}`;
-  const title = $titleLink.text().trim();
+  const { title, prefixes } = parseTitleAndPrefixes($, $titleLink);
   const snippet = $row.find('.contentRow-snippet').first().text().trim();
   const { author, authorId } = parseAuthor($row);
+  const avatarUrl = parseAvatarUrl($row);
 
   const forumLinks = $row.find('.contentRow-minor a[href*="/forums/"]');
   const forum =
@@ -181,9 +240,11 @@ function parseHit(
   return {
     threadId,
     title,
+    prefixes,
     snippet,
     author,
     authorId,
+    avatarUrl,
     forum,
     dateLabel,
     dateIso,
@@ -238,9 +299,10 @@ export async function fetchForumSearch(
     return { results: [], page: 1, totalPages: null, hasMore: false };
   }
 
-  const xfToken = await loadXfToken(http as BrowserClient);
+  const xfToken = await loadXfToken(http);
   const page = params.page ?? 1;
   const body = buildForumSearchPostBody({ ...params, query, xfToken });
+  log(`[forumSearch] POST ${F95_BASE}/search/search q=${JSON.stringify(query)} page=${page}`);
   const res = await http.post(`${F95_BASE}/search/search`, {
     headers: {
       'content-type': 'application/x-www-form-urlencoded',
@@ -251,6 +313,7 @@ export async function fetchForumSearch(
     body,
   });
   assertForumSearchResponse(res);
+  log(`[forumSearch] POST done status=${res.status} url=${res.url}`);
 
   const searchId = extractForumSearchId(res.url);
   if (page > 1) {
@@ -265,6 +328,7 @@ export async function fetchForumSearch(
       query,
       page,
     }).join('&')}`;
+    log(`[forumSearch] GET ${getUrl}`);
     const pageRes = await http.get(getUrl, {
       headers: {
         referer: res.url,

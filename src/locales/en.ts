@@ -42,6 +42,8 @@ const en: Record<string, string> = {
 
   // ─── Thread detail (non-catalog forum threads) ───────────────────────────
   'threaddetail.openOnF95': 'Open on F95Zone',
+  'threaddetail.author': 'Thread author',
+  'threaddetail.authorUnknown': 'Unknown author',
   'threaddetail.discussion': 'Discussion',
   'threaddetail.error.back': 'Back to Search',
   'threaddetail.offline': 'Thread viewing is unavailable offline.',

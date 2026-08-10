@@ -42,6 +42,10 @@ export interface GameDetail {
   rawTitle: string;
   version: string | null;
   developer: string | null;
+  /** Thread OP author display name. */
+  author: string | null;
+  /** Absolute URL for the OP author's avatar, when present. */
+  authorAvatarUrl: string | null;
   bannerUrl: string | null;
   screenshots: string[];
   /** OP body HTML, normalized: lazy `data-src` → `src`, spoilers → <details>. */
@@ -374,6 +378,15 @@ function parseThread(html: string, finalUrl: string): GameDetail {
     throw new RpcError(RPC_ERROR.INTERNAL, 'OP body (bbWrapper) not found');
   }
 
+  const author =
+    cleanText(op.find('.message-name').first().text()) ||
+    cleanText(op.attr('data-author') ?? '') ||
+    null;
+  const avatarSrc =
+    op.find('.message-avatar img, .avatar img').first().attr('src') ??
+    op.find('.message-avatar img, .avatar img').first().attr('data-src');
+  const authorAvatarUrl = avatarSrc ? absoluteUrl(avatarSrc) : null;
+
   // -- Banner + screenshots --
   const images = collectOpImages($, opBody);
   const bannerUrl = images[0] ?? null;
@@ -420,6 +433,8 @@ function parseThread(html: string, finalUrl: string): GameDetail {
     rawTitle,
     version,
     developer,
+    author,
+    authorAvatarUrl,
     bannerUrl,
     screenshots,
     descriptionHtml,
