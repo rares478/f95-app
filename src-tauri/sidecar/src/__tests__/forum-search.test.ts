@@ -101,7 +101,7 @@ describe('buildForumSearchUrl', () => {
 describe('parseForumSearchPage', () => {
   it('parses hits, forum, author, dates, and pagination', () => {
     const page = parseForumSearchPage(fix('forum-search-page-1.html'), { page: 1 });
-    expect(page.results).toHaveLength(2);
+    expect(page.results).toHaveLength(3);
     expect(page.results[0]).toMatchObject({
       threadId: '207960',
       title: 'Hard to Love [v0.28]',
@@ -110,9 +110,19 @@ describe('parseForumSearchPage', () => {
       authorId: '123',
       avatarUrl: null,
       prefixes: [],
+      postId: null,
+      resultLabel: 'Thread',
     });
     expect(page.results[0].threadUrl).toContain('/threads/');
     expect(page.results[1].forum).toBe('Requests');
+    expect(page.results[2]).toMatchObject({
+      threadId: '207960',
+      postId: '555001',
+      resultLabel: 'Post #12',
+      author: 'Bob',
+      forum: 'Games',
+    });
+    expect(page.results[2].threadUrl).toContain('/post-555001');
     expect(page.totalPages).toBe(3);
     expect(page.hasMore).toBe(true);
     expect(page.page).toBe(1);
@@ -142,6 +152,8 @@ describe('parseForumSearchPage', () => {
       'Completed',
     ]);
     expect(page.results[0].avatarUrl).toContain('/data/avatars/s/0/595.jpg');
+    expect(page.results[0].postId).toBeNull();
+    expect(page.results[0].resultLabel).toBe('Thread');
     expect(page.results[0].threadUrl).toContain('/threads/');
     expect(page.results[0].dateIso).toBe('2017-06-13T00:03:49+0300');
     expect(page.results[1]).toMatchObject({

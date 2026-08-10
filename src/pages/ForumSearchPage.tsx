@@ -283,10 +283,10 @@ export function ForumSearchPage() {
           <ul className="forum-search-list">
             {results.map((hit, index) => (
               <ForumSearchResultRow
-                key={`${index}-${hit.threadId}`}
+                key={`${index}-${hit.threadId}-${hit.postId ?? 'thread'}`}
                 hit={hit}
                 onOpen={() =>
-                  openThreadFromSearch(hit, navigate, { searchReturnTo })
+                  void openThreadFromSearch(hit, navigate, { searchReturnTo })
                 }
               />
             ))}

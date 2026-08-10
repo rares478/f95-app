@@ -103,6 +103,24 @@ export function extractThreadPageFromFinal(url: string): number | null {
   return null;
 }
 
+/** Current page from XF pagination chrome (when the redirect URL omits `/page-N`). */
+export function extractCurrentPageFromHtml(html: string): number | null {
+  const $ = cheerio.load(html);
+  const read = (raw: string): number | null => {
+    const n = parseInt(raw.replace(/\s+/g, ' ').trim(), 10);
+    return Number.isFinite(n) && n >= 1 ? n : null;
+  };
+  const fromCurrent =
+    read($('.pageNav-page--current').first().text()) ??
+    read($('.pageNav-page--current a').first().text());
+  if (fromCurrent != null) return fromCurrent;
+  // Single-page threads have messages but no page buttons.
+  if ($('article.message').length > 0 && $('.pageNav-page').length === 0) {
+    return 1;
+  }
+  return null;
+}
+
 export function parseThreadPostsPage(
   html: string,
   opts: { threadId: string; page: number },

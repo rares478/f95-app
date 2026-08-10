@@ -18,17 +18,54 @@ describe('samCategoryForForum', () => {
 
 describe('pathForForumSearchHit', () => {
   it('routes catalog hits to game detail with cat', () => {
-    expect(pathForForumSearchHit({ threadId: '1', forum: 'Games' })).toBe(
-      '/store/game/1?cat=games',
-    );
-    expect(pathForForumSearchHit({ threadId: '2', forum: 'Asset Releases' })).toBe(
-      '/store/game/2?cat=assets',
-    );
+    expect(
+      pathForForumSearchHit({ threadId: '1', forum: 'Games', postId: null }),
+    ).toBe('/store/game/1?cat=games');
+    expect(
+      pathForForumSearchHit({
+        threadId: '2',
+        forum: 'Asset Releases',
+        postId: null,
+      }),
+    ).toBe('/store/game/2?cat=assets');
   });
 
   it('routes other forums to thread page', () => {
-    expect(pathForForumSearchHit({ threadId: '9', forum: 'Requests' })).toBe(
-      '/thread/9',
-    );
+    expect(
+      pathForForumSearchHit({ threadId: '9', forum: 'Requests', postId: null }),
+    ).toBe('/thread/9');
+  });
+
+  it('deep-links post hits with ?post= and optional page', () => {
+    expect(
+      pathForForumSearchHit({
+        threadId: '301555',
+        forum: 'Dev Tools & Guides',
+        postId: '20628964',
+      }),
+    ).toBe('/thread/301555?post=20628964');
+    expect(
+      pathForForumSearchHit({
+        threadId: '301555',
+        forum: 'Dev Tools & Guides',
+        postId: '20628964',
+        page: 4,
+      }),
+    ).toBe('/thread/301555?post=20628964&page=4');
+    expect(
+      pathForForumSearchHit({
+        threadId: '8012',
+        forum: 'Games',
+        postId: '11893893',
+      }),
+    ).toBe('/store/game/8012?cat=games&post=11893893');
+    expect(
+      pathForForumSearchHit({
+        threadId: '8012',
+        forum: 'Games',
+        postId: '11893893',
+        page: 12,
+      }),
+    ).toBe('/store/game/8012?cat=games&post=11893893&page=12');
   });
 });

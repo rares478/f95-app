@@ -35,6 +35,8 @@ const en: Record<string, string> = {
   'search.empty.none': 'No threads found.',
   'search.error.retry': 'Retry',
   'search.result.untitled': 'Untitled',
+  'search.result.thread': 'Thread',
+  'search.result.post': 'Post',
   'search.offline': 'Forum search is unavailable offline.',
   'search.pagination.prev': 'Previous',
   'search.pagination.next': 'Next',

@@ -1,10 +1,28 @@
 import { readFileSync } from 'node:fs';
 import { join } from 'node:path';
 import { describe, expect, it } from 'vitest';
-import { parseThreadPostsPage } from '../domain/game/posts';
+import {
+  extractCurrentPageFromHtml,
+  parseThreadPostsPage,
+} from '../domain/game/posts';
 
 const fix = (name: string) =>
   readFileSync(join(__dirname, 'fixtures', name), 'utf8');
+
+describe('extractCurrentPageFromHtml', () => {
+  it('reads the current page from pageNav', () => {
+    expect(extractCurrentPageFromHtml(fix('thread-page-2.html'))).toBe(2);
+  });
+
+  it('returns 1 when messages exist without page buttons', () => {
+    const html = `<html><body>
+      <article class="message" data-content="post-9" id="js-post-9">
+        <div class="message-body"><div class="bbWrapper">hi</div></div>
+      </article>
+    </body></html>`;
+    expect(extractCurrentPageFromHtml(html)).toBe(1);
+  });
+});
 
 describe('parseThreadPostsPage', () => {
   it('excludes OP on page 1 and sets hasMore', () => {

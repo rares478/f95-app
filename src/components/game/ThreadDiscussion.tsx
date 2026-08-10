@@ -9,7 +9,7 @@ import {
   buildQuoteBbcode,
   htmlToPlainText,
 } from '../../lib/bbcodeQuote';
-import { threadPosts, threadReply } from '../../lib/ipc';
+import { resolvePost, threadPosts, threadReply } from '../../lib/ipc';
 import { formatIpcError } from '../../lib/ipcError';
 import { formatRelativeDate } from '../../lib/formatDate';
 import { useDiscussionSettings } from '../../contexts/DiscussionSettings';
@@ -196,6 +196,7 @@ export function ThreadDiscussion({ threadId, offline = false }: Props) {
   const highlightScrollTimer = useRef<number | null>(null);
   const highlightRemoveTimer = useRef<number | null>(null);
   const seekPagesUsed = useRef(0);
+  const resolveAttemptedFor = useRef<string | null>(null);
 
   const [visible, setVisible] = useState(() =>
     Boolean(focusPostId || urlPage || wantLatest),
@@ -323,6 +324,7 @@ export function ThreadDiscussion({ threadId, offline = false }: Props) {
     setFocusStatus(focusPostId ? 'seeking' : 'idle');
     highlightedFor.current = null;
     seekPagesUsed.current = 0;
+    resolveAttemptedFor.current = null;
     setJumpDraft('');
     setDraft('');
     setReplyError(null);
@@ -369,12 +371,35 @@ export function ThreadDiscussion({ threadId, offline = false }: Props) {
   }, [visible, threadId, offline]);
 
   // Initial page load once visible.
-  // Reply deep-links start at the latest page (or a known ?page=) and seek backwards.
+  // Post deep-links prefer XF resolvePost (direct page) over walking from the end.
   useEffect(() => {
     if (offline || !visible || page > 0 || loading || error) return;
     if (focusPostId) {
-      if (urlPage) void goToPage(urlPage);
-      else void goToLatest({ keepSeeking: true });
+      if (urlPage) {
+        void goToPage(urlPage);
+        return;
+      }
+      if (resolveAttemptedFor.current === focusPostId) return;
+      resolveAttemptedFor.current = focusPostId;
+      void (async () => {
+        const gen = fetchGen.current;
+        setLoading(true);
+        setError(null);
+        try {
+          const resolved = await resolvePost(focusPostId);
+          if (gen !== fetchGen.current) return;
+          if (resolved.page != null && resolved.page >= 1) {
+            setLoading(false);
+            await goToPage(resolved.page);
+            return;
+          }
+        } catch {
+          // fall through to end-seek
+        }
+        if (gen !== fetchGen.current) return;
+        setLoading(false);
+        void goToLatest({ keepSeeking: true });
+      })();
       return;
     }
     if (wantLatest) {

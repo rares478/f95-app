@@ -24,6 +24,10 @@ export interface ForumSearchPrefix {
 
 export interface ForumSearchHit {
   threadId: string;
+  /** When the hit targets a reply, XF links as `/threads/…/post-{id}`. */
+  postId: string | null;
+  /** XF minor label such as `Thread` or `Post #2`. */
+  resultLabel: string | null;
   title: string;
   prefixes: ForumSearchPrefix[];
   snippet: string;
@@ -128,6 +132,26 @@ function extractThreadId(href: string): string | null {
   return numeric ? numeric[1] : null;
 }
 
+function extractPostId(href: string): string | null {
+  const path = href.match(/\/post-(\d+)/i);
+  if (path) return path[1];
+  const hash = href.match(/#post-(\d+)/i);
+  return hash ? hash[1] : null;
+}
+
+function parseResultLabel(
+  $: cheerio.CheerioAPI,
+  $row: cheerio.Cheerio<Element>,
+): string | null {
+  let label: string | null = null;
+  $row.find('.contentRow-minor li').each((_, el) => {
+    if (label) return;
+    const text = $(el).text().replace(/\s+/g, ' ').trim();
+    if (/^(thread|post|message)\b/i.test(text)) label = text;
+  });
+  return label;
+}
+
 function parseAuthor($row: cheerio.Cheerio<Element>): {
   author: string | null;
   authorId: string | null;
@@ -220,6 +244,8 @@ function parseHit(
   const href = $titleLink.attr('href') ?? '';
   const threadId = extractThreadId(href);
   if (!threadId) return null;
+  const postId = extractPostId(href);
+  const resultLabel = parseResultLabel($, $row);
 
   const threadUrl = absUrl(href) ?? `${F95_BASE}${href.startsWith('/') ? href : `/${href}`}`;
   const { title, prefixes } = parseTitleAndPrefixes($, $titleLink);
@@ -239,6 +265,8 @@ function parseHit(
 
   return {
     threadId,
+    postId,
+    resultLabel,
     title,
     prefixes,
     snippet,
