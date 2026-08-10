@@ -1,6 +1,12 @@
 import { check, type Update } from '@tauri-apps/plugin-updater';
 import { relaunch } from '@tauri-apps/plugin-process';
+import { appLog } from './appLog';
 import { getAutoUpdateEnabled } from './appUpdateSettings';
+
+function sanitizeErr(err: unknown): string {
+  const s = err instanceof Error ? err.message : String(err);
+  return s.replace(/\s+/g, ' ').trim().slice(0, 200);
+}
 
 export type LaunchUpdateAction = 'install' | 'notify' | 'none';
 
@@ -39,10 +45,17 @@ export async function checkForAppUpdate(opts?: {
   /** When true, rethrow check failures (manual Settings check). Launch flow keeps soft-fail. */
   throwOnError?: boolean;
 }): Promise<Update | null> {
+  await appLog('INFO', 'updater', 'check start');
   try {
     const update = await check();
-    return update ?? null;
+    if (!update) {
+      await appLog('INFO', 'updater', 'check: up to date');
+      return null;
+    }
+    await appLog('INFO', 'updater', `check: update available version=${update.version}`);
+    return update;
   } catch (err) {
+    await appLog('WARN', 'updater', `check failed: ${sanitizeErr(err)}`);
     console.warn('[appUpdater] check failed', err);
     if (opts?.throwOnError) throw err;
     return null;
@@ -53,7 +66,9 @@ export async function installAppUpdate(
   update: Update,
   onEvent?: Parameters<Update['downloadAndInstall']>[0],
 ): Promise<void> {
+  await appLog('INFO', 'updater', `install start version=${update.version}`);
   await update.downloadAndInstall(onEvent);
+  await appLog('INFO', 'updater', 'install ok, relaunching');
   await relaunch();
 }
 
@@ -73,11 +88,19 @@ export async function tryLoginAutoInstall(opts: {
     isDev: opts.isDev,
     offline: opts.offline,
   })) {
+    await appLog(
+      'INFO',
+      'updater',
+      opts.isDev ? 'check skipped: dev' : 'check skipped: offline',
+    );
     return 'continue';
   }
 
   const autoUpdate = await getAutoUpdateEnabled();
-  if (!autoUpdate) return 'continue';
+  if (!autoUpdate) {
+    await appLog('INFO', 'updater', 'check skipped: auto-update off');
+    return 'continue';
+  }
 
   const update = await (opts.updatePromise ?? checkForAppUpdate());
   if (!update) return 'continue';
@@ -87,6 +110,7 @@ export async function tryLoginAutoInstall(opts: {
     await installAppUpdate(update);
     return 'installed';
   } catch (err) {
+    await appLog('ERROR', 'updater', `install failed: ${sanitizeErr(err)}`);
     console.warn('[appUpdater] login auto-install failed', err);
     return 'continue';
   }
