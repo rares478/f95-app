@@ -4,3 +4,4 @@ dist/
 sea-prep.blob
 debug-*.html
 .tmp-*
+src/__manual__/
