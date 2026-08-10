@@ -1,4 +1,10 @@
 use chrono::{DateTime, Duration, NaiveDateTime, Utc};
+use std::fs::{self, OpenOptions};
+use std::io::Write;
+use std::path::PathBuf;
+use std::sync::Mutex;
+
+static LOG_PATH: Mutex<Option<PathBuf>> = Mutex::new(None);
 
 pub const RETAIN_DAYS: i64 = 3;
 
@@ -74,6 +80,67 @@ pub fn prune_log_text(content: &str, now: DateTime<Utc>, retain: Duration) -> St
         }
     }
     out
+}
+
+pub fn init(log_path: PathBuf) {
+    if let Some(parent) = log_path.parent() {
+        let _ = fs::create_dir_all(parent);
+    }
+    {
+        let mut guard = LOG_PATH.lock().unwrap_or_else(|e| e.into_inner());
+        *guard = Some(log_path.clone());
+    }
+    prune_now();
+}
+
+fn prune_now() {
+    let path = {
+        let guard = LOG_PATH.lock().unwrap_or_else(|e| e.into_inner());
+        match guard.as_ref() {
+            Some(p) => p.clone(),
+            None => return,
+        }
+    };
+    let Ok(content) = fs::read_to_string(&path) else {
+        return;
+    };
+    let pruned = prune_log_text(&content, Utc::now(), Duration::days(RETAIN_DAYS));
+    if pruned != content {
+        let _ = fs::write(&path, pruned);
+    }
+}
+
+pub fn log(level: Level, tag: &str, message: impl AsRef<str>) {
+    let path = {
+        let guard = LOG_PATH.lock().unwrap_or_else(|e| e.into_inner());
+        match guard.as_ref() {
+            Some(p) => p.clone(),
+            None => return,
+        }
+    };
+    let line = format_line(Utc::now(), level, tag, message.as_ref());
+    let _ = append_line(&path, &line);
+}
+
+fn append_line(path: &PathBuf, line: &str) -> std::io::Result<()> {
+    if let Some(parent) = path.parent() {
+        fs::create_dir_all(parent)?;
+    }
+    let mut file = OpenOptions::new().create(true).append(true).open(path)?;
+    writeln!(file, "{line}")?;
+    Ok(())
+}
+
+pub fn info(tag: &str, message: impl AsRef<str>) {
+    log(Level::Info, tag, message);
+}
+
+pub fn warn(tag: &str, message: impl AsRef<str>) {
+    log(Level::Warn, tag, message);
+}
+
+pub fn error(tag: &str, message: impl AsRef<str>) {
+    log(Level::Error, tag, message);
 }
 
 #[cfg(test)]

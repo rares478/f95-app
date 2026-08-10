@@ -23,7 +23,8 @@ mod sidecar;
 mod uploadhaven;
 
 use commands::{
-    build_state, check_network, close_captcha_window, complete_login, create_game_shortcuts,
+    append_app_log, build_state, check_network, close_captcha_window, complete_login,
+    create_game_shortcuts,
     default_downloads_path, delete_install_dir, delete_path, disk_info, download_cancel,
     download_continue_captcha, download_continue_choice, download_start, extract_archive,
     extract_cbz_preview, fetch_alerts_list, fetch_alerts_popup, fetch_rss_feed, find_main_exe,
@@ -164,6 +165,13 @@ pub fn run() {
         .setup(|app| {
             let state = build_state(&app.handle())?;
             app.manage(state);
+            {
+                let local = app
+                    .path()
+                    .app_local_data_dir()
+                    .map_err(|e| format!("app_local_data_dir: {e}"))?;
+                crate::app_log::init(local.join("logs").join("app.log"));
+            }
             if let Err(e) = init_overlay_windows(&app.handle()) {
                 eprintln!(
                     "[overlay] init na inicialização falhou (será tentado ao abrir o overlay): {e}"
@@ -172,6 +180,7 @@ pub fn run() {
             Ok(())
         })
         .invoke_handler(tauri::generate_handler![
+            append_app_log,
             login,
             get_profile,
             is_logged_in,
