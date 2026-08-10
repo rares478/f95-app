@@ -10,6 +10,7 @@ import {
   tryLoginAutoInstall,
 } from '../lib/appUpdater';
 import { useT } from '../lib/i18n';
+import { appLog } from '../lib/appLog';
 import { isBackendError, type BackendError } from '../types';
 import { ErrorBanner } from './ErrorBanner';
 import { Spinner } from './ui/Spinner';
@@ -52,6 +53,7 @@ export function LoginWindow() {
   // Without this, a stale session cookie on disk could revive the session
   // immediately after the user clicked "Sign out".
   useEffect(() => {
+    void appLog('INFO', 'auth', 'login window ready');
     let cancelled = false;
     const cameFromLogout =
       typeof window !== 'undefined' &&
@@ -81,10 +83,14 @@ export function LoginWindow() {
       if (offline) {
         const hasSession = await ipc.hasLocalSession();
         if (hasSession && !cancelled) {
+          void appLog('INFO', 'auth', 'local session present');
           await completeLogin({ offline: true });
           return;
         }
-        if (!cancelled) setPhase({ kind: 'form' });
+        if (!cancelled) {
+          void appLog('INFO', 'auth', 'session missing');
+          setPhase({ kind: 'form' });
+        }
         return;
       }
 
@@ -111,6 +117,7 @@ export function LoginWindow() {
         if (cancelled) return;
         setPhase({ kind: 'auto-login' });
         try {
+          void appLog('INFO', 'auth', 'auto-login start');
           await ipc.login(stored.username, stored.password);
           if (!cancelled) await completeLogin({ offline: false });
           return;
@@ -157,6 +164,7 @@ export function LoginWindow() {
     setError(null);
     setPhase({ kind: 'submitting' });
     try {
+      void appLog('INFO', 'auth', 'login start');
       await ipc.login(username, password);
       if (remember) {
         await saveCredentials({ username, password });

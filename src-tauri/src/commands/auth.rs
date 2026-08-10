@@ -3,6 +3,19 @@ use crate::error::AppError;
 use crate::sidecar;
 use tauri::State;
 
+fn auth_fail_label(err: &AppError) -> &'static str {
+    match err {
+        AppError::InvalidCredentials(_) => "invalid_credentials",
+        AppError::TwoFactorRequired => "two_factor",
+        AppError::Cloudflare(_) => "cloudflare",
+        AppError::NotInitialized
+        | AppError::SidecarTimeout(_)
+        | AppError::SidecarCrash
+        | AppError::Protocol(_) => "sidecar",
+        _ => "other",
+    }
+}
+
 #[tauri::command]
 pub async fn login(
     state: State<'_, AppState>,
@@ -10,7 +23,16 @@ pub async fn login(
     password: String,
 ) -> Result<(), AppError> {
     let client = ensure_sidecar(&state).await?;
-    client.login(&username, &password).await
+    match client.login(&username, &password).await {
+        Ok(()) => {
+            crate::app_log::info("auth", "login ok");
+            Ok(())
+        }
+        Err(e) => {
+            crate::app_log::warn("auth", format!("login failed: {}", auth_fail_label(&e)));
+            Err(e)
+        }
+    }
 }
 
 #[tauri::command]
@@ -44,6 +66,7 @@ pub fn has_local_session(state: State<'_, AppState>) -> bool {
 
 #[tauri::command]
 pub async fn logout(state: State<'_, AppState>) -> Result<(), AppError> {
+    crate::app_log::info("auth", "logout");
     // Fast path: the user wants the app to react NOW, not wait for a
     // round-trip to F95Zone. We do the local teardown synchronously
     // (kill sidecar + delete session file) and fire the F95 POST in the
