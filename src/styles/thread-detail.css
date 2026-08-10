@@ -1,0 +1,81 @@
+/* ─── Thread detail (non-catalog single-column reader) ──────────────────── */
+
+.thread-detail-content {
+  display: flex;
+  flex-direction: column;
+  gap: 20px;
+  padding: 24px 32px 40px;
+  max-width: 920px;
+}
+
+.thread-detail-header {
+  display: flex;
+  flex-direction: column;
+  gap: 10px;
+  padding-bottom: 16px;
+  border-bottom: 1px solid var(--border-faint);
+}
+
+.thread-detail-forum {
+  font-size: 11px;
+  font-weight: 700;
+  letter-spacing: 0.5px;
+  text-transform: uppercase;
+  color: var(--text-muted);
+}
+
+.thread-detail-title {
+  margin: 0;
+  font-size: clamp(20px, 2.6vw, 28px);
+  font-weight: 800;
+  color: var(--text-primary);
+  line-height: 1.2;
+  letter-spacing: -0.02em;
+}
+
+.thread-detail-actions {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 8px;
+  margin-top: 4px;
+}
+
+.thread-detail-actions .game-detail-btn {
+  min-width: 0;
+  width: auto;
+  align-self: flex-start;
+}
+
+.thread-detail-op {
+  margin: 0;
+}
+
+.thread-detail-offline {
+  margin: 12px 32px 0;
+}
+
+.thread-detail-error-wrap {
+  display: flex;
+  flex-direction: column;
+  align-items: flex-start;
+  gap: 12px;
+  padding: 0 32px 32px;
+}
+
+.thread-detail-error-wrap .game-detail-error {
+  margin: 24px 0 0;
+}
+
+@media (max-width: 960px) {
+  .thread-detail-content {
+    padding: 20px 20px 40px;
+  }
+
+  .thread-detail-offline {
+    margin: 12px 20px 0;
+  }
+
+  .thread-detail-error-wrap {
+    padding: 0 20px 32px;
+  }
+}

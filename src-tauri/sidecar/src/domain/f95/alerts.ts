@@ -98,7 +98,7 @@ export async function fetchAlertsList(
   return { alerts, hasMore, page };
 }
 
-async function loadXfToken(http: BrowserClient): Promise<string> {
+export async function loadXfToken(http: BrowserClient): Promise<string> {
   const pageRes = await http.get(ACCOUNT_PAGE);
   assertNotCloudflareChallenge(pageRes.body, pageRes.headers);
   if (pageRes.url.includes('/login')) {

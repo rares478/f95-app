@@ -4,6 +4,7 @@
 const en: Record<string, string> = {
   // ─── Sidebar nav ────────────────────────────────────────────────────────
   'nav.store': 'Store',
+  'nav.search': 'Search',
   'nav.library': 'Library',
   'nav.downloads': 'Downloads',
   'nav.news': 'News',
@@ -18,6 +19,32 @@ const en: Record<string, string> = {
   'nav.section.account': 'Account',
   'nav.sidebar.collapse': 'Collapse sidebar',
   'nav.sidebar.expand': 'Expand sidebar',
+
+  // ─── Forum search ───────────────────────────────────────────────────────
+  'search.title': 'Search',
+  'search.placeholder': 'Search forum…',
+  'search.submit': 'Search',
+  'search.filter.titleOnly': 'Title only',
+  'search.filter.searchIn': 'Search in',
+  'search.filter.titles': 'Titles',
+  'search.filter.posts': 'Posts',
+  'search.filter.sort': 'Sort',
+  'search.filter.relevance': 'Relevance',
+  'search.filter.date': 'Date',
+  'search.empty.idle': 'Search the forum for threads and posts.',
+  'search.empty.none': 'No threads found.',
+  'search.error.retry': 'Retry',
+  'search.result.untitled': 'Untitled',
+  'search.offline': 'Forum search is unavailable offline.',
+  'search.pagination.prev': 'Previous',
+  'search.pagination.next': 'Next',
+  'search.pagination.page': 'Page {page}',
+
+  // ─── Thread detail (non-catalog forum threads) ───────────────────────────
+  'threaddetail.openOnF95': 'Open on F95Zone',
+  'threaddetail.discussion': 'Discussion',
+  'threaddetail.error.back': 'Back to Search',
+  'threaddetail.offline': 'Thread viewing is unavailable offline.',
 
   // ─── Title bar ──────────────────────────────────────────────────────────
   'titlebar.minimize': 'Minimize',

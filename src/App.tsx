@@ -29,6 +29,8 @@ import './styles/sidebar.css';
 import './styles/offline.css';
 import './styles/context-menu.css';
 import './styles/notifications.css';
+import './styles/forum-search.css';
+import './styles/thread-detail.css';
 import './styles/settings-store.css';
 import './styles/nav-accent.css';
 import './styles/custom-video-fullscreen.css';

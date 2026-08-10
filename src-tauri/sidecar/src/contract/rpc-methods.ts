@@ -87,6 +87,16 @@ export const RPC_METHODS = {
     params: { page: 'number?' },
     result: 'F95AlertsListResult',
   },
+  forumSearch: {
+    params: {
+      query: 'string',
+      titleOnly: 'boolean?',
+      searchIn: 'string?',
+      sort: 'string?',
+      page: 'number?',
+    },
+    result: 'ForumSearchPage',
+  },
   unmaskUrl: {
     params: { url: 'string' },
     result: { url: 'string', status: 'number' },

@@ -3,6 +3,7 @@ import type { ProfileDto, PaginatedActivity, PaginatedProfilePosts } from '../ty
 import type { SamFilters, SamOptionsResult, SamPage, SamTag } from '../types/sam';
 import type { SamCategory } from '../types/sam';
 import type { GameDetail } from '../types/game';
+import type { ForumSearchPage } from '../types/forumSearch';
 import type {
   BbcodePreviewResult,
   ResolvePostResult,
@@ -65,6 +66,22 @@ export async function samOptions(category: SamCategory): Promise<SamOptionsResul
 
 export async function gameDetail(threadId: string): Promise<GameDetail> {
   return invoke<GameDetail>('game_detail', { threadId });
+}
+
+export async function forumSearch(params: {
+  query: string;
+  titleOnly?: boolean;
+  searchIn?: 'titles' | 'posts';
+  sort?: 'relevance' | 'date';
+  page?: number;
+}): Promise<ForumSearchPage> {
+  return invoke<ForumSearchPage>('forum_search', {
+    query: params.query,
+    titleOnly: params.titleOnly ?? false,
+    searchIn: params.searchIn ?? 'posts',
+    sort: params.sort ?? 'relevance',
+    page: params.page ?? 1,
+  });
 }
 
 export async function threadPosts(threadId: string, page = 1): Promise<ThreadPostsPage> {
