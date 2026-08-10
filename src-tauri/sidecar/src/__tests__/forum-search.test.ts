@@ -81,7 +81,7 @@ describe('buildForumSearchUrl', () => {
     const url = buildForumSearchUrl({ query: 'Hard to Love' });
     expect(url).toContain('/search/');
     expect(url).toContain('q=Hard');
-    expect(url).toMatch(/[?&]t=post\b/);
+    expect(url).toMatch(/[?&]o=relevance\b/);
   });
 
   it('applies titleOnly, titles-only type, date sort, and page', () => {
@@ -93,7 +93,6 @@ describe('buildForumSearchUrl', () => {
       page: 2,
     });
     expect(url).toMatch(/c\[title_only\]=1|c%5Btitle_only%5D=1|title_only=1/);
-    expect(url).toMatch(/[?&]t=thread\b/);
     expect(url).toMatch(/[?&]o=date\b/);
     expect(url).toMatch(/[?&]page=2\b/);
   });
@@ -109,6 +108,8 @@ describe('parseForumSearchPage', () => {
       forum: 'Games',
       author: 'Qori',
       authorId: '123',
+      avatarUrl: null,
+      prefixes: [],
     });
     expect(page.results[0].threadUrl).toContain('/threads/');
     expect(page.results[1].forum).toBe('Requests');
@@ -134,7 +135,13 @@ describe('parseForumSearchPage', () => {
       authorId: '595',
       forum: 'Games',
     });
-    expect(page.results[0].title).toMatch(/Parental Love/i);
+    expect(page.results[0].title).toBe("Parental Love [v1.1] [Luxee]");
+    expect(page.results[0].prefixes.map((p) => p.name)).toEqual([
+      'VN',
+      "Ren'Py",
+      'Completed',
+    ]);
+    expect(page.results[0].avatarUrl).toContain('/data/avatars/s/0/595.jpg');
     expect(page.results[0].threadUrl).toContain('/threads/');
     expect(page.results[0].dateIso).toBe('2017-06-13T00:03:49+0300');
     expect(page.results[1]).toMatchObject({
@@ -143,6 +150,8 @@ describe('parseForumSearchPage', () => {
       authorId: '93691',
       forum: 'Games',
     });
+    expect(page.results[1].prefixes.map((p) => p.name)).toEqual(['VN', "Ren'Py"]);
+    expect(page.results[1].avatarUrl).toContain('/data/avatars/s/93/93691.jpg');
     expect(page.totalPages).toBe(48);
     expect(page.hasMore).toBe(true);
   });
@@ -169,10 +178,10 @@ describe('fetchForumSearch', () => {
     expect(http.posts).toHaveLength(1);
     expect(http.posts[0].url).toContain('/search/search');
     expect(http.posts[0].body).toMatch(/_xfToken=tok-abc/);
-    expect(http.posts[0].body).toMatch(/(?:^|&)q=Hard/);
-    expect(http.posts[0].body).toMatch(/(?:^|&)t=thread(?:&|$)/);
+    expect(http.posts[0].body).toMatch(/(?:^|&)keywords=Hard/);
     expect(http.posts[0].body).toMatch(/c(?:\[|%5B)title_only(?:\]|%5D)=1/);
-    expect(http.posts[0].body).toMatch(/(?:^|&)o=date(?:&|$)/);
+    expect(http.posts[0].body).toMatch(/(?:^|&)order=date(?:&|$)/);
+    expect(http.posts[0].body).not.toMatch(/(?:^|&)q=/);
     expect(http.posts[0].body).not.toMatch(/(?:^|&)page=/);
     expect(http.posts[0].headers?.['content-type']).toMatch(
       /application\/x-www-form-urlencoded/,
@@ -267,5 +276,33 @@ describe('fetchForumSearch', () => {
       code: RPC_ERROR.INTERNAL,
       message: 'forum search HTTP 503',
     });
+  });
+
+  it('throws INTERNAL on XenForo Oops error page', async () => {
+    const http = makeSearchHttp({
+      post: () => ({
+        status: 200,
+        url: 'https://f95zone.to/search/search',
+        body: '<html data-template="error"><title>Oops! We ran into some problems.</title></html>',
+        headers: okHeaders,
+      }),
+    });
+    await expect(fetchForumSearch(http, { query: 'x' })).rejects.toMatchObject({
+      code: RPC_ERROR.INTERNAL,
+      message: 'forum search rejected by XenForo',
+    });
+  });
+
+  it('does not treat phrase-catalog Oops text on result pages as an error', async () => {
+    const http = makeSearchHttp({
+      post: () => ({
+        status: 200,
+        url: 'https://f95zone.to/search/999/?q=x',
+        body: `${fix('forum-search-live-sample.html')}\n<script>oops_we_ran_into_some_problems: "Oops! We ran into some problems."</script>`,
+        headers: okHeaders,
+      }),
+    });
+    const page = await fetchForumSearch(http, { query: 'x' });
+    expect(page.results.length).toBeGreaterThanOrEqual(2);
   });
 });

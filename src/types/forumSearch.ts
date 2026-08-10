@@ -9,12 +9,19 @@ export interface ForumSearchParams {
   page?: number;
 }
 
+export interface ForumSearchPrefix {
+  name: string;
+  cssClass: string | null;
+}
+
 export interface ForumSearchHit {
   threadId: string;
   title: string;
+  prefixes: ForumSearchPrefix[];
   snippet: string;
   author: string | null;
   authorId: string | null;
+  avatarUrl: string | null;
   forum: string;
   dateLabel: string | null;
   dateIso: string | null;
