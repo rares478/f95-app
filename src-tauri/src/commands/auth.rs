@@ -22,7 +22,13 @@ pub async fn login(
     username: String,
     password: String,
 ) -> Result<(), AppError> {
-    let client = ensure_sidecar(&state).await?;
+    let client = match ensure_sidecar(&state).await {
+        Ok(client) => client,
+        Err(e) => {
+            crate::app_log::warn("auth", format!("login failed: {}", auth_fail_label(&e)));
+            return Err(e);
+        }
+    };
     match client.login(&username, &password).await {
         Ok(()) => {
             crate::app_log::info("auth", "login ok");
