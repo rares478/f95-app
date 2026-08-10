@@ -253,7 +253,13 @@ export async function fetchForumSearch(
   assertForumSearchResponse(res);
 
   const searchId = extractForumSearchId(res.url);
-  if (page > 1 && searchId) {
+  if (page > 1) {
+    if (!searchId) {
+      throw new RpcError(
+        RPC_ERROR.INTERNAL,
+        'could not resolve forum search id for pagination',
+      );
+    }
     const getUrl = `${F95_BASE}/search/${searchId}/?${buildForumSearchQueryParts({
       ...params,
       query,

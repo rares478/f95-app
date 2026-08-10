@@ -217,6 +217,27 @@ describe('fetchForumSearch', () => {
     expect(page.results.length).toBeGreaterThanOrEqual(2);
   });
 
+  it('throws INTERNAL when page > 1 and POST URL has no search id', async () => {
+    const http = makeSearchHttp({
+      post: () => ({
+        status: 200,
+        url: 'https://f95zone.to/search/?q=x',
+        body: fix('forum-search-page-1.html'),
+        headers: okHeaders,
+      }),
+    });
+    await expect(
+      fetchForumSearch(http, { query: 'x', page: 2 }),
+    ).rejects.toMatchObject({
+      code: RPC_ERROR.INTERNAL,
+      message: 'could not resolve forum search id for pagination',
+    });
+    await expect(
+      fetchForumSearch(http, { query: 'x', page: 2 }),
+    ).rejects.toBeInstanceOf(RpcError);
+    expect(http.gets).toHaveLength(0);
+  });
+
   it('throws NOT_INITIALIZED on login redirect', async () => {
     const http = makeSearchHttp({
       account: {
