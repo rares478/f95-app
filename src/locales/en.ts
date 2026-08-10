@@ -34,6 +34,7 @@ const en: Record<string, string> = {
   'search.empty.idle': 'Search the forum for threads and posts.',
   'search.empty.none': 'No threads found.',
   'search.error.retry': 'Retry',
+  'search.result.untitled': 'Untitled',
   'search.offline': 'Forum search is unavailable offline.',
   'search.pagination.prev': 'Previous',
   'search.pagination.next': 'Next',
