@@ -1,5 +1,6 @@
 import { useEffect, useState } from 'react';
 import type { Update } from '@tauri-apps/plugin-updater';
+import { appLog } from '../lib/appLog';
 import {
   getAppWindowKind,
   installAppUpdate,
@@ -31,6 +32,11 @@ export function AppUpdateBootstrap() {
         windowKind: getAppWindowKind(),
       })
     ) {
+      void appLog(
+        'INFO',
+        'updater',
+        import.meta.env.DEV ? 'check skipped: dev' : 'check skipped: window',
+      );
       return;
     }
 
