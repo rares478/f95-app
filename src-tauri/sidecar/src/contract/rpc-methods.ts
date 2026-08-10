@@ -69,7 +69,7 @@ export const RPC_METHODS = {
   },
   resolvePost: {
     params: { postId: 'string' },
-    result: { threadId: 'string', postId: 'string' },
+    result: { threadId: 'string', postId: 'string', page: 'number?' },
   },
   getFollowing: {
     params: {},

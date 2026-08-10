@@ -8,6 +8,7 @@ import { assertNotCloudflareChallenge } from '../../shared/cloudflare';
 import { F95_BASE } from '../../shared/constants';
 import { absoluteUrl, cleanText, normalizeOpHtml } from './htmlNormalize';
 import {
+  extractCurrentPageFromHtml,
   extractPostIdFromFinal,
   extractThreadPageFromFinal,
   parseThreadPostsPage,
@@ -303,7 +304,9 @@ export class GameClient {
     const finalUrl = res.url || url;
     const threadId = extractThreadId(finalUrl);
     const resolvedPost = extractPostIdFromFinal(finalUrl) ?? id;
-    const page = extractThreadPageFromFinal(finalUrl);
+    const page =
+      extractThreadPageFromFinal(finalUrl) ??
+      extractCurrentPageFromHtml(res.body);
     if (threadId) return { threadId, postId: resolvedPost, page };
 
     // Fallback: scrape canonical thread link from HTML

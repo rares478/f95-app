@@ -12,7 +12,10 @@ interface Props {
 export function ForumSearchResultRow({ hit, onOpen }: Props) {
   const { t } = useT();
   const canOpen = Boolean(hit.threadId);
-  const metaBits = [hit.author, hit.dateLabel].filter(Boolean);
+  const kindLabel =
+    hit.resultLabel?.trim() ||
+    (hit.postId ? t('search.result.post') : t('search.result.thread'));
+  const metaBits = [kindLabel, hit.author, hit.dateLabel].filter(Boolean);
   const letter = (hit.author?.trim()?.[0] ?? '?').toUpperCase();
   const prefixes = hit.prefixes ?? [];
 

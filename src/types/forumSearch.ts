@@ -16,6 +16,10 @@ export interface ForumSearchPrefix {
 
 export interface ForumSearchHit {
   threadId: string;
+  /** When the hit targets a reply, XF links as `/threads/…/post-{id}`. */
+  postId: string | null;
+  /** XF minor label such as `Thread` or `Post #2`. */
+  resultLabel: string | null;
   title: string;
   prefixes: ForumSearchPrefix[];
   snippet: string;
