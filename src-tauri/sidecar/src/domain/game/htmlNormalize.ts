@@ -30,6 +30,12 @@ export function absoluteUrl(src: string): string {
   return `${BASE}/${src}`;
 }
 
+function giphyEmbedUrl(src: string): string | null {
+  const match = src.match(/giphy\.com\/embed\/([a-zA-Z0-9_-]+)/i);
+  if (!match) return null;
+  return `https://media.giphy.com/media/${match[1]}/giphy.gif`;
+}
+
 export function normalizeOpHtml(
   $: cheerio.CheerioAPI,
   opBody: cheerio.Cheerio<Element>,
@@ -37,6 +43,23 @@ export function normalizeOpHtml(
 ): string {
   // Work on a clone to avoid mutating selections used elsewhere.
   const clone = opBody.clone();
+
+  // Embedded GIFs/videos (Giphy, etc.) use iframes that sanitizers strip — convert first.
+  clone.find('iframe[src]').each((_, el) => {
+    const $iframe = $(el);
+    const src = $iframe.attr('src') ?? '';
+    const gifUrl = giphyEmbedUrl(src);
+    if (gifUrl) {
+      $iframe.replaceWith(
+        `<img src="${escapeHtml(gifUrl)}" loading="lazy" alt="" />`,
+      );
+      return;
+    }
+    const href = absoluteUrl(src);
+    $iframe.replaceWith(
+      `<a href="${escapeHtml(href)}" target="_blank" rel="noreferrer noopener">${escapeHtml(href)}</a>`,
+    );
+  });
 
   // Lazy images: real URL is in data-src; src is an SVG placeholder.
   clone.find('img').each((_, el) => {
@@ -46,8 +69,12 @@ export function normalizeOpHtml(
       $el.remove();
       return;
     }
-    const real = $el.attr('data-src');
-    const raw = real ?? $el.attr('src') ?? '';
+    const real =
+      $el.attr('data-src') ||
+      $el.attr('data-url') ||
+      $el.attr('data-original') ||
+      '';
+    const raw = real || ($el.attr('src') ?? '');
     if (!raw || raw.startsWith('data:')) {
       $el.remove();
       return;

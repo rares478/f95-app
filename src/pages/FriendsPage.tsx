@@ -1,5 +1,5 @@
 import { useCallback, useEffect, useState } from 'react';
-import { openUrl } from '@tauri-apps/plugin-opener';
+import { useNavigate } from 'react-router-dom';
 import * as ipc from '../lib/ipc';
 import { useT } from '../lib/i18n';
 import { FriendCardGridSkeleton } from '../components/ui/FriendCardSkeleton';
@@ -17,6 +17,7 @@ type State =
 
 export function FriendsPage() {
   const { t } = useT();
+  const navigate = useNavigate();
   const { isOffline } = useOffline();
   const { openContextMenu } = useContextMenu();
   const [state, setState] = useState<State>({ kind: 'loading' });
@@ -83,12 +84,19 @@ export function FriendsPage() {
           {state.users.map((u) => (
             <button
               key={u.userId}
-              onClick={() => openUrl(u.profileUrl)}
+              onClick={() => navigate(`/members/${u.userId}`)}
               onContextMenu={(e) =>
-                openContextMenu(e, buildFriendsMenu(u, { isOffline, t }))
+                openContextMenu(
+                  e,
+                  buildFriendsMenu(u, {
+                    isOffline,
+                    t,
+                    onViewProfile: (id) => navigate(`/members/${id}`),
+                  }),
+                )
               }
               style={cardStyle}
-              title={t('friends.openProfile')}
+              title={u.username}
             >
               <div style={avatarWrap}>
                 {u.avatarUrl ? (

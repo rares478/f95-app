@@ -1,5 +1,5 @@
 import { invoke } from '@tauri-apps/api/core';
-import type { ProfileDto } from '../types';
+import type { ProfileDto, PaginatedActivity, PaginatedProfilePosts } from '../types';
 import type { SamFilters, SamOptionsResult, SamPage, SamTag } from '../types/sam';
 import type { SamCategory } from '../types/sam';
 import type { GameDetail } from '../types/game';
@@ -95,6 +95,24 @@ export async function getFollowing(): Promise<FollowedUser[]> {
 
 export async function getProfile(): Promise<ProfileDto> {
   return invoke<ProfileDto>('get_profile');
+}
+
+export async function getMemberProfile(userId: string): Promise<ProfileDto> {
+  return invoke<ProfileDto>('get_member_profile', { userId });
+}
+
+export async function getMemberProfilePosts(
+  userId: string,
+  page = 1,
+): Promise<PaginatedProfilePosts> {
+  return invoke<PaginatedProfilePosts>('get_member_profile_posts', { userId, page });
+}
+
+export async function getMemberActivity(
+  userId: string,
+  page = 1,
+): Promise<PaginatedActivity> {
+  return invoke<PaginatedActivity>('get_member_activity', { userId, page });
 }
 
 export async function fetchRssFeed(options: RssFeedOptions = {}): Promise<RssFeed> {

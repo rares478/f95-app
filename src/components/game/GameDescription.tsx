@@ -1,6 +1,7 @@
 import { useEffect, useRef, type CSSProperties } from 'react';
 import {
   instantPreviewUrl,
+  isF95AttachmentUrl,
   toF95FullUrl,
 } from '../../lib/f95ImageUrl';
 import { requestGridPreview } from '../../lib/gridPreviewQueue';
@@ -52,9 +53,11 @@ export function GameDescription({ html, className, style }: Props) {
       const instant = instantPreviewUrl(full);
       if (instant) {
         img.src = instant;
-      } else {
+      } else if (isF95AttachmentUrl(full)) {
         img.removeAttribute('src');
         img.classList.add('game-description-img--pending');
+      } else {
+        img.src = full;
       }
       return true;
     };
@@ -62,7 +65,7 @@ export function GameDescription({ html, className, style }: Props) {
     const upgrade = (img: HTMLImageElement) => {
       if (upgradedRef.current.has(img)) return;
       const full = img.dataset.fullSrc;
-      if (!full) return;
+      if (!full || !isF95AttachmentUrl(full)) return;
       upgradedRef.current.add(img);
 
       const priority = Math.min(priorityRef.current, 8);

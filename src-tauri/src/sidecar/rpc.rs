@@ -100,6 +100,40 @@ impl SidecarClient {
         Ok(serde_json::from_value(value)?)
     }
 
+    pub async fn get_member_profile(&self, user_id: &str) -> Result<ProfileDto, AppError> {
+        let value: Value = self
+            .inner
+            .call("getMemberProfile", json!({ "userId": user_id }))
+            .await?;
+        Ok(serde_json::from_value(value)?)
+    }
+
+    pub async fn get_member_profile_posts(
+        &self,
+        user_id: &str,
+        page: u32,
+    ) -> Result<Value, AppError> {
+        self.inner
+            .call(
+                "getMemberProfilePosts",
+                json!({ "userId": user_id, "page": page }),
+            )
+            .await
+    }
+
+    pub async fn get_member_activity(
+        &self,
+        user_id: &str,
+        page: u32,
+    ) -> Result<Value, AppError> {
+        self.inner
+            .call(
+                "getMemberActivity",
+                json!({ "userId": user_id, "page": page }),
+            )
+            .await
+    }
+
     pub async fn is_logged_in(&self) -> Result<bool, AppError> {
         let value: Value = self.inner.call("isLoggedIn", json!({})).await?;
         let parsed: LoggedInResult = serde_json::from_value(value)?;

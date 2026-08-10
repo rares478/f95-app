@@ -893,6 +893,7 @@ const en: Record<string, string> = {
 
   // ─── Profile + ProfileView ──────────────────────────────────────────────
   'profile.tab.activity': 'Activity',
+  'profile.tab.posts': 'Profile posts',
   'profile.tab.stats': 'Stats',
   'profile.field.joinedAt': 'Member since',
   'profile.field.lastSeen': 'Last seen',
@@ -901,7 +902,11 @@ const en: Record<string, string> = {
   'profile.field.trophies': 'Trophy points',
   'profile.field.points': 'Points',
   'profile.field.ratings': 'Ratings received',
+  'profile.field.donations': 'Donations',
+  'profile.field.tags': 'Tags',
+  'profile.field.badges': 'Badges',
   'profile.activity.empty': 'No recent activity.',
+  'profile.posts.empty': 'There are no messages on {username}\'s profile yet.',
   'profile.openOnF95': 'Open on F95Zone',
   'profile.banner.alt': 'Profile banner',
   'profile.loadFailed': 'Failed to load profile.',
@@ -1160,6 +1165,7 @@ const en: Record<string, string> = {
   // ─── Friends page extra ─────────────────────────────────────────────────
   'friends.loadFailed': 'Failed to load: {error}',
   'friends.openProfile': 'Open profile',
+  'friends.viewProfile': 'View profile',
   'friends.count': '{count} {count, plural}',
   'friends.count.one': 'person',
   'friends.count.other': 'people',
