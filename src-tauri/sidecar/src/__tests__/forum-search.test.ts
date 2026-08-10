@@ -1,7 +1,12 @@
 import { readFileSync } from 'node:fs';
 import { join } from 'node:path';
 import { describe, expect, it } from 'vitest';
-import { buildForumSearchUrl, parseForumSearchPage } from '../domain/f95/forumSearch';
+import {
+  buildForumSearchUrl,
+  fetchForumSearch,
+  parseForumSearchPage,
+} from '../domain/f95/forumSearch';
+import { RPC_ERROR, RpcError } from '../rpc';
 
 const fix = (name: string) =>
   readFileSync(join(__dirname, 'fixtures', name), 'utf8');
@@ -51,5 +56,40 @@ describe('parseForumSearchPage', () => {
     const page = parseForumSearchPage(fix('forum-search-empty.html'), { page: 1 });
     expect(page.results).toEqual([]);
     expect(page.hasMore).toBe(false);
+  });
+});
+
+describe('fetchForumSearch', () => {
+  const okHeaders = { 'content-type': 'text/html' };
+
+  it('throws NOT_INITIALIZED on login redirect', async () => {
+    const http = {
+      get: async () => ({
+        status: 200,
+        url: 'https://f95zone.to/login/',
+        body: '<html></html>',
+        headers: okHeaders,
+      }),
+    };
+    await expect(fetchForumSearch(http, { query: 'x' })).rejects.toMatchObject({
+      code: RPC_ERROR.NOT_INITIALIZED,
+      message: 'not logged in',
+    });
+    await expect(fetchForumSearch(http, { query: 'x' })).rejects.toBeInstanceOf(RpcError);
+  });
+
+  it('throws INTERNAL on HTTP >= 400', async () => {
+    const http = {
+      get: async () => ({
+        status: 503,
+        url: 'https://f95zone.to/search/?q=x',
+        body: '<html>error</html>',
+        headers: okHeaders,
+      }),
+    };
+    await expect(fetchForumSearch(http, { query: 'x' })).rejects.toMatchObject({
+      code: RPC_ERROR.INTERNAL,
+      message: 'forum search HTTP 503',
+    });
   });
 });

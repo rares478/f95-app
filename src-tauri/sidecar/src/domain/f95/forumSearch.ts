@@ -1,5 +1,6 @@
 import * as cheerio from 'cheerio';
 import type { Element } from 'domhandler';
+import { RPC_ERROR, RpcError } from '../../rpc';
 import { assertNotCloudflareChallenge } from '../../shared/cloudflare';
 import { F95_BASE } from '../../shared/constants';
 
@@ -189,6 +190,12 @@ export async function fetchForumSearch(
   const url = buildForumSearchUrl({ ...params, query });
   const res = await http.get(url);
   assertNotCloudflareChallenge(res.body, res.headers);
+  if (res.url.includes('/login')) {
+    throw new RpcError(RPC_ERROR.NOT_INITIALIZED, 'not logged in');
+  }
+  if (res.status >= 400) {
+    throw new RpcError(RPC_ERROR.INTERNAL, `forum search HTTP ${res.status}`);
+  }
   // If XF returns a search form / error page with zero rows, return empty (do not throw)
   return parseForumSearchPage(res.body, { page: params.page ?? 1 });
 }

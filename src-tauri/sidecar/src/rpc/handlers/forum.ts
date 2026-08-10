@@ -12,7 +12,7 @@ export function createForumHandlers(ctx: AppContext): Record<string, RpcHandler>
       const query = String(p?.query ?? '').trim();
       if (!query) throw new RpcError(RPC_ERROR.INVALID_PARAMS, 'query required');
       const page = Number(p?.page ?? 1);
-      if (!Number.isFinite(page) || page < 1) {
+      if (!Number.isInteger(page) || page < 1) {
         throw new RpcError(RPC_ERROR.INVALID_PARAMS, 'page must be >= 1');
       }
       const searchIn = (p?.searchIn === 'titles' ? 'titles' : 'posts') as ForumSearchIn;
