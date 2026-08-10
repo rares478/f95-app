@@ -121,6 +121,25 @@ export function extractCurrentPageFromHtml(html: string): number | null {
   return null;
 }
 
+/** Forum title from XF breadcrumbs / forum links on a thread page. */
+export function extractForumLabelFromHtml(html: string): string | null {
+  const $ = cheerio.load(html);
+  const fromCrumbs = $('.p-breadcrumbs a[href*="/forums/"], .breadcrumb a[href*="/forums/"]')
+    .last()
+    .text()
+    .replace(/\s+/g, ' ')
+    .trim();
+  if (fromCrumbs) return fromCrumbs;
+
+  let fallback: string | null = null;
+  $('a[href*="/forums/"]').each((_, el) => {
+    const text = $(el).text().replace(/\s+/g, ' ').trim();
+    if (!text || text.length > 80) return;
+    fallback = text;
+  });
+  return fallback;
+}
+
 export function parseThreadPostsPage(
   html: string,
   opts: { threadId: string; page: number },

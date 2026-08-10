@@ -1,10 +1,12 @@
-import { useEffect, useRef, type CSSProperties } from 'react';
+import { useEffect, useRef, type CSSProperties, type MouseEvent as ReactMouseEvent } from 'react';
+import { useNavigate } from 'react-router-dom';
 import {
   instantPreviewUrl,
   isF95AttachmentUrl,
   toF95FullUrl,
 } from '../../lib/f95ImageUrl';
 import { requestGridPreview } from '../../lib/gridPreviewQueue';
+import { openF95InAppLink } from '../../lib/openF95InAppLink';
 import { useT } from '../../lib/i18n';
 import '../../styles/game-description.css';
 
@@ -25,9 +27,11 @@ function isNearViewport(img: HTMLImageElement): boolean {
 /**
  * Descrição: thumb F95 imediato (sem ícone quebrado) → preview ~720px em cache (fila).
  * Also wires expandable XF quotes (normalized to `.x-quote`).
+ * Thread/post links open in-app (store vs thread); other links use the system browser.
  */
 export function GameDescription({ html, className, style }: Props) {
   const { t } = useT();
+  const navigate = useNavigate();
   const rootRef = useRef<HTMLDivElement>(null);
   const priorityRef = useRef(0);
   const upgradedRef = useRef(new WeakSet<HTMLImageElement>());
@@ -151,11 +155,24 @@ export function GameDescription({ html, className, style }: Props) {
     };
   }, [html, t]);
 
+  const onRootClick = (e: ReactMouseEvent<HTMLDivElement>) => {
+    const target = e.target;
+    if (!(target instanceof Element)) return;
+    const anchor = target.closest('a');
+    if (!anchor || !e.currentTarget.contains(anchor)) return;
+    const href = anchor.getAttribute('href');
+    if (!href) return;
+    e.preventDefault();
+    e.stopPropagation();
+    void openF95InAppLink(href, navigate);
+  };
+
   return (
     <div
       ref={rootRef}
       className={className ? `game-description ${className}` : 'game-description'}
       style={style}
+      onClick={onRootClick}
       dangerouslySetInnerHTML={{ __html: html }}
     />
   );

@@ -6,6 +6,7 @@ import type { GameDetail } from '../types/game';
 import type { ForumSearchPage } from '../types/forumSearch';
 import type {
   BbcodePreviewResult,
+  ResolveF95UrlResult,
   ResolvePostResult,
   ThreadPostsPage,
   ThreadReplyResult,
@@ -104,6 +105,11 @@ export async function bbcodePreview(
 
 export async function resolvePost(postId: string): Promise<ResolvePostResult> {
   return invoke<ResolvePostResult>('resolve_post', { postId });
+}
+
+/** Resolve any F95 thread/post URL to thread id, forum, and page (follows XF redirects). */
+export async function resolveF95Url(url: string): Promise<ResolveF95UrlResult> {
+  return invoke<ResolveF95UrlResult>('resolve_post', { url });
 }
 
 export async function getFollowing(): Promise<FollowedUser[]> {

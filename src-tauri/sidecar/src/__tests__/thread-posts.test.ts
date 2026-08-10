@@ -3,6 +3,7 @@ import { join } from 'node:path';
 import { describe, expect, it } from 'vitest';
 import {
   extractCurrentPageFromHtml,
+  extractForumLabelFromHtml,
   parseThreadPostsPage,
 } from '../domain/game/posts';
 
@@ -21,6 +22,28 @@ describe('extractCurrentPageFromHtml', () => {
       </article>
     </body></html>`;
     expect(extractCurrentPageFromHtml(html)).toBe(1);
+  });
+});
+
+describe('extractForumLabelFromHtml', () => {
+  it('reads the forum from breadcrumbs', () => {
+    const html = `<html><body>
+      <ul class="p-breadcrumbs">
+        <li><a href="/forums/">Forums</a></li>
+        <li><a href="/forums/games.2/">Games</a></li>
+      </ul>
+      <article class="message"></article>
+    </body></html>`;
+    expect(extractForumLabelFromHtml(html)).toBe('Games');
+  });
+
+  it('reads non-catalog forums too', () => {
+    const html = `<html><body>
+      <div class="breadcrumb">
+        <a href="/forums/dev-tools-guides.44/">Dev Tools &amp; Guides</a>
+      </div>
+    </body></html>`;
+    expect(extractForumLabelFromHtml(html)).toBe('Dev Tools & Guides');
   });
 });
 

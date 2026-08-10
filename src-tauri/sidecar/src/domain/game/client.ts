@@ -9,6 +9,7 @@ import { F95_BASE } from '../../shared/constants';
 import { absoluteUrl, cleanText, normalizeOpHtml } from './htmlNormalize';
 import {
   extractCurrentPageFromHtml,
+  extractForumLabelFromHtml,
   extractPostIdFromFinal,
   extractThreadPageFromFinal,
   parseThreadPostsPage,
@@ -284,32 +285,69 @@ export class GameClient {
 
   async resolvePost(
     postId: string,
-  ): Promise<{ threadId: string; postId: string; page: number | null }> {
+  ): Promise<{
+    threadId: string;
+    postId: string;
+    page: number | null;
+    forum: string | null;
+  }> {
     const id = String(postId).trim();
     if (!/^\d+$/.test(id)) {
       throw new RpcError(RPC_ERROR.INVALID_PARAMS, 'postId must be numeric');
     }
-    const url = `${BASE}/posts/${id}/`;
-    log(`[game] GET resolve post ${url}`);
-    const res = await this.http.get(url);
+    const resolved = await this.resolveF95Url(`${BASE}/posts/${id}/`);
+    return {
+      threadId: resolved.threadId,
+      postId: resolved.postId ?? id,
+      page: resolved.page,
+      forum: resolved.forum,
+    };
+  }
+
+  /**
+   * Follow an F95 thread/post URL (same as the site) and return thread id,
+   * optional post/page, and forum label for in-app store vs thread routing.
+   */
+  async resolveF95Url(url: string): Promise<{
+    threadId: string;
+    postId: string | null;
+    page: number | null;
+    forum: string | null;
+  }> {
+    const raw = String(url).trim();
+    if (!raw) {
+      throw new RpcError(RPC_ERROR.INVALID_PARAMS, 'url required');
+    }
+    let absolute = raw;
+    if (raw.startsWith('//')) absolute = `https:${raw}`;
+    else if (raw.startsWith('/')) absolute = `${BASE}${raw}`;
+    else if (!/^https?:\/\//i.test(raw)) {
+      throw new RpcError(RPC_ERROR.INVALID_PARAMS, 'url must be absolute or site-relative');
+    }
+
+    log(`[game] GET resolve url ${absolute}`);
+    const res = await this.http.get(absolute);
     assertNotCloudflareChallenge(res.body, res.headers, {
-      message: 'Cloudflare challenge encountered on post resolve',
+      message: 'Cloudflare challenge encountered on F95 URL resolve',
     });
     if (res.status >= 400) {
       throw new RpcError(
         RPC_ERROR.INTERNAL,
-        `resolve post HTTP ${res.status} for ${url}`,
+        `resolve url HTTP ${res.status} for ${absolute}`,
       );
     }
-    const finalUrl = res.url || url;
-    const threadId = extractThreadId(finalUrl);
-    const resolvedPost = extractPostIdFromFinal(finalUrl) ?? id;
+
+    const finalUrl = res.url || absolute;
+    const forum = extractForumLabelFromHtml(res.body);
     const page =
       extractThreadPageFromFinal(finalUrl) ??
       extractCurrentPageFromHtml(res.body);
-    if (threadId) return { threadId, postId: resolvedPost, page };
+    const postId = extractPostIdFromFinal(finalUrl);
+    const threadId = extractThreadId(finalUrl);
+    if (threadId) {
+      return { threadId, postId, page, forum };
+    }
 
-    // Fallback: scrape canonical thread link from HTML
     const $ = cheerio.load(res.body);
     const href =
       $('link[rel="canonical"]').attr('href') ||
@@ -319,13 +357,14 @@ export class GameClient {
     if (!fromHtml) {
       throw new RpcError(
         RPC_ERROR.INTERNAL,
-        `could not resolve thread for post ${id}`,
+        `could not resolve thread for url ${absolute}`,
       );
     }
     return {
       threadId: fromHtml,
-      postId: id,
+      postId: extractPostIdFromFinal(href) ?? postId,
       page: extractThreadPageFromFinal(href) ?? page,
+      forum,
     };
   }
 }

@@ -23,6 +23,15 @@ export interface ResolvePostResult {
   postId: string;
   /** XF page when known from the redirect/canonical URL. */
   page: number | null;
+  /** Forum title when known (for store vs thread routing). */
+  forum: string | null;
+}
+
+export interface ResolveF95UrlResult {
+  threadId: string;
+  postId: string | null;
+  page: number | null;
+  forum: string | null;
 }
 
 export interface ThreadReplyResult {
