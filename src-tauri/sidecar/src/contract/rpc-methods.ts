@@ -68,8 +68,13 @@ export const RPC_METHODS = {
     result: { html: 'string' },
   },
   resolvePost: {
-    params: { postId: 'string' },
-    result: { threadId: 'string', postId: 'string', page: 'number?' },
+    params: { postId: 'string?', url: 'string?' },
+    result: {
+      threadId: 'string',
+      postId: 'string?',
+      page: 'number?',
+      forum: 'string?',
+    },
   },
   getFollowing: {
     params: {},

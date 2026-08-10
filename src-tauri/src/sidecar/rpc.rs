@@ -223,6 +223,12 @@ impl SidecarClient {
             .await
     }
 
+    pub async fn resolve_f95_url(&self, url: &str) -> Result<Value, AppError> {
+        self.inner
+            .call("resolvePost", json!({ "url": url }))
+            .await
+    }
+
     pub async fn get_following(&self) -> Result<Value, AppError> {
         self.inner.call("getFollowing", json!({})).await
     }

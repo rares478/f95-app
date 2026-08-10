@@ -42,10 +42,18 @@ pub async fn bbcode_preview(
 #[tauri::command]
 pub async fn resolve_post(
     state: State<'_, AppState>,
-    post_id: String,
+    post_id: Option<String>,
+    url: Option<String>,
 ) -> Result<Value, AppError> {
     let client = ensure_sidecar(&state).await?;
-    client.resolve_post(&post_id).await
+    if let Some(u) = url.filter(|s| !s.trim().is_empty()) {
+        return client.resolve_f95_url(&u).await;
+    }
+    let id = post_id.unwrap_or_default();
+    if id.trim().is_empty() {
+        return Err(AppError::Other("postId or url required".into()));
+    }
+    client.resolve_post(&id).await
 }
 
 #[tauri::command]

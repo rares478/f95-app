@@ -52,8 +52,10 @@ export function createGameHandlers(ctx: AppContext): Record<string, RpcHandler> 
       return ctx.getGame().previewBbcode(threadId, bbCode);
     },
     resolvePost: async (p) => {
+      const url = typeof p?.url === 'string' ? p.url.trim() : '';
+      if (url) return ctx.getGame().resolveF95Url(url);
       const postId = String(p?.postId ?? p?.post_id ?? '');
-      if (!postId) throw new RpcError(RPC_ERROR.INVALID_PARAMS, 'postId required');
+      if (!postId) throw new RpcError(RPC_ERROR.INVALID_PARAMS, 'postId or url required');
       return ctx.getGame().resolvePost(postId);
     },
     getFollowing: async () => ctx.getSocial().getFollowing(),
