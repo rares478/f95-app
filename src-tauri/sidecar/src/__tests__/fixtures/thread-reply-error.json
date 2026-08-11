@@ -1,0 +1,4 @@
+{
+  "status": "error",
+  "errors": ["You may not perform this action because the discussion is closed."]
+}

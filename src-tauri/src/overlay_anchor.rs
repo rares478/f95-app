@@ -184,14 +184,13 @@ pub fn apply_layout_to_game(
     layout: &OverlayLayout,
 ) -> Result<ScreenRect, String> {
     let game_match = game_window::find_game_window_for_overlay(pid).ok_or_else(|| {
-        "Não foi possível localizar o jogo. Pressione o atalho com o jogo em foco ou use borderless."
-            .to_string()
+        "error.overlay.locateGame".to_string()
     })?;
 
     if let Some(hwnd) = game_match.hwnd.map(|h| windows::Win32::Foundation::HWND(h as _)) {
         if game_window::is_minimized(hwnd) {
             let _ = window.hide();
-            return Err("O jogo está minimizado.".into());
+            return Err("error.overlay.minimized".into());
         }
     }
 
@@ -225,14 +224,13 @@ pub fn apply_layout_to_game_with_emit(
     layout: &OverlayLayout,
 ) -> Result<(ScreenRect, GameWindowMatch), String> {
     let game_match = game_window::find_game_window_for_overlay(pid).ok_or_else(|| {
-        "Não foi possível localizar o jogo. Pressione o atalho com o jogo em foco ou use borderless."
-            .to_string()
+        "error.overlay.locateGame".to_string()
     })?;
 
     if let Some(hwnd) = game_match.hwnd.map(|h| windows::Win32::Foundation::HWND(h as _)) {
         if game_window::is_minimized(hwnd) {
             let _ = window.hide();
-            return Err("O jogo está minimizado.".into());
+            return Err("error.overlay.minimized".into());
         }
     }
 
@@ -277,5 +275,5 @@ pub fn apply_layout_to_game(
             height: geom.h.round() as i32,
         });
     }
-    Err("Overlay sobre o jogo requer Windows.".into())
+    Err("error.overlay.windowsOnly".into())
 }

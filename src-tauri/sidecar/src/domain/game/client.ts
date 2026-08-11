@@ -6,6 +6,32 @@ import { log } from '../../logger';
 import { classifyHost } from './hosts';
 import { assertNotCloudflareChallenge } from '../../shared/cloudflare';
 import { F95_BASE } from '../../shared/constants';
+import { absoluteUrl, cleanText, normalizeOpHtml } from './htmlNormalize';
+import {
+  extractCurrentPageFromHtml,
+  extractForumLabelFromHtml,
+  extractPostIdFromFinal,
+  extractThreadPageFromFinal,
+  parseThreadPostsPage,
+  type ThreadPostsPage,
+} from './posts';
+import {
+  buildBbcodePreviewForm,
+  parseBbcodePreviewResponse,
+  type BbcodePreviewResult,
+} from './bbcodePreview';
+import {
+  buildThreadReplyForm,
+  parseThreadReplyResponse,
+  type ThreadReplyResult,
+} from './reply';
+import {
+  parseDownloadBlock,
+  resolveDownloadRoot,
+  type GameDownload,
+} from './downloadBlock';
+
+export type { GameDownload } from './downloadBlock';
 
 const BASE = F95_BASE;
 
@@ -18,6 +44,10 @@ export interface GameDetail {
   rawTitle: string;
   version: string | null;
   developer: string | null;
+  /** Thread OP author display name. */
+  author: string | null;
+  /** Absolute URL for the OP author's avatar, when present. */
+  authorAvatarUrl: string | null;
   bannerUrl: string | null;
   screenshots: string[];
   /** OP body HTML, normalized: lazy `data-src` → `src`, spoilers → <details>. */
@@ -35,14 +65,6 @@ export interface GamePrefix {
 export interface GameTag {
   slug: string;
   name: string;
-}
-export interface GameDownload {
-  host: string;
-  url: string;
-  /** Inner text of the anchor (often the host name in caps). */
-  text: string;
-  /** Nearest preceding section label (e.g. "Win/Linux", "Collection", "08-10"). */
-  group: string | null;
 }
 export interface SocialLink {
   host: string;
@@ -68,7 +90,15 @@ const FIELD_LABELS = new Set([
 ]);
 
 export class GameClient {
+  private xfTokenCache: string | null = null;
+
   constructor(private readonly http: BrowserClient) {}
+
+  threadPageUrl(threadId: string, page: number): string {
+    const base = normalizeThreadUrl(threadId); // ends with /threads/{id}/
+    if (page <= 1) return base;
+    return `${base.replace(/\/$/, '')}/page-${page}`;
+  }
 
   async getDetail(threadIdOrUrl: string): Promise<GameDetail> {
     const url = normalizeThreadUrl(threadIdOrUrl);
@@ -85,9 +115,261 @@ export class GameClient {
     }
     return parseThread(res.body, res.url || url);
   }
+
+  async getPosts(threadId: string, page = 1): Promise<ThreadPostsPage> {
+    const id = String(threadId).trim();
+    if (!/^\d+$/.test(id)) {
+      throw new RpcError(RPC_ERROR.INVALID_PARAMS, 'threadId must be numeric');
+    }
+    const url = this.threadPageUrl(id, page);
+    log(`[game] GET posts ${url}`);
+    const res = await this.http.get(url);
+    assertNotCloudflareChallenge(res.body, res.headers, {
+      message: 'Cloudflare challenge encountered on thread posts fetch',
+    });
+    if (res.status >= 400) {
+      throw new RpcError(
+        RPC_ERROR.INTERNAL,
+        `thread posts HTTP ${res.status} for ${url}`,
+      );
+    }
+    return parseThreadPostsPage(res.body, { threadId: id, page });
+  }
+
+  async reply(threadId: string, message: string): Promise<ThreadReplyResult> {
+    const id = String(threadId).trim();
+    const text = String(message).trim();
+    if (!/^\d+$/.test(id)) {
+      throw new RpcError(RPC_ERROR.INVALID_PARAMS, 'threadId must be numeric');
+    }
+    if (!text) {
+      throw new RpcError(RPC_ERROR.INVALID_PARAMS, 'message required');
+    }
+
+    const threadUrl = this.threadPageUrl(id, 1);
+    log(`[game] GET thread for reply token ${threadUrl}`);
+    const pageRes = await this.http.get(threadUrl);
+    assertNotCloudflareChallenge(pageRes.body, pageRes.headers, {
+      message: 'Cloudflare challenge encountered on thread reply',
+    });
+    if (pageRes.url.includes('/login')) {
+      throw new RpcError(RPC_ERROR.NOT_INITIALIZED, 'not logged in');
+    }
+    if (pageRes.status >= 400) {
+      throw new RpcError(RPC_ERROR.INTERNAL, `thread reply prep HTTP ${pageRes.status}`);
+    }
+
+    const $ = cheerio.load(pageRes.body);
+    const xfToken =
+      $('input[name="_xfToken"]').first().attr('value') ??
+      $('html').attr('data-csrf') ??
+      null;
+    if (!xfToken) {
+      throw new RpcError(RPC_ERROR.INTERNAL, 'could not extract _xfToken for reply');
+    }
+
+    const requestUri = `/threads/${id}/`;
+    const form = buildThreadReplyForm({
+      threadId: id,
+      message: text,
+      xfToken,
+      requestUri,
+    });
+    log(`[game] POST reply ${form.url}`);
+    const res = await this.http.post(form.url, {
+      headers: form.headers,
+      body: form.body,
+    });
+    assertNotCloudflareChallenge(res.body, res.headers, {
+      message: 'Cloudflare challenge encountered on thread reply post',
+    });
+    if (res.url.includes('/login')) {
+      throw new RpcError(RPC_ERROR.NOT_INITIALIZED, 'not logged in');
+    }
+    // XF may return 200 with error JSON; parser handles soft errors.
+    // HTTP ≥400 must never return success — parse only to surface XF error text.
+    if (res.status >= 400) {
+      try {
+        parseThreadReplyResponse({
+          threadId: id,
+          body: typeof res.body === 'string' ? res.body : '',
+          finalUrl: res.url,
+        });
+      } catch (err) {
+        if (err instanceof RpcError) throw err;
+      }
+      throw new RpcError(RPC_ERROR.INTERNAL, `thread reply HTTP ${res.status}`);
+    }
+    return parseThreadReplyResponse({
+      threadId: id,
+      body: typeof res.body === 'string' ? res.body : '',
+      finalUrl: res.url,
+    });
+  }
+
+  async previewBbcode(
+    threadId: string,
+    bbCode: string,
+  ): Promise<BbcodePreviewResult> {
+    const id = String(threadId).trim();
+    const text = String(bbCode ?? '');
+    if (!/^\d+$/.test(id)) {
+      throw new RpcError(RPC_ERROR.INVALID_PARAMS, 'threadId must be numeric');
+    }
+    if (!text.trim()) {
+      return { html: '' };
+    }
+
+    let xfToken = this.xfTokenCache;
+    if (!xfToken) {
+      const accountUrl = `${BASE}/account/`;
+      log(`[game] GET account for bbcode preview token ${accountUrl}`);
+      const pageRes = await this.http.get(accountUrl);
+      assertNotCloudflareChallenge(pageRes.body, pageRes.headers, {
+        message: 'Cloudflare challenge encountered on bbcode preview',
+      });
+      if (pageRes.url.includes('/login')) {
+        this.xfTokenCache = null;
+        throw new RpcError(RPC_ERROR.NOT_INITIALIZED, 'not logged in');
+      }
+      if (pageRes.status >= 400) {
+        throw new RpcError(
+          RPC_ERROR.INTERNAL,
+          `bbcode preview prep HTTP ${pageRes.status}`,
+        );
+      }
+
+      const $ = cheerio.load(pageRes.body);
+      xfToken =
+        $('input[name="_xfToken"]').first().attr('value') ??
+        $('html').attr('data-csrf') ??
+        null;
+      if (!xfToken) {
+        throw new RpcError(
+          RPC_ERROR.INTERNAL,
+          'could not extract _xfToken for bbcode preview',
+        );
+      }
+      this.xfTokenCache = xfToken;
+    }
+
+    const form = buildBbcodePreviewForm({
+      threadId: id,
+      bbCode: text,
+      xfToken,
+    });
+    log(`[game] POST bbcode preview ${form.url}`);
+    const res = await this.http.post(form.url, {
+      headers: form.headers,
+      body: form.body,
+    });
+    assertNotCloudflareChallenge(res.body, res.headers, {
+      message: 'Cloudflare challenge encountered on bbcode preview post',
+    });
+    if (res.url.includes('/login')) {
+      this.xfTokenCache = null;
+      throw new RpcError(RPC_ERROR.NOT_INITIALIZED, 'not logged in');
+    }
+    if (res.status >= 400) {
+      try {
+        parseBbcodePreviewResponse(typeof res.body === 'string' ? res.body : '');
+      } catch (err) {
+        if (err instanceof RpcError) throw err;
+      }
+      throw new RpcError(RPC_ERROR.INTERNAL, `bbcode preview HTTP ${res.status}`);
+    }
+    return {
+      html: parseBbcodePreviewResponse(typeof res.body === 'string' ? res.body : ''),
+    };
+  }
+
+  async resolvePost(
+    postId: string,
+  ): Promise<{
+    threadId: string;
+    postId: string;
+    page: number | null;
+    forum: string | null;
+  }> {
+    const id = String(postId).trim();
+    if (!/^\d+$/.test(id)) {
+      throw new RpcError(RPC_ERROR.INVALID_PARAMS, 'postId must be numeric');
+    }
+    const resolved = await this.resolveF95Url(`${BASE}/posts/${id}/`);
+    return {
+      threadId: resolved.threadId,
+      postId: resolved.postId ?? id,
+      page: resolved.page,
+      forum: resolved.forum,
+    };
+  }
+
+  /**
+   * Follow an F95 thread/post URL (same as the site) and return thread id,
+   * optional post/page, and forum label for in-app store vs thread routing.
+   */
+  async resolveF95Url(url: string): Promise<{
+    threadId: string;
+    postId: string | null;
+    page: number | null;
+    forum: string | null;
+  }> {
+    const raw = String(url).trim();
+    if (!raw) {
+      throw new RpcError(RPC_ERROR.INVALID_PARAMS, 'url required');
+    }
+    let absolute = raw;
+    if (raw.startsWith('//')) absolute = `https:${raw}`;
+    else if (raw.startsWith('/')) absolute = `${BASE}${raw}`;
+    else if (!/^https?:\/\//i.test(raw)) {
+      throw new RpcError(RPC_ERROR.INVALID_PARAMS, 'url must be absolute or site-relative');
+    }
+
+    log(`[game] GET resolve url ${absolute}`);
+    const res = await this.http.get(absolute);
+    assertNotCloudflareChallenge(res.body, res.headers, {
+      message: 'Cloudflare challenge encountered on F95 URL resolve',
+    });
+    if (res.status >= 400) {
+      throw new RpcError(
+        RPC_ERROR.INTERNAL,
+        `resolve url HTTP ${res.status} for ${absolute}`,
+      );
+    }
+
+    const finalUrl = res.url || absolute;
+    const forum = extractForumLabelFromHtml(res.body);
+    const page =
+      extractThreadPageFromFinal(finalUrl) ??
+      extractCurrentPageFromHtml(res.body);
+    const postId = extractPostIdFromFinal(finalUrl);
+    const threadId = extractThreadId(finalUrl);
+    if (threadId) {
+      return { threadId, postId, page, forum };
+    }
+
+    const $ = cheerio.load(res.body);
+    const href =
+      $('link[rel="canonical"]').attr('href') ||
+      $('a[href*="/threads/"]').first().attr('href') ||
+      '';
+    const fromHtml = extractThreadId(href);
+    if (!fromHtml) {
+      throw new RpcError(
+        RPC_ERROR.INTERNAL,
+        `could not resolve thread for url ${absolute}`,
+      );
+    }
+    return {
+      threadId: fromHtml,
+      postId: extractPostIdFromFinal(href) ?? postId,
+      page: extractThreadPageFromFinal(href) ?? page,
+      forum,
+    };
+  }
 }
 
-function normalizeThreadUrl(input: string): string {
+export function normalizeThreadUrl(input: string): string {
   const s = String(input).trim();
   if (/^https?:\/\//i.test(s)) return s;
   if (!/^\d+$/.test(s)) {
@@ -102,6 +384,12 @@ function normalizeThreadUrl(input: string): string {
 function parseThread(html: string, finalUrl: string): GameDetail {
   const $ = cheerio.load(html);
   const threadId = extractThreadId(finalUrl);
+  if (!threadId) {
+    throw new RpcError(
+      RPC_ERROR.INTERNAL,
+      `cannot extract thread id from ${finalUrl}`,
+    );
+  }
 
   // -- Title + prefixes --
   const titleNode = $('.p-title-value').first();
@@ -131,6 +419,15 @@ function parseThread(html: string, finalUrl: string): GameDetail {
   if (opBody.length === 0) {
     throw new RpcError(RPC_ERROR.INTERNAL, 'OP body (bbWrapper) not found');
   }
+
+  const author =
+    cleanText(op.find('.message-name').first().text()) ||
+    cleanText(op.attr('data-author') ?? '') ||
+    null;
+  const avatarSrc =
+    op.find('.message-avatar img, .avatar img').first().attr('src') ??
+    op.find('.message-avatar img, .avatar img').first().attr('data-src');
+  const authorAvatarUrl = avatarSrc ? absoluteUrl(avatarSrc) : null;
 
   // -- Banner + screenshots --
   const images = collectOpImages($, opBody);
@@ -178,6 +475,8 @@ function parseThread(html: string, finalUrl: string): GameDetail {
     rawTitle,
     version,
     developer,
+    author,
+    authorAvatarUrl,
     bannerUrl,
     screenshots,
     descriptionHtml,
@@ -189,12 +488,9 @@ function parseThread(html: string, finalUrl: string): GameDetail {
   };
 }
 
-function extractThreadId(url: string): string {
+export function extractThreadId(url: string): string | null {
   const m = url.match(/\/threads\/(?:[^/]*?\.)?(\d+)\/?/);
-  if (!m) {
-    throw new RpcError(RPC_ERROR.INTERNAL, `cannot extract thread id from ${url}`);
-  }
-  return m[1];
+  return m ? m[1] : null;
 }
 
 function splitBracketedTitle(raw: string): {
@@ -262,7 +558,8 @@ function isPlaceholder(src: string): boolean {
   );
 }
 
-function collectFields(
+/** Exported for unit tests of Developer/field sibling parsing. */
+export function collectFields(
   $: cheerio.CheerioAPI,
   opBody: cheerio.Cheerio<Element>,
 ): Record<string, string> {
@@ -275,7 +572,7 @@ function collectFields(
     if (!FIELD_LABELS.has(key)) return;
     const value = readSiblingsUntilBreak($, el);
     if (!value) return;
-    const cleaned = cleanText(value).replace(/^:\s*/, '');
+    const cleaned = cleanFieldValue(value);
     if (!cleaned) return;
     // Use original-case label key for display.
     const displayLabel = label.replace(/:\s*$/, '');
@@ -286,19 +583,56 @@ function collectFields(
   return fields;
 }
 
+function isGenericDevLinkLabel(text: string): boolean {
+  return /^(website|site|homepage|home|link|steam|gog|bluesky|bsky)$/i.test(
+    text.trim(),
+  );
+}
+
+function isSocialPlatformLabel(text: string): boolean {
+  return /^(patreon|discord|itch\.?io|subscribestar|subscribe\s*star|twitter|x|ko-?fi|youtube)$/i.test(
+    text.trim(),
+  );
+}
+
+/** Strip leading colon and trailing " - " / "|" separators left by skipped links. */
+function cleanFieldValue(raw: string): string {
+  return cleanText(raw)
+    .replace(/^:\s*/, '')
+    .replace(/(\s*[-–—|/]\s*)+$/u, '');
+}
+
 function readSiblingsUntilBreak(
   $: cheerio.CheerioAPI,
   startEl: Element,
 ): string {
-  // Read the value text following a label `<b>` until we hit a line break,
-  // another label `<b>`, or an `<a>` element. Stopping at `<a>` is what keeps
-  // social-link suffixes (Patreon / Discord / X buttons after "Developer:")
-  // from being absorbed into the value.
+  // Read the value text following a label `<b>` until a line break or another
+  // label. Social anchors (Patreon/Discord/…) mark the end of the value so
+  // their button labels are not absorbed — unless the value is empty and the
+  // social link text is the developer name itself (not "Patreon").
   const parts: string[] = [];
   let n: AnyNode | null = startEl.next ?? null;
   while (n) {
     if (isElement(n)) {
-      if (n.tagName === 'br' || n.tagName === 'b' || n.tagName === 'a') break;
+      if (n.tagName === 'br' || n.tagName === 'b') break;
+      if (n.tagName === 'a') {
+        const hrefRaw = $(n).attr('href') ?? '';
+        const href = hrefRaw ? absoluteUrl(hrefRaw) : '';
+        const info = href ? classifyHost(href) : null;
+        const linkText = cleanText($(n).text());
+        if (info?.category === 'social') {
+          const haveName = cleanFieldValue(parts.join('')).length > 0;
+          if (!haveName && linkText && !isSocialPlatformLabel(linkText)) {
+            parts.push(linkText);
+          }
+          break;
+        }
+        if (linkText && !isGenericDevLinkLabel(linkText)) {
+          parts.push(linkText);
+        }
+        n = n.next ?? null;
+        continue;
+      }
       parts.push($(n).text());
     } else if (isText(n)) {
       parts.push(n.data);
@@ -329,224 +663,34 @@ function collectLinks(
   $: cheerio.CheerioAPI,
   opBody: cheerio.Cheerio<Element>,
 ): { downloads: GameDownload[]; social: SocialLink[] } {
-  const downloads: GameDownload[] = [];
   const social: SocialLink[] = [];
-  const seenDownload = new Set<string>();
   const seenSocial = new Set<string>();
 
   opBody.find('a[href]').each((_, el) => {
-    const $el = $(el);
-    const href = $el.attr('href');
+    const href = $(el).attr('href');
     if (!href || href.startsWith('#')) return;
     const url = absoluteUrl(href);
     const info = classifyHost(url);
-    if (!info) return;
-
-    const text = cleanText($el.text());
-    if (info.category === 'direct') {
-      if (seenDownload.has(url)) return;
-      seenDownload.add(url);
-      downloads.push({
-        host: info.host,
-        url,
-        text: text || info.host,
-        group: nearestDownloadGroupLabel($, el),
-      });
-    } else if (info.category === 'social') {
-      if (seenSocial.has(url)) return;
-      seenSocial.add(url);
-      social.push({ host: info.host, url, text: text || info.host });
-    }
+    if (!info || info.category !== 'social') return;
+    if (seenSocial.has(url)) return;
+    seenSocial.add(url);
+    social.push({
+      host: info.host,
+      url,
+      text: cleanText($(el).text()) || info.host,
+    });
   });
+
+  const root = resolveDownloadRoot($, opBody);
+  const downloads = root ? parseDownloadBlock($, root) : [];
 
   return { downloads, social };
-}
-
-const OS_LABEL_RE =
-  /\b(win(?:dows)?(?:\s*\/\s*linux)?|linux|mac(?:os)?|android|ios|browser|all platforms?)\b/i;
-
-/** Section headers that are not download groups (games + animations/comics/assets). */
-const GROUP_LABEL_EXCLUDE = new Set([
-  'download',
-  'downloads',
-  'update',
-  'updates',
-  'installation',
-  'changelog',
-  'mod',
-  'mods',
-  'patch',
-  'language',
-  'genre',
-  'overview',
-  'thread updated',
-  'release date',
-  'censorship',
-  'censored',
-  'developer',
-  'publisher',
-  'tags',
-  'support',
-  'social',
-  'credits',
-]);
-
-function normalizeGroupLabel(raw: string): string | null {
-  const t = cleanText(raw).replace(/:\s*$/, '').trim();
-  if (!t) return null;
-  if (GROUP_LABEL_EXCLUDE.has(t.toLowerCase())) return null;
-  return t;
-}
-
-function labelFromBoldText(raw: string): string | null {
-  const t = cleanText(raw);
-  if (!t) return null;
-  if (OS_LABEL_RE.test(t)) {
-    return normalizeGroupLabel(t.endsWith(':') ? t : `${t}:`);
-  }
-  if (t.endsWith(':')) {
-    return normalizeGroupLabel(t);
-  }
-  return null;
-}
-
-function nearestDownloadGroupLabel(
-  $: cheerio.CheerioAPI,
-  el: Element,
-): string | null {
-  // Walk backward through siblings/parents for the nearest <b>/<strong> label
-  // (Win/Linux, Collection, 08-10, etc.). Games use OS rows; animations/comics
-  // use episode/chapter ranges on the same line as the host links.
-  let node: AnyNode | null = el;
-  let hops = 0;
-  while (node && hops < 80) {
-    let prev: AnyNode | null = (node as AnyNode).prev ?? null;
-    while (prev) {
-      if (isElement(prev)) {
-        const tag = prev.tagName?.toLowerCase();
-        if (tag === 'b' || tag === 'strong') {
-          const label = labelFromBoldText($(prev).text());
-          if (label) return label;
-        }
-        const inner = $(prev).find('b, strong').last();
-        if (inner.length) {
-          const label = labelFromBoldText(inner.text());
-          if (label) return label;
-        }
-      } else if (isText(prev)) {
-        const os = prev.data.match(OS_LABEL_RE);
-        if (os) {
-          const label = normalizeGroupLabel(os[0]);
-          if (label) return label;
-        }
-        // Plain-text labels: "Collection: GOFILE - …"
-        const colon = prev.data.match(
-          /(?:^|[\s])((?:[\w][\w /_.+-]{0,40}))\s*:\s*$/,
-        );
-        if (colon) {
-          const label = normalizeGroupLabel(`${colon[1]}:`);
-          if (label) return label;
-        }
-      }
-      prev = prev.prev ?? null;
-      hops++;
-    }
-    node = (node as AnyNode).parent ?? null;
-    hops++;
-  }
-  return null;
-}
-
-function toF95FullUrl(url: string): string {
-  return url.replace(/\/thumb\/(?=[^/]+$)/, '/');
-}
-
-function normalizeOpHtml(
-  $: cheerio.CheerioAPI,
-  opBody: cheerio.Cheerio<Element>,
-  omitImageUrls?: Set<string>,
-): string {
-  // Work on a clone to avoid mutating selections used elsewhere.
-  const clone = opBody.clone();
-
-  // Lazy images: real URL is in data-src; src is an SVG placeholder.
-  clone.find('img').each((_, el) => {
-    const $el = $(el);
-    const cls = $el.attr('class') ?? '';
-    if (/smilie|smiley|emoji/i.test(cls)) {
-      $el.remove();
-      return;
-    }
-    const real = $el.attr('data-src');
-    const raw = real ?? $el.attr('src') ?? '';
-    if (!raw || raw.startsWith('data:')) {
-      $el.remove();
-      return;
-    }
-    const full = toF95FullUrl(absoluteUrl(raw));
-    if (omitImageUrls?.has(full)) {
-      $el.remove();
-      return;
-    }
-    $el.attr('src', full);
-    $el.removeAttr('data-src');
-    $el.removeAttr('class');
-    $el.removeAttr('data-url');
-    $el.removeAttr('data-zoom-target');
-    $el.removeAttr('style');
-    $el.attr('loading', 'lazy');
-  });
-
-  // Rewrite XF spoiler containers into native <details> for collapsibility.
-  clone.find('.bbCodeSpoiler').each((_, el) => {
-    const $el = $(el);
-    const title =
-      cleanText($el.find('.bbCodeSpoiler-button-title').first().text()) ||
-      'Spoiler';
-    const content =
-      $el.find('.bbCodeSpoiler-content').first().html() ?? $el.html() ?? '';
-    $el.replaceWith(
-      `<details class="x-spoiler"><summary>${escapeHtml(title)}</summary>${content}</details>`,
-    );
-  });
-
-  // Strip <noscript> (we already use data-src) and inline lightbox containers.
-  clone.find('noscript').remove();
-  clone.find('.lbContainer-zoomer').remove();
-
-  // Anchor cleanup: open external links in a new tab; strip XF tracker classes.
-  clone.find('a[href]').each((_, el) => {
-    const $el = $(el);
-    const href = absoluteUrl($el.attr('href') ?? '');
-    $el.attr('href', href);
-    $el.attr('target', '_blank');
-    $el.attr('rel', 'noreferrer noopener');
-    $el.removeAttr('class');
-    $el.removeAttr('data-xf-init');
-    $el.removeAttr('data-xf-click');
-  });
-
-  return clone.html() ?? '';
-}
-
-function escapeHtml(s: string): string {
-  return s
-    .replace(/&/g, '&amp;')
-    .replace(/</g, '&lt;')
-    .replace(/>/g, '&gt;')
-    .replace(/"/g, '&quot;')
-    .replace(/'/g, '&#39;');
 }
 
 function nonEmpty(v: string | undefined | null): string | null {
   if (!v) return null;
   const t = v.trim();
   return t.length ? t : null;
-}
-
-function cleanText(s: string | null | undefined): string {
-  if (!s) return '';
-  return s.replace(/\s+/g, ' ').trim();
 }
 
 function slugify(s: string): string {
@@ -556,14 +700,6 @@ function slugify(s: string): string {
     .replace(/[̀-ͯ]/g, '')
     .replace(/[^a-z0-9]+/g, '-')
     .replace(/^-+|-+$/g, '');
-}
-
-function absoluteUrl(src: string): string {
-  if (!src) return src;
-  if (src.startsWith('http://') || src.startsWith('https://')) return src;
-  if (src.startsWith('//')) return `https:${src}`;
-  if (src.startsWith('/')) return `${BASE}${src}`;
-  return `${BASE}/${src}`;
 }
 
 function isElement(n: AnyNode): n is Element {

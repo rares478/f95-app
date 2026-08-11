@@ -21,7 +21,7 @@ The backend splits work across Rust (downloads, launcher, overlay) and a Node.js
 ## Features
 
 - **Authentication** — dedicated login window, optional remember-me via Stronghold vault
-- **Store** — SAM catalog with prefix/tag filters, search, sorting, pagination
+- **Store** — discovery Home (spotlight + rails) plus Browse with prefix/tag filters, search, sorting, pagination
 - **Library** — installed titles, version tracking, playtime, multiple install folders
 - **Downloads** — queued transfers with live progress, auto-extract (zip/7z/rar), save migration
 - **File hosts** — GoFile, MEGA, UploadHaven, BuzzHeavier, Datanodes, MixDrop, Google Drive, WorkUpload, MediaFire, Pixeldrain

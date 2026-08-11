@@ -1,0 +1,15 @@
+{
+  "status": "error",
+  "errors": {
+    "message": "Please enter a valid message."
+  },
+  "errorHtml": {
+    "content": "\n\n<div class=\"blockMessage\">\n\t\n\t\tPlease enter a valid message.\n\n\n\t\n</div>",
+    "title": "Oops! We ran into some problems."
+  },
+  "visitor": {
+    "conversations_unread": "0",
+    "alerts_unread": "0",
+    "total_unread": "0"
+  }
+}

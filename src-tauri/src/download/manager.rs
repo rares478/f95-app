@@ -1,5 +1,6 @@
 //! Background download manager.
 
+use super::disk_space::{check_disk_space, space_needed_for_download};
 use super::host::{
     clean_download_filename, host_label, host_of, is_f95_masked, masked_host, sanitize_segment,
 };
@@ -397,9 +398,7 @@ impl Manager {
                 );
                 Ok(())
             }
-            ResolveResult::ChooseFile { .. } => Err(AppError::Other(
-                "mixdrop: pasta com vários arquivos não suportada".into(),
-            )),
+            ResolveResult::ChooseFile { .. } => Err(AppError::keyed("error.mixdrop.multiFile")),
         }
     }
 
@@ -549,9 +548,7 @@ impl Manager {
                 );
                 Ok(())
             }
-            ResolveResult::ChooseFile { .. } => Err(AppError::Other(
-                "mixdrop: pasta com vários arquivos não suportada".into(),
-            )),
+            ResolveResult::ChooseFile { .. } => Err(AppError::keyed("error.mixdrop.multiFile")),
         }
     }
 
@@ -576,17 +573,13 @@ impl Manager {
             .lock()
             .await
             .remove(&id)
-            .ok_or_else(|| {
-                AppError::Other(
-                    "escolha de arquivo expirou — clique em Tentar de novo no download".into(),
-                )
-            })?;
+            .ok_or_else(|| AppError::keyed("error.download.choiceExpired"))?;
 
         let picked = pending
             .files
             .iter()
             .find(|f| f.id == choice_id)
-            .ok_or_else(|| AppError::Other("arquivo selecionado não encontrado".into()))?;
+            .ok_or_else(|| AppError::keyed("error.download.choiceMissing"))?;
 
         let me = self.clone();
         let app2 = app.clone();
@@ -825,6 +818,15 @@ impl Manager {
             return Ok(());
         }
 
+        if let Some(total) = file_size {
+            let existing = fs::metadata(&part_path)
+                .await
+                .map(|m| m.len())
+                .unwrap_or(0);
+            let needed = space_needed_for_download(file_name, total, existing);
+            check_disk_space(root, needed)?;
+        }
+
         self.stream_to_part(
             app,
             id,
@@ -879,7 +881,12 @@ impl Manager {
         let response = req
             .send()
             .await
-            .map_err(|e| AppError::Other(format!("http get: {e}")))?;
+            .map_err(|e| {
+                AppError::keyed_vars(
+                    "error.download.generic",
+                    json!({ "detail": format!("http get: {e}") }),
+                )
+            })?;
         let status = response.status();
 
         // 416 = the byte range we asked for is past the end. Usually means the
@@ -892,7 +899,10 @@ impl Manager {
 
         // Anything other than 200 or 206 is fatal.
         if !status.is_success() {
-            return Err(AppError::Other(format!("http status: {}", status)));
+            return Err(AppError::keyed_vars(
+                "error.download.generic",
+                json!({ "detail": format!("http status: {status}") }),
+            ));
         }
 
         // Decide whether we're resuming (206) or starting over (200, possibly
@@ -909,6 +919,15 @@ impl Manager {
                     .map(|c| if resuming { c + existing } else { c })
             })
             .or(hint_total);
+
+        if let Some(total) = total {
+            if let Some(name) = dest_path.file_name().and_then(|s| s.to_str()) {
+                let needed = space_needed_for_download(name, total, downloaded);
+                if let Some(parent) = dest_path.parent() {
+                    check_disk_space(parent, needed)?;
+                }
+            }
+        }
 
         // Hasher state. If resuming and we know an expected hash, we have to
         // rehash the bytes we already have on disk so the final digest covers
@@ -942,16 +961,18 @@ impl Manager {
         let mut stream = response.bytes_stream();
         let mut sniffed = resuming;
         while let Some(chunk) = stream.next().await {
-            let chunk = chunk.map_err(|e| AppError::Other(format!("stream chunk: {e}")))?;
+            let chunk = chunk.map_err(|e| {
+                AppError::keyed_vars(
+                    "error.download.generic",
+                    json!({ "detail": format!("stream chunk: {e}") }),
+                )
+            })?;
             if !sniffed {
                 sniffed = true;
                 if crate::gdrive::looks_like_html_bytes(&chunk) {
                     drop(file);
                     let _ = fs::remove_file(part_path).await;
-                    return Err(AppError::Other(
-                        "download: resposta HTML em vez do arquivo — abra o link no navegador"
-                            .into(),
-                    ));
+                    return Err(AppError::keyed("error.download.htmlInsteadOfFile"));
                 }
             }
             file.write_all(&chunk).await?;
@@ -997,10 +1018,10 @@ impl Manager {
             let exp_norm = expected.trim().to_lowercase();
             if exp_norm != actual {
                 let _ = fs::remove_file(part_path).await;
-                return Err(AppError::Other(format!(
-                    "SHA-256 mismatch - esperado {exp_norm}, obtido {actual}. \
-                     Arquivo descartado."
-                )));
+                return Err(AppError::keyed_vars(
+                    "error.download.shaMismatch",
+                    json!({ "expected": exp_norm, "actual": actual }),
+                ));
             }
         }
         // Atomic-ish rename (same directory, same FS).
@@ -1072,6 +1093,9 @@ impl Manager {
                 "destPath": sample_dest.to_string_lossy(),
             }),
         );
+
+        let needed = space_needed_for_download(&info.primary_name, info.total_size, 0);
+        check_disk_space(root, needed)?;
 
         let paths =
             crate::mega::download_all_files(&client, &nodes, &dest_dir, app, id, info.total_size)

@@ -2,6 +2,8 @@ import type { ContextMenuItem } from '../../components/contextMenu/types';
 import type { NavigateFunction } from 'react-router-dom';
 import { openUrl } from '@tauri-apps/plugin-opener';
 import * as library from '../library';
+import * as ipc from '../ipc';
+import { saveLinksFromDetail } from '../libraryDownloadLinks';
 import { copyTextWithFeedback } from '../clipboard';
 import type { SamCategory, SamGameCard } from '../../types/sam';
 
@@ -42,6 +44,12 @@ export function buildStoreMenu(game: StoreMenuGame, deps: StoreMenuDeps): Contex
           thumbnailUrl: game.thumbnailUrl,
           currentVersion: game.version,
         });
+        try {
+          const detail = await ipc.gameDetail(game.threadId);
+          await saveLinksFromDetail(game.threadId, detail);
+        } catch (err) {
+          console.warn('[library] failed to cache download links on add', err);
+        }
         onLibraryChange?.();
       },
       { hidden: inLibrary, disabled: isOffline, title: off },

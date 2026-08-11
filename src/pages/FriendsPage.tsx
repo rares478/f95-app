@@ -1,4 +1,4 @@
-import { useCallback, useEffect, useMemo, useState } from 'react';
+import { useCallback, useEffect, useState } from 'react';
 import { useNavigate } from 'react-router-dom';
 import * as ipc from '../lib/ipc';
 import { useT } from '../lib/i18n';
@@ -110,20 +110,19 @@ export function FriendsPage() {
           {visible.map((u) => (
             <button
               key={u.userId}
-              className="friend-card"
-              onClick={() => navigate(`/friends/${u.userId}`)}
+              onClick={() => navigate(`/members/${u.userId}`)}
               onContextMenu={(e) =>
                 openContextMenu(
                   e,
                   buildFriendsMenu(u, {
                     isOffline,
                     t,
-                    onViewProfile: () => navigate(`/friends/${u.userId}`),
+                    onViewProfile: (id) => navigate(`/members/${id}`),
                   }),
                 )
               }
               style={cardStyle}
-              title={t('friends.viewProfile')}
+              title={u.username}
             >
               <div style={avatarWrap}>
                 {u.avatarUrl ? (

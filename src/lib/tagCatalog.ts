@@ -1,5 +1,6 @@
 import bundledTagMap from '../data/f95-tag-map.json';
 import type { SamTag } from '../types/sam';
+import { decodeHtmlEntities } from './htmlEntities';
 
 export type TagCatalog = Map<number, string>;
 
@@ -11,7 +12,7 @@ export function buildTagCatalogFromRecord(
   for (const [key, name] of Object.entries(record)) {
     const id = Number(key);
     if (Number.isFinite(id) && name.trim()) {
-      map.set(id, name.trim());
+      map.set(id, decodeHtmlEntities(name.trim()));
     }
   }
   return map;
@@ -37,6 +38,31 @@ export function resolveTagName(catalog: TagCatalog, id: number): string {
 
 export function resolveTags(catalog: TagCatalog, ids: number[]): SamTag[] {
   return ids.map((id) => ({ id, name: resolveTagName(catalog, id) }));
+}
+
+function normalizeTagKey(value: string): string {
+  return value
+    .trim()
+    .toLowerCase()
+    .normalize('NFKD')
+    .replace(/[\u0300-\u036f]/g, '')
+    .replace(/[^a-z0-9]+/g, '');
+}
+
+/** Match a thread-page tag (name/slug) to a SAM catalog entry. */
+export function findSamTagByNameOrSlug(
+  catalog: TagCatalog,
+  tag: { slug: string; name: string },
+): SamTag | null {
+  const nameKey = normalizeTagKey(tag.name);
+  const slugKey = normalizeTagKey(tag.slug);
+  for (const [id, name] of catalog) {
+    const key = normalizeTagKey(name);
+    if (key === nameKey || key === slugKey) {
+      return { id, name };
+    }
+  }
+  return null;
 }
 
 export function catalogToRecord(catalog: TagCatalog): Record<string, string> {

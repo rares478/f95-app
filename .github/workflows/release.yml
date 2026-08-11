@@ -1,59 +1,85 @@
-name: Release
+name: release
 
 on:
+  workflow_dispatch:
+    inputs:
+      tag:
+        description: 'Release tag (e.g. v1.2.3). Required for manual runs so the release is never named after a branch.'
+        required: true
+        type: string
   push:
     tags:
-      - 'v*'
-  workflow_dispatch:
-
-permissions:
-  contents: write
+      - 'v*.*.*'
 
 jobs:
-  publish:
-    strategy:
-      fail-fast: false
-      matrix:
-        include:
-          - platform: windows-latest
-            args: ''
-
-    runs-on: ${{ matrix.platform }}
-
+  publish-tauri:
+    permissions:
+      contents: write
+    runs-on: windows-latest
     steps:
       - uses: actions/checkout@v4
+
+      - name: Resolve release tag
+        id: release_tag
+        shell: pwsh
+        run: |
+          if ($env:GITHUB_REF_TYPE -eq 'tag') {
+            $tag = $env:GITHUB_REF_NAME
+          } elseif (-not [string]::IsNullOrWhiteSpace('${{ inputs.tag }}')) {
+            $tag = '${{ inputs.tag }}'.Trim()
+          } else {
+            Write-Error "Refusing to create a release from a non-tag ref without a tag input."
+            exit 1
+          }
+          if ($tag -notmatch '^v\d+\.\d+\.\d+') {
+            Write-Error "Release tag must look like vX.Y.Z (got: $tag)"
+            exit 1
+          }
+          "tag=$tag" | Out-File -FilePath $env:GITHUB_OUTPUT -Append -Encoding utf8
 
       - name: Setup Node
         uses: actions/setup-node@v4
         with:
-          node-version: 20
+          node-version: lts/*
           cache: npm
 
-      - name: Setup Rust
+      - name: Install Rust stable
         uses: dtolnay/rust-toolchain@stable
 
       - name: Rust cache
         uses: swatinem/rust-cache@v2
         with:
-          workspaces: src-tauri -> target
+          workspaces: './src-tauri -> target'
+          # Shared with rust-cache-warm.yml (main) so tag releases can restore it.
+          shared-key: 'windows-tauri'
+
+      - name: Use published browser-rest-api for sidecar
+        shell: pwsh
+        run: |
+          $pkg = Get-Content src-tauri/sidecar/package.json -Raw | ConvertFrom-Json
+          $pkg.dependencies.'browser-rest-api' = '^1.0.0'
+          ($pkg | ConvertTo-Json -Depth 20) | Set-Content src-tauri/sidecar/package.json -Encoding utf8
 
       - name: Install frontend dependencies
-        run: |
-          npm ci
-          npm --prefix src-tauri/sidecar ci
+        run: npm ci
 
-      - name: Build and publish
-        uses: tauri-apps/tauri-action@v0
+      # npm install (not ci): package.json was rewritten above; lock still has file: browser-api
+      - name: Install sidecar dependencies
+        working-directory: src-tauri/sidecar
+        run: npm install
+
+      - name: Build and release
+        uses: tauri-apps/tauri-action@v1
         env:
           GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
           TAURI_SIGNING_PRIVATE_KEY: ${{ secrets.TAURI_SIGNING_PRIVATE_KEY }}
           TAURI_SIGNING_PRIVATE_KEY_PASSWORD: ${{ secrets.TAURI_SIGNING_PRIVATE_KEY_PASSWORD }}
         with:
-          tagName: ${{ github.ref_name }}
-          releaseName: 'F95 App ${{ github.ref_name }}'
-          releaseBody: 'See CHANGELOG.md for details.'
+          tagName: ${{ steps.release_tag.outputs.tag }}
+          releaseName: 'F95 App ${{ steps.release_tag.outputs.tag }}'
+          releaseBody: 'See the assets to download this version and install.'
           releaseDraft: true
           prerelease: false
-          includeUpdaterJson: true
+          uploadUpdaterJson: true
           updaterJsonPreferNsis: true
-          args: ${{ matrix.args }}
+          # Default bundle.targets ("all") → NSIS + MSI. Updater still prefers NSIS.

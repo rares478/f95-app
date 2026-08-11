@@ -37,7 +37,7 @@ export const LOCALES: LocaleMeta[] = [
 ];
 
 const DICTS: Record<Locale, Record<string, string>> = { en, pt, de, ru };
-const DEFAULT_LOCALE: Locale = 'pt';
+const DEFAULT_LOCALE: Locale = 'en';
 
 /**
  * Look up a key in `locale`, falling back to English, then to the key itself.
@@ -53,6 +53,11 @@ function translate(
   return raw.replace(/\{(\w+)\}/g, (_, name) =>
     name in vars ? String(vars[name]) : `{${name}}`,
   );
+}
+
+/** True when English (source-of-truth) defines the key. */
+export function hasLocaleKey(key: string): boolean {
+  return Object.prototype.hasOwnProperty.call(DICTS.en, key);
 }
 
 interface Ctx {

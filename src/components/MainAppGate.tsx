@@ -1,4 +1,4 @@
-import { useEffect, useState } from 'react';
+import { useCallback, useEffect, useState } from 'react';
 import * as ipc from '../lib/ipc';
 import { useT } from '../lib/i18n';
 import { dialog } from '../lib/dialog';
@@ -59,14 +59,17 @@ export function MainAppGate({ children }: Props) {
     };
   }, []);
 
-  function onLoggedOut() {
+  // Must stay referentially stable: RouterRoot rebuilds createBrowserRouter when
+  // onLoggedOut identity changes, which remounts every route (closing spoilers,
+  // losing scroll, etc.). OfflineProvider re-renders this gate every probe tick.
+  const onLoggedOut = useCallback(() => {
     ipc.restartToLogin().catch(async (err) => {
       console.error('[logout] restart_to_login failed', err);
       await dialog.alert(`${t('settings.account.logoutFailed', { error: String(err) })}`, {
         kind: 'error',
       });
     });
-  }
+  }, [t]);
 
   if (phase.kind === 'ready') {
     return (

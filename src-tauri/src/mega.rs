@@ -66,13 +66,11 @@ pub fn is_protected_link(url: &str) -> bool {
 pub fn normalize_mega_public_url(raw: &str) -> Result<String, AppError> {
     let trimmed = raw.trim();
     if trimmed.is_empty() {
-        return Err(AppError::Other("mega: URL vazia".into()));
+        return Err(AppError::keyed("error.mega.emptyUrl"));
     }
 
     if is_protected_link(trimmed) {
-        return Err(AppError::Other(
-            "mega: link protegido por senha — abra no navegador".into(),
-        ));
+        return Err(AppError::keyed("error.mega.password"));
     }
 
     let with_scheme = if trimmed.contains("://") {
@@ -87,9 +85,7 @@ pub fn normalize_mega_public_url(raw: &str) -> Result<String, AppError> {
     {
         format!("https://mega.nz/{trimmed}")
     } else {
-        return Err(AppError::Other(format!(
-            "mega: formato de URL não reconhecido — esperado https://mega.nz/file/... ou /folder/..."
-        )));
+        return Err(AppError::keyed("error.mega.unrecognizedUrl"));
     };
 
     if let Some(converted) = convert_legacy_hash_url(&with_scheme) {
@@ -100,9 +96,7 @@ pub fn normalize_mega_public_url(raw: &str) -> Result<String, AppError> {
         return Ok(converted);
     }
 
-    Err(AppError::Other(format!(
-        "mega: não foi possível normalizar a URL — verifique se o link inclui a chave (#...)"
-    )))
+    Err(AppError::keyed("error.mega.normalizeFailed"))
 }
 
 /// Fetch nodes from a public MEGA link and summarize what will be downloaded.
@@ -119,9 +113,7 @@ pub async fn inspect_public_link(
 
     let files = collect_file_nodes(&nodes);
     if files.is_empty() {
-        return Err(AppError::Other(
-            "mega: nenhum arquivo encontrado no link".into(),
-        ));
+        return Err(AppError::keyed("error.mega.noFiles"));
     }
 
     let total_size: u64 = files.iter().map(|n| n.size()).sum();
@@ -341,11 +333,11 @@ fn sanitize_segment(s: &str) -> String {
 
 fn map_mega_err(e: mega::Error) -> AppError {
     match e {
-        mega::Error::InvalidPublicUrlFormat => AppError::Other(
-            "mega: formato de URL inválido — o link precisa ser https://mega.nz/file/... ou /folder/..."
-                .into(),
+        mega::Error::InvalidPublicUrlFormat => AppError::keyed("error.mega.invalidUrl"),
+        other => AppError::keyed_vars(
+            "error.mega.generic",
+            json!({ "detail": other.to_string() }),
         ),
-        other => AppError::Other(format!("mega: {other}")),
     }
 }
 
@@ -354,12 +346,18 @@ fn map_mega_login_err(e: mega::Error) -> AppError {
         return match code {
             ErrorCode::EMFAREQUIRED => AppError::TwoFactorRequired,
             ErrorCode::EACCESS | ErrorCode::ENOENT => {
-                AppError::InvalidCredentials("E-mail ou senha inválidos.".into())
+                AppError::InvalidCredentials("error.mega.badPassword".into())
             }
-            _ => AppError::Other(format!("mega login: {e}")),
+            _ => AppError::keyed_vars(
+                "error.mega.generic",
+                serde_json::json!({ "detail": format!("login: {e}") }),
+            ),
         };
     }
-    AppError::Other(format!("mega login: {e}"))
+    AppError::keyed_vars(
+        "error.mega.generic",
+        serde_json::json!({ "detail": format!("login: {e}") }),
+    )
 }
 
 fn is_mega_host(host: &str) -> bool {

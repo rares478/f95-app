@@ -1,6 +1,5 @@
 import { useCallback, useEffect, useMemo, useState } from 'react';
 import { useNavigate } from 'react-router-dom';
-import { openUrl } from '@tauri-apps/plugin-opener';
 import * as ipc from '../lib/ipc';
 import { alertInitial, cleanAlertText } from '../lib/alertText';
 import { useNotifications } from '../contexts/Notifications';
@@ -11,8 +10,9 @@ import {
   sortDateGroups,
   type DateGroup,
 } from '../lib/formatDate';
-import { extractThreadIdFromUrl } from '../lib/rssUpdates';
+import { openF95NotificationTarget } from '../lib/openF95NotificationTarget';
 import { useT } from '../lib/i18n';
+import { formatIpcError } from '../lib/ipcError';
 import { Spinner } from '../components/ui/Spinner';
 import type { AppNotification, F95Alert } from '../types/alerts';
 
@@ -63,11 +63,7 @@ export function AlertsPage() {
     try {
       await Promise.all([loadF95(1, false), refresh()]);
     } catch (err) {
-      setError(
-        err && typeof err === 'object' && 'message' in err
-          ? String((err as { message: string }).message)
-          : String(err),
-      );
+      setError(formatIpcError(err));
     } finally {
       setLoading(false);
     }
@@ -264,9 +260,7 @@ export function AlertsPage() {
                           className={`alerts-row${a.isUnread ? ' alerts-row--unread' : ''}`}
                           onClick={() => {
                             void markRead(a.alertId, 'f95');
-                            const threadId = extractThreadIdFromUrl(a.url);
-                            if (threadId) navigate(`/store/game/${threadId}?cat=games`);
-                            else if (a.url) void openUrl(a.url);
+                            void openF95NotificationTarget(a.url, navigate);
                           }}
                         >
                           <AlertMedia

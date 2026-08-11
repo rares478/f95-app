@@ -3,9 +3,12 @@ import { openUrl } from '@tauri-apps/plugin-opener';
 import type { NavigateFunction } from 'react-router-dom';
 import * as ipc from './ipc';
 import * as library from './library';
+import * as downloads from './downloads';
 import * as updates from './updates';
+import { inFlightLibraryStatus } from './downloadLibrarySync';
 import * as uninstall from './uninstall';
 import { dialog } from './dialog';
+import { formatIpcError } from './ipcError';
 import type { LibraryGame } from '../types/library';
 
 export type TranslateFn = (
@@ -15,18 +18,15 @@ export type TranslateFn = (
 
 export interface LibraryGameActionsDeps {
   navigate: NavigateFunction;
-  launch: (game: LibraryGame) => Promise<void>;
+  launch: (
+    game: LibraryGame,
+    opts?: { exePath?: string; exeId?: string },
+  ) => Promise<void>;
   running: Set<string>;
   isOffline: boolean;
   t: TranslateFn;
   onReload?: () => void | Promise<void>;
-}
-
-function formatErr(err: unknown): string {
-  if (err && typeof err === 'object' && 'message' in err) {
-    return String((err as { message: string }).message);
-  }
-  return String(err);
+  onInstallOrUpdate?: (game: LibraryGame) => void | Promise<void>;
 }
 
 export async function playOrStop(
@@ -38,14 +38,25 @@ export async function playOrStop(
     try {
       await ipc.stopGame(game.threadId);
     } catch (err) {
-      await dialog.alert(formatErr(err), { kind: 'error' });
+      await dialog.alert(formatIpcError(err), { kind: 'error' });
     }
     return;
   }
   if (game.installStatus === 'update_available') {
-    navigate(`/store/game/${game.threadId}?cat=${game.category}`);
+    if (deps.onInstallOrUpdate) {
+      await deps.onInstallOrUpdate(game);
+    } else {
+      navigate(`/store/game/${game.threadId}?cat=${game.category}`);
+    }
     return;
   }
+  const dlRows = await downloads.listByThread(game.threadId);
+  const inFlight = inFlightLibraryStatus(dlRows, game.threadId);
+  if (inFlight === 'needs_attention') {
+    navigate('/downloads');
+    return;
+  }
+  if (inFlight) return;
   if (game.installStatus === 'installed' && game.installPath && game.category !== 'games') {
     navigate(`/library/game/${game.threadId}/view`);
     return;
@@ -54,7 +65,7 @@ export async function playOrStop(
     try {
       await launch(game);
     } catch (err) {
-      await dialog.alert(formatErr(err), { kind: 'error' });
+      await dialog.alert(formatIpcError(err), { kind: 'error' });
     }
     return;
   }
@@ -62,7 +73,19 @@ export async function playOrStop(
     try {
       await launch(game);
     } catch (err) {
-      await dialog.alert(formatErr(err), { kind: 'error' });
+      await dialog.alert(formatIpcError(err), { kind: 'error' });
+    }
+    return;
+  }
+  if (
+    (game.installStatus === 'not_installed' ||
+      (game.installStatus === 'error' && !game.installPath && !game.exePath)) &&
+    game.category === 'games'
+  ) {
+    if (deps.onInstallOrUpdate) {
+      await deps.onInstallOrUpdate(game);
+    } else {
+      await pickExeFor(game, deps);
     }
     return;
   }
@@ -88,7 +111,21 @@ export async function pickExeFor(
     ],
   });
   if (typeof selected !== 'string') return;
-  await library.setExe(game.threadId, selected);
+  const filename = selected.replace(/^.*[/\\]/, '');
+  const label = await dialog.prompt(deps.t('libdetail.exe.labelPrompt'), {
+    title: deps.t('libdetail.exe.labelTitle'),
+    defaultValue: filename,
+  });
+  if (label === null) return;
+  try {
+    await library.addExe(game.threadId, selected, label);
+  } catch (err) {
+    if (err instanceof Error && err.message === 'DUPLICATE_EXE_PATH') {
+      await dialog.alert(deps.t('libdetail.exe.duplicate'), { kind: 'warning' });
+      return;
+    }
+    throw err;
+  }
   await deps.onReload?.();
 }
 
@@ -97,7 +134,7 @@ export async function openInstallFolder(game: LibraryGame): Promise<void> {
   try {
     await ipc.revealInExplorer(game.installPath);
   } catch (err) {
-    await dialog.alert(formatErr(err), { kind: 'error' });
+    await dialog.alert(formatIpcError(err), { kind: 'error' });
   }
 }
 
@@ -192,7 +229,7 @@ export async function uninstallGameFromMenu(
       await dialog.alert(t('libdetail.uninstall.outsideLibrary'));
     }
   } catch (err) {
-    await dialog.alert(t('libdetail.uninstall.failed', { error: formatErr(err) }));
+    await dialog.alert(t('libdetail.uninstall.failed', { error: formatIpcError(err) }));
   }
 }
 

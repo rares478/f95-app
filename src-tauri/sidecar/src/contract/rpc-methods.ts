@@ -25,7 +25,15 @@ export const RPC_METHODS = {
   },
   getMemberProfile: {
     params: { userId: 'string' },
-    result: 'MemberProfileDto',
+    result: 'ProfileDto',
+  },
+  getMemberProfilePosts: {
+    params: { userId: 'string', page: 'number?' },
+    result: 'PaginatedProfilePosts',
+  },
+  getMemberActivity: {
+    params: { userId: 'string', page: 'number?' },
+    result: 'PaginatedActivity',
   },
   isLoggedIn: {
     params: {},
@@ -47,6 +55,27 @@ export const RPC_METHODS = {
     params: { threadId: 'string' },
     result: 'unknown',
   },
+  threadPosts: {
+    params: { threadId: 'string', page: 'number?' },
+    result: 'unknown',
+  },
+  threadReply: {
+    params: { threadId: 'string', message: 'string' },
+    result: { threadId: 'string', postId: 'string|null', page: 'number|null' },
+  },
+  bbcodePreview: {
+    params: { threadId: 'string', bbCode: 'string' },
+    result: { html: 'string' },
+  },
+  resolvePost: {
+    params: { postId: 'string?', url: 'string?' },
+    result: {
+      threadId: 'string',
+      postId: 'string?',
+      page: 'number?',
+      forum: 'string?',
+    },
+  },
   getFollowing: {
     params: {},
     result: 'unknown',
@@ -62,6 +91,16 @@ export const RPC_METHODS = {
   fetchAlertsList: {
     params: { page: 'number?' },
     result: 'F95AlertsListResult',
+  },
+  forumSearch: {
+    params: {
+      query: 'string',
+      titleOnly: 'boolean?',
+      searchIn: 'string?',
+      sort: 'string?',
+      page: 'number?',
+    },
+    result: 'ForumSearchPage',
   },
   unmaskUrl: {
     params: { url: 'string' },

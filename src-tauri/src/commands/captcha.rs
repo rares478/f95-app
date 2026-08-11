@@ -1,6 +1,7 @@
 use super::state::{ensure_sidecar, AppState};
 use crate::error::AppError;
 use reqwest::Url;
+use serde_json::json;
 use std::collections::HashMap;
 use std::path::PathBuf;
 use tauri::{AppHandle, Manager, State, WebviewUrl, WebviewWindowBuilder};
@@ -108,16 +109,21 @@ const CAPTCHA_INIT_SCRIPT: &str = r#"
 "#;
 
 fn normalize_mixdrop_page_url(raw: &str) -> Result<String, AppError> {
-    let u = Url::parse(raw.trim()).map_err(|e| AppError::Other(format!("URL inválida: {e}")))?;
+    let u = Url::parse(raw.trim()).map_err(|e| {
+        AppError::keyed_vars("error.captcha.invalidUrl", json!({ "detail": e.to_string() }))
+    })?;
     if u.scheme() != "http" && u.scheme() != "https" {
-        return Err(AppError::Other("URL inválida".into()));
+        return Err(AppError::keyed_vars(
+            "error.captcha.invalidUrl",
+            json!({ "detail": "unsupported scheme" }),
+        ));
     }
     let segs: Vec<&str> = u.path().split('/').filter(|s| !s.is_empty()).collect();
     let idx = segs.iter().position(|s| *s == "f" || *s == "e");
     let fileref = idx
         .and_then(|i| segs.get(i + 1))
         .filter(|s| !s.is_empty())
-        .ok_or_else(|| AppError::Other("URL MixDrop inválida".into()))?;
+        .ok_or_else(|| AppError::keyed("error.captcha.invalidMixdropUrl"))?;
     Ok(format!("https://mixdrop.is/f/{fileref}"))
 }
 
@@ -155,11 +161,7 @@ fn collect_mixdrop_cookie_header(
     }
 
     if pairs.is_empty() {
-        return Err(AppError::Other(
-            "Sessão não encontrada. Na janela de verificação, clique em DOWNLOAD, \
-             resolva o reCAPTCHA do Google se aparecer, e clique em Continuar download."
-                .into(),
-        ));
+        return Err(AppError::keyed("error.captcha.sessionMissing"));
     }
 
     Ok(pairs
@@ -178,13 +180,16 @@ pub async fn open_captcha_window(
     host: String,
 ) -> Result<(), AppError> {
     if !supports_in_app_captcha(&host) {
-        return Err(AppError::Other(format!(
-            "Verificação embutida não disponível para {host}"
-        )));
+        return Err(AppError::keyed_vars(
+            "error.captcha.unsupportedHost",
+            json!({ "host": host }),
+        ));
     }
 
     let page_url = normalize_mixdrop_page_url(&url)?;
-    let external = Url::parse(&page_url).map_err(|e| AppError::Other(format!("URL: {e}")))?;
+    let external = Url::parse(&page_url).map_err(|e| {
+        AppError::keyed_vars("error.captcha.invalidUrl", json!({ "detail": e.to_string() }))
+    })?;
     let label = captcha_window_label(download_id);
 
     if let Some(existing) = app.get_webview_window(&label) {
@@ -195,7 +200,7 @@ pub async fn open_captcha_window(
     }
 
     let window = WebviewWindowBuilder::new(&app, &label, WebviewUrl::External(external))
-        .title("MixDrop — verificação")
+        .title("MixDrop — verification")
         .inner_size(520.0, 680.0)
         .min_inner_size(420.0, 480.0)
         .center()
@@ -203,7 +208,12 @@ pub async fn open_captcha_window(
         .resizable(true)
         .initialization_script(CAPTCHA_INIT_SCRIPT)
         .build()
-        .map_err(|e| AppError::Other(format!("criar janela de verificação: {e}")))?;
+        .map_err(|e| {
+            AppError::keyed_vars(
+                "error.captcha.createFailed",
+                json!({ "detail": e.to_string() }),
+            )
+        })?;
 
     let _ = window.show();
     let _ = window.set_focus();
@@ -231,11 +241,9 @@ pub async fn download_continue_captcha(
     library_path: Option<String>,
 ) -> Result<(), AppError> {
     let label = captcha_window_label(id);
-    let window = app.get_webview_window(&label).ok_or_else(|| {
-        AppError::Other(
-            "Janela de verificação não está aberta — clique em Abrir verificação primeiro.".into(),
-        )
-    })?;
+    let window = app
+        .get_webview_window(&label)
+        .ok_or_else(|| AppError::keyed("error.captcha.windowClosed"))?;
 
     let normalized = normalize_mixdrop_page_url(&page_url)?;
     let cookie_header = collect_mixdrop_cookie_header(&window, &normalized)?;

@@ -42,26 +42,26 @@ export interface ThemeMeta {
 export const THEMES: ThemeMeta[] = [
   {
     id: 'default',
-    label: 'Padrão',
-    description: 'Escuro com accent vermelho — o visual original.',
+    label: 'Default',
+    description: 'Dark with red accent — the original look.',
     preview: { bg: '#141414', surface: '#1a1a1a', accent: '#e0444c', text: '#dcdcdc' },
   },
   {
     id: 'dark',
-    label: 'Escuro (OLED)',
-    description: 'Preto profundo + accent azul. Bom em monitor OLED.',
+    label: 'Dark (OLED)',
+    description: 'Deep black + blue accent. Good on OLED.',
     preview: { bg: '#050505', surface: '#0e0e0e', accent: '#2196f3', text: '#e0e0e0' },
   },
   {
     id: 'light',
-    label: 'Claro',
-    description: 'Fundo branco, texto escuro. Pro daytime.',
+    label: 'Light',
+    description: 'White background, dark text. For daytime.',
     preview: { bg: '#f5f5f5', surface: '#ffffff', accent: '#c2453a', text: '#1a1a1a' },
   },
   {
     id: 'red',
-    label: 'Vermelho F95',
-    description: 'Banhado em vermelho com texto creme.',
+    label: 'F95 Red',
+    description: 'Washed in red with cream text.',
     preview: { bg: '#1f0a0a', surface: '#2a1010', accent: '#ff6b6b', text: '#fff5ed' },
   },
   {

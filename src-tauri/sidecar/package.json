@@ -1,6 +1,6 @@
 {
   "name": "f95-bridge",
-  "version": "1.0.1",
+  "version": "1.7.2",
   "license": "GPL-3.0-or-later",
   "private": true,
   "type": "commonjs",
@@ -19,6 +19,7 @@
   "dependencies": {
     "browser-rest-api": "file:../../../browser-api",
     "cheerio": "^1.0.0",
+    "f95-app": "file:../..",
     "fast-xml-parser": "^5.8.0",
     "playwright": "^1.60.0"
   },
@@ -30,3 +31,4 @@
     "vitest": "^3.0.0"
   }
 }
+

@@ -2,11 +2,16 @@
 
 use crate::error::AppError;
 use serde::Serialize;
+use serde_json::json;
 use std::path::Path;
 use walkdir::WalkDir;
 
 const MAX_DEPTH: usize = 6;
 const MAX_FILES: usize = 500;
+
+fn io_err(e: impl ToString) -> AppError {
+    AppError::keyed_vars("error.media.io", json!({ "detail": e.to_string() }))
+}
 
 #[derive(Debug, Clone, Serialize)]
 pub struct MediaFile {
@@ -43,10 +48,10 @@ fn classify(ext: &str) -> Option<&'static str> {
 
 pub fn scan_install(install_path: &Path, category: &str) -> Result<InstallMediaIndex, AppError> {
     if !install_path.is_dir() {
-        return Err(AppError::Other(format!(
-            "pasta não encontrada: {}",
-            install_path.display()
-        )));
+        return Err(AppError::keyed_vars(
+            "error.media.folderNotFound",
+            json!({ "path": install_path.display().to_string() }),
+        ));
     }
 
     let mut images = Vec::new();
@@ -75,9 +80,7 @@ pub fn scan_install(install_path: &Path, category: &str) -> Result<InstallMediaI
             continue;
         };
         // Skip nested archives inside zips folder noise — still allow top-level cbz
-        let meta = entry
-            .metadata()
-            .map_err(|e| AppError::Other(e.to_string()))?;
+        let meta = entry.metadata().map_err(io_err)?;
         let size = meta.len();
         let file = MediaFile {
             path: path.to_string_lossy().into_owned(),
@@ -205,22 +208,27 @@ pub fn extract_cbz_images(
     use std::io;
 
     if !archive_path.is_file() {
-        return Err(AppError::Other(format!(
-            "arquivo não encontrado: {}",
-            archive_path.display()
-        )));
+        return Err(AppError::keyed_vars(
+            "error.fs.fileNotFound",
+            json!({ "path": archive_path.display().to_string() }),
+        ));
     }
-    fs::create_dir_all(dest).map_err(|e| AppError::Other(e.to_string()))?;
+    fs::create_dir_all(dest).map_err(io_err)?;
 
-    let f = fs::File::open(archive_path).map_err(|e| AppError::Other(e.to_string()))?;
-    let mut z = zip::ZipArchive::new(f).map_err(|e| AppError::Other(format!("cbz open: {e}")))?;
+    let f = fs::File::open(archive_path).map_err(io_err)?;
+    let mut z = zip::ZipArchive::new(f).map_err(|e| {
+        AppError::keyed_vars("error.media.cbzOpen", json!({ "detail": e.to_string() }))
+    })?;
 
     let mut image_paths: Vec<(String, String)> = Vec::new();
 
     for i in 0..z.len() {
-        let mut entry = z
-            .by_index(i)
-            .map_err(|e| AppError::Other(format!("cbz entry {i}: {e}")))?;
+        let mut entry = z.by_index(i).map_err(|e| {
+            AppError::keyed_vars(
+                "error.media.cbzEntry",
+                json!({ "index": i, "detail": e.to_string() }),
+            )
+        })?;
         let Some(rel) = entry.enclosed_name() else {
             continue;
         };
@@ -233,16 +241,16 @@ pub fn extract_cbz_images(
         }
         let out = dest.join(&rel);
         if let Some(parent) = out.parent() {
-            fs::create_dir_all(parent).map_err(|e| AppError::Other(e.to_string()))?;
+            fs::create_dir_all(parent).map_err(io_err)?;
         }
         if entry.is_dir() {
-            fs::create_dir_all(&out).map_err(|e| AppError::Other(e.to_string()))?;
+            fs::create_dir_all(&out).map_err(io_err)?;
         } else {
             if let Some(parent) = out.parent() {
-                fs::create_dir_all(parent).map_err(|e| AppError::Other(e.to_string()))?;
+                fs::create_dir_all(parent).map_err(io_err)?;
             }
-            let mut writer = fs::File::create(&out).map_err(|e| AppError::Other(e.to_string()))?;
-            io::copy(&mut entry, &mut writer).map_err(|e| AppError::Other(e.to_string()))?;
+            let mut writer = fs::File::create(&out).map_err(io_err)?;
+            io::copy(&mut entry, &mut writer).map_err(io_err)?;
             let sort_key = rel.to_string_lossy().replace('\\', "/");
             image_paths.push((sort_key, out.to_string_lossy().into_owned()));
         }

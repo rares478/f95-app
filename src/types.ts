@@ -6,6 +6,41 @@ export interface ActivityItem {
   url: string | null;
 }
 
+export interface PaginatedProfilePosts {
+  items: ProfilePostItem[];
+  page: number;
+  totalPages: number | null;
+  hasMore: boolean;
+}
+
+export interface PaginatedActivity {
+  items: ActivityItem[];
+  page: number;
+  totalPages: number | null;
+  hasMore: boolean;
+}
+
+export interface ProfilePostItem {
+  authorName: string;
+  authorAvatarUrl: string | null;
+  messageHtml: string | null;
+  messageText: string;
+  date: string | null;
+  url: string | null;
+}
+
+export interface ProfileBadge {
+  label: string;
+  variant:
+    | 'moderator'
+    | 'staff'
+    | 'donor'
+    | 'compressor'
+    | 'uploader'
+    | 'developer'
+    | 'default';
+}
+
 export interface ProfileDto {
   username: string;
   avatarUrl: string | null;
@@ -22,6 +57,10 @@ export interface ProfileDto {
   trophyPoints: number | null;
   points: number | null;
   ratingsReceived: number | null;
+  donations?: string | null;
+  userBanners?: ProfileBadge[];
+  tags?: string[];
+  profilePosts?: ProfilePostItem[];
   extraStats: Record<string, string>;
   activity: ActivityItem[];
 }

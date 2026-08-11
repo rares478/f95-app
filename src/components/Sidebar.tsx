@@ -1,7 +1,9 @@
+import { useState } from 'react';
 import { NavLink } from 'react-router-dom';
 import { NotificationBell } from './NotificationBell';
 import { useOffline } from '../contexts/Offline';
 import { useT } from '../lib/i18n';
+import { loadSidebarCollapsed, saveSidebarCollapsed } from '../lib/sidebarLayout';
 import type { ProfileDto } from '../types';
 
 interface Props {
@@ -10,7 +12,7 @@ interface Props {
 
 interface NavItem {
   to: string;
-  key: string; // i18n key for the label
+  key: string;
   icon: React.ReactNode;
 }
 
@@ -19,14 +21,12 @@ interface NavSection {
   items: NavItem[];
 }
 
-// Steam-like grouping: Discover (browsing the catalog), My games (your
-// own collection + activity), Account (you + app settings). Keeps the
-// most-used pages near the top of each group.
 const NAV_SECTIONS: NavSection[] = [
   {
     titleKey: 'nav.section.discover',
     items: [
       { to: '/store', key: 'nav.store', icon: <IconStore /> },
+      { to: '/search', key: 'nav.search', icon: <IconSearch /> },
       { to: '/news', key: 'nav.news', icon: <IconNews /> },
       { to: '/friends', key: 'nav.friends', icon: <IconFriends /> },
     ],
@@ -51,59 +51,111 @@ const NAV_SECTIONS: NavSection[] = [
 export function Sidebar({ profile }: Props) {
   const { t } = useT();
   const { isOffline } = useOffline();
+  const [collapsed, setCollapsed] = useState(loadSidebarCollapsed);
+
+  function toggleCollapsed() {
+    setCollapsed((prev) => {
+      const next = !prev;
+      saveSidebarCollapsed(next);
+      return next;
+    });
+  }
+
+  const statusColor = isOffline ? 'var(--status-warning)' : 'var(--status-success)';
+
   return (
-    <aside style={sidebarStyle} className="app-sidebar">
-      <div style={userBoxStyle}>
+    <aside className={`app-sidebar${collapsed ? ' app-sidebar--collapsed' : ''}`}>
+      <div className="app-sidebar-user">
         {profile.avatarUrl ? (
-          <img src={profile.avatarUrl} alt={profile.username} style={avatarStyle} />
+          <img
+            src={profile.avatarUrl}
+            alt={profile.username}
+            className="app-sidebar-avatar"
+            title={profile.username}
+          />
         ) : (
-          <div style={avatarFallbackStyle}>{profile.username.charAt(0).toUpperCase()}</div>
+          <div className="app-sidebar-avatar-fallback" title={profile.username}>
+            {profile.username.charAt(0).toUpperCase()}
+          </div>
         )}
-        <div style={{ minWidth: 0, flex: 1 }}>
-          <div style={usernameStyle}>{profile.username}</div>
-          <div
-            style={{
-              ...statusStyle,
-              color: isOffline ? 'var(--status-warning)' : 'var(--status-success)',
-            }}
-          >
+        <div className="app-sidebar-user-text">
+          <div className="app-sidebar-username">{profile.username}</div>
+          <div className="app-sidebar-status" style={{ color: statusColor }}>
             <span
+              className="app-sidebar-status-dot"
               style={{
-                ...statusDotStyle,
-                background: isOffline ? 'var(--status-warning)' : 'var(--status-success)',
-                boxShadow: isOffline
-                  ? '0 0 6px var(--status-warning)'
-                  : '0 0 6px var(--status-success)',
+                background: statusColor,
+                boxShadow: isOffline ? '0 0 6px var(--status-warning)' : '0 0 6px var(--status-success)',
               }}
-            />{' '}
+            />
             {isOffline ? t('nav.offline') : t('nav.online')}
           </div>
         </div>
         <NotificationBell />
       </div>
 
-      <nav style={navStyle}>
-        {NAV_SECTIONS.map((section, sectionIdx) => (
-          <div key={section.titleKey} style={sectionStyle(sectionIdx === 0)}>
-            <div style={sectionTitleStyle}>{t(section.titleKey)}</div>
+      <nav className="app-sidebar-nav">
+        {NAV_SECTIONS.map((section) => (
+          <div key={section.titleKey} className="app-sidebar-section">
+            <div className="app-sidebar-section-title">{t(section.titleKey)}</div>
             {section.items.map((item) => (
               <NavLink
                 key={item.to}
                 to={item.to}
-                style={({ isActive }) => ({
-                  ...navLinkStyle,
-                  ...(isActive ? navLinkActiveStyle : {}),
-                })}
-                className="sidebar-link"
+                className={({ isActive }) =>
+                  `app-sidebar-link sidebar-link${isActive ? ' sidebar-link-active' : ''}`
+                }
+                title={collapsed ? t(item.key) : undefined}
               >
-                <span style={navIconStyle}>{item.icon}</span>
-                <span>{t(item.key)}</span>
+                <span className="app-sidebar-link-icon">{item.icon}</span>
+                <span className="app-sidebar-link-label">{t(item.key)}</span>
               </NavLink>
             ))}
           </div>
         ))}
       </nav>
+
+      <div className="app-sidebar-footer">
+        <button
+          type="button"
+          className="app-sidebar-toggle"
+          onClick={toggleCollapsed}
+          aria-label={collapsed ? t('nav.sidebar.expand') : t('nav.sidebar.collapse')}
+          title={collapsed ? t('nav.sidebar.expand') : t('nav.sidebar.collapse')}
+        >
+          <IconSidebarToggle collapsed={collapsed} />
+          <span className="app-sidebar-toggle-label">
+            {collapsed ? t('nav.sidebar.expand') : t('nav.sidebar.collapse')}
+          </span>
+        </button>
+      </div>
     </aside>
+  );
+}
+
+function IconSidebarToggle({ collapsed }: { collapsed: boolean }) {
+  return (
+    <svg
+      width="16"
+      height="16"
+      viewBox="0 0 24 24"
+      fill="none"
+      stroke="currentColor"
+      strokeWidth="2"
+      aria-hidden
+    >
+      {collapsed ? (
+        <>
+          <path d="M9 6l6 6-6 6" />
+          <path d="M4 6v12" />
+        </>
+      ) : (
+        <>
+          <path d="M15 6l-6 6 6 6" />
+          <path d="M20 6v12" />
+        </>
+      )}
+    </svg>
   );
 }
 
@@ -113,6 +165,15 @@ function IconStore() {
       <path d="M3 9l1.5-5h15L21 9" />
       <path d="M3 9v10a1 1 0 001 1h16a1 1 0 001-1V9" />
       <path d="M9 22V12h6v10" />
+    </svg>
+  );
+}
+
+function IconSearch() {
+  return (
+    <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2">
+      <circle cx="11" cy="11" r="7" />
+      <path d="M20 20l-3.5-3.5" />
     </svg>
   );
 }
@@ -183,126 +244,3 @@ function IconSettings() {
     </svg>
   );
 }
-
-const sidebarStyle: React.CSSProperties = {
-  width: 220,
-  flexShrink: 0,
-  background: 'var(--bg-sidebar)',
-  borderRight: '1px solid var(--border-faint)',
-  display: 'flex',
-  flexDirection: 'column',
-  // Was `height: 100vh` when the title bar was the OS chrome; now the
-  // sidebar sits inside a flex body that already constrains its height.
-  height: '100%',
-};
-
-const userBoxStyle: React.CSSProperties = {
-  padding: '14px 16px',
-  borderBottom: '1px solid var(--border-faint)',
-  display: 'flex',
-  alignItems: 'center',
-  gap: 10,
-};
-
-const avatarStyle: React.CSSProperties = {
-  width: 38,
-  height: 38,
-  borderRadius: '50%',
-  objectFit: 'cover',
-  background: 'var(--border)',
-  border: '2px solid var(--border)',
-};
-
-const avatarFallbackStyle: React.CSSProperties = {
-  width: 38,
-  height: 38,
-  borderRadius: '50%',
-  background: 'var(--bg-elevated)',
-  border: '2px solid var(--border)',
-  display: 'flex',
-  alignItems: 'center',
-  justifyContent: 'center',
-  fontSize: 16,
-  color: 'var(--text-muted)',
-  fontWeight: 700,
-};
-
-const usernameStyle: React.CSSProperties = {
-  fontSize: 13,
-  fontWeight: 600,
-  color: 'var(--text-primary)',
-  whiteSpace: 'nowrap',
-  overflow: 'hidden',
-  textOverflow: 'ellipsis',
-};
-
-const statusStyle: React.CSSProperties = {
-  fontSize: 11,
-  color: 'var(--status-success)',
-  display: 'flex',
-  alignItems: 'center',
-  gap: 5,
-  marginTop: 2,
-};
-
-const statusDotStyle: React.CSSProperties = {
-  width: 6,
-  height: 6,
-  borderRadius: '50%',
-  background: 'var(--status-success)',
-  display: 'inline-block',
-  boxShadow: '0 0 6px var(--status-success)',
-};
-
-const navStyle: React.CSSProperties = {
-  display: 'flex',
-  flexDirection: 'column',
-  padding: '4px 0 16px',
-  flex: 1,
-  overflowY: 'auto',
-};
-
-const sectionStyle = (first: boolean): React.CSSProperties => ({
-  padding: '0',
-  marginTop: first ? 12 : 18,
-  display: 'flex',
-  flexDirection: 'column',
-});
-
-const sectionTitleStyle: React.CSSProperties = {
-  fontSize: 10,
-  fontWeight: 800,
-  color: 'var(--text-faint)',
-  textTransform: 'uppercase',
-  letterSpacing: 1.4,
-  padding: '0 18px',
-  marginBottom: 6,
-};
-
-const navLinkStyle: React.CSSProperties = {
-  display: 'flex',
-  alignItems: 'center',
-  gap: 12,
-  padding: '9px 18px',
-  fontSize: 13,
-  fontWeight: 500,
-  color: 'var(--text-tertiary)',
-  textDecoration: 'none',
-  borderLeft: '3px solid transparent',
-  transition: 'background 0.1s ease, color 0.1s ease, border-color 0.1s ease',
-};
-
-const navLinkActiveStyle: React.CSSProperties = {
-  color: 'var(--text-primary)',
-  background: 'var(--bg-elevated)',
-  borderLeft: '3px solid var(--accent)',
-  fontWeight: 700,
-};
-
-const navIconStyle: React.CSSProperties = {
-  display: 'inline-flex',
-  alignItems: 'center',
-  justifyContent: 'center',
-  width: 18,
-  height: 18,
-};

@@ -1,6 +1,5 @@
 import { useCallback, useEffect, useState } from 'react';
-import { Link, useLocation } from 'react-router-dom';
-import { openUrl } from '@tauri-apps/plugin-opener';
+import { Link, useLocation, useNavigate } from 'react-router-dom';
 import * as ipc from '../lib/ipc';
 import * as library from '../lib/library';
 import * as updates from '../lib/updates';
@@ -8,7 +7,9 @@ import { dialog } from '../lib/dialog';
 import { useContextMenu } from '../components/contextMenu';
 import { useOffline } from '../contexts/Offline';
 import { buildNewsActivityMenu } from '../lib/contextMenus/buildNewsMenu';
+import { openF95NotificationTarget } from '../lib/openF95NotificationTarget';
 import { useT } from '../lib/i18n';
+import { formatIpcError } from '../lib/ipcError';
 import { RssFeedSection } from '../components/news/RssFeedSection';
 import { NewsPageSkeleton } from '../components/ui/NewsPageSkeleton';
 import { Spinner } from '../components/ui/Spinner';
@@ -26,6 +27,7 @@ interface State {
 
 export function NewsPage() {
   const { t } = useT();
+  const navigate = useNavigate();
   const location = useLocation();
   const { isOffline } = useOffline();
   const { openContextMenu } = useContextMenu();
@@ -77,9 +79,7 @@ export function NewsPage() {
       setState((s) => ({
         ...s,
         loading: false,
-        error: err && typeof err === 'object' && 'message' in err
-          ? String((err as { message: string }).message)
-          : String(err),
+        error: formatIpcError(err),
       }));
     } finally {
       setRefreshing(false);
@@ -100,7 +100,7 @@ export function NewsPage() {
     try {
       games = await library.list({});
     } catch (err) {
-      await dialog.alert(formatError(err), { kind: 'error' });
+      await dialog.alert(formatIpcError(err), { kind: 'error' });
       return;
     }
     if (games.length === 0) return;
@@ -123,13 +123,6 @@ export function NewsPage() {
         await dialog.alert(t('library.updates.none'), { kind: 'info' });
       }
     }
-  }
-
-  function formatError(err: unknown): string {
-    if (err && typeof err === 'object' && 'message' in err) {
-      return String((err as { message: string }).message);
-    }
-    return String(err);
   }
 
   return (
@@ -254,7 +247,7 @@ export function NewsPage() {
                             href={a.url}
                             onClick={(e) => {
                               e.preventDefault();
-                              if (a.url) openUrl(a.url);
+                              void openF95NotificationTarget(a.url, navigate);
                             }}
                             style={linkStyle}
                           >

@@ -1,9 +1,16 @@
-import { useEffect, useState, type FormEvent } from 'react';
+import { useEffect, useRef, useState, type FormEvent } from 'react';
 import { getCurrentWindow } from '@tauri-apps/api/window';
+import type { Update } from '@tauri-apps/plugin-updater';
 import * as ipc from '../lib/ipc';
 import { probeOfflineQuick } from '../contexts/Offline';
 import { saveCredentials, clearCredentials, loadCredentials } from '../lib/stronghold';
+import {
+  checkForAppUpdate,
+  shouldStartLoginUpdateCheck,
+  tryLoginAutoInstall,
+} from '../lib/appUpdater';
 import { useT } from '../lib/i18n';
+import { appLog } from '../lib/appLog';
 import { isBackendError, type BackendError } from '../types';
 import { ErrorBanner } from './ErrorBanner';
 import { Spinner } from './ui/Spinner';
@@ -13,6 +20,7 @@ type Phase =
   | { kind: 'auto-login' }     // trying stored creds
   | { kind: 'form'; prefill?: { username: string; password: string } }
   | { kind: 'submitting' }     // user clicked Sign in
+  | { kind: 'updating' }       // auto-update install before opening main
   | { kind: 'completing' };    // success — spawning main window
 
 /**
@@ -25,6 +33,9 @@ type Phase =
  *  2. Cached creds? try auto-login silently. Success → main.
  *  3. Show the form (prefilled if creds exist but were rejected).
  *  4. On submit: login → save creds (if "Remember me") → main.
+ *
+ * Update check overlaps session work. With auto-update on, install happens
+ * here and the main window never opens on the old build.
  */
 export function LoginWindow() {
   const { t } = useT();
@@ -33,6 +44,8 @@ export function LoginWindow() {
   const [username, setUsername] = useState('');
   const [password, setPassword] = useState('');
   const [remember, setRemember] = useState(true);
+  /** Overlaps F95 session/login; consumed by completeLogin. */
+  const updateCheckRef = useRef<Promise<Update | null> | null>(null);
 
   // Bootstrap: try existing session, then stored creds, then show form.
   // EXCEPT when we arrived via `restart_to_login` — that path appends
@@ -40,6 +53,7 @@ export function LoginWindow() {
   // Without this, a stale session cookie on disk could revive the session
   // immediately after the user clicked "Sign out".
   useEffect(() => {
+    void appLog('INFO', 'auth', 'login window ready');
     let cancelled = false;
     const cameFromLogout =
       typeof window !== 'undefined' &&
@@ -69,16 +83,29 @@ export function LoginWindow() {
       if (offline) {
         const hasSession = await ipc.hasLocalSession();
         if (hasSession && !cancelled) {
-          await completeLogin();
+          void appLog('INFO', 'auth', 'local session present');
+          await completeLogin({ offline: true });
           return;
         }
-        if (!cancelled) setPhase({ kind: 'form' });
+        if (!cancelled) {
+          void appLog('INFO', 'auth', 'session missing');
+          setPhase({ kind: 'form' });
+        }
         return;
+      }
+
+      if (
+        shouldStartLoginUpdateCheck({
+          isDev: import.meta.env.DEV,
+          offline: false,
+        })
+      ) {
+        updateCheckRef.current = checkForAppUpdate();
       }
 
       try {
         if (await ipc.isLoggedIn()) {
-          if (!cancelled) await completeLogin();
+          if (!cancelled) await completeLogin({ offline: false });
           return;
         }
       } catch {
@@ -90,8 +117,9 @@ export function LoginWindow() {
         if (cancelled) return;
         setPhase({ kind: 'auto-login' });
         try {
+          void appLog('INFO', 'auth', 'auto-login start');
           await ipc.login(stored.username, stored.password);
-          if (!cancelled) await completeLogin();
+          if (!cancelled) await completeLogin({ offline: false });
           return;
         } catch {
           if (!cancelled) {
@@ -110,7 +138,18 @@ export function LoginWindow() {
     };
   }, []);
 
-  async function completeLogin() {
+  async function completeLogin(opts: { offline: boolean }) {
+    const updatePromise = updateCheckRef.current;
+    updateCheckRef.current = null;
+
+    const gate = await tryLoginAutoInstall({
+      isDev: import.meta.env.DEV,
+      offline: opts.offline,
+      updatePromise,
+      onInstalling: () => setPhase({ kind: 'updating' }),
+    });
+    if (gate === 'installed') return;
+
     setPhase({ kind: 'completing' });
     try {
       await ipc.completeLogin();
@@ -125,21 +164,36 @@ export function LoginWindow() {
     setError(null);
     setPhase({ kind: 'submitting' });
     try {
+      void appLog('INFO', 'auth', 'login start');
       await ipc.login(username, password);
       if (remember) {
         await saveCredentials({ username, password });
       } else {
         await clearCredentials();
       }
-      await completeLogin();
+      const offline = await probeOfflineQuick();
+      if (
+        !offline &&
+        shouldStartLoginUpdateCheck({
+          isDev: import.meta.env.DEV,
+          offline: false,
+        }) &&
+        !updateCheckRef.current
+      ) {
+        updateCheckRef.current = checkForAppUpdate();
+      }
+      await completeLogin({ offline });
     } catch (err) {
       setError(isBackendError(err) ? err : String(err));
       setPhase({ kind: 'form' });
     }
   }
 
-  const submitting = phase.kind === 'submitting' || phase.kind === 'completing';
-  const showForm = phase.kind === 'form' || submitting;
+  const submitting =
+    phase.kind === 'submitting' ||
+    phase.kind === 'completing' ||
+    phase.kind === 'updating';
+  const showForm = phase.kind === 'form' || phase.kind === 'submitting';
 
   return (
     <div style={rootStyle}>
@@ -156,6 +210,11 @@ export function LoginWindow() {
                 ? t('login.autoLogin')
                 : t('auth.loading')}
             </span>
+          </div>
+        ) : phase.kind === 'updating' ? (
+          <div style={loadingStyle}>
+            <Spinner />
+            <span>{t('appUpdate.status.updating')}</span>
           </div>
         ) : phase.kind === 'completing' ? (
           <div style={loadingStyle}>

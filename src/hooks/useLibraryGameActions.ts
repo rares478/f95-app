@@ -12,7 +12,10 @@ import { playOrStop, type LibraryGameActionsDeps } from '../lib/libraryGameActio
 import { useContextMenu } from '../components/contextMenu';
 import type { LibraryGame } from '../types/library';
 
-export function useLibraryGameActions(opts?: { onReload?: () => void | Promise<void> }) {
+export function useLibraryGameActions(opts?: {
+  onReload?: () => void | Promise<void>;
+  onInstallOrUpdate?: (game: LibraryGame) => void | Promise<void>;
+}) {
   const navigate = useNavigate();
   const { running, launch } = useRunningGames();
   const { isOffline } = useOffline();
@@ -27,8 +30,9 @@ export function useLibraryGameActions(opts?: { onReload?: () => void | Promise<v
       isOffline,
       t,
       onReload: opts?.onReload,
+      onInstallOrUpdate: opts?.onInstallOrUpdate,
     }),
-    [navigate, launch, running, isOffline, t, opts?.onReload],
+    [navigate, launch, running, isOffline, t, opts?.onReload, opts?.onInstallOrUpdate],
   );
 
   function openLibraryContextMenu(e: React.MouseEvent, game: LibraryGame) {

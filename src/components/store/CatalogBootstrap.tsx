@@ -3,12 +3,17 @@ import * as ipc from '../../lib/ipc';
 import { usePrefixCatalog } from '../../contexts/PrefixCatalogContext';
 import { useTagCatalog } from '../../contexts/TagCatalogContext';
 import { fallbackPrefixGroupsForCategory } from '../../lib/fallbackPrefixGroups';
-import { loadStoredPrefixGroups } from '../../lib/prefixCatalogStorage';
+import { loadLibraryMembership } from '../../lib/libraryMembership';
+import { loadStoredPrefixGroups, sanitizePrefixGroups } from '../../lib/prefixCatalogStorage';
 
 /** Loads F95 prefix/tag catalogs once per session (persists to localStorage). */
 export function CatalogBootstrap() {
   const { setFromGroups } = usePrefixCatalog();
   const { setFromRecord } = useTagCatalog();
+
+  useEffect(() => {
+    void loadLibraryMembership();
+  }, []);
 
   useEffect(() => {
     let cancelled = false;
@@ -19,7 +24,7 @@ export function CatalogBootstrap() {
         const stored = loadStoredPrefixGroups();
         const groups =
           result.prefixGroups.length > 0
-            ? result.prefixGroups
+            ? sanitizePrefixGroups(result.prefixGroups)
             : stored.length > 0
               ? stored
               : fallbackPrefixGroupsForCategory('games');

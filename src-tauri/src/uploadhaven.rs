@@ -9,6 +9,7 @@ use html::{
 };
 use reqwest::header::{HeaderMap, LOCATION, SET_COOKIE};
 use serde::{Deserialize, Serialize};
+use serde_json::json;
 use std::sync::OnceLock;
 
 const LOGIN_URL: &str = "https://uploadhaven.com/account/login";
@@ -58,7 +59,7 @@ pub async fn login(
     let email = email.trim();
     if email.is_empty() || password.is_empty() {
         return Err(AppError::InvalidCredentials(
-            "E-mail e senha são obrigatórios.".into(),
+            "error.uploadhaven.emailPasswordRequired".into(),
         ));
     }
 
@@ -67,14 +68,21 @@ pub async fn login(
         .header("Accept", "text/html,application/xhtml+xml")
         .send()
         .await
-        .map_err(|e| AppError::Other(format!("uploadhaven login page: {e}")))?;
+        .map_err(|e| {
+            AppError::keyed_vars(
+                "error.uploadhaven.generic",
+                json!({ "detail": format!("login page: {e}") }),
+            )
+        })?;
     let mut cookies = collect_set_cookies(get.headers());
-    let html = get
-        .text()
-        .await
-        .map_err(|e| AppError::Other(format!("uploadhaven login body: {e}")))?;
+    let html = get.text().await.map_err(|e| {
+        AppError::keyed_vars(
+            "error.uploadhaven.generic",
+            json!({ "detail": format!("login body: {e}") }),
+        )
+    })?;
     let token = find_form_token(&html)
-        .ok_or_else(|| AppError::Other("uploadhaven: CSRF token não encontrado".into()))?;
+        .ok_or_else(|| AppError::keyed("error.uploadhaven.csrfMissing"))?;
 
     let mut post = session_http()
         .post(LOGIN_URL)
@@ -90,10 +98,12 @@ pub async fn login(
         post = post.header("X-XSRF-TOKEN", xsrf);
     }
 
-    let resp = post
-        .send()
-        .await
-        .map_err(|e| AppError::Other(format!("uploadhaven login post: {e}")))?;
+    let resp = post.send().await.map_err(|e| {
+        AppError::keyed_vars(
+            "error.uploadhaven.generic",
+            json!({ "detail": format!("login post: {e}") }),
+        )
+    })?;
     // Laravel sets the authenticated session on the 302 — not on the final page
     // after redirect, which is why we must not follow redirects here.
     cookies = merge_cookie_headers(&cookies, &collect_set_cookies(resp.headers()));
@@ -101,32 +111,32 @@ pub async fn login(
     let location = header_value(resp.headers(), LOCATION);
 
     if status.as_u16() == 419 {
-        return Err(AppError::Other(
-            "uploadhaven: token CSRF expirado — tente novamente.".into(),
-        ));
+        return Err(AppError::keyed("error.uploadhaven.csrfExpired"));
     }
 
     if status.is_redirection() {
         if location.contains("/account/login") {
             return Err(AppError::InvalidCredentials(
-                "E-mail ou senha incorretos.".into(),
+                "error.uploadhaven.badCredentials".into(),
             ));
         }
     } else {
-        let body = resp
-            .text()
-            .await
-            .map_err(|e| AppError::Other(format!("uploadhaven login response: {e}")))?;
+        let body = resp.text().await.map_err(|e| {
+            AppError::keyed_vars(
+                "error.uploadhaven.generic",
+                json!({ "detail": format!("login response: {e}") }),
+            )
+        })?;
         if is_login_page_html(&body) {
             return Err(AppError::InvalidCredentials(
-                "E-mail ou senha incorretos.".into(),
+                "error.uploadhaven.badCredentials".into(),
             ));
         }
     }
 
     if !cookies.contains("uploadhaven_session=") {
         return Err(AppError::InvalidCredentials(
-            "Login falhou — sessão não criada.".into(),
+            "error.uploadhaven.loginFailed".into(),
         ));
     }
 
@@ -147,7 +157,7 @@ pub async fn verify(
             valid: false,
             email: None,
             is_pro: false,
-            message: "Nenhuma sessão salva.".into(),
+            message: "error.uploadhaven.noSession".into(),
         });
     }
 
@@ -158,7 +168,7 @@ pub async fn verify(
             valid: false,
             email: Some(session.email.clone()),
             is_pro: false,
-            message: "Sessão expirada — faça login novamente.".into(),
+            message: "error.uploadhaven.sessionExpiredVerify".into(),
         });
     }
 
@@ -179,9 +189,9 @@ pub async fn verify(
     }
 
     let message = if is_pro {
-        "Conta Pro ativa — downloads sem espera.".into()
+        "error.uploadhaven.proActive".into()
     } else {
-        "Conta conectada (plano gratuito).".into()
+        "error.uploadhaven.freeConnected".into()
     };
 
     Ok(VerifyInfo {
@@ -223,13 +233,20 @@ pub async fn refresh_session_on_page(
     let resp = get
         .send()
         .await
-        .map_err(|e| AppError::Other(format!("uploadhaven session refresh: {e}")))?;
+        .map_err(|e| {
+            AppError::keyed_vars(
+                "error.uploadhaven.generic",
+                json!({ "detail": format!("session refresh: {e}") }),
+            )
+        })?;
     session.cookie_header =
         merge_cookie_headers(&session.cookie_header, &collect_set_cookies(resp.headers()));
-    let html = resp
-        .text()
-        .await
-        .map_err(|e| AppError::Other(format!("uploadhaven session refresh body: {e}")))?;
+    let html = resp.text().await.map_err(|e| {
+        AppError::keyed_vars(
+            "error.uploadhaven.generic",
+            json!({ "detail": format!("session refresh body: {e}") }),
+        )
+    })?;
 
     if detect_pro_download_page(&html) {
         session.is_pro = true;
@@ -254,12 +271,19 @@ async fn check_pro_via_download_probe(cookies: &str) -> Result<bool, AppError> {
     let resp = get
         .send()
         .await
-        .map_err(|e| AppError::Other(format!("uploadhaven pro probe: {e}")))?;
+        .map_err(|e| {
+            AppError::keyed_vars(
+                "error.uploadhaven.generic",
+                json!({ "detail": format!("pro probe: {e}") }),
+            )
+        })?;
     let cookie_header = merge_cookie_headers(cookies, &collect_set_cookies(resp.headers()));
-    let html = resp
-        .text()
-        .await
-        .map_err(|e| AppError::Other(format!("uploadhaven pro probe body: {e}")))?;
+    let html = resp.text().await.map_err(|e| {
+        AppError::keyed_vars(
+            "error.uploadhaven.generic",
+            json!({ "detail": format!("pro probe body: {e}") }),
+        )
+    })?;
 
     if detect_pro_download_page(&html) {
         return Ok(true);
@@ -337,13 +361,20 @@ pub async fn submit_download_post(
     let resp = post
         .send()
         .await
-        .map_err(|e| AppError::Other(format!("uploadhaven post http: {e}")))?;
+        .map_err(|e| {
+            AppError::keyed_vars(
+                "error.uploadhaven.generic",
+                json!({ "detail": format!("post http: {e}") }),
+            )
+        })?;
     let status = resp.status().as_u16();
     let location = header_value(resp.headers(), LOCATION);
-    let body = resp
-        .text()
-        .await
-        .map_err(|e| AppError::Other(format!("uploadhaven post body: {e}")))?;
+    let body = resp.text().await.map_err(|e| {
+        AppError::keyed_vars(
+            "error.uploadhaven.generic",
+            json!({ "detail": format!("post body: {e}") }),
+        )
+    })?;
 
     let cdn_url = extract_cdn_url_from_html(&body).or_else(|| {
         if cdn_location_from_redirect(status, &location) {
@@ -397,7 +428,12 @@ async fn fetch_authenticated_page(cookies: &str, url: &str) -> Result<(String, b
     let resp = req
         .send()
         .await
-        .map_err(|e| AppError::Other(format!("uploadhaven page http ({url}): {e}")))?;
+        .map_err(|e| {
+            AppError::keyed_vars(
+                "error.uploadhaven.generic",
+                json!({ "detail": format!("page http ({url}): {e}") }),
+            )
+        })?;
 
     if resp.status().is_redirection() {
         let location = header_value(resp.headers(), LOCATION);
@@ -419,22 +455,28 @@ async fn fetch_authenticated_page(cookies: &str, url: &str) -> Result<(String, b
         if let Some(xsrf) = xsrf_from_cookie_header(cookies) {
             follow = follow.header("X-XSRF-TOKEN", xsrf);
         }
-        let resp2 = follow
-            .send()
-            .await
-            .map_err(|e| AppError::Other(format!("uploadhaven follow http: {e}")))?;
-        let html = resp2
-            .text()
-            .await
-            .map_err(|e| AppError::Other(format!("uploadhaven follow body: {e}")))?;
+        let resp2 = follow.send().await.map_err(|e| {
+            AppError::keyed_vars(
+                "error.uploadhaven.generic",
+                json!({ "detail": format!("follow http: {e}") }),
+            )
+        })?;
+        let html = resp2.text().await.map_err(|e| {
+            AppError::keyed_vars(
+                "error.uploadhaven.generic",
+                json!({ "detail": format!("follow body: {e}") }),
+            )
+        })?;
         let logged_in = page_is_authenticated(&html);
         return Ok((html, logged_in));
     }
 
-    let html = resp
-        .text()
-        .await
-        .map_err(|e| AppError::Other(format!("uploadhaven page body ({url}): {e}")))?;
+    let html = resp.text().await.map_err(|e| {
+        AppError::keyed_vars(
+            "error.uploadhaven.generic",
+            json!({ "detail": format!("page body ({url}): {e}") }),
+        )
+    })?;
     let logged_in = page_is_authenticated(&html);
     Ok((html, logged_in))
 }

@@ -1,8 +1,11 @@
 import { Link } from 'react-router-dom';
 import { useIsRunning } from '../../contexts/RunningGames';
+import { useDownloads } from '../../contexts/Downloads';
+import { inFlightLibraryStatus } from '../../lib/downloadLibrarySync';
 import { useT } from '../../lib/i18n';
 import type { LibraryGame } from '../../types/library';
 import { formatPlaytime } from '../../types/library';
+import { LibraryThumbnail } from './LibraryThumbnail';
 
 interface Props {
   games: LibraryGame[];
@@ -50,11 +53,15 @@ function ContinuePlayingCard({
   onContextMenu?: (e: React.MouseEvent, game: LibraryGame) => void;
 }) {
   const { t } = useT();
+  const { rows: downloadRows } = useDownloads();
   const isRunning = useIsRunning(game.threadId);
+  const inFlight = inFlightLibraryStatus(downloadRows, game.threadId);
   const lastPlayed = game.lastPlayedAt
     ? new Date(game.lastPlayedAt).toLocaleDateString()
     : null;
   const playable = !!game.exePath;
+  const downloading = inFlight === 'downloading' || inFlight === 'extracting';
+  const needsAttention = inFlight === 'needs_attention';
 
   return (
     <div
@@ -64,7 +71,12 @@ function ContinuePlayingCard({
     >
       <Link to={`/library/game/${game.threadId}`} style={thumbLinkStyle}>
         {game.thumbnailUrl ? (
-          <img src={game.thumbnailUrl} alt={game.title} style={thumbImg} loading="lazy" />
+          <LibraryThumbnail
+            src={game.thumbnailUrl}
+            alt={game.title}
+            style={thumbImg}
+            fallback={<div style={thumbFallback}>{game.title.slice(0, 1).toUpperCase()}</div>}
+          />
         ) : (
           <div style={thumbFallback}>{game.title.slice(0, 1).toUpperCase()}</div>
         )}
@@ -85,16 +97,34 @@ function ContinuePlayingCard({
         <button
           style={{
             ...playButtonStyle,
-            ...(playable && !isRunning ? {} : disabledPlayStyle),
+            ...(needsAttention ? { background: 'var(--accent-strong)' } : {}),
+            ...(
+              isRunning || needsAttention || (playable && !downloading)
+                ? {}
+                : disabledPlayStyle
+            ),
           }}
-          disabled={!playable || isRunning}
+          disabled={
+            isRunning
+              ? false
+              : needsAttention
+                ? false
+                : !playable || downloading
+          }
           onClick={() => onPlay(game)}
+          title={needsAttention ? t('libcard.cta.needsAttention.title') : undefined}
         >
           {isRunning
             ? t('libcard.cta.stop')
-            : playable
-              ? t('libcard.cta.play')
-              : t('libcard.cta.pickExe')}
+            : needsAttention
+              ? t('libcard.cta.needsAttention')
+              : downloading
+                ? inFlight === 'extracting'
+                  ? t('libcard.cta.extracting')
+                  : t('libcard.cta.downloading')
+                : playable
+                  ? t('libcard.cta.play')
+                  : t('libcard.cta.pickExe')}
         </button>
       </div>
     </div>
