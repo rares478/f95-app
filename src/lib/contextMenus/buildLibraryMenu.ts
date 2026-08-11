@@ -20,7 +20,6 @@ import { item, offlineTitle, sep } from './helpers';
 function primaryLabel(
   game: LibraryGame,
   isRunning: boolean,
-  isOffline: boolean,
   t: LibraryGameActionsDeps['t'],
 ): { label: string; disabled: boolean; hidden: boolean } {
   if (isRunning && game.category === 'games') {
@@ -44,14 +43,22 @@ function primaryLabel(
         label: game.availableVersion
           ? t('contextMenu.updateTo', { version: game.availableVersion })
           : t('contextMenu.update'),
-        disabled: isOffline,
+        disabled: false,
         hidden: false,
       };
     case 'downloading':
     case 'extracting':
-    case 'error':
       return { label: '', disabled: true, hidden: true };
+    case 'error':
+      if (game.category === 'games' && !game.installPath && !game.exePath) {
+        return { label: t('contextMenu.install'), disabled: false, hidden: false };
+      }
+      return { label: '', disabled: true, hidden: true };
+    case 'not_installed':
     default:
+      if (game.category === 'games') {
+        return { label: t('contextMenu.install'), disabled: false, hidden: false };
+      }
       return { label: t('contextMenu.pickExe'), disabled: false, hidden: false };
   }
 }
@@ -62,7 +69,7 @@ export function buildLibraryMenu(
 ): ContextMenuItem[] {
   const { running, isOffline, t, navigate } = deps;
   const isRunning = running.has(game.threadId);
-  const primary = primaryLabel(game, isRunning, isOffline, t);
+  const primary = primaryLabel(game, isRunning, t);
   const off = offlineTitle(isOffline, t);
 
   const items: ContextMenuItem[] = [];

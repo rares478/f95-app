@@ -1,12 +1,9 @@
+import { decodeHtmlEntities } from './htmlEntities';
+
 /** Strip HTML-ish noise and collapse whitespace from F95 alert strings. */
 export function cleanAlertText(text: string): string {
-  return text
+  return decodeHtmlEntities(text)
     .replace(/<[^>]+>/g, ' ')
-    .replace(/&nbsp;/gi, ' ')
-    .replace(/&amp;/gi, '&')
-    .replace(/&lt;/gi, '<')
-    .replace(/&gt;/gi, '>')
-    .replace(/&quot;/gi, '"')
     .replace(/\s+/g, ' ')
     .trim();
 }

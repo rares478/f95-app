@@ -8,17 +8,13 @@ import { GameCardGridSkeleton } from '../components/ui/GameCardSkeleton';
 import { parseSamCategory } from '../constants/samCategories';
 import { useOffline } from '../contexts/Offline';
 import { useLibraryGameActions } from '../hooks/useLibraryGameActions';
-import { useSkin } from '../hooks/useSkin';
+import { useLibraryInstallFlow } from '../hooks/useLibraryInstallFlow';
+import { useDownloads } from '../contexts/Downloads';
+import { formatIpcError } from '../lib/ipcError';
 import { useT } from '../lib/i18n';
 import { dialog } from '../lib/dialog';
 import * as library from '../lib/library';
-import {
-  COLLECTIONS_CHANGE_EVENT,
-  listCollections,
-  listMemberships,
-  type CollectionMembership,
-  type LibraryCollection,
-} from '../lib/collections';
+import { prefetchLibraryThumbnails } from '../lib/libraryThumbnailCache';
 import * as updates from '../lib/updates';
 import type {
   InstallStatus,
@@ -76,6 +72,16 @@ export function LibraryPage() {
     [searchParams, setSearchParams],
   );
 
+  const { rows: downloadRows } = useDownloads();
+  const downloadSyncKey = useMemo(
+    () =>
+      downloadRows
+        .map((r) => `${r.threadId}:${r.state}`)
+        .sort()
+        .join('|'),
+    [downloadRows],
+  );
+
   const reload = useCallback(async () => {
     setLoading(true);
     setError(null);
@@ -88,7 +94,7 @@ export function LibraryPage() {
       });
       setItems(games);
     } catch (err) {
-      setError(formatError(err));
+      setError(formatIpcError(err));
     } finally {
       setLoading(false);
     }
@@ -99,54 +105,14 @@ export function LibraryPage() {
     return () => clearTimeout(t);
   }, [reload, search]);
 
-  // Collections power the folder shelf; refresh whenever they change
-  // anywhere in the app (picker modal, Steam sidebar, collection page).
   useEffect(() => {
-    let cancelled = false;
-    const load = async () => {
-      try {
-        const [cols, mems, all] = await Promise.all([
-          listCollections(),
-          listMemberships(),
-          library.list({}),
-        ]);
-        if (!cancelled) {
-          setCollections(cols);
-          setMemberships(mems);
-          setAllGames(all);
-        }
-      } catch (err) {
-        console.warn('[collections] load failed', err);
-      }
-    };
-    void load();
-    const onChange = () => {
-      void load();
-    };
-    window.addEventListener(COLLECTIONS_CHANGE_EVENT, onChange);
-    return () => {
-      cancelled = true;
-      window.removeEventListener(COLLECTIONS_CHANGE_EVENT, onChange);
-    };
-  }, []);
+    reload();
+  }, [downloadSyncKey, reload]);
 
-  // One folder card per collection, scoped to the active category tab:
-  // mosaic + count only consider members of this content type, and
-  // collections without any member of it are hidden entirely (they show
-  // up as soon as content of the type is associated).
-  const collectionCards = useMemo(() => {
-    if (collections.length === 0) return [];
-    const byId = new Map(allGames.map((g) => [g.threadId, g]));
-    return collections
-      .map((collection) => ({
-        collection,
-        games: memberships
-          .filter((m) => m.collectionId === collection.id)
-          .map((m) => byId.get(m.threadId))
-          .filter((g): g is LibraryGame => g !== undefined && g.category === category),
-      }))
-      .filter((card) => card.games.length > 0);
-  }, [collections, memberships, allGames, category]);
+  useEffect(() => {
+    if (items.length === 0) return;
+    prefetchLibraryThumbnails(items);
+  }, [items]);
 
   const stats = useMemo(
     () => ({
@@ -170,16 +136,11 @@ export function LibraryPage() {
       .slice(0, 4);
   }, [items, search, status, category]);
 
+  const installFlow = useLibraryInstallFlow({ onStarted: () => { void reload(); } });
   const { openLibraryContextMenu, playOrStop } = useLibraryGameActions({
     onReload: reload,
+    onInstallOrUpdate: installFlow.beginInstallOrUpdate,
   });
-
-  function formatErr(err: unknown): string {
-    if (err && typeof err === 'object' && 'message' in err) {
-      return String((err as { message: string }).message);
-    }
-    return String(err);
-  }
 
   const { isOffline } = useOffline();
 
@@ -194,7 +155,7 @@ export function LibraryPage() {
     try {
       games = await library.list({});
     } catch (err) {
-      await dialog.alert(formatErr(err), { kind: 'error' });
+      await dialog.alert(formatIpcError(err), { kind: 'error' });
       return;
     }
     if (games.length === 0) return;
@@ -223,6 +184,7 @@ export function LibraryPage() {
 
   return (
     <div style={pageStyle}>
+      {installFlow.modal}
       <header style={headerStyle}>
         <h1 style={titleStyle}>{t('library.title')}</h1>
         <div style={{ display: 'flex', alignItems: 'baseline', gap: 14 }}>
@@ -359,13 +321,6 @@ function EmptyState({ status, category }: { status: StatusFilter; category: SamC
       </p>
     </div>
   );
-}
-
-function formatError(err: unknown): string {
-  if (err && typeof err === 'object' && 'message' in err) {
-    return String((err as { message: string }).message);
-  }
-  return String(err);
 }
 
 const pageStyle: React.CSSProperties = {

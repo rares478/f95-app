@@ -1,4 +1,4 @@
-mod achievements;
+mod app_log;
 mod bridge;
 mod buzzheavier;
 mod commands;
@@ -23,25 +23,26 @@ mod sidecar;
 mod uploadhaven;
 
 use commands::{
-    achievement_toast, achievements_configure, achievements_scan_now, build_state, check_network,
-    close_captcha_window, complete_login, create_game_shortcuts,
+    append_app_log, build_state, check_network, close_captcha_window, complete_login,
+    create_game_shortcuts,
     default_downloads_path, delete_install_dir, delete_path, disk_info, download_cancel,
     download_continue_captcha, download_continue_choice, download_start, extract_archive,
-    extract_cbz_preview, fetch_alerts_list, fetch_alerts_popup, fetch_rss_feed, game_detail,
-    get_following, get_member_profile, get_profile, has_local_session, init_overlay_windows,
-    is_logged_in, launch_game,
-    login, login_mega, login_uploadhaven, logout, migrate_saves, move_install_cancel,
-    move_install_start, open_captcha_window, overlay_clear_context, overlay_ensure,
-    overlay_get_anchor_status, overlay_get_context, overlay_get_game_hint_payload, overlay_hide,
-    overlay_hide_game_hint, overlay_is_visible, overlay_pause_follow, overlay_set_context,
-    overlay_show, overlay_show_game_hint, overlay_sync_compact_from_window, overlay_sync_hotkey,
-    overlay_toggle, ping_sidecar, resolve_media_preview, resolve_remote_image_preview,
-    restart_to_login, reveal_in_explorer, running_games, sam_list, sam_options, sam_tag_search,
-    scan_install_media, set_buzzheavier_account, set_datanodes_key, set_gofile_credentials,
-    set_mega_session, set_mixdrop_credentials, set_uploadhaven_session, steam_detect_appid,
-    steam_fetch_achievement_schema, steam_search_games, stop_game,
-    verify_buzzheavier_account, verify_datanodes_key, verify_gofile_credentials,
-    verify_mega_session, verify_mixdrop_credentials, verify_uploadhaven_session, AppState,
+    extract_cbz_preview, fetch_alerts_list, fetch_alerts_popup, fetch_rss_feed, find_main_exe,
+    forum_search, game_detail,
+    get_following, get_member_activity, get_member_profile, get_member_profile_posts,
+    get_profile, has_local_session, is_logged_in,
+    launch_game, login, login_mega, login_uploadhaven, logout, migrate_saves, move_install_cancel,
+    move_install_start, open_captcha_window, ping_sidecar, resolve_media_preview,
+    resolve_post, resolve_remote_image_preview, restart_to_login, reveal_in_explorer, running_games, sam_list,
+    sam_options, sam_tag_search, scan_install_media, set_buzzheavier_account, set_datanodes_key,
+    set_gofile_credentials, set_mega_session, set_mixdrop_credentials, set_uploadhaven_session,
+    stop_game, thread_posts, thread_reply, bbcode_preview, verify_buzzheavier_account, verify_datanodes_key, verify_gofile_credentials,
+    verify_mega_session, verify_mixdrop_credentials, verify_uploadhaven_session,
+    overlay_clear_context, overlay_ensure, overlay_get_anchor_status, overlay_get_context,
+    overlay_hide, overlay_hide_game_hint, overlay_is_visible, overlay_set_context, overlay_show,
+    overlay_get_game_hint_payload, overlay_pause_follow, overlay_show_game_hint,
+    overlay_sync_compact_from_window,
+    overlay_sync_hotkey, overlay_toggle, AppState,
 };
 use tauri::{Manager, RunEvent};
 use tauri_plugin_sql::{Builder as SqlBuilder, Migration, MigrationKind};
@@ -93,20 +94,38 @@ pub fn run() {
         },
         Migration {
             version: 8,
-            description: "library_collections",
-            sql: migrations::V8_LIBRARY_COLLECTIONS,
+            description: "library_games_download_links",
+            sql: migrations::V8_LIBRARY_DOWNLOAD_LINKS,
             kind: MigrationKind::Up,
         },
         Migration {
             version: 9,
-            description: "steam_achievements",
-            sql: migrations::V9_STEAM_ACHIEVEMENTS,
+            description: "library_game_exes",
+            sql: migrations::V9_LIBRARY_GAME_EXES,
             kind: MigrationKind::Up,
         },
         Migration {
             version: 10,
-            description: "achievements_save_scan",
-            sql: migrations::V10_ACH_SAVE_SCAN,
+            description: "install_plans_and_jobs",
+            sql: migrations::V10_INSTALL_PLANS,
+            kind: MigrationKind::Up,
+        },
+        Migration {
+            version: 11,
+            description: "install_jobs_bundle_id",
+            sql: migrations::V11_INSTALL_JOB_BUNDLE,
+            kind: MigrationKind::Up,
+        },
+        Migration {
+            version: 12,
+            description: "discovery_pools",
+            sql: migrations::V12_DISCOVERY_POOLS,
+            kind: MigrationKind::Up,
+        },
+        Migration {
+            version: 13,
+            description: "store_view_history",
+            sql: migrations::V13_STORE_VIEW_HISTORY,
             kind: MigrationKind::Up,
         },
     ];
@@ -116,6 +135,8 @@ pub fn run() {
         .plugin(tauri_plugin_global_shortcut::Builder::new().build())
         .plugin(tauri_plugin_opener::init())
         .plugin(tauri_plugin_dialog::init())
+        .plugin(tauri_plugin_updater::Builder::new().build())
+        .plugin(tauri_plugin_process::init())
         .plugin(
             SqlBuilder::default()
                 .add_migrations("sqlite:f95app.db", migrations)
@@ -148,17 +169,22 @@ pub fn run() {
                 .plugin(tauri_plugin_updater::Builder::new().build())?;
             let state = build_state(&app.handle())?;
             app.manage(state);
-            if let Err(e) = init_overlay_windows(&app.handle()) {
-                eprintln!(
-                    "[overlay] init na inicialização falhou (será tentado ao abrir o overlay): {e}"
-                );
+            {
+                let local = app
+                    .path()
+                    .app_local_data_dir()
+                    .map_err(|e| format!("app_local_data_dir: {e}"))?;
+                crate::app_log::init(local.join("logs").join("app.log"));
             }
             Ok(())
         })
         .invoke_handler(tauri::generate_handler![
+            append_app_log,
             login,
             get_profile,
             get_member_profile,
+            get_member_profile_posts,
+            get_member_activity,
             is_logged_in,
             has_local_session,
             check_network,
@@ -169,7 +195,12 @@ pub fn run() {
             fetch_rss_feed,
             fetch_alerts_popup,
             fetch_alerts_list,
+            forum_search,
             game_detail,
+            thread_posts,
+            thread_reply,
+            bbcode_preview,
+            resolve_post,
             get_following,
             download_start,
             download_continue_choice,
@@ -178,6 +209,7 @@ pub fn run() {
             close_captcha_window,
             download_cancel,
             extract_archive,
+            find_main_exe,
             scan_install_media,
             resolve_media_preview,
             resolve_remote_image_preview,

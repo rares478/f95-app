@@ -4,6 +4,7 @@
 use crate::error::AppError;
 use reqwest::Client;
 use serde::Serialize;
+use serde_json::json;
 
 const API_ACCOUNT: &str = "https://buzzheavier.com/api/account";
 
@@ -18,6 +19,17 @@ pub struct VerifyInfo {
     pub message: String,
 }
 
+fn keyed_msg(key: &str) -> String {
+    key.to_string()
+}
+
+fn keyed_msg_vars(key: &str, vars: impl Serialize) -> String {
+    match serde_json::to_string(&vars) {
+        Ok(payload) => format!("{key}|{payload}"),
+        Err(_) => key.to_string(),
+    }
+}
+
 pub async fn verify_account(http: &Client, account_id: &str) -> Result<VerifyInfo, AppError> {
     let account_id = account_id.trim();
     if account_id.is_empty() {
@@ -26,7 +38,7 @@ pub async fn verify_account(http: &Client, account_id: &str) -> Result<VerifyInf
             email: None,
             storage_used: None,
             storage_limit: None,
-            message: "Account ID vazio.".into(),
+            message: keyed_msg("error.host.buzzheavierEmptyId"),
         });
     }
 
@@ -36,13 +48,20 @@ pub async fn verify_account(http: &Client, account_id: &str) -> Result<VerifyInf
         .bearer_auth(account_id)
         .send()
         .await
-        .map_err(|e| AppError::Other(format!("buzzheavier verify http: {e}")))?;
+        .map_err(|e| {
+            AppError::keyed_vars(
+                "error.buzzheavier.generic",
+                json!({ "detail": format!("verify http: {e}") }),
+            )
+        })?;
 
     let status = resp.status();
-    let body: serde_json::Value = resp
-        .json()
-        .await
-        .map_err(|e| AppError::Other(format!("buzzheavier verify json: {e}")))?;
+    let body: serde_json::Value = resp.json().await.map_err(|e| {
+        AppError::keyed_vars(
+            "error.buzzheavier.generic",
+            json!({ "detail": format!("verify json: {e}") }),
+        )
+    })?;
 
     let code = body.get("code").and_then(|v| v.as_i64()).unwrap_or(0);
     if status.as_u16() == 401 || code == 401 {
@@ -51,7 +70,7 @@ pub async fn verify_account(http: &Client, account_id: &str) -> Result<VerifyInf
             email: None,
             storage_used: None,
             storage_limit: None,
-            message: "Account ID inválido — confira em buzzheavier.com/account".into(),
+            message: keyed_msg("error.host.buzzheavierBadId"),
         });
     }
 
@@ -59,13 +78,13 @@ pub async fn verify_account(http: &Client, account_id: &str) -> Result<VerifyInf
         let err = body
             .get("error")
             .and_then(|v| v.as_str())
-            .unwrap_or("erro desconhecido");
+            .unwrap_or("unknown error");
         return Ok(VerifyInfo {
             valid: false,
             email: None,
             storage_used: None,
             storage_limit: None,
-            message: format!("buzzheavier: {err}"),
+            message: keyed_msg_vars("error.buzzheavier.generic", json!({ "detail": err })),
         });
     }
 
@@ -78,9 +97,9 @@ pub async fn verify_account(http: &Client, account_id: &str) -> Result<VerifyInf
     let storage_limit = json_string_field(data, "storageLimit");
 
     let message = if let Some(ref e) = email {
-        format!("Conta conectada ({e}).")
+        keyed_msg_vars("error.host.buzzheavierConnected", json!({ "email": e }))
     } else {
-        "Conta BuzzHeavier conectada.".into()
+        keyed_msg("error.host.buzzheavierOk")
     };
 
     Ok(VerifyInfo {

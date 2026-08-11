@@ -13,7 +13,7 @@ export function normalizeBuzzheavierUrl(raw: string): string {
   try {
     u = new URL(raw.trim());
   } catch {
-    throw new RpcError(RPC_ERROR.INVALID_PARAMS, `invalid BuzzHeavier URL: ${raw}`);
+    throw new RpcError(RPC_ERROR.INVALID_PARAMS, 'error.buzzheavier.invalidUrl');
   }
   const host = u.hostname.toLowerCase();
   const ok =
@@ -26,15 +26,15 @@ export function normalizeBuzzheavierUrl(raw: string): string {
     host === 'fuckingfast.co' ||
     host === 'www.fuckingfast.co';
   if (!ok) {
-    throw new RpcError(RPC_ERROR.INVALID_PARAMS, `not a BuzzHeavier URL: ${raw}`);
+    throw new RpcError(RPC_ERROR.INVALID_PARAMS, 'error.buzzheavier.invalidUrl');
   }
   const parts = u.pathname.split('/').filter(Boolean);
   if (parts.length === 0) {
-    throw new RpcError(RPC_ERROR.INVALID_PARAMS, 'BuzzHeavier URL missing file id');
+    throw new RpcError(RPC_ERROR.INVALID_PARAMS, 'error.buzzheavier.missingId');
   }
   const id = parts[0].replace(/\/download$/, '');
   if (!/^[a-zA-Z0-9]{8,32}$/.test(id)) {
-    throw new RpcError(RPC_ERROR.INVALID_PARAMS, `invalid BuzzHeavier file id: ${id}`);
+    throw new RpcError(RPC_ERROR.INVALID_PARAMS, 'error.buzzheavier.invalidUrl');
   }
   return `${CANONICAL}/${id}`;
 }
@@ -107,18 +107,18 @@ export async function resolveBuzzheavier(
     const html = await page.content();
 
     if (pageIsNotFound(status, html)) {
-      throw new RpcError(RPC_ERROR.INTERNAL, 'BuzzHeavier: arquivo não encontrado ou expirado');
+      throw new RpcError(RPC_ERROR.INTERNAL, 'error.buzzheavier.notFound');
     }
     if (isCloudflareInterstitial(html)) {
       throw new RpcError(
         RPC_ERROR.CLOUDFLARE_CHALLENGE,
-        'BuzzHeavier: Cloudflare não foi resolvido — tente abrir no navegador',
+        'error.buzzheavier.cloudflare',
       );
     }
     if (status !== null && status >= 400) {
       throw new RpcError(
         RPC_ERROR.INTERNAL,
-        `BuzzHeavier: página retornou HTTP ${status}`,
+        `error.buzzheavier.generic|${JSON.stringify({ detail: `page returned HTTP ${status}` })}`,
       );
     }
 
@@ -127,7 +127,7 @@ export async function resolveBuzzheavier(
     if ($('#tbody tr').length > 0) {
       throw new RpcError(
         RPC_ERROR.INTERNAL,
-        'BuzzHeavier: links de pasta ainda não são suportados — use um arquivo individual',
+        'error.buzzheavier.folder',
       );
     }
 
@@ -138,11 +138,11 @@ export async function resolveBuzzheavier(
     if (!hxGet) {
       throw new RpcError(
         RPC_ERROR.INTERNAL,
-        'BuzzHeavier: botão de download não encontrado na página',
+        'error.buzzheavier.noButton',
       );
     }
     if (hxGet.includes('/notfound')) {
-      throw new RpcError(RPC_ERROR.INTERNAL, 'BuzzHeavier: arquivo não encontrado ou expirado');
+      throw new RpcError(RPC_ERROR.INTERNAL, 'error.buzzheavier.notFound');
     }
 
     const downloadUrl = resolveDownloadUrl(hxGet);
@@ -159,7 +159,7 @@ export async function resolveBuzzheavier(
     if (!directUrl || directUrl.replace(/\/$/, '') === baseUrl.replace(/\/$/, '')) {
       throw new RpcError(
         RPC_ERROR.INTERNAL,
-        'BuzzHeavier: link direto CDN não retornado',
+        'error.buzzheavier.noCdn',
       );
     }
 
@@ -171,10 +171,13 @@ export async function resolveBuzzheavier(
     if (/timeout|timed out/i.test(msg)) {
       throw new RpcError(
         RPC_ERROR.CLOUDFLARE_CHALLENGE,
-        'BuzzHeavier: tempo esgotado ao resolver Cloudflare — tente novamente',
+        'error.buzzheavier.cfTimeout',
       );
     }
-    throw new RpcError(RPC_ERROR.INTERNAL, `BuzzHeavier: ${msg}`);
+    throw new RpcError(
+      RPC_ERROR.INTERNAL,
+      `error.buzzheavier.generic|${JSON.stringify({ detail: msg })}`,
+    );
   } finally {
     await context.close().catch(() => undefined);
   }

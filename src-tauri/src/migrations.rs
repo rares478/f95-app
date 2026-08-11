@@ -170,79 +170,108 @@ CREATE TABLE rss_seen_guids (
 );
 "#;
 
-/// v8 adds Steam-style library collections: user-named folders that group
-/// library entries. Membership is N:N — a game can live in any number of
-/// collections (junction rows are removed explicitly on delete since the
-/// SQLite plugin doesn't enable foreign_keys enforcement).
-pub const V8_LIBRARY_COLLECTIONS: &str = r#"
-CREATE TABLE library_collections (
-  id         INTEGER PRIMARY KEY AUTOINCREMENT,
-  name       TEXT NOT NULL,
-  position   INTEGER NOT NULL DEFAULT 0,
-  created_at TEXT NOT NULL DEFAULT (datetime('now'))
-);
-
-CREATE TABLE library_collection_games (
-  collection_id INTEGER NOT NULL,
-  thread_id     TEXT NOT NULL,
-  added_at      TEXT NOT NULL DEFAULT (datetime('now')),
-  PRIMARY KEY (collection_id, thread_id),
-  FOREIGN KEY (collection_id) REFERENCES library_collections(id) ON DELETE CASCADE
-);
-CREATE INDEX idx_collection_games_thread ON library_collection_games(thread_id);
+/// v8 caches OP download links on library rows so Install/Update can run
+/// from the library without opening the store page. Version stamp tracks
+/// which F95 version the links belong to (refreshed on update checks).
+pub const V8_LIBRARY_DOWNLOAD_LINKS: &str = r#"
+ALTER TABLE library_games ADD COLUMN download_links_json TEXT;
+ALTER TABLE library_games ADD COLUMN download_links_version TEXT;
+ALTER TABLE library_games ADD COLUMN download_links_fetched_at TEXT;
 "#;
 
-/// v9 wires the Hydra-style Steam achievement integration.
-///
-/// `library_games.steam_appid` links an F95 thread to its Steam release (the
-/// crack emulators — CODEX, Goldberg/GSE, RUNE, OnlineFix… — key their
-/// achievement files by that appid). Games without a linked appid simply have
-/// no achievements for now; a fully local achievement system will live in the
-/// v6 `achievement_definitions` tables later.
-///
-/// `steam_achievements` caches the schema fetched from Steam (display name,
-/// description, icons, global unlock %), keyed per appid so two library
-/// entries pointing at the same Steam game share one cache. `language`
-/// records which locale the strings were fetched in so a locale switch can
-/// invalidate the cache.
-///
-/// `steam_achievement_unlocks` is keyed by thread_id (the app's identity for
-/// a game), NOT appid — unlock history survives re-linking and is what the
-/// watcher diffs against to decide what is "new". `unlock_time` is epoch
-/// milliseconds (nullable: some crack formats don't store a timestamp).
-pub const V9_STEAM_ACHIEVEMENTS: &str = r#"
-ALTER TABLE library_games ADD COLUMN steam_appid TEXT;
-
-CREATE TABLE steam_achievements (
-  steam_appid    TEXT NOT NULL,
-  api_name       TEXT NOT NULL,
-  display_name   TEXT NOT NULL,
-  description    TEXT,
-  icon_url       TEXT,
-  icon_gray_url  TEXT,
-  hidden         INTEGER NOT NULL DEFAULT 0,
-  global_percent REAL,
-  sort_order     INTEGER NOT NULL DEFAULT 0,
-  language       TEXT NOT NULL DEFAULT 'english',
-  fetched_at     TEXT NOT NULL DEFAULT (datetime('now')),
-  PRIMARY KEY (steam_appid, api_name)
+/// v9: multiple executables per library game (separate season packs, etc.).
+/// Backfills one default row from existing `exe_path` / `install_path`.
+pub const V9_LIBRARY_GAME_EXES: &str = r#"
+CREATE TABLE library_game_exes (
+  id                TEXT PRIMARY KEY NOT NULL,
+  thread_id         TEXT NOT NULL,
+  exe_path          TEXT NOT NULL,
+  install_path      TEXT,
+  label             TEXT,
+  sort_order        INTEGER NOT NULL DEFAULT 0,
+  is_default        INTEGER NOT NULL DEFAULT 0,
+  last_launched_at  TEXT,
+  created_at        TEXT NOT NULL DEFAULT (datetime('now')),
+  FOREIGN KEY (thread_id) REFERENCES library_games(thread_id) ON DELETE CASCADE,
+  UNIQUE (thread_id, exe_path)
 );
+CREATE INDEX idx_library_game_exes_thread ON library_game_exes(thread_id);
 
-CREATE TABLE steam_achievement_unlocks (
+INSERT INTO library_game_exes (
+  id, thread_id, exe_path, install_path, label, sort_order, is_default, last_launched_at, created_at
+)
+SELECT
+  lower(hex(randomblob(16))),
+  thread_id,
+  exe_path,
+  install_path,
+  NULL,
+  0,
+  1,
+  last_played_at,
+  datetime('now')
+FROM library_games
+WHERE exe_path IS NOT NULL AND TRIM(exe_path) != '';
+"#;
+
+/// v10: install plans + jobs so multi-section Install/Update can queue
+/// coordinated downloads, extract per job, and assign exes without clobbering.
+pub const V10_INSTALL_PLANS: &str = r#"
+CREATE TABLE install_plans (
+  id          TEXT PRIMARY KEY NOT NULL,
   thread_id   TEXT NOT NULL,
-  api_name    TEXT NOT NULL,
-  unlock_time INTEGER,
-  source      TEXT,
-  synced_at   TEXT NOT NULL DEFAULT (datetime('now')),
-  PRIMARY KEY (thread_id, api_name)
+  intent      TEXT NOT NULL,
+  status      TEXT NOT NULL DEFAULT 'active',
+  created_at  TEXT NOT NULL DEFAULT (datetime('now')),
+  FOREIGN KEY (thread_id) REFERENCES library_games(thread_id) ON DELETE CASCADE
 );
-CREATE INDEX idx_steam_unlocks_thread ON steam_achievement_unlocks(thread_id);
+CREATE INDEX idx_install_plans_thread ON install_plans(thread_id);
+
+CREATE TABLE install_jobs (
+  id              TEXT PRIMARY KEY NOT NULL,
+  plan_id         TEXT NOT NULL,
+  section_label   TEXT NOT NULL,
+  section_kind    TEXT NOT NULL,
+  source_url      TEXT NOT NULL,
+  host            TEXT NOT NULL,
+  download_id     INTEGER,
+  extract_path    TEXT,
+  exe_id          TEXT,
+  assign_status   TEXT NOT NULL DEFAULT 'pending',
+  sort_order      INTEGER NOT NULL DEFAULT 0,
+  error_message   TEXT,
+  FOREIGN KEY (plan_id) REFERENCES install_plans(id) ON DELETE CASCADE
+);
+CREATE INDEX idx_install_jobs_plan ON install_jobs(plan_id);
+CREATE INDEX idx_install_jobs_download ON install_jobs(download_id);
 "#;
 
-/// v10: builds DRM-free (sem emulador Steam — comum em jogos Godot/Ren'Py do
-/// F95) guardam conquistas no save do próprio jogo. O modo "save scan" (opt-in
-/// por jogo, heurístico) vasculha os saves atrás dos nomes das conquistas do
-/// schema Steam. A flag vive na linha do jogo.
-pub const V10_ACH_SAVE_SCAN: &str = r#"
-ALTER TABLE library_games ADD COLUMN ach_save_scan INTEGER NOT NULL DEFAULT 0;
+/// v11: group multi-archive split parts under one bundle_id so they
+/// extract into a shared folder and assign once.
+pub const V11_INSTALL_JOB_BUNDLE: &str = r#"
+ALTER TABLE install_jobs ADD COLUMN bundle_id TEXT;
+CREATE INDEX idx_install_jobs_bundle ON install_jobs(bundle_id);
+"#;
+
+/// v12: cached SAM list pools for Store discovery Home.
+pub const V12_DISCOVERY_POOLS: &str = r#"
+CREATE TABLE IF NOT EXISTS discovery_pools (
+  key TEXT PRIMARY KEY NOT NULL,
+  payload TEXT NOT NULL,
+  fetched_at INTEGER NOT NULL
+);
+"#;
+
+/// v13: durable Store Home recently-viewed history.
+pub const V13_STORE_VIEW_HISTORY: &str = r#"
+CREATE TABLE IF NOT EXISTS store_view_history (
+  thread_id TEXT PRIMARY KEY NOT NULL,
+  category TEXT NOT NULL,
+  title TEXT NOT NULL,
+  thumbnail_url TEXT,
+  thread_url TEXT NOT NULL,
+  viewed_at TEXT NOT NULL
+);
+CREATE INDEX IF NOT EXISTS idx_store_view_history_viewed_at
+  ON store_view_history(viewed_at DESC);
 "#;

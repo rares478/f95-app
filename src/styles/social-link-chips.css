@@ -1,0 +1,27 @@
+.social-link-chips {
+  display: inline-flex;
+  align-items: center;
+  gap: 4px;
+  margin-left: 8px;
+  vertical-align: middle;
+}
+
+.social-link-chip {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  width: 22px;
+  height: 22px;
+  padding: 0;
+  border: 1px solid transparent;
+  border-radius: 4px;
+  background: transparent;
+  color: var(--text-muted);
+  cursor: pointer;
+}
+
+.social-link-chip:hover {
+  color: var(--accent);
+  background: var(--bg-hover);
+  border-color: var(--border-faint);
+}

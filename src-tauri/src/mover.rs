@@ -16,6 +16,7 @@
 
 use crate::error::AppError;
 use serde::Serialize;
+use serde_json::json;
 use std::collections::HashMap;
 use std::path::{Path, PathBuf};
 use std::sync::atomic::{AtomicBool, Ordering};
@@ -61,43 +62,43 @@ impl MoveManager {
         let old = PathBuf::from(&old_install_path);
         let new_lib = PathBuf::from(&new_library_path);
         if !old.exists() {
-            return Err(AppError::Other(format!(
-                "install antigo não existe: {}",
-                old.display()
-            )));
+            return Err(AppError::keyed_vars(
+                "error.mover.oldMissing",
+                json!({ "path": old.display().to_string() }),
+            ));
         }
         if !new_lib.exists() {
-            return Err(AppError::Other(format!(
-                "biblioteca de destino não existe: {}",
-                new_lib.display()
-            )));
+            return Err(AppError::keyed_vars(
+                "error.mover.destLibMissing",
+                json!({ "path": new_lib.display().to_string() }),
+            ));
         }
         // Refuse a no-op move so the caller doesn't accidentally nuke the
         // install via the `delete old` step at the end.
         if same_root(&old, &new_lib) {
-            return Err(AppError::Other("o install já está nessa biblioteca".into()));
+            return Err(AppError::keyed("error.mover.alreadyThere"));
         }
 
         let basename = old
             .file_name()
-            .ok_or_else(|| AppError::Other("install antigo sem nome de pasta".into()))?
+            .ok_or_else(|| AppError::keyed("error.mover.noFolderName"))?
             .to_owned();
         let dest_dir = new_lib.join(sanitize_segment(&thread_id));
         let dest_final = dest_dir.join(&basename);
         let dest_partial = with_suffix(&dest_final, ".moving");
 
         if dest_final.exists() {
-            return Err(AppError::Other(format!(
-                "destino já existe: {}",
-                dest_final.display()
-            )));
+            return Err(AppError::keyed_vars(
+                "error.mover.destExists",
+                json!({ "path": dest_final.display().to_string() }),
+            ));
         }
 
         // Idempotent guard: if a move for this thread is already inflight, no-op.
         {
             let g = self.inflight.lock().await;
             if g.contains_key(&thread_id) {
-                return Err(AppError::Other("esse jogo já está sendo movido".into()));
+                return Err(AppError::keyed("error.mover.alreadyMoving"));
             }
         }
 
@@ -215,7 +216,9 @@ fn run_move(
             let _ = std::fs::remove_dir_all(dest_partial);
             return Ok(MoveOutcome::Cancelled);
         }
-        let entry = entry.map_err(|e| AppError::Other(format!("walk: {e}")))?;
+        let entry = entry.map_err(|e| {
+            AppError::keyed_vars("error.mover.failed", json!({ "detail": format!("walk: {e}") }))
+        })?;
         let src = entry.path();
         let rel = match src.strip_prefix(old) {
             Ok(r) => r,
@@ -232,8 +235,12 @@ fn run_move(
             if let Some(parent) = dst.parent() {
                 std::fs::create_dir_all(parent)?;
             }
-            let n = std::fs::copy(src, &dst)
-                .map_err(|e| AppError::Other(format!("copy {}: {e}", src.display())))?;
+            let n = std::fs::copy(src, &dst).map_err(|e| {
+                AppError::keyed_vars(
+                    "error.mover.failed",
+                    json!({ "detail": format!("copy {}: {e}", src.display()) }),
+                )
+            })?;
             copied += n;
 
             if last_emit.elapsed() >= Duration::from_millis(250) {
@@ -274,17 +281,22 @@ fn run_move(
         // Race: somebody else made the dest while we were copying. Refuse so
         // we don't clobber whatever they put there.
         let _ = std::fs::remove_dir_all(dest_partial);
-        return Err(AppError::Other(format!(
-            "destino apareceu durante o move: {}",
-            dest_final.display()
-        )));
+        return Err(AppError::keyed_vars(
+            "error.mover.destAppeared",
+            json!({ "path": dest_final.display().to_string() }),
+        ));
     }
     std::fs::rename(dest_partial, dest_final).map_err(|e| {
-        AppError::Other(format!(
-            "rename {} → {}: {e}",
-            dest_partial.display(),
-            dest_final.display()
-        ))
+        AppError::keyed_vars(
+            "error.mover.failed",
+            json!({
+                "detail": format!(
+                    "rename {} → {}: {e}",
+                    dest_partial.display(),
+                    dest_final.display()
+                )
+            }),
+        )
     })?;
 
     // Old install is now obsolete — delete it. If this fails we still consider
@@ -305,7 +317,9 @@ fn run_move(
 fn walk_total_bytes(root: &Path) -> Result<u64, AppError> {
     let mut total: u64 = 0;
     for entry in WalkDir::new(root) {
-        let entry = entry.map_err(|e| AppError::Other(format!("walk: {e}")))?;
+        let entry = entry.map_err(|e| {
+            AppError::keyed_vars("error.mover.failed", json!({ "detail": format!("walk: {e}") }))
+        })?;
         if entry.file_type().is_file() {
             total += entry.metadata().map(|m| m.len()).unwrap_or(0);
         }

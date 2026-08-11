@@ -1,5 +1,7 @@
 import { Link } from 'react-router-dom';
 import { useStoreContextMenu } from '../../hooks/useStoreContextMenu';
+import { useT } from '../../lib/i18n';
+import { useIsInLibrary } from '../../lib/libraryMembership';
 import type { SamCategory, SamGameCard } from '../../types/sam';
 import { ContentTagPills } from './ContentTagPills';
 import { PrefixPills } from './PrefixPills';
@@ -10,7 +12,9 @@ interface Props {
 }
 
 export function GameCard({ game, category }: Props) {
+  const { t } = useT();
   const { openStoreContextMenu } = useStoreContextMenu(category);
+  const inLibrary = useIsInLibrary(game.threadId);
   return (
     <Link
       to={`/store/game/${game.threadId}?cat=${category}`}
@@ -31,6 +35,11 @@ export function GameCard({ game, category }: Props) {
           />
         ) : (
           <div style={thumbFallback}>{game.title.slice(0, 1).toUpperCase()}</div>
+        )}
+        {inLibrary && (
+          <div style={libraryBadge} title={t('store.badge.inLibrary')}>
+            {t('store.badge.inLibrary')}
+          </div>
         )}
         {game.version && <div style={versionBadge}>{game.version}</div>}
       </div>
@@ -122,6 +131,19 @@ const versionBadge: React.CSSProperties = {
   borderRadius: 3,
   fontSize: 11,
   fontWeight: 600,
+};
+
+const libraryBadge: React.CSSProperties = {
+  position: 'absolute',
+  top: 6,
+  right: 6,
+  background: 'var(--status-success)',
+  color: 'var(--text-primary)',
+  padding: '2px 8px',
+  borderRadius: 2,
+  fontSize: 10,
+  fontWeight: 700,
+  letterSpacing: 0.3,
 };
 
 const bodyStyle: React.CSSProperties = {

@@ -1,8 +1,11 @@
 import { Link } from 'react-router-dom';
 import { useIsRunning } from '../../contexts/RunningGames';
+import { useDownloads } from '../../contexts/Downloads';
+import { inFlightLibraryStatus } from '../../lib/downloadLibrarySync';
 import { useT } from '../../lib/i18n';
-import type { LibraryGame } from '../../types/library';
+import type { LibraryDisplayStatus, LibraryGame } from '../../types/library';
 import { formatPlaytime, statusColor, statusKey } from '../../types/library';
+import { LibraryThumbnail } from './LibraryThumbnail';
 
 interface Props {
   game: LibraryGame;
@@ -12,8 +15,11 @@ interface Props {
 
 export function LibraryCard({ game, onPrimaryAction, onContextMenu }: Props) {
   const { t } = useT();
+  const { rows: downloadRows } = useDownloads();
   const isRunning = useIsRunning(game.threadId);
-  const cta = primaryCta(game, isRunning, t);
+  const displayStatus: LibraryDisplayStatus =
+    inFlightLibraryStatus(downloadRows, game.threadId) ?? game.installStatus;
+  const cta = primaryCta(game, displayStatus, isRunning, t);
   return (
     <div
       style={cardStyle}
@@ -21,17 +27,22 @@ export function LibraryCard({ game, onPrimaryAction, onContextMenu }: Props) {
     >
       <Link to={`/library/game/${game.threadId}`} style={thumbLinkStyle}>
         {game.thumbnailUrl ? (
-          <img src={game.thumbnailUrl} alt={game.title} loading="lazy" style={thumbImg} />
+          <LibraryThumbnail
+            src={game.thumbnailUrl}
+            alt={game.title}
+            style={thumbImg}
+            fallback={<div style={thumbFallback}>{game.title.slice(0, 1).toUpperCase()}</div>}
+          />
         ) : (
           <div style={thumbFallback}>{game.title.slice(0, 1).toUpperCase()}</div>
         )}
         <div
           style={{
             ...statusBadgeStyle,
-            background: isRunning ? 'var(--status-success)' : statusColor(game.installStatus),
+            background: isRunning ? 'var(--status-success)' : statusColor(displayStatus),
           }}
         >
-          {isRunning ? t('libcard.playing') : t(statusKey(game.installStatus))}
+          {isRunning ? t('libcard.playing') : t(statusKey(displayStatus))}
         </div>
       </Link>
 
@@ -52,7 +63,9 @@ export function LibraryCard({ game, onPrimaryAction, onContextMenu }: Props) {
             onClick={() => onPrimaryAction(game)}
             style={{
               ...primaryBtn,
-              ...(cta.intent === 'stop' ? { background: 'var(--accent-strong)' } : {}),
+              ...(cta.intent === 'stop' || cta.intent === 'needs-attention'
+                ? { background: 'var(--accent-strong)' }
+                : {}),
               ...(cta.intent === 'update' ? { background: 'var(--status-info)' } : {}),
               ...(cta.disabled ? disabledBtn : {}),
             }}
@@ -92,18 +105,19 @@ function mediaCta(
 
 function primaryCta(
   g: LibraryGame,
+  installStatus: LibraryDisplayStatus,
   isRunning: boolean,
   t: (k: string, v?: Record<string, string | number>) => string,
 ): {
   label: string;
   title: string;
   disabled: boolean;
-  intent: 'play' | 'stop' | 'pick-exe' | 'update' | 'noop' | 'view';
+  intent: 'play' | 'stop' | 'pick-exe' | 'update' | 'install' | 'noop' | 'view' | 'needs-attention';
 } {
   if (isRunning && g.category === 'games') {
     return { label: t('libcard.cta.stop'), title: t('libcard.cta.stop.title'), disabled: false, intent: 'stop' };
   }
-  switch (g.installStatus) {
+  switch (installStatus) {
     case 'installed':
       if (g.category !== 'games') {
         if (g.installPath) return mediaCta(g, t);
@@ -112,6 +126,13 @@ function primaryCta(
       return g.exePath
         ? { label: t('libcard.cta.play'), title: t('libcard.cta.play.title'), disabled: false, intent: 'play' }
         : { label: t('libcard.cta.pickExe'), title: t('libcard.cta.pickExe.title'), disabled: false, intent: 'pick-exe' };
+    case 'needs_attention':
+      return {
+        label: t('libcard.cta.needsAttention'),
+        title: t('libcard.cta.needsAttention.title'),
+        disabled: false,
+        intent: 'needs-attention',
+      };
     case 'downloading':
       return { label: t('libcard.cta.downloading'), title: t('libcard.cta.inFlight.title'), disabled: true, intent: 'noop' };
     case 'extracting':
@@ -128,9 +149,25 @@ function primaryCta(
         intent: 'update',
       };
     case 'error':
+      if (g.category === 'games' && !g.installPath && !g.exePath) {
+        return {
+          label: t('libcard.cta.install'),
+          title: t('libcard.cta.install.title'),
+          disabled: false,
+          intent: 'install',
+        };
+      }
       return { label: t('libcard.cta.error'), title: t('libcard.cta.error.title'), disabled: true, intent: 'noop' };
     case 'not_installed':
     default:
+      if (g.category === 'games') {
+        return {
+          label: t('libcard.cta.install'),
+          title: t('libcard.cta.install.title'),
+          disabled: false,
+          intent: 'install',
+        };
+      }
       return { label: t('libcard.cta.pickExe'), title: t('libcard.cta.pickExe.title'), disabled: false, intent: 'pick-exe' };
   }
 }

@@ -7,6 +7,7 @@ import {
 import { useT } from '../lib/i18n';
 import { Spinner } from './ui/Spinner';
 import { formatPlaytime } from '../types/library';
+import { LibraryThumbnail } from './library/LibraryThumbnail';
 
 /**
  * Hydra-style floating "now launching" card. Renders only while there are
@@ -59,11 +60,12 @@ function LaunchingCard({ entry }: { entry: LaunchEntry }) {
     <div style={cardStyle} className="launching-card">
       <div style={artStyle}>
         {game.thumbnailUrl ? (
-          <img
+          <LibraryThumbnail
             src={game.thumbnailUrl}
             alt={game.title}
             style={artImg}
-            draggable={false}
+            eager
+            priority={0}
           />
         ) : (
           <span style={artFallback}>{game.title.charAt(0).toUpperCase()}</span>

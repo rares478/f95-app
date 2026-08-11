@@ -11,6 +11,7 @@ import {
 } from '../../lib/mediaFolders';
 import { naturalSortBy, sortPaths } from '../../lib/naturalSort';
 import { useT } from '../../lib/i18n';
+import { formatIpcError } from '../../lib/ipcError';
 import type { InstallMediaIndex, MediaViewItem } from '../../types/media';
 import type { LibraryGame } from '../../types/library';
 import { clearViewerPreviewCaches } from '../../lib/thumbQueue';
@@ -125,7 +126,7 @@ export function MediaViewer({ game, onClose }: Props) {
         setSelected(cbzItem);
         setActivePath(pages[0] ?? null);
       } catch (err) {
-        setError(formatErr(err));
+        setError(formatIpcError(err));
       } finally {
         setCbzLoading(false);
       }
@@ -183,7 +184,7 @@ export function MediaViewer({ game, onClose }: Props) {
         }
       })
       .catch((err) => {
-        if (!cancelled) setError(formatErr(err));
+        if (!cancelled) setError(formatIpcError(err));
       })
       .finally(() => {
         if (!cancelled) setLoading(false);
@@ -752,11 +753,4 @@ function pageLabel(path: string, fallbackNum: number): string {
 
 function toAssetUrl(path: string): string {
   return convertFileSrc(path);
-}
-
-function formatErr(err: unknown): string {
-  if (err && typeof err === 'object' && 'message' in err) {
-    return String((err as { message: string }).message);
-  }
-  return String(err);
 }

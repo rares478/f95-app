@@ -1,7 +1,19 @@
 use super::state::AppState;
 use crate::error::AppError;
 use serde::Serialize;
+use serde_json::json;
 use tauri::State;
+
+fn keyed_msg(key: &str) -> String {
+    key.to_string()
+}
+
+fn keyed_msg_vars(key: &str, vars: impl Serialize) -> String {
+    match serde_json::to_string(&vars) {
+        Ok(payload) => format!("{key}|{payload}"),
+        Err(_) => key.to_string(),
+    }
+}
 
 /// Set the user-supplied GoFile API credentials. Pass `token = None` (or an
 /// empty string) to clear them and fall back to minting guest tokens. The
@@ -22,7 +34,7 @@ pub struct GoFileVerifyResult {
     pub valid: bool,
     pub tier: Option<String>,
     pub email: Option<String>,
-    /// Human-readable status - surfaced to the user in the Settings UI.
+    /// Locale key (or key|json) — translated in the Settings UI.
     pub message: String,
 }
 
@@ -40,7 +52,7 @@ pub async fn verify_gofile_credentials(
                 valid: false,
                 tier: None,
                 email: None,
-                message: "Nenhuma credencial salva.".into(),
+                message: keyed_msg("error.host.noCredentials"),
             });
         }
     };
@@ -52,9 +64,7 @@ pub async fn verify_gofile_credentials(
             valid: false,
             tier: None,
             email: None,
-            message: "Token salvo, mas sem Account ID não dá pra verificar o tier. \
-                      Cole o Account ID também (na mesma página do GoFile)."
-                .into(),
+            message: keyed_msg("error.host.tokenNoAccountId"),
         });
     };
     let url = format!("https://api.gofile.io/accounts/{}", account_id);
@@ -65,25 +75,25 @@ pub async fn verify_gofile_credentials(
         .bearer_auth(&creds.token)
         .send()
         .await
-        .map_err(|e| AppError::Other(format!("gofile verify http: {e}")))?;
+        .map_err(|e| {
+            AppError::keyed_vars("error.gofile.generic", json!({ "detail": format!("verify http: {e}") }))
+        })?;
     let status = resp.status();
-    let body: serde_json::Value = resp
-        .json()
-        .await
-        .map_err(|e| AppError::Other(format!("gofile verify json: {e}")))?;
+    let body: serde_json::Value = resp.json().await.map_err(|e| {
+        AppError::keyed_vars("error.gofile.generic", json!({ "detail": format!("verify json: {e}") }))
+    })?;
     if body.get("status").and_then(|v| v.as_str()) != Some("ok") {
         let api_status = body
             .get("status")
             .and_then(|v| v.as_str())
             .unwrap_or("error-unknown");
         let message = match api_status {
-            "error-notFound" => {
-                "Account ID inválido - confira se copiou certo da página do GoFile.".into()
-            }
-            _ if status.as_u16() == 401 => {
-                "Token inválido ou expirado. Faça login no gofile.io e copie o token novo.".into()
-            }
-            _ => format!("Resposta do GoFile: {api_status} (HTTP {status})"),
+            "error-notFound" => keyed_msg("error.host.gofileBadAccountId"),
+            _ if status.as_u16() == 401 => keyed_msg("error.host.gofileBadToken"),
+            _ => keyed_msg_vars(
+                "error.host.gofileResponse",
+                json!({ "status": api_status, "http": status.as_u16() }),
+            ),
         };
         return Ok(GoFileVerifyResult {
             valid: false,
@@ -102,14 +112,11 @@ pub async fn verify_gofile_credentials(
         .and_then(|v| v.as_str())
         .map(|s| s.to_string());
     let message = match tier.as_deref() {
-        Some("premium") => "Premium - todos os downloads funcionam.".into(),
-        Some("standard") => "Standard - alguns arquivos exigem Premium.".into(),
-        Some("guest") => {
-            "Guest - você colou um token de visitante. Logue no GoFile e use o token da conta."
-                .into()
-        }
-        Some(other) => format!("Tier: {other}"),
-        None => "Credenciais válidas (tier desconhecido).".into(),
+        Some("premium") => keyed_msg("error.host.gofilePremium"),
+        Some("standard") => keyed_msg("error.host.gofileStandard"),
+        Some("guest") => keyed_msg("error.host.gofileGuest"),
+        Some(other) => keyed_msg_vars("error.host.gofileTier", json!({ "tier": other })),
+        None => keyed_msg("error.host.gofileValidUnknown"),
     };
     Ok(GoFileVerifyResult {
         valid: true,
@@ -146,7 +153,7 @@ pub async fn login_mega(
     let email = email.trim();
     if email.is_empty() || password.is_empty() {
         return Err(AppError::InvalidCredentials(
-            "E-mail e senha são obrigatórios.".into(),
+            "error.host.emailPasswordRequired".into(),
         ));
     }
     let mfa = mfa.as_deref().map(str::trim).filter(|s| !s.is_empty());
@@ -158,7 +165,7 @@ pub async fn login_mega(
     Ok(MegaLoginResult {
         session,
         email: user_email.clone(),
-        message: format!("Conectado como {user_email}."),
+        message: keyed_msg_vars("error.host.signedIn", json!({ "email": user_email })),
     })
 }
 
@@ -184,7 +191,7 @@ pub async fn verify_mega_session(state: State<'_, AppState>) -> Result<MegaVerif
                 email: None,
                 used_bytes: None,
                 total_bytes: None,
-                message: "Nenhuma sessão salva.".into(),
+                message: keyed_msg("error.host.noSession"),
             });
         }
     };
@@ -198,23 +205,28 @@ pub async fn verify_mega_session(state: State<'_, AppState>) -> Result<MegaVerif
                 email: None,
                 used_bytes: None,
                 total_bytes: None,
-                message: format!("Sessão inválida ou expirada: {e}"),
+                message: keyed_msg_vars(
+                    "error.host.sessionInvalid",
+                    json!({ "detail": e.to_string() }),
+                ),
             });
         }
     };
-    let quotas = client
-        .get_storage_quotas()
-        .await
-        .map_err(|e| AppError::Other(format!("mega quotas: {e}")))?;
+    let quotas = client.get_storage_quotas().await.map_err(|e| {
+        AppError::keyed_vars("error.mega.generic", json!({ "detail": format!("quotas: {e}") }))
+    })?;
 
     Ok(MegaVerifyResult {
         valid: true,
         email: Some(user.email),
         used_bytes: Some(quotas.memory_used),
         total_bytes: Some(quotas.memory_total),
-        message: format!(
-            "Sessão válida - {} / {} bytes usados.",
-            quotas.memory_used, quotas.memory_total
+        message: keyed_msg_vars(
+            "error.host.megaQuota",
+            json!({
+                "used": quotas.memory_used,
+                "total": quotas.memory_total,
+            }),
         ),
     })
 }
@@ -260,9 +272,9 @@ pub async fn login_uploadhaven(
         .set_uploadhaven_session(Some(session.clone()))
         .await;
     let message = if session.is_pro {
-        format!("Conectado como {} (Pro).", session.email)
+        keyed_msg_vars("error.host.signedInPro", json!({ "email": &session.email }))
     } else {
-        format!("Conectado como {}, mas sem plano Pro ativo.", session.email)
+        keyed_msg_vars("error.host.signedInNoPro", json!({ "email": &session.email }))
     };
     Ok(UploadHavenLoginResult {
         cookie_header: session.cookie_header,
@@ -294,7 +306,7 @@ pub async fn verify_uploadhaven_session(
                 valid: false,
                 email: None,
                 is_pro: false,
-                message: "Nenhuma sessão salva.".into(),
+                message: keyed_msg("error.host.noSession"),
                 cookie_header: None,
             });
         }
@@ -349,7 +361,7 @@ pub async fn verify_buzzheavier_account(
                 email: None,
                 storage_used: None,
                 storage_limit: None,
-                message: "Nenhum Account ID salvo.".into(),
+                message: keyed_msg("error.host.noAccountId"),
             });
         }
     };
@@ -375,7 +387,7 @@ pub struct DataNodesVerifyResult {
     /// "inf" or a byte count, straight from the API.
     pub storage_left: Option<String>,
     pub premium_expire: Option<String>,
-    /// Human-readable status surfaced in the Settings UI.
+    /// Locale key (or key|json) — translated in the Settings UI.
     pub message: String,
 }
 
@@ -393,7 +405,7 @@ pub async fn verify_datanodes_key(
                 email: None,
                 storage_left: None,
                 premium_expire: None,
-                message: "Nenhuma API key salva.".into(),
+                message: keyed_msg("error.host.noApiKey"),
             });
         }
     };
@@ -404,19 +416,29 @@ pub async fn verify_datanodes_key(
         .get(&url)
         .send()
         .await
-        .map_err(|e| AppError::Other(format!("datanodes verify http: {e}")))?;
+        .map_err(|e| {
+            AppError::keyed_vars(
+                "error.datanodes.generic",
+                json!({ "detail": format!("verify http: {e}") }),
+            )
+        })?;
     let status = resp.status();
-    let body: serde_json::Value = resp
-        .json()
-        .await
-        .map_err(|e| AppError::Other(format!("datanodes verify json (HTTP {status}): {e}")))?;
+    let body: serde_json::Value = resp.json().await.map_err(|e| {
+        AppError::keyed_vars(
+            "error.datanodes.generic",
+            json!({ "detail": format!("verify json (HTTP {status}): {e}") }),
+        )
+    })?;
     let api_status = body.get("status").and_then(|v| v.as_i64()).unwrap_or(0);
     if api_status != 200 {
         let msg = body.get("msg").and_then(|v| v.as_str()).unwrap_or("error");
         let message = if status.as_u16() == 401 || status.as_u16() == 403 {
-            "API key inválida ou expirada. Gere uma nova na página da conta DataNodes.".into()
+            keyed_msg("error.host.datanodesBadKey")
         } else {
-            format!("DataNodes respondeu: {msg} (HTTP {status})")
+            keyed_msg_vars(
+                "error.host.datanodesResponse",
+                json!({ "detail": msg, "http": status.as_u16() }),
+            )
         };
         return Ok(DataNodesVerifyResult {
             valid: false,
@@ -440,9 +462,12 @@ pub async fn verify_datanodes_key(
         .and_then(|v| v.as_str())
         .map(|s| s.to_string());
     let message = match (email.as_deref(), premium_expire.as_deref()) {
-        (Some(e), Some(exp)) => format!("Conectado como {e} (Premium até {exp})."),
-        (Some(e), None) => format!("Conectado como {e}."),
-        _ => "API key válida.".into(),
+        (Some(e), Some(exp)) => keyed_msg_vars(
+            "error.host.signedInPremiumUntil",
+            json!({ "email": e, "exp": exp }),
+        ),
+        (Some(e), None) => keyed_msg_vars("error.host.signedIn", json!({ "email": e })),
+        _ => keyed_msg("error.host.validApiKey"),
     };
     Ok(DataNodesVerifyResult {
         valid: true,
@@ -479,7 +504,7 @@ pub async fn verify_mixdrop_credentials(
         None => {
             return Ok(MixdropVerifyResult {
                 valid: false,
-                message: "Nenhuma credencial MixDrop salva.".into(),
+                message: keyed_msg("error.host.mixdropNone"),
             });
         }
     };
@@ -491,19 +516,28 @@ pub async fn verify_mixdrop_credentials(
             ("page", "1"),
         ],
     )
-    .map_err(|e| AppError::Other(format!("mixdrop verify url: {e}")))?;
+    .map_err(|e| {
+        AppError::keyed_vars("error.mixdrop.generic", json!({ "detail": format!("verify url: {e}") }))
+    })?;
     let resp = state
         .downloader
         .http()
         .get(url)
         .send()
         .await
-        .map_err(|e| AppError::Other(format!("mixdrop verify http: {e}")))?;
+        .map_err(|e| {
+            AppError::keyed_vars(
+                "error.mixdrop.generic",
+                json!({ "detail": format!("verify http: {e}") }),
+            )
+        })?;
     let status = resp.status();
-    let body: serde_json::Value = resp
-        .json()
-        .await
-        .map_err(|e| AppError::Other(format!("mixdrop verify json (HTTP {status}): {e}")))?;
+    let body: serde_json::Value = resp.json().await.map_err(|e| {
+        AppError::keyed_vars(
+            "error.mixdrop.generic",
+            json!({ "detail": format!("verify json (HTTP {status}): {e}") }),
+        )
+    })?;
     let success = body
         .get("success")
         .and_then(|v| v.as_bool())
@@ -511,17 +545,17 @@ pub async fn verify_mixdrop_credentials(
     if success {
         Ok(MixdropVerifyResult {
             valid: true,
-            message: format!("API MixDrop conectada ({})", creds.email),
+            message: keyed_msg_vars("error.host.mixdropOk", json!({ "email": &creds.email })),
         })
     } else {
         let msg = body
             .get("result")
             .and_then(|r| r.get("msg"))
             .and_then(|v| v.as_str())
-            .unwrap_or("credenciais inválidas");
+            .unwrap_or("invalid credentials");
         Ok(MixdropVerifyResult {
             valid: false,
-            message: format!("MixDrop: {msg}"),
+            message: keyed_msg_vars("error.host.mixdropApi", json!({ "detail": msg })),
         })
     }
 }

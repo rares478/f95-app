@@ -32,6 +32,17 @@ pub enum AppError {
 }
 
 impl AppError {
+    pub fn keyed(key: &str) -> Self {
+        AppError::Other(key.to_string())
+    }
+
+    pub fn keyed_vars(key: &str, vars: impl Serialize) -> Self {
+        match serde_json::to_string(&vars) {
+            Ok(json) => AppError::Other(format!("{key}|{json}")),
+            Err(_) => AppError::Other(key.to_string()),
+        }
+    }
+
     pub fn code(&self) -> &'static str {
         match self {
             AppError::InvalidCredentials(_) => "invalid_credentials",
@@ -50,9 +61,23 @@ impl AppError {
 impl Serialize for AppError {
     fn serialize<S: Serializer>(&self, serializer: S) -> Result<S::Ok, S::Error> {
         use serde::ser::SerializeStruct;
+        // Prefer the inner payload for string-carrying variants so locale keys
+        // (and key|json) reach the frontend without Display prefixes.
+        let owned;
+        let message: &str = match self {
+            AppError::InvalidCredentials(m)
+            | AppError::Cloudflare(m)
+            | AppError::Protocol(m)
+            | AppError::Io(m)
+            | AppError::Other(m) => m.as_str(),
+            other => {
+                owned = other.to_string();
+                owned.as_str()
+            }
+        };
         let mut s = serializer.serialize_struct("AppError", 2)?;
         s.serialize_field("code", self.code())?;
-        s.serialize_field("message", &self.to_string())?;
+        s.serialize_field("message", message)?;
         s.end()
     }
 }

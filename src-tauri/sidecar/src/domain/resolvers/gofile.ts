@@ -62,17 +62,17 @@ export function parseGofileUrl(raw: string): ParsedGofileUrl {
   try {
     u = new URL(raw.trim());
   } catch {
-    throw new RpcError(RPC_ERROR.INVALID_PARAMS, `invalid GoFile URL: ${raw}`);
+    throw new RpcError(RPC_ERROR.INVALID_PARAMS, 'error.gofile.invalidUrl');
   }
   if (!/^(www\.)?gofile\.io$/i.test(u.hostname)) {
-    throw new RpcError(RPC_ERROR.INVALID_PARAMS, `not a GoFile URL: ${raw}`);
+    throw new RpcError(RPC_ERROR.INVALID_PARAMS, 'error.gofile.invalidUrl');
   }
   const segs = u.pathname.split('/').filter(Boolean);
   const idx = segs.findIndex((s) => s === 'd' || s === 'download');
   const contentId =
     (idx >= 0 ? segs[idx + 1] : undefined) ?? segs[segs.length - 1];
   if (!contentId || !/^[a-zA-Z0-9]{4,64}$/.test(contentId)) {
-    throw new RpcError(RPC_ERROR.INVALID_PARAMS, 'GoFile URL missing content id');
+    throw new RpcError(RPC_ERROR.INVALID_PARAMS, 'error.gofile.missingId');
   }
   return { contentId, pageUrl: `${BASE}/d/${contentId}` };
 }
@@ -177,7 +177,7 @@ function waitForContentsOk(page: Page, contentId: string): Promise<GofileContent
           reject(
             new RpcError(
               RPC_ERROR.INTERNAL,
-              'GoFile: tempo esgotado aguardando metadados no navegador',
+              'error.gofile.metaTimeout',
             ),
           ),
         );
@@ -211,13 +211,13 @@ async function resolveViaDownloadClick(
   if (!clicked) {
     throw new RpcError(
       RPC_ERROR.INTERNAL,
-      'GoFile: botão de download não encontrado — abra o link no navegador',
+      'error.gofile.noButton',
     );
   }
   const download = await downloadPromise;
   const directUrl = download.url();
   if (!directUrl || !directUrl.startsWith('http')) {
-    throw new RpcError(RPC_ERROR.INTERNAL, 'GoFile: download não retornou URL CDN');
+    throw new RpcError(RPC_ERROR.INTERNAL, 'error.gofile.noCdn');
   }
   const suggested = download.suggestedFilename();
   await download.cancel().catch(() => undefined);
@@ -269,12 +269,12 @@ export async function resolveGofile(
     await page.goto(parsed.pageUrl, { waitUntil: 'domcontentloaded', timeout: 90_000 });
     let html = await page.content();
     if (pageIsNotFound(html)) {
-      throw new RpcError(RPC_ERROR.INTERNAL, 'GoFile: link inválido ou removido');
+      throw new RpcError(RPC_ERROR.INTERNAL, 'error.gofile.notFound');
     }
     if (pageNeedsPassword(html)) {
       throw new RpcError(
         RPC_ERROR.INTERNAL,
-        'GoFile: link protegido por senha — abra no navegador e baixe manualmente',
+        'error.gofile.password',
       );
     }
 
@@ -291,7 +291,7 @@ export async function resolveGofile(
       if (pageNeedsPassword(html)) {
         throw new RpcError(
           RPC_ERROR.INTERNAL,
-          'GoFile: link protegido por senha — abra no navegador e baixe manualmente',
+          'error.gofile.password',
         );
       }
       const fallbackName =
@@ -322,10 +322,13 @@ export async function resolveGofile(
     if (/timeout|timed out/i.test(msg)) {
       throw new RpcError(
         RPC_ERROR.INTERNAL,
-        'GoFile: tempo esgotado no navegador — tente novamente',
+        'error.gofile.browserTimeout',
       );
     }
-    throw new RpcError(RPC_ERROR.INTERNAL, `GoFile: ${msg}`);
+    throw new RpcError(
+      RPC_ERROR.INTERNAL,
+      `error.gofile.generic|${JSON.stringify({ detail: msg })}`,
+    );
   } finally {
     await context.close().catch(() => undefined);
   }

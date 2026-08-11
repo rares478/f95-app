@@ -100,11 +100,37 @@ impl SidecarClient {
         Ok(serde_json::from_value(value)?)
     }
 
-    /// Public profile of an arbitrary member. Raw JSON passthrough (typed
-    /// on the frontend as `MemberProfileDto`), same policy as `get_following`.
-    pub async fn get_member_profile(&self, user_id: &str) -> Result<Value, AppError> {
-        self.inner
+    pub async fn get_member_profile(&self, user_id: &str) -> Result<ProfileDto, AppError> {
+        let value: Value = self
+            .inner
             .call("getMemberProfile", json!({ "userId": user_id }))
+            .await?;
+        Ok(serde_json::from_value(value)?)
+    }
+
+    pub async fn get_member_profile_posts(
+        &self,
+        user_id: &str,
+        page: u32,
+    ) -> Result<Value, AppError> {
+        self.inner
+            .call(
+                "getMemberProfilePosts",
+                json!({ "userId": user_id, "page": page }),
+            )
+            .await
+    }
+
+    pub async fn get_member_activity(
+        &self,
+        user_id: &str,
+        page: u32,
+    ) -> Result<Value, AppError> {
+        self.inner
+            .call(
+                "getMemberActivity",
+                json!({ "userId": user_id, "page": page }),
+            )
             .await
     }
 
@@ -138,6 +164,68 @@ impl SidecarClient {
     pub async fn game_detail(&self, thread_id: &str) -> Result<Value, AppError> {
         self.inner
             .call("gameDetail", json!({ "threadId": thread_id }))
+            .await
+    }
+
+    pub async fn thread_posts(&self, thread_id: &str, page: u32) -> Result<Value, AppError> {
+        self.inner
+            .call("threadPosts", json!({ "threadId": thread_id, "page": page }))
+            .await
+    }
+
+    pub async fn forum_search(
+        &self,
+        query: &str,
+        title_only: bool,
+        search_in: &str,
+        sort: &str,
+        page: u32,
+    ) -> Result<Value, AppError> {
+        self.inner
+            .call(
+                "forumSearch",
+                json!({
+                    "query": query,
+                    "titleOnly": title_only,
+                    "searchIn": search_in,
+                    "sort": sort,
+                    "page": page,
+                }),
+            )
+            .await
+    }
+
+    pub async fn thread_reply(&self, thread_id: &str, message: &str) -> Result<Value, AppError> {
+        self.inner
+            .call(
+                "threadReply",
+                json!({ "threadId": thread_id, "message": message }),
+            )
+            .await
+    }
+
+    pub async fn bbcode_preview(
+        &self,
+        thread_id: &str,
+        bb_code: &str,
+    ) -> Result<Value, AppError> {
+        self.inner
+            .call(
+                "bbcodePreview",
+                json!({ "threadId": thread_id, "bbCode": bb_code }),
+            )
+            .await
+    }
+
+    pub async fn resolve_post(&self, post_id: &str) -> Result<Value, AppError> {
+        self.inner
+            .call("resolvePost", json!({ "postId": post_id }))
+            .await
+    }
+
+    pub async fn resolve_f95_url(&self, url: &str) -> Result<Value, AppError> {
+        self.inner
+            .call("resolvePost", json!({ "url": url }))
             .await
     }
 

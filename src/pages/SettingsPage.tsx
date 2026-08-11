@@ -16,6 +16,7 @@ import type { InstallLibraryWithDisk } from '../types/install-library';
 import type { SkinId, ThemeId } from '../lib/theme';
 import { useDownloadSettings } from '../contexts/DownloadSettings';
 import { useStoreSettings } from '../contexts/StoreSettings';
+import { useDiscussionSettings } from '../contexts/DiscussionSettings';
 import type { StoreScrollMode } from '../lib/storeSettings';
 import { useOffline } from '../contexts/Offline';
 import {
@@ -34,12 +35,15 @@ import {
   type ExperimentalSettings,
 } from '../lib/experimentalSettings';
 import { formatOverlayAnchorStatus } from '../lib/overlayAnchorLabel';
-import { formatIpcError } from '../lib/ipcError';
+import { extractRawMessage, formatIpcError } from '../lib/ipcError';
+import { translateBackendMessage } from '../lib/backendMessage';
 import {
   getOverlayHotkeyRegistrationMessage,
   isOverlayHotkeyRegistered,
   syncOverlayHotkey,
 } from '../lib/overlayHotkey';
+import { getAutoUpdateEnabled, setAutoUpdateEnabled } from '../lib/appUpdateSettings';
+import { checkForAppUpdate, installAppUpdate } from '../lib/appUpdater';
 import { LoadingState } from '../components/ui/LoadingState';
 import { AchievementsSettingsCard } from '../components/settings/AchievementsSettingsCard';
 import { useScrollSpy } from '../hooks/useScrollSpy';
@@ -102,11 +106,55 @@ export function SettingsPage({ onLoggedOut: _onLoggedOut }: Props) {
   } = useOffline();
   const { settings: dlSettings, update: updateDlSettings } = useDownloadSettings();
   const { settings: storeSettings, update: updateStoreSettings } = useStoreSettings();
+  const { settings: discussionSettings, update: updateDiscussionSettings } =
+    useDiscussionSettings();
 
   async function requireOnlineForHostAction(): Promise<boolean> {
     if (!isOffline) return true;
     await dialog.alert(t('offline.actionBlocked'), { kind: 'info' });
     return false;
+  }
+
+  async function onCheckUpdates() {
+    setUpdateBusy(true);
+    try {
+      let update;
+      try {
+        update = await checkForAppUpdate({ throwOnError: true });
+      } catch (err) {
+        await dialog.alert(t('settings.updates.failed', { error: formatIpcError(err) }), {
+          kind: 'error',
+        });
+        return;
+      }
+      if (!update) {
+        await dialog.alert(t('settings.updates.uptodate'), { kind: 'info' });
+        return;
+      }
+      const ok = await dialog.confirm(
+        t('settings.updates.available', { version: update.version }),
+        { title: t('settings.updates.section'), kind: 'info' },
+      );
+      if (ok) {
+        setInstalling(true);
+        try {
+          await installAppUpdate(update);
+        } catch (err) {
+          setInstalling(false);
+          await dialog.alert(
+            t('settings.updates.installFailed', { error: formatIpcError(err) }),
+            { kind: 'error' },
+          );
+        }
+      }
+    } finally {
+      setUpdateBusy(false);
+    }
+  }
+
+  /** Translate host verify/login `message` payloads (locale key or key|json). */
+  function hostMessage(raw: string): string {
+    return translateBackendMessage(raw, t);
   }
   const [devDebug, setDevDebug] = useState<DevDebugSettings | null>(null);
   const [runtime, setRuntime] = useState<AppRuntimeSettings | null>(null);
@@ -120,6 +168,9 @@ export function SettingsPage({ onLoggedOut: _onLoggedOut }: Props) {
   const [info, setInfo] = useState<AppInfo | null>(null);
   const [counts, setCounts] = useState<CacheCounts | null>(null);
   const [busy, setBusy] = useState<string | null>(null);
+  const [autoUpdate, setAutoUpdate] = useState(true);
+  const [updateBusy, setUpdateBusy] = useState(false);
+  const [installing, setInstalling] = useState(false);
   const [libs, setLibs] = useState<InstallLibraryWithDisk[]>([]);
   const [libsLoading, setLibsLoading] = useState(true);
   const [activeSection, setActiveSection] = useState<SettingsSectionId>('appearance');
@@ -217,6 +268,12 @@ export function SettingsPage({ onLoggedOut: _onLoggedOut }: Props) {
       refreshLibs();
       refreshHostTokens();
     })();
+  }, []);
+
+  useEffect(() => {
+    void getAutoUpdateEnabled().then(setAutoUpdate).catch((err) => {
+      console.warn('[settings] failed to load auto-update setting', err);
+    });
   }, []);
 
   useEffect(() => {
@@ -318,7 +375,7 @@ export function SettingsPage({ onLoggedOut: _onLoggedOut }: Props) {
       setGofileSaved({ token: tokenNext || null, accountId: accountNext || null });
       setGofileVerify({ state: 'idle' });
     } catch (err) {
-      await dialog.alert(formatError(err), { kind: 'error' });
+      await dialog.alert(formatIpcError(err), { kind: 'error' });
     } finally {
       setBusy(null);
     }
@@ -337,7 +394,7 @@ export function SettingsPage({ onLoggedOut: _onLoggedOut }: Props) {
       setGofileSaved({ token: null, accountId: null });
       setGofileVerify({ state: 'idle' });
     } catch (err) {
-      await dialog.alert(formatError(err), { kind: 'error' });
+      await dialog.alert(formatIpcError(err), { kind: 'error' });
     } finally {
       setBusy(null);
     }
@@ -355,7 +412,7 @@ export function SettingsPage({ onLoggedOut: _onLoggedOut }: Props) {
     } catch (err) {
       setGofileVerify({
         state: 'done',
-        result: { valid: false, tier: null, message: formatError(err) },
+        result: { valid: false, tier: null, message: extractRawMessage(err) },
       });
     }
   }
@@ -392,7 +449,7 @@ export function SettingsPage({ onLoggedOut: _onLoggedOut }: Props) {
         setMegaNeedsMfa(true);
         await dialog.alert(t('settings.hosts.megaMfaRequired'), { kind: 'warning' });
       } else {
-        await dialog.alert(formatError(err), { kind: 'error' });
+        await dialog.alert(formatIpcError(err), { kind: 'error' });
       }
     } finally {
       setBusy(null);
@@ -415,7 +472,7 @@ export function SettingsPage({ onLoggedOut: _onLoggedOut }: Props) {
       setMegaEmail('');
       setMegaVerify({ state: 'idle' });
     } catch (err) {
-      await dialog.alert(formatError(err), { kind: 'error' });
+      await dialog.alert(formatIpcError(err), { kind: 'error' });
     } finally {
       setBusy(null);
     }
@@ -433,7 +490,7 @@ export function SettingsPage({ onLoggedOut: _onLoggedOut }: Props) {
     } catch (err) {
       setMegaVerify({
         state: 'done',
-        result: { valid: false, message: formatError(err) },
+        result: { valid: false, message: extractRawMessage(err) },
       });
     }
   }
@@ -462,7 +519,7 @@ export function SettingsPage({ onLoggedOut: _onLoggedOut }: Props) {
         result: { valid: true, isPro: r.isPro, message: r.message, email: r.email },
       });
     } catch (err) {
-      await dialog.alert(formatError(err), { kind: 'error' });
+      await dialog.alert(formatIpcError(err), { kind: 'error' });
     } finally {
       setBusy(null);
     }
@@ -484,7 +541,7 @@ export function SettingsPage({ onLoggedOut: _onLoggedOut }: Props) {
       setUhEmail('');
       setUhVerify({ state: 'idle' });
     } catch (err) {
-      await dialog.alert(formatError(err), { kind: 'error' });
+      await dialog.alert(formatIpcError(err), { kind: 'error' });
     } finally {
       setBusy(null);
     }
@@ -511,7 +568,7 @@ export function SettingsPage({ onLoggedOut: _onLoggedOut }: Props) {
     } catch (err) {
       setUhVerify({
         state: 'done',
-        result: { valid: false, isPro: false, message: formatError(err) },
+        result: { valid: false, isPro: false, message: extractRawMessage(err) },
       });
     }
   }
@@ -525,7 +582,7 @@ export function SettingsPage({ onLoggedOut: _onLoggedOut }: Props) {
       setBhSaved(next || null);
       setBhVerify({ state: 'idle' });
     } catch (err) {
-      await dialog.alert(formatError(err), { kind: 'error' });
+      await dialog.alert(formatIpcError(err), { kind: 'error' });
     } finally {
       setBusy(null);
     }
@@ -540,7 +597,7 @@ export function SettingsPage({ onLoggedOut: _onLoggedOut }: Props) {
       setBhSaved(null);
       setBhVerify({ state: 'idle' });
     } catch (err) {
-      await dialog.alert(formatError(err), { kind: 'error' });
+      await dialog.alert(formatIpcError(err), { kind: 'error' });
     } finally {
       setBusy(null);
     }
@@ -564,7 +621,7 @@ export function SettingsPage({ onLoggedOut: _onLoggedOut }: Props) {
     } catch (err) {
       setBhVerify({
         state: 'done',
-        result: { valid: false, message: formatError(err) },
+        result: { valid: false, message: extractRawMessage(err) },
       });
     }
   }
@@ -578,7 +635,7 @@ export function SettingsPage({ onLoggedOut: _onLoggedOut }: Props) {
       setDnSaved(next || null);
       setDnVerify({ state: 'idle' });
     } catch (err) {
-      await dialog.alert(formatError(err), { kind: 'error' });
+      await dialog.alert(formatIpcError(err), { kind: 'error' });
     } finally {
       setBusy(null);
     }
@@ -593,7 +650,7 @@ export function SettingsPage({ onLoggedOut: _onLoggedOut }: Props) {
       setDnSaved(null);
       setDnVerify({ state: 'idle' });
     } catch (err) {
-      await dialog.alert(formatError(err), { kind: 'error' });
+      await dialog.alert(formatIpcError(err), { kind: 'error' });
     } finally {
       setBusy(null);
     }
@@ -611,7 +668,7 @@ export function SettingsPage({ onLoggedOut: _onLoggedOut }: Props) {
     } catch (err) {
       setDnVerify({
         state: 'done',
-        result: { valid: false, message: formatError(err) },
+        result: { valid: false, message: extractRawMessage(err) },
       });
     }
   }
@@ -697,7 +754,7 @@ export function SettingsPage({ onLoggedOut: _onLoggedOut }: Props) {
       await libraries.add({ label: '', path: picked });
       await refreshLibs();
     } catch (err) {
-      await dialog.alert(formatError(err), { kind: 'error' });
+      await dialog.alert(formatIpcError(err), { kind: 'error' });
     } finally {
       setBusy(null);
     }
@@ -709,7 +766,7 @@ export function SettingsPage({ onLoggedOut: _onLoggedOut }: Props) {
       await libraries.setDefault(id);
       await refreshLibs();
     } catch (err) {
-      await dialog.alert(formatError(err), { kind: 'error' });
+      await dialog.alert(formatIpcError(err), { kind: 'error' });
     } finally {
       setBusy(null);
     }
@@ -726,7 +783,7 @@ export function SettingsPage({ onLoggedOut: _onLoggedOut }: Props) {
       await libraries.remove(lib.id);
       await refreshLibs();
     } catch (err) {
-      await dialog.alert(formatError(err), { kind: 'error' });
+      await dialog.alert(formatIpcError(err), { kind: 'error' });
     } finally {
       setBusy(null);
     }
@@ -743,17 +800,10 @@ export function SettingsPage({ onLoggedOut: _onLoggedOut }: Props) {
       await libraries.setLabel(lib.id, next.trim());
       await refreshLibs();
     } catch (err) {
-      await dialog.alert(formatError(err), { kind: 'error' });
+      await dialog.alert(formatIpcError(err), { kind: 'error' });
     } finally {
       setBusy(null);
     }
-  }
-
-  function formatError(err: unknown): string {
-    if (err && typeof err === 'object' && 'message' in err) {
-      return String((err as { message: string }).message);
-    }
-    return String(err);
   }
 
   function isBackendError(err: unknown): err is { code: string; message: string } {
@@ -812,7 +862,7 @@ export function SettingsPage({ onLoggedOut: _onLoggedOut }: Props) {
       await ipc.restartToLogin();
     } catch (err) {
       console.error('[logout] failed', err);
-      await dialog.alert(t('settings.account.logoutFailed', { error: formatError(err) }), {
+      await dialog.alert(t('settings.account.logoutFailed', { error: formatIpcError(err) }), {
         kind: 'error',
       });
     } finally {
@@ -897,13 +947,15 @@ export function SettingsPage({ onLoggedOut: _onLoggedOut }: Props) {
               <div className="settings-theme-grid">
                 {theme.THEMES.map((th) => {
                   const selected = th.id === activeTheme;
+                  const label = t(`settings.theme.${th.id}.label`);
+                  const desc = t(`settings.theme.${th.id}.desc`);
                   return (
                     <button
                       key={th.id}
                       type="button"
                       className={`settings-theme-card${selected ? ' settings-theme-card-active' : ''}`}
                       onClick={() => onPickTheme(th.id)}
-                      title={th.description}
+                      title={desc}
                     >
                       <div
                         className="settings-theme-swatch"
@@ -924,10 +976,10 @@ export function SettingsPage({ onLoggedOut: _onLoggedOut }: Props) {
                         </div>
                       </div>
                       <div className="settings-theme-meta">
-                        <strong>{th.label}</strong>
+                        <strong>{label}</strong>
                         {selected && <span className="settings-pill">{t('settings.theme.active')}</span>}
                       </div>
-                      <span className="settings-theme-desc">{th.description}</span>
+                      <span className="settings-theme-desc">{desc}</span>
                     </button>
                   );
                 })}
@@ -1036,6 +1088,23 @@ export function SettingsPage({ onLoggedOut: _onLoggedOut }: Props) {
                     );
                   },
                 )}
+              </div>
+            </div>
+
+            <div className="settings-card">
+              <h3 className="settings-card-title">{t('settings.discussion.section')}</h3>
+              <p className="settings-card-hint">{t('settings.discussion.hint')}</p>
+              <div className="settings-checklist">
+                <label className="settings-check-row">
+                  <input
+                    type="checkbox"
+                    checked={discussionSettings.autoShowSignatures}
+                    onChange={(e) =>
+                      void updateDiscussionSettings({ autoShowSignatures: e.target.checked })
+                    }
+                  />
+                  <span>{t('settings.discussion.autoShowSignatures')}</span>
+                </label>
               </div>
             </div>
           </section>
@@ -1159,7 +1228,7 @@ export function SettingsPage({ onLoggedOut: _onLoggedOut }: Props) {
                             : ' settings-status-chip-info'
                           : ' settings-status-chip-err'
                       }`}
-                      title={gofileVerify.result.message}
+                      title={hostMessage(gofileVerify.result.message)}
                     >
                       {gofileVerify.result.valid
                         ? (gofileVerify.result.tier ?? 'OK').toUpperCase()
@@ -1219,7 +1288,7 @@ export function SettingsPage({ onLoggedOut: _onLoggedOut }: Props) {
                   }`}
                   role="status"
                 >
-                  {gofileVerify.result.message}
+                  {hostMessage(gofileVerify.result.message)}
                 </div>
               )}
 
@@ -1311,7 +1380,7 @@ export function SettingsPage({ onLoggedOut: _onLoggedOut }: Props) {
                           ? ' settings-status-chip-info'
                           : ' settings-status-chip-err'
                       }`}
-                      title={megaVerify.result.message}
+                      title={hostMessage(megaVerify.result.message)}
                     >
                       {megaVerify.result.valid ? 'OK' : t('settings.hosts.invalid')}
                     </span>
@@ -1380,7 +1449,7 @@ export function SettingsPage({ onLoggedOut: _onLoggedOut }: Props) {
                       : ' settings-host-feedback-err'
                   }`}
                 >
-                  {megaVerify.result.message}
+                  {hostMessage(megaVerify.result.message)}
                 </div>
               )}
 
@@ -1468,7 +1537,7 @@ export function SettingsPage({ onLoggedOut: _onLoggedOut }: Props) {
                             : ' settings-status-chip-info'
                           : ' settings-status-chip-err'
                       }`}
-                      title={uhVerify.result.message}
+                      title={hostMessage(uhVerify.result.message)}
                     >
                       {uhVerify.result.valid
                         ? uhVerify.result.isPro
@@ -1527,7 +1596,7 @@ export function SettingsPage({ onLoggedOut: _onLoggedOut }: Props) {
                       : ' settings-host-feedback-err'
                   }`}
                 >
-                  {uhVerify.result.message}
+                  {hostMessage(uhVerify.result.message)}
                 </div>
               )}
 
@@ -1603,7 +1672,7 @@ export function SettingsPage({ onLoggedOut: _onLoggedOut }: Props) {
                           ? ' settings-status-chip-info'
                           : ' settings-status-chip-err'
                       }`}
-                      title={bhVerify.result.message}
+                      title={hostMessage(bhVerify.result.message)}
                     >
                       {bhVerify.result.valid ? 'OK' : t('settings.hosts.invalid')}
                     </span>
@@ -1645,7 +1714,7 @@ export function SettingsPage({ onLoggedOut: _onLoggedOut }: Props) {
                   }`}
                   role="status"
                 >
-                  {bhVerify.result.message}
+                  {hostMessage(bhVerify.result.message)}
                   {bhVerify.result.valid &&
                     bhVerify.result.storageUsed &&
                     bhVerify.result.storageLimit && (
@@ -1736,7 +1805,7 @@ export function SettingsPage({ onLoggedOut: _onLoggedOut }: Props) {
                           ? ' settings-status-chip-info'
                           : ' settings-status-chip-err'
                       }`}
-                      title={dnVerify.result.message}
+                      title={hostMessage(dnVerify.result.message)}
                     >
                       {dnVerify.result.valid ? 'OK' : t('settings.hosts.invalid')}
                     </span>
@@ -1778,7 +1847,7 @@ export function SettingsPage({ onLoggedOut: _onLoggedOut }: Props) {
                   }`}
                   role="status"
                 >
-                  {dnVerify.result.message}
+                  {hostMessage(dnVerify.result.message)}
                 </div>
               )}
 
@@ -2018,6 +2087,38 @@ export function SettingsPage({ onLoggedOut: _onLoggedOut }: Props) {
               />
             </div>
 
+            <div className="settings-card">
+              <h3 className="settings-card-title">{t('settings.updates.section')}</h3>
+              <p className="settings-card-hint">{t('settings.updates.autoHint')}</p>
+              <div className="settings-checklist">
+                <label className="settings-check-row">
+                  <input
+                    type="checkbox"
+                    checked={autoUpdate}
+                    onChange={(e) => {
+                      const next = e.target.checked;
+                      void setAutoUpdateEnabled(next).then(() => setAutoUpdate(next));
+                    }}
+                  />
+                  <span>{t('settings.updates.auto')}</span>
+                </label>
+              </div>
+              <div className="settings-offline-actions">
+                <button
+                  type="button"
+                  className="settings-btn"
+                  disabled={updateBusy}
+                  onClick={() => void onCheckUpdates()}
+                >
+                  {installing
+                    ? t('settings.updates.installing')
+                    : updateBusy
+                      ? t('settings.updates.checking')
+                      : t('settings.updates.check')}
+                </button>
+              </div>
+            </div>
+
             <div className="settings-card settings-about-card">
               <h3 className="settings-card-title">{t('settings.about.section')}</h3>
               <dl className="settings-about-dl">
@@ -2159,8 +2260,11 @@ export function SettingsPage({ onLoggedOut: _onLoggedOut }: Props) {
                         </div>
                         {!overlayHotkeyOk && (
                           <p className="settings-card-hint settings-hotkey-warn">
-                            {getOverlayHotkeyRegistrationMessage() ??
-                              t('settings.experimental.hotkeyConflict')}
+                            {(() => {
+                              const raw = getOverlayHotkeyRegistrationMessage();
+                              if (!raw) return t('settings.experimental.hotkeyConflict');
+                              return translateBackendMessage(raw, t);
+                            })()}
                           </p>
                         )}
                         {overlayHotkeyOk &&

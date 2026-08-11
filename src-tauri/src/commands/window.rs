@@ -65,6 +65,7 @@ pub async fn complete_login(app: AppHandle) -> Result<(), AppError> {
 
     let _ = main.show();
     let _ = main.set_focus();
+    crate::app_log::info("auth", "complete login");
 
     // 2. Now close login.
     if let Some(login) = app.get_webview_window("login") {
@@ -82,6 +83,8 @@ pub async fn complete_login(app: AppHandle) -> Result<(), AppError> {
 #[tauri::command]
 pub async fn restart_to_login(app: AppHandle) -> Result<(), AppError> {
     use tauri::{WebviewUrl, WebviewWindowBuilder};
+
+    crate::app_log::info("auth", "restart to login");
 
     // 1. Ensure login window exists.
     //

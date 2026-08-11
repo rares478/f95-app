@@ -1,12 +1,56 @@
 import { parseSamCategory } from '../constants/samCategories';
 import { execute, query } from './db';
+import { prefetchLibraryThumbnail } from './libraryThumbnailCache';
+import {
+  exeParentDir,
+  normalizeExeLabel,
+  resolvePlayExe,
+  type LibraryGameExe,
+} from './libraryExes';
+import { markThreadInLibrary, markThreadNotInLibrary } from './libraryMembership';
 import type {
   InstallStatus,
   LibraryFilter,
   LibraryGame,
   LibrarySort,
 } from '../types/library';
+import type { GameDownload } from '../types/game';
 import type { SamCategory } from '../types/sam';
+
+export type { LibraryGameExe } from './libraryExes';
+export {
+  exeDisplayName,
+  exeFilename,
+  exeParentDir,
+  normalizeExeLabel,
+  resolvePlayExe,
+} from './libraryExes';
+
+interface ExeDbRow {
+  id: string;
+  thread_id: string;
+  exe_path: string;
+  install_path: string | null;
+  label: string | null;
+  sort_order: number;
+  is_default: number;
+  last_launched_at: string | null;
+  created_at: string;
+}
+
+function rowToExe(r: ExeDbRow): LibraryGameExe {
+  return {
+    id: r.id,
+    threadId: r.thread_id,
+    exePath: r.exe_path,
+    installPath: r.install_path,
+    label: r.label,
+    sortOrder: r.sort_order,
+    isDefault: r.is_default === 1,
+    lastLaunchedAt: r.last_launched_at,
+    createdAt: r.created_at,
+  };
+}
 
 interface DbRow {
   thread_id: string;
@@ -24,8 +68,37 @@ interface DbRow {
   total_playtime_seconds: number;
   custom_tags_json: string | null;
   notes: string | null;
-  steam_appid: string | null;
-  ach_save_scan: number | null;
+  download_links_json?: string | null;
+  download_links_version?: string | null;
+  download_links_fetched_at?: string | null;
+}
+
+function parseDownloadLinksJson(raw: string | null | undefined): GameDownload[] {
+  if (!raw) return [];
+  try {
+    const parsed = JSON.parse(raw);
+    if (!Array.isArray(parsed)) return [];
+    return parsed.filter(
+      (x): x is GameDownload =>
+        x &&
+        typeof x === 'object' &&
+        typeof x.host === 'string' &&
+        typeof x.url === 'string' &&
+        typeof x.text === 'string' &&
+        (x.group === null || typeof x.group === 'string' || x.group === undefined),
+    ).map((x) => ({
+      host: x.host,
+      url: x.url,
+      text: x.text,
+      group: x.group ?? null,
+      edition: x.edition ?? null,
+      platform: x.platform ?? null,
+      part: typeof x.part === 'number' ? x.part : null,
+      kindHint: x.kindHint ?? null,
+    }));
+  } catch {
+    return [];
+  }
 }
 
 function rowToGame(r: DbRow): LibraryGame {
@@ -54,8 +127,9 @@ function rowToGame(r: DbRow): LibraryGame {
     totalPlaytimeSeconds: r.total_playtime_seconds ?? 0,
     customTags,
     notes: r.notes ?? '',
-    steamAppid: r.steam_appid,
-    achSaveScan: (r.ach_save_scan ?? 0) !== 0,
+    downloadLinks: parseDownloadLinksJson(r.download_links_json),
+    downloadLinksVersion: r.download_links_version ?? null,
+    downloadLinksFetchedAt: r.download_links_fetched_at ?? null,
   };
 }
 
@@ -94,6 +168,10 @@ export async function add(input: AddInput): Promise<void> {
       input.currentVersion,
     ],
   );
+  markThreadInLibrary(input.threadId);
+  if (input.thumbnailUrl) {
+    prefetchLibraryThumbnail(input.thumbnailUrl, 2);
+  }
 }
 
 /**
@@ -172,6 +250,7 @@ export async function applyVersion(
 
 export async function remove(threadId: string): Promise<void> {
   await execute(`DELETE FROM library_games WHERE thread_id = ?`, [threadId]);
+  markThreadNotInLibrary(threadId);
 }
 
 export async function get(threadId: string): Promise<LibraryGame | null> {
@@ -248,16 +327,212 @@ function sortClause(s: LibrarySort): string {
   }
 }
 
-export async function setExe(threadId: string, exePath: string): Promise<void> {
-  // Derive install_path from exe_path's parent directory. Cross-platform: take
-  // everything before the last slash or backslash.
-  const installPath = exePath.replace(/[/\\][^/\\]+$/, '');
+export async function listExes(threadId: string): Promise<LibraryGameExe[]> {
+  const rows = await query<ExeDbRow>(
+    `SELECT * FROM library_game_exes
+      WHERE thread_id = ?
+      ORDER BY sort_order ASC, created_at ASC, id ASC`,
+    [threadId],
+  );
+  return rows.map(rowToExe);
+}
+
+export async function syncGameExeCache(threadId: string): Promise<void> {
+  const rows = await listExes(threadId);
+  const resolved = resolvePlayExe(rows);
+  if (!resolved) {
+    await execute(
+      `UPDATE library_games
+          SET exe_path = NULL, install_path = NULL, install_status = 'not_installed'
+          WHERE thread_id = ?`,
+      [threadId],
+    );
+    return;
+  }
   await execute(
     `UPDATE library_games
         SET exe_path = ?, install_path = ?, install_status = 'installed'
         WHERE thread_id = ?`,
-    [exePath, installPath || null, threadId],
+    [resolved.exePath, resolved.installPath, threadId],
   );
+}
+
+export async function addExe(
+  threadId: string,
+  exePath: string,
+  label?: string | null,
+): Promise<LibraryGameExe> {
+  const existing = await listExes(threadId);
+  if (existing.some((r) => r.exePath === exePath)) {
+    throw new Error('DUPLICATE_EXE_PATH');
+  }
+
+  const id = crypto.randomUUID();
+  const installPath = exeParentDir(exePath) || null;
+  const isFirst = existing.length === 0;
+  const sortOrder = isFirst
+    ? 0
+    : Math.max(...existing.map((r) => r.sortOrder)) + 1;
+  const isDefault = isFirst ? 1 : 0;
+  const normalizedLabel = normalizeExeLabel(label);
+
+  try {
+    await execute(
+      `INSERT INTO library_game_exes (
+         id, thread_id, exe_path, install_path, label, sort_order, is_default, last_launched_at, created_at
+       ) VALUES (?, ?, ?, ?, ?, ?, ?, NULL, datetime('now'))`,
+      [id, threadId, exePath, installPath, normalizedLabel, sortOrder, isDefault],
+    );
+  } catch (err) {
+    const msg = err instanceof Error ? err.message : String(err);
+    if (/UNIQUE|unique/i.test(msg)) {
+      throw new Error('DUPLICATE_EXE_PATH');
+    }
+    throw err;
+  }
+
+  await syncGameExeCache(threadId);
+
+  const rows = await listExes(threadId);
+  const added = rows.find((r) => r.id === id);
+  if (!added) {
+    throw new Error('Failed to add exe');
+  }
+  return added;
+}
+
+export async function renameExe(id: string, label: string | null): Promise<void> {
+  await execute(`UPDATE library_game_exes SET label = ? WHERE id = ?`, [
+    normalizeExeLabel(label),
+    id,
+  ]);
+}
+
+/**
+ * Repoint an existing exe row (Assigner Replace). Syncs the game cache.
+ * Rejects paths that collide with a sibling row.
+ */
+export async function updateExePaths(
+  id: string,
+  exePath: string,
+  installPath: string | null,
+): Promise<void> {
+  const rows = await query<ExeDbRow>(
+    `SELECT * FROM library_game_exes WHERE id = ?`,
+    [id],
+  );
+  const row = rows[0];
+  if (!row) return;
+
+  const siblings = await listExes(row.thread_id);
+  if (siblings.some((r) => r.id !== id && r.exePath === exePath)) {
+    throw new Error('DUPLICATE_EXE_PATH');
+  }
+
+  try {
+    await execute(
+      `UPDATE library_game_exes SET exe_path = ?, install_path = ? WHERE id = ?`,
+      [exePath, installPath, id],
+    );
+  } catch (err) {
+    const msg = err instanceof Error ? err.message : String(err);
+    if (/UNIQUE|unique/i.test(msg)) {
+      throw new Error('DUPLICATE_EXE_PATH');
+    }
+    throw err;
+  }
+
+  await syncGameExeCache(row.thread_id);
+}
+
+export async function removeExe(id: string): Promise<void> {
+  const rows = await query<ExeDbRow>(
+    `SELECT * FROM library_game_exes WHERE id = ?`,
+    [id],
+  );
+  const row = rows[0];
+  if (!row) return;
+
+  const threadId = row.thread_id;
+  const wasDefault = row.is_default === 1;
+
+  await execute(`DELETE FROM library_game_exes WHERE id = ?`, [id]);
+
+  if (wasDefault) {
+    const remaining = await listExes(threadId);
+    if (remaining.length > 0) {
+      await execute(`UPDATE library_game_exes SET is_default = 1 WHERE id = ?`, [
+        remaining[0]!.id,
+      ]);
+    }
+  }
+
+  await syncGameExeCache(threadId);
+}
+
+export async function setDefaultExe(id: string): Promise<void> {
+  const rows = await query<ExeDbRow>(
+    `SELECT * FROM library_game_exes WHERE id = ?`,
+    [id],
+  );
+  const row = rows[0];
+  if (!row) return;
+
+  await execute(
+    `UPDATE library_game_exes
+        SET is_default = CASE WHEN id = ? THEN 1 ELSE 0 END
+      WHERE thread_id = ?`,
+    [id, row.thread_id],
+  );
+  await syncGameExeCache(row.thread_id);
+}
+
+export async function markExeLaunched(id: string): Promise<void> {
+  const rows = await query<ExeDbRow>(
+    `SELECT * FROM library_game_exes WHERE id = ?`,
+    [id],
+  );
+  const row = rows[0];
+  if (!row) return;
+
+  await execute(
+    `UPDATE library_game_exes SET last_launched_at = datetime('now') WHERE id = ?`,
+    [id],
+  );
+  await syncGameExeCache(row.thread_id);
+}
+
+/**
+ * Compatibility path for install/download flows. Empty list → add default
+ * child; otherwise update the currently resolved play row (siblings kept).
+ */
+export async function setExe(threadId: string, exePath: string): Promise<void> {
+  const rows = await listExes(threadId);
+  if (rows.length === 0) {
+    await addExe(threadId, exePath);
+    return;
+  }
+  // rows.length > 0 ⇒ resolvePlayExe always returns a row
+  const resolved = resolvePlayExe(rows)!;
+  if (rows.some((r) => r.id !== resolved.id && r.exePath === exePath)) {
+    throw new Error('DUPLICATE_EXE_PATH');
+  }
+  const installPath = exeParentDir(exePath) || null;
+  try {
+    await execute(
+      `UPDATE library_game_exes
+          SET exe_path = ?, install_path = ?
+          WHERE id = ?`,
+      [exePath, installPath, resolved.id],
+    );
+  } catch (err) {
+    const msg = err instanceof Error ? err.message : String(err);
+    if (/UNIQUE|unique/i.test(msg)) {
+      throw new Error('DUPLICATE_EXE_PATH');
+    }
+    throw err;
+  }
+  await syncGameExeCache(threadId);
 }
 
 export async function setStatus(threadId: string, status: InstallStatus): Promise<void> {
@@ -278,6 +553,7 @@ export async function setInstallPath(
 }
 
 export async function clearExe(threadId: string): Promise<void> {
+  await execute(`DELETE FROM library_game_exes WHERE thread_id = ?`, [threadId]);
   await execute(
     `UPDATE library_games
         SET exe_path = NULL, install_path = NULL, install_status = 'not_installed'
@@ -331,6 +607,21 @@ export async function setCustomTags(
   await execute(
     `UPDATE library_games SET custom_tags_json = ? WHERE thread_id = ?`,
     [json, threadId],
+  );
+}
+
+export async function setDownloadLinks(
+  threadId: string,
+  links: GameDownload[],
+  version: string | null,
+): Promise<void> {
+  await execute(
+    `UPDATE library_games
+        SET download_links_json = ?,
+            download_links_version = ?,
+            download_links_fetched_at = datetime('now')
+      WHERE thread_id = ?`,
+    [JSON.stringify(links), version, threadId],
   );
 }
 

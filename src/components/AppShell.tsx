@@ -1,8 +1,8 @@
-import { useEffect } from 'react';
-import { Outlet, useNavigate } from 'react-router-dom';
-import { DownloadsProvider } from '../contexts/Downloads';
+import { Outlet } from 'react-router-dom';
 import { DownloadSettingsProvider } from '../contexts/DownloadSettings';
 import { StoreSettingsProvider } from '../contexts/StoreSettings';
+import { DiscussionSettingsProvider } from '../contexts/DiscussionSettings';
+import { StoreFiltersProvider } from '../contexts/StoreFilters';
 import { RunningGamesProvider } from '../contexts/RunningGames';
 import { NotificationsProvider } from '../contexts/Notifications';
 import { AchievementsBridge } from './AchievementsBridge';
@@ -12,7 +12,7 @@ import { TitleBar } from './TitleBar';
 import { StatusBar } from './StatusBar';
 import { useSkin } from '../hooks/useSkin';
 import { LaunchingOverlay } from './LaunchingOverlay';
-import { CollectionPickerModal } from './library/CollectionPickerModal';
+import { AppUpdateBootstrap } from './AppUpdateBootstrap';
 import { CatalogBootstrap } from './store/CatalogBootstrap';
 import { PrefixCatalogProvider } from '../contexts/PrefixCatalogContext';
 import { TagCatalogProvider } from '../contexts/TagCatalogContext';
@@ -56,12 +56,13 @@ export function AppShell({ profile, onLoggedOut }: Props) {
     <RunningGamesProvider>
       <DownloadSettingsProvider>
         <StoreSettingsProvider>
-        <DownloadsProvider>
+        <DiscussionSettingsProvider>
+        <StoreFiltersProvider>
           <NotificationsProvider initialF95Unread={profile.alerts}>
             <TagCatalogProvider>
               <PrefixCatalogProvider>
                 <CatalogBootstrap />
-                <AchievementsBridge />
+                <AppUpdateBootstrap />
                 <div style={rootStyle} className="app-shell">
                   <TitleBar />
                   {steamNav && <SteamTopNav profile={profile} />}
@@ -78,7 +79,8 @@ export function AppShell({ profile, onLoggedOut }: Props) {
               </PrefixCatalogProvider>
             </TagCatalogProvider>
           </NotificationsProvider>
-        </DownloadsProvider>
+        </StoreFiltersProvider>
+        </DiscussionSettingsProvider>
         </StoreSettingsProvider>
       </DownloadSettingsProvider>
     </RunningGamesProvider>
@@ -88,7 +90,7 @@ export function AppShell({ profile, onLoggedOut }: Props) {
 const rootStyle: React.CSSProperties = {
   display: 'flex',
   flexDirection: 'column',
-  height: '100vh',
+  height: '100%',
   background: 'var(--bg-base)',
   color: 'var(--text-secondary)',
   overflow: 'hidden',
@@ -103,5 +105,8 @@ const bodyStyle: React.CSSProperties = {
 const contentStyle: React.CSSProperties = {
   flex: 1,
   minWidth: 0,
+  minHeight: 0,
   overflow: 'auto',
+  display: 'flex',
+  flexDirection: 'column',
 };

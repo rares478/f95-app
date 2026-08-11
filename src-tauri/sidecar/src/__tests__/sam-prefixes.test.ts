@@ -67,4 +67,23 @@ describe('normalizeSamPrefixGroups', () => {
       ),
     ).toEqual([]);
   });
+
+  it('decodes HTML entities in prefix names from F95', () => {
+    const body = JSON.stringify({
+      status: 'ok',
+      msg: {
+        prefixes: {
+          games: [
+            {
+              id: 3,
+              name: 'Engine',
+              prefixes: [{ id: 7, name: 'Ren&#039;Py', class: 'label label--renpy' }],
+            },
+          ],
+        },
+      },
+    });
+    const groups = normalizeSamPrefixGroups(body, 'games');
+    expect(groups[0].prefixes.map((p) => p.name)).toContain("Ren'Py");
+  });
 });

@@ -1,8 +1,16 @@
 import { invoke } from '@tauri-apps/api/core';
-import type { ProfileDto } from '../types';
+import type { ProfileDto, PaginatedActivity, PaginatedProfilePosts } from '../types';
 import type { SamFilters, SamOptionsResult, SamPage, SamTag } from '../types/sam';
 import type { SamCategory } from '../types/sam';
 import type { GameDetail } from '../types/game';
+import type { ForumSearchPage } from '../types/forumSearch';
+import type {
+  BbcodePreviewResult,
+  ResolveF95UrlResult,
+  ResolvePostResult,
+  ThreadPostsPage,
+  ThreadReplyResult,
+} from '../types/threadPosts';
 import type { CbzPreviewResult, InstallMediaIndex } from '../types/media';
 import type { F95AlertsListResult, F95AlertsPopupResult } from '../types/alerts';
 import type { FollowedUser, MemberProfileDto } from '../types/social';
@@ -61,6 +69,49 @@ export async function gameDetail(threadId: string): Promise<GameDetail> {
   return invoke<GameDetail>('game_detail', { threadId });
 }
 
+export async function forumSearch(params: {
+  query: string;
+  titleOnly?: boolean;
+  searchIn?: 'titles' | 'posts';
+  sort?: 'relevance' | 'date';
+  page?: number;
+}): Promise<ForumSearchPage> {
+  return invoke<ForumSearchPage>('forum_search', {
+    query: params.query,
+    titleOnly: params.titleOnly ?? false,
+    searchIn: params.searchIn ?? 'posts',
+    sort: params.sort ?? 'relevance',
+    page: params.page ?? 1,
+  });
+}
+
+export async function threadPosts(threadId: string, page = 1): Promise<ThreadPostsPage> {
+  return invoke<ThreadPostsPage>('thread_posts', { threadId, page });
+}
+
+export async function threadReply(
+  threadId: string,
+  message: string,
+): Promise<ThreadReplyResult> {
+  return invoke<ThreadReplyResult>('thread_reply', { threadId, message });
+}
+
+export async function bbcodePreview(
+  threadId: string,
+  bbCode: string,
+): Promise<BbcodePreviewResult> {
+  return invoke<BbcodePreviewResult>('bbcode_preview', { threadId, bbCode });
+}
+
+export async function resolvePost(postId: string): Promise<ResolvePostResult> {
+  return invoke<ResolvePostResult>('resolve_post', { postId });
+}
+
+/** Resolve any F95 thread/post URL to thread id, forum, and page (follows XF redirects). */
+export async function resolveF95Url(url: string): Promise<ResolveF95UrlResult> {
+  return invoke<ResolveF95UrlResult>('resolve_post', { url });
+}
+
 export async function getFollowing(): Promise<FollowedUser[]> {
   return invoke<FollowedUser[]>('get_following');
 }
@@ -69,8 +120,22 @@ export async function getProfile(): Promise<ProfileDto> {
   return invoke<ProfileDto>('get_profile');
 }
 
-export async function getMemberProfile(userId: string): Promise<MemberProfileDto> {
-  return invoke<MemberProfileDto>('get_member_profile', { userId });
+export async function getMemberProfile(userId: string): Promise<ProfileDto> {
+  return invoke<ProfileDto>('get_member_profile', { userId });
+}
+
+export async function getMemberProfilePosts(
+  userId: string,
+  page = 1,
+): Promise<PaginatedProfilePosts> {
+  return invoke<PaginatedProfilePosts>('get_member_profile_posts', { userId, page });
+}
+
+export async function getMemberActivity(
+  userId: string,
+  page = 1,
+): Promise<PaginatedActivity> {
+  return invoke<PaginatedActivity>('get_member_activity', { userId, page });
 }
 
 export async function fetchRssFeed(options: RssFeedOptions = {}): Promise<RssFeed> {
@@ -173,8 +238,17 @@ export interface ExtractResult {
 export async function extractArchive(args: {
   archivePath: string;
   gameTitle: string;
+  downloadId?: number | null;
+  destDir?: string | null;
 }): Promise<ExtractResult> {
   return invoke<ExtractResult>('extract_archive', args);
+}
+
+export async function findMainExe(args: {
+  root: string;
+  gameTitle: string;
+}): Promise<string | null> {
+  return invoke<string | null>('find_main_exe', args);
 }
 
 export async function deletePath(path: string): Promise<void> {
@@ -210,7 +284,7 @@ export async function resolveMediaPreview(args: {
 
 export async function resolveRemoteImagePreview(args: {
   url: string;
-  variant: 'grid';
+  variant: 'grid' | 'library';
 }): Promise<string> {
   return invoke<string>('resolve_remote_image_preview', args);
 }

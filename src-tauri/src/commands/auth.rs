@@ -4,14 +4,42 @@ use crate::sidecar;
 use serde_json::Value;
 use tauri::State;
 
+fn auth_fail_label(err: &AppError) -> &'static str {
+    match err {
+        AppError::InvalidCredentials(_) => "invalid_credentials",
+        AppError::TwoFactorRequired => "two_factor",
+        AppError::Cloudflare(_) => "cloudflare",
+        AppError::NotInitialized
+        | AppError::SidecarTimeout(_)
+        | AppError::SidecarCrash
+        | AppError::Protocol(_) => "sidecar",
+        _ => "other",
+    }
+}
+
 #[tauri::command]
 pub async fn login(
     state: State<'_, AppState>,
     username: String,
     password: String,
 ) -> Result<(), AppError> {
-    let client = ensure_sidecar(&state).await?;
-    client.login(&username, &password).await
+    let client = match ensure_sidecar(&state).await {
+        Ok(client) => client,
+        Err(e) => {
+            crate::app_log::warn("auth", format!("login failed: {}", auth_fail_label(&e)));
+            return Err(e);
+        }
+    };
+    match client.login(&username, &password).await {
+        Ok(()) => {
+            crate::app_log::info("auth", "login ok");
+            Ok(())
+        }
+        Err(e) => {
+            crate::app_log::warn("auth", format!("login failed: {}", auth_fail_label(&e)));
+            Err(e)
+        }
+    }
 }
 
 #[tauri::command]
@@ -20,14 +48,35 @@ pub async fn get_profile(state: State<'_, AppState>) -> Result<ProfileDto, AppEr
     client.get_profile().await
 }
 
-/// Public profile of an arbitrary member (friend profile pages).
 #[tauri::command]
 pub async fn get_member_profile(
     state: State<'_, AppState>,
     user_id: String,
-) -> Result<Value, AppError> {
+) -> Result<ProfileDto, AppError> {
     let client = ensure_sidecar(&state).await?;
     client.get_member_profile(&user_id).await
+}
+
+#[tauri::command]
+pub async fn get_member_profile_posts(
+    state: State<'_, AppState>,
+    user_id: String,
+    page: Option<u32>,
+) -> Result<Value, AppError> {
+    let client = ensure_sidecar(&state).await?;
+    client
+        .get_member_profile_posts(&user_id, page.unwrap_or(1))
+        .await
+}
+
+#[tauri::command]
+pub async fn get_member_activity(
+    state: State<'_, AppState>,
+    user_id: String,
+    page: Option<u32>,
+) -> Result<Value, AppError> {
+    let client = ensure_sidecar(&state).await?;
+    client.get_member_activity(&user_id, page.unwrap_or(1)).await
 }
 
 /// No-op RPC used by the frontend to pre-spawn + init the sidecar without
@@ -55,6 +104,7 @@ pub fn has_local_session(state: State<'_, AppState>) -> bool {
 
 #[tauri::command]
 pub async fn logout(state: State<'_, AppState>) -> Result<(), AppError> {
+    crate::app_log::info("auth", "logout");
     // Fast path: the user wants the app to react NOW, not wait for a
     // round-trip to F95Zone. We do the local teardown synchronously
     // (kill sidecar + delete session file) and fire the F95 POST in the

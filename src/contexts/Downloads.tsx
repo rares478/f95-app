@@ -1,4 +1,4 @@
-import { createContext, useContext, useState, type ReactNode } from 'react';
+import { useState, type ReactNode } from 'react';
 import { useDownloads as useDownloadsHook } from '../hooks/useDownloads';
 import {
   HostFileChoiceModal,
@@ -6,21 +6,21 @@ import {
 } from '../components/HostFileChoiceModal';
 import * as downloads from '../lib/downloads';
 import * as ipc from '../lib/ipc';
+import * as library from '../lib/library';
+import { recoverStatusAfterDownloadFailure } from '../lib/downloadLibrarySync';
+import {
+  findJobByDownloadId,
+  markJobAssign,
+  recomputePlanStatus,
+} from '../lib/installPlans';
 import { dialog } from '../lib/dialog';
 import { useT } from '../lib/i18n';
-import type { DownloadProgress, DownloadRow } from '../types/download';
-
-interface DownloadsValue {
-  rows: DownloadRow[];
-  progress: Record<number, DownloadProgress>;
-  reload: () => Promise<void>;
-}
-
-const Ctx = createContext<DownloadsValue | null>(null);
+import { formatIpcError } from '../lib/ipcError';
+import { DownloadsContext } from './downloadsContext';
 
 /**
  * Single subscription to `download:*` events for the whole app. Mount once
- * at AppShell so the status bar and Downloads page share live progress.
+ * at the app root so the status bar and Downloads page share live progress.
  */
 interface FileChoiceRequest {
   downloadId: number;
@@ -51,18 +51,16 @@ export function DownloadsProvider({ children }: { children: ReactNode }) {
       setFileChoice(null);
       await value.reload();
     } catch (err) {
-      const msg =
-        err && typeof err === 'object' && 'message' in err
-          ? String((err as { message: string }).message)
-          : String(err);
-      await dialog.alert(t('modal.hostFile.failed', { error: msg }), { kind: 'error' });
+      await dialog.alert(t('modal.hostFile.failed', { error: formatIpcError(err) }), {
+        kind: 'error',
+      });
     } finally {
       setChoiceBusy(false);
     }
   }
 
   return (
-    <Ctx.Provider value={value}>
+    <DownloadsContext.Provider value={value}>
       {children}
       <HostFileChoiceModal
         open={fileChoice != null}
@@ -74,22 +72,38 @@ export function DownloadsProvider({ children }: { children: ReactNode }) {
           if (fileChoice) {
             await ipc.downloadCancel(fileChoice.downloadId);
             await downloads.markCancelled(fileChoice.downloadId);
+            try {
+              const linkedJob = await findJobByDownloadId(fileChoice.downloadId);
+              if (linkedJob) {
+                await markJobAssign(linkedJob.id, 'failed', {
+                  errorMessage: 'cancelled',
+                });
+                await recomputePlanStatus(linkedJob.planId);
+              }
+            } catch {
+              /* ignore */
+            }
+            try {
+              const game = await library.get(fileChoice.threadId);
+              if (game) {
+                await library.setStatus(
+                  fileChoice.threadId,
+                  recoverStatusAfterDownloadFailure(game),
+                );
+              }
+            } catch {
+              /* not in library */
+            }
             await value.reload();
           }
           setFileChoice(null);
         }}
         onConfirm={onConfirmFileChoice}
       />
-    </Ctx.Provider>
+    </DownloadsContext.Provider>
   );
 }
 
 export type { FileChoiceRequest };
 
-export function useDownloads(): DownloadsValue {
-  const ctx = useContext(Ctx);
-  if (!ctx) {
-    throw new Error('useDownloads must be used within DownloadsProvider');
-  }
-  return ctx;
-}
+export { useDownloads } from './downloadsContext';

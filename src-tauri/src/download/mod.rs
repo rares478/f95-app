@@ -1,5 +1,6 @@
 //! Background download manager and per-host resolvers.
 
+pub(crate) mod disk_space;
 pub(crate) mod gofile_pick;
 pub(crate) mod host;
 mod manager;

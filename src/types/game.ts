@@ -12,8 +12,14 @@ export interface GameDownload {
   host: string;
   url: string;
   text: string;
-  /** Nearest preceding section label (e.g. "Win/Linux", "Collection", "08-10"). */
+  /** Composite display path, e.g. "Season 1-2 · Win/Linux · Part 1". */
   group: string | null;
+  edition: string | null;
+  platform: string | null;
+  part: number | null;
+  kindHint: 'full' | 'split' | 'patch' | 'extra' | 'other' | null;
+  /** True when edition is Current (null) or a named heading outside spoilers. */
+  topLevel?: boolean;
 }
 
 export interface SocialLink {
@@ -29,6 +35,8 @@ export interface GameDetail {
   rawTitle: string;
   version: string | null;
   developer: string | null;
+  author: string | null;
+  authorAvatarUrl: string | null;
   bannerUrl: string | null;
   screenshots: string[];
   descriptionHtml: string;

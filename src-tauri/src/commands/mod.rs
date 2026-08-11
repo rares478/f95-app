@@ -1,8 +1,10 @@
 mod achievements;
 mod alerts;
+mod app_log_cmd;
 mod auth;
 mod captcha;
 mod download;
+mod forum;
 mod fs;
 mod game;
 mod game_launcher;
@@ -15,9 +17,11 @@ mod window;
 
 pub use achievements::*;
 pub use alerts::*;
+pub use app_log_cmd::*;
 pub use auth::*;
 pub use captcha::*;
 pub use download::*;
+pub use forum::*;
 pub use fs::*;
 pub use game::*;
 pub use game_launcher::*;

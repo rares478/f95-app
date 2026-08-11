@@ -2,6 +2,7 @@ use super::super::gofile_pick::{files_from_gofile_data, finish_gofile_files};
 use super::super::types::ResolveResult;
 use crate::error::AppError;
 use crate::sidecar::SidecarClient;
+use serde_json::json;
 use tauri::AppHandle;
 
 pub(crate) async fn resolve_gofile(
@@ -29,7 +30,9 @@ pub(crate) async fn resolve_gofile(
 
 fn is_not_premium_api_error(err: &AppError) -> bool {
     match err {
-        AppError::Other(msg) => msg.contains("error-notPremium"),
+        AppError::Other(msg) => {
+            msg == "error.gofile.notPremium" || msg.contains("error-notPremium")
+        }
         _ => false,
     }
 }
@@ -144,10 +147,15 @@ async fn resolve_gofile_api(
         .bearer_auth(&token)
         .send()
         .await
-        .map_err(|e| AppError::Other(format!("gofile contents http: {e}")))?;
+        .map_err(|e| {
+            AppError::keyed_vars("error.gofile.generic", json!({ "detail": format!("contents http: {e}") }))
+        })?;
     let http_status = raw.status();
     let resp: serde_json::Value = raw.json().await.map_err(|e| {
-        AppError::Other(format!("gofile contents json (status {http_status}): {e}"))
+        AppError::keyed_vars(
+            "error.gofile.generic",
+            json!({ "detail": format!("contents json (status {http_status}): {e}") }),
+        )
     })?;
     let api_status = resp
         .get("status")
@@ -155,31 +163,22 @@ async fn resolve_gofile_api(
         .unwrap_or("error-unknown");
 
     if api_status != "ok" {
-        let msg = match api_status {
-            "error-notPremium" => "este arquivo só pode ser baixado via navegador (API restrita)",
-            "error-notFound" => "link inválido ou removido pelo uploader",
-            "error-passwordRequired" => {
-                "este link é protegido por senha. \
-                 Abra no navegador, digite a senha e baixe por lá."
-            }
-            "error-rateLimit" => "muitas requisições - espere alguns minutos e tente de novo",
+        let key = match api_status {
+            "error-notPremium" => "error.gofile.notPremium",
+            "error-notFound" => "error.gofile.notFound",
+            "error-passwordRequired" => "error.gofile.password",
+            "error-rateLimit" => "error.gofile.rateLimit",
             _ if http_status.as_u16() == 401 && token_source == "guest" => {
-                "uploader desabilitou acesso anônimo. \
-                 Cole seu token GoFile em Configurações → Hosts."
+                "error.gofile.guestBlocked"
             }
-            _ if http_status.as_u16() == 401 => {
-                "token GoFile não foi aceito. \
-                 Confira em Configurações → Hosts → Verificar credenciais."
-            }
-            _ => "host respondeu com erro desconhecido",
+            _ if http_status.as_u16() == 401 => "error.gofile.badToken",
+            _ => "error.gofile.unknown",
         };
-        return Err(AppError::Other(format!(
-            "gofile: {api_status} (HTTP {http_status}) - {msg}"
-        )));
+        return Err(AppError::keyed(key));
     }
     let data = resp
         .get("data")
-        .ok_or_else(|| AppError::Other("gofile contents response missing `data`".into()))?;
+        .ok_or_else(|| AppError::keyed("error.gofile.missingData"))?;
     let files = files_from_gofile_data(data);
     let extra_headers = vec![("Cookie".into(), format!("accountToken={token}"))];
     Ok(finish_gofile_files(
@@ -197,15 +196,24 @@ async fn gofile_guest_token(http: &reqwest::Client) -> Result<String, AppError> 
         .header("Content-Length", "0")
         .send()
         .await
-        .map_err(|e| AppError::Other(format!("gofile accounts http: {e}")))?
+        .map_err(|e| {
+            AppError::keyed_vars("error.gofile.generic", json!({ "detail": format!("accounts http: {e}") }))
+        })?
         .error_for_status()
-        .map_err(|e| AppError::Other(format!("gofile accounts status: {e}")))?
+        .map_err(|e| {
+            AppError::keyed_vars(
+                "error.gofile.generic",
+                json!({ "detail": format!("accounts status: {e}") }),
+            )
+        })?
         .json()
         .await
-        .map_err(|e| AppError::Other(format!("gofile accounts json: {e}")))?;
+        .map_err(|e| {
+            AppError::keyed_vars("error.gofile.generic", json!({ "detail": format!("accounts json: {e}") }))
+        })?;
     resp.get("data")
         .and_then(|d| d.get("token"))
         .and_then(|v| v.as_str())
         .map(|s| s.to_string())
-        .ok_or_else(|| AppError::Other("gofile guest account: token missing".into()))
+        .ok_or_else(|| AppError::keyed("error.gofile.guestTokenMissing"))
 }

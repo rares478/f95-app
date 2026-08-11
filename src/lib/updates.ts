@@ -1,4 +1,5 @@
 import * as ipc from './ipc';
+import { saveLinksFromDetail } from './libraryDownloadLinks';
 import * as library from './library';
 import type { GameDetail } from '../types/game';
 import type { LibraryGame } from '../types/library';
@@ -44,6 +45,12 @@ export async function checkOne(game: LibraryGame): Promise<UpdateCheckResult> {
     (game.currentVersion
       ? !versionsEqual(latest, game.currentVersion)
       : hasInstall);
+
+  try {
+    await saveLinksFromDetail(game.threadId, detail);
+  } catch (err) {
+    console.warn('[updates] failed to write download links', err);
+  }
 
   try {
     if (latest && result.hasUpdate) {

@@ -23,6 +23,13 @@ dist-ssr
 *.sln
 *.sw?
 
+# Git worktrees (local isolation)
+.worktrees/
+
+
+
+
+
 # Local debug / scrape artifacts
 tmp-*
 uh-post-*.html

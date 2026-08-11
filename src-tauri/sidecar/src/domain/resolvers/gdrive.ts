@@ -506,7 +506,7 @@ export async function resolveGdrive(url: string): Promise<{
 
   if (!id) {
 
-    throw new RpcError(RPC_ERROR.INVALID_PARAMS, 'invalid Google Drive URL');
+    throw new RpcError(RPC_ERROR.INVALID_PARAMS, 'error.gdrive.invalidUrl');
 
   }
 
@@ -596,7 +596,7 @@ export async function resolveGdrive(url: string): Promise<{
 
         RPC_ERROR.INTERNAL,
 
-        'Google Drive: arquivo privado — o link precisa estar público ("Qualquer pessoa com o link")',
+        'error.gdrive.private',
 
       );
 
@@ -758,7 +758,7 @@ export async function resolveGdrive(url: string): Promise<{
 
           RPC_ERROR.INTERNAL,
 
-          'Google Drive: arquivo privado — o link precisa estar público ("Qualquer pessoa com o link")',
+          'error.gdrive.private',
 
         );
 
@@ -770,7 +770,7 @@ export async function resolveGdrive(url: string): Promise<{
 
         RPC_ERROR.INTERNAL,
 
-        'Google Drive: link direto não obtido — confira se o arquivo está público ou abra no navegador',
+        'error.gdrive.directLink',
 
       );
 
@@ -794,7 +794,10 @@ export async function resolveGdrive(url: string): Promise<{
 
     log(`error: ${msg}`);
 
-    throw new RpcError(RPC_ERROR.INTERNAL, `Google Drive: ${msg}`);
+    throw new RpcError(
+      RPC_ERROR.INTERNAL,
+      `error.gdrive.generic|${JSON.stringify({ detail: msg })}`,
+    );
 
   } finally {
 

@@ -1,0 +1,530 @@
+import * as cheerio from 'cheerio';
+import type { Element } from 'domhandler';
+import { classifyHost } from './hosts';
+import { absoluteUrl, cleanText } from './htmlNormalize';
+
+export interface GameDownload {
+  host: string;
+  url: string;
+  text: string;
+  group: string | null;
+  edition: string | null;
+  platform: string | null;
+  part: number | null;
+  kindHint: 'full' | 'split' | 'patch' | 'extra' | 'other' | null;
+  topLevel?: boolean;
+}
+
+const DOWNLOAD_HEADING_RE = /^downloads?$/i;
+
+export function rootHasDirectHost(
+  $: cheerio.CheerioAPI,
+  root: cheerio.Cheerio<Element>,
+): boolean {
+  let found = false;
+  root.find('a[href]').each((_, el) => {
+    if (found) return;
+    const href = $(el).attr('href');
+    if (!href || href.startsWith('#')) return;
+    const info = classifyHost(absoluteUrl(href));
+    if (info?.category === 'direct') found = true;
+  });
+  return found;
+}
+
+/**
+ * Prefer last element-child div of .bbWrapper with direct hosts;
+ * else DOWNLOAD heading through end of opBody; else null.
+ */
+export function resolveDownloadRoot(
+  $: cheerio.CheerioAPI,
+  opBody: cheerio.Cheerio<Element>,
+): cheerio.Cheerio<Element> | null {
+  const lastDiv = opBody.children('div').last();
+  if (lastDiv.length && rootHasDirectHost($, lastDiv)) {
+    return lastDiv;
+  }
+
+  let heading: Element | null = null;
+  opBody.find('b, strong').each((_, el) => {
+    if (heading) return;
+    const label = cleanText($(el).text()).replace(/:\s*$/, '');
+    if (DOWNLOAD_HEADING_RE.test(label)) heading = el;
+  });
+  if (!heading) return null;
+
+  // Build a synthetic root covering heading → end by wrapping siblings in a
+  // detached container via cheerio load of collected HTML, OR return a range
+  // cheerio set. Prefer: mark from heading's parent chain if heading is inside
+  // lastDiv already handled; for flat markup, collect nodes from heading onward.
+  const nodes: Element[] = [];
+  let started = false;
+  for (const child of opBody.contents().toArray()) {
+    if (!started) {
+      if (child === heading || (child.type === 'tag' && $(child).find(heading).length)) {
+        started = true;
+      } else {
+        continue;
+      }
+    }
+    if (child.type === 'tag') nodes.push(child as Element);
+  }
+  if (!nodes.length) return null;
+
+  const wrap = $('<div></div>') as cheerio.Cheerio<Element>;
+  for (const n of nodes) wrap.append($(n).clone());
+  if (!rootHasDirectHost($, wrap)) return null;
+  return wrap;
+}
+
+const SPOILER_SEL =
+  '.bbCodeSpoiler, details.x-spoiler, .bbCodeBlock--spoiler';
+const OS_LABEL_RE =
+  /\b(win(?:dows)?(?:32|64)?(?:\s*\/\s*linux)?|linux|mac(?:os)?|osx|android|ios|browser|all platforms?)\b/i;
+const PART_LABEL_RE = /^part\s*(\d+)$/i;
+const EDITION_HEADING_RE =
+  /\b(season|act\s*\d*|chapter|episode|volume|vol\.?|archive|before\s+remake|ost|soundtrack|splits?|patch(?:es)?|extras?|translations?|mods?)\b/i;
+const QUALITY_LABEL_RE =
+  /^(high|low|standard|medium)\s+quality\b/i;
+const AUX_KIND_RE = /^(patch(?:es)?|extras?|translations?|mods?|ost|soundtrack)\b/i;
+
+type WalkCtx = {
+  editionStack: string[];
+  kindStack: Array<GameDownload['kindHint']>;
+  platform: string | null;
+  part: number | null;
+  quality: string | null;
+  splitSpoiler: boolean;
+  spoilerDepth: number;
+};
+
+function stripOsFromLabel(raw: string): string {
+  return cleanText(raw)
+    .replace(OS_LABEL_RE, ' ')
+    .replace(/[/|,]+/g, ' ')
+    .replace(/\s+/g, ' ')
+    .replace(/:\s*$/, '')
+    .trim();
+}
+
+/** OS token from a label; null when none. */
+function osTokenFromLabel(raw: string): string | null {
+  const m = cleanText(raw).match(OS_LABEL_RE);
+  return m ? m[0] : null;
+}
+
+/**
+ * Platform row text: keep free-form labels as written (e.g. Android (Compressed));
+ * when a non-OS prefix shares the bold with an OS token, use the OS token only.
+ */
+function platformFromRowLabel(text: string): string {
+  const os = osTokenFromLabel(text);
+  if (!os) return text;
+  if (text === os) return text;
+  const idx = text.search(OS_LABEL_RE);
+  if (idx > 0) return os;
+  return text;
+}
+
+function classifyBoldLabel(raw: string): {
+  type: 'download' | 'edition' | 'quality' | 'part' | 'row';
+  text: string;
+  part?: number;
+  kind?: GameDownload['kindHint'];
+  /** When edition heading also embeds an OS token (DIK-style). */
+  platform?: string;
+} {
+  const text = cleanText(raw)
+    .replace(/^\*+\s*/, '')
+    .replace(/:\s*$/, '');
+  if (DOWNLOAD_HEADING_RE.test(text)) return { type: 'download', text };
+  const partMatch = text.match(PART_LABEL_RE);
+  if (partMatch) {
+    return { type: 'part', text, part: Number.parseInt(partMatch[1], 10) };
+  }
+  if (QUALITY_LABEL_RE.test(text)) {
+    const m = text.match(/^((?:high|low|standard|medium)\s+quality)/i);
+    const qualityText = m ? m[1] : text;
+    const os = osTokenFromLabel(text);
+    return {
+      type: 'quality',
+      text: qualityText,
+      kind: 'full',
+      platform: os ?? undefined,
+    };
+  }
+  if (AUX_KIND_RE.test(text) || EDITION_HEADING_RE.test(text)) {
+    let kind: GameDownload['kindHint'] = 'full';
+    if (/\bpatch(?:es)?\b/i.test(text)) kind = 'patch';
+    else if (/\b(extras?|translations?|mods?|ost|soundtrack)\b/i.test(text))
+      kind = 'extra';
+    else if (/\bsplits?\b/i.test(text)) kind = 'split';
+    const os = osTokenFromLabel(text);
+    if (os) {
+      const editionText = stripOsFromLabel(text) || text;
+      return { type: 'edition', text: editionText, kind, platform: os };
+    }
+    return { type: 'edition', text, kind };
+  }
+  return { type: 'row', text: platformFromRowLabel(text) };
+}
+
+function emitGroup(
+  edition: string | null,
+  platform: string | null,
+  part: number | null,
+): string | null {
+  const bits = [
+    edition,
+    platform,
+    part != null ? `Part ${part}` : null,
+  ].filter(Boolean) as string[];
+  return bits.length ? bits.join(' · ') : null;
+}
+
+function inferKind(
+  ctx: WalkCtx,
+  platform: string | null,
+  part: number | null,
+): NonNullable<GameDownload['kindHint']> {
+  const stacked = [...ctx.kindStack].reverse().find(Boolean);
+  if (stacked === 'patch' || stacked === 'extra') return stacked;
+  if (part != null || ctx.splitSpoiler) return 'split';
+  if (stacked === 'split') return 'split';
+  if (platform) return 'full';
+  return 'other';
+}
+
+/** Host-list dumps used as false spoiler titles (DMD Chapter 1-3 span). */
+const HOST_DUMP_RE =
+  /\b(gofile|mega|mixdrop|pixeldrain|uploadhaven|mediafire|datanodes|workupload|nopy)\b/i;
+
+function sanitizeEditionTitle(raw: string): string | null {
+  const t = cleanText(raw)
+    .replace(/^\*+\s*/, '')
+    .replace(/:\s*$/, '')
+    .trim();
+  if (!t) return null;
+  if (DOWNLOAD_HEADING_RE.test(t)) return null;
+  if (t.length > 80) return null;
+  if (HOST_DUMP_RE.test(t)) return null;
+  // OS-only labels are platform rows, not edition titles (Split → Win/Linux → Spoiler).
+  const osOnly = osTokenFromLabel(t);
+  if (osOnly && !stripOsFromLabel(t)) return null;
+  return t;
+}
+
+function spoilerTitle(
+  $: cheerio.CheerioAPI,
+  spoilerEl: Element,
+): string | null {
+  const $sp = $(spoilerEl);
+  const buttonText = cleanText(
+    $sp.find('.bbCodeSpoiler-button, button').first().text(),
+  );
+  if (buttonText && !/^spoiler$/i.test(buttonText)) {
+    return sanitizeEditionTitle(buttonText);
+  }
+  // Prefer the nearest preceding bold/strong label (not the full previous
+  // sibling text — XF often leaves Chapter headings inside the same span as
+  // the prior platform's host links).
+  const prevs = $sp.prevAll().toArray();
+  for (const p of prevs) {
+    const $p = $(p);
+    if (p.type === 'tag' && (p.tagName === 'b' || p.tagName === 'strong')) {
+      const t = sanitizeEditionTitle($p.text());
+      if (t) return t;
+      continue;
+    }
+    const bold = $p.find('b, strong').last();
+    if (bold.length) {
+      const t = sanitizeEditionTitle(bold.text());
+      if (t) return t;
+    }
+  }
+  return null;
+}
+
+/**
+ * Label from b/strong, or from span/p whose first meaningful child is b/strong.
+ */
+function extractLabelFromElement(
+  $: cheerio.CheerioAPI,
+  el: Element,
+): { text: string; boldEl: Element } | null {
+  if (el.tagName === 'b' || el.tagName === 'strong') {
+    return { text: cleanText($(el).text()), boldEl: el };
+  }
+  if (el.tagName !== 'span' && el.tagName !== 'p') return null;
+
+  const $el = $(el);
+  const bold = $el.find('b, strong').first();
+  const boldNode = bold.get(0);
+  if (!boldNode) return null;
+
+  // Bold must be the first meaningful content under this node.
+  for (const n of $el.contents().toArray()) {
+    if (n === boldNode) break;
+    if (
+      n.type === 'text' &&
+      !cleanText((n as unknown as { data?: string }).data ?? '')
+    ) {
+      continue;
+    }
+    return null;
+  }
+
+  const text = cleanText(bold.text());
+  if (!text) return null;
+  return { text, boldEl: boldNode as Element };
+}
+
+function composeEdition(ctx: WalkCtx): string | null {
+  const parts = ctx.editionStack.filter(Boolean);
+  const base = parts.length ? parts.join(' · ') : null;
+  if (base && ctx.quality) return `${base} · ${ctx.quality}`;
+  return base ?? ctx.quality;
+}
+
+/**
+ * Generic Spoiler buttons: use preceding sibling text as edition only when it
+ * looks like a single edition/section name — not compound headers like
+ * "Act 1 & Before Remake".
+ */
+function spoilerStackLabel(
+  title: string | null,
+  genericButton: boolean,
+): string {
+  if (!title) return '';
+  if (!genericButton) return title;
+  if (/\s&\s/.test(title)) return '';
+  return title;
+}
+
+function applyLabel(
+  ctx: WalkCtx,
+  classified: ReturnType<typeof classifyBoldLabel>,
+): void {
+  if (classified.type === 'download') return;
+  if (classified.type === 'edition') {
+    if (ctx.spoilerDepth > 0) {
+      // Keep spoiler title frames; replace any prior bold heading at this depth.
+      while (ctx.editionStack.length > ctx.spoilerDepth) {
+        ctx.editionStack.pop();
+        ctx.kindStack.pop();
+      }
+      ctx.editionStack.push(classified.text);
+      ctx.kindStack.push(classified.kind ?? null);
+    } else {
+      ctx.editionStack = [classified.text];
+      ctx.kindStack = [classified.kind ?? null];
+    }
+    ctx.platform = classified.platform ?? null;
+    ctx.part = null;
+    ctx.quality = null;
+    return;
+  }
+  if (classified.type === 'quality') {
+    // Peer quality sections at root (High/Standard Quality) replace leftover
+    // Split/edition context. Nested under an act/season → quality suffix.
+    if (ctx.spoilerDepth === 0) {
+      ctx.editionStack = [classified.text];
+      ctx.kindStack = [classified.kind ?? 'full'];
+      ctx.quality = null;
+    } else if (ctx.editionStack.some(Boolean)) {
+      ctx.quality = classified.text;
+    } else {
+      ctx.editionStack = [classified.text];
+      ctx.kindStack = [classified.kind ?? 'full'];
+      ctx.quality = null;
+    }
+    ctx.platform = classified.platform ?? null;
+    ctx.part = null;
+    return;
+  }
+  if (classified.type === 'part') {
+    ctx.part = classified.part ?? null;
+    return;
+  }
+  ctx.platform = classified.text;
+  ctx.part = null;
+}
+
+function activeAuxKind(ctx: WalkCtx): GameDownload['kindHint'] | null {
+  const stacked = [...ctx.kindStack].reverse().find(Boolean);
+  return stacked === 'patch' || stacked === 'extra' ? stacked : null;
+}
+
+export function parseDownloadBlock(
+  $: cheerio.CheerioAPI,
+  root: cheerio.Cheerio<Element>,
+): GameDownload[] {
+  const downloads: GameDownload[] = [];
+  const seen = new Set<string>();
+  const ctx: WalkCtx = {
+    editionStack: [],
+    kindStack: [],
+    platform: null,
+    part: null,
+    quality: null,
+    splitSpoiler: false,
+    spoilerDepth: 0,
+  };
+
+  const pushLink = (el: Element) => {
+    const href = $(el).attr('href');
+    if (!href || href.startsWith('#')) return;
+    const url = absoluteUrl(href);
+    const info = classifyHost(url);
+    if (!info || info.category !== 'direct') return;
+    if (seen.has(url)) return;
+    seen.add(url);
+
+    // Emit when a structural row exists, or when patch/extra heading has
+    // host links with no platform row (Extras: exception).
+    if (ctx.platform == null && ctx.part == null && !activeAuxKind(ctx)) {
+      return;
+    }
+
+    const edition = composeEdition(ctx);
+    const platform = ctx.platform;
+    const part = ctx.part;
+    const kindHint = inferKind(ctx, platform, part);
+    const qualityEdition = /\bquality\b/i.test(edition ?? '');
+    // Root-level current builds stay topLevel even when labeled (e.g. Act2).
+    // Quality variants (High/Standard Quality) are not the unnamed Current bucket.
+    const topLevel =
+      kindHint !== 'patch' &&
+      kindHint !== 'extra' &&
+      ctx.spoilerDepth === 0 &&
+      !qualityEdition;
+
+    downloads.push({
+      host: info.host,
+      url,
+      text: cleanText($(el).text()) || info.host,
+      edition,
+      platform,
+      part,
+      kindHint,
+      group: emitGroup(edition, platform, part),
+      topLevel,
+    });
+  };
+
+  const walk = (node: Element, skipBold: Element | null = null) => {
+    if (skipBold && node === skipBold) return;
+
+    const $node = $(node);
+    if ($node.is(SPOILER_SEL)) {
+      const title = spoilerTitle($, node);
+      const buttonText = cleanText(
+        $node.find('.bbCodeSpoiler-button, button').first().text(),
+      );
+      const genericButton = !buttonText || /^spoiler$/i.test(buttonText);
+      const kind: GameDownload['kindHint'] =
+        title && /\bsplits?\b/i.test(title)
+          ? 'split'
+          : title && /\bpatch(?:es)?\b/i.test(title)
+            ? 'patch'
+            : title &&
+                /\b(extras?|translations?|mods?|ost|soundtrack)\b/i.test(title)
+              ? 'extra'
+              : null;
+      const stackLabel = spoilerStackLabel(title, genericButton);
+      // Preceding bold edition headings that a spoiler consumes as its title
+      // must not remain as a permanent top-level edition after the spoiler.
+      if (
+        title &&
+        ctx.editionStack.length === 1 &&
+        ctx.editionStack[0] === title
+      ) {
+        ctx.editionStack = [];
+        ctx.kindStack = [];
+      }
+      // Avoid "Chapter 1 · Chapter 1" when a bold heading and its Spoiler
+      // both contribute the same label.
+      const top = ctx.editionStack.filter(Boolean).slice(-1)[0] ?? null;
+      if (stackLabel && top && top.toLowerCase() === stackLabel.toLowerCase()) {
+        ctx.editionStack.push('');
+        ctx.kindStack.push(kind);
+      } else {
+        ctx.editionStack.push(stackLabel);
+        ctx.kindStack.push(kind);
+      }
+      const prevPlatform = ctx.platform;
+      const prevPart = ctx.part;
+      const prevQuality = ctx.quality;
+      const prevSplit = ctx.splitSpoiler;
+      // Twisted Memories: `Split` + `Win/Linux` then Spoiler with Part N —
+      // keep the platform row across the spoiler boundary.
+      const keepPlatform =
+        ctx.platform != null &&
+        (kind === 'split' ||
+          ctx.kindStack.some((k) => k === 'split') ||
+          /\bsplits?\b/i.test(composeEdition(ctx) ?? ''));
+      if (!keepPlatform) ctx.platform = null;
+      ctx.part = null;
+      ctx.quality = null;
+      ctx.spoilerDepth += 1;
+      if (
+        kind === 'split' ||
+        ctx.kindStack.some((k) => k === 'split') ||
+        /\bsplits?\b/i.test(composeEdition(ctx) ?? '')
+      ) {
+        ctx.splitSpoiler = true;
+      }
+
+      const content = $node
+        .find('> .bbCodeSpoiler-content, > .bbCodeBlock-content, > summary + *')
+        .first();
+      const walkTarget = content.length ? content : $node;
+      for (const child of walkTarget.contents().toArray()) {
+        if (child.type === 'tag') walk(child as Element);
+      }
+
+      ctx.editionStack.pop();
+      ctx.kindStack.pop();
+      ctx.platform = prevPlatform;
+      ctx.part = prevPart;
+      ctx.quality = prevQuality;
+      ctx.splitSpoiler = prevSplit;
+      ctx.spoilerDepth -= 1;
+      return;
+    }
+
+    // span/p with leading b/strong: classify once, skip re-walking that bold.
+    if (node.tagName === 'span' || node.tagName === 'p') {
+      const extracted = extractLabelFromElement($, node);
+      if (extracted) {
+        applyLabel(ctx, classifyBoldLabel(extracted.text));
+        for (const child of $node.contents().toArray()) {
+          if (child.type === 'tag') {
+            walk(child as Element, extracted.boldEl);
+          }
+        }
+        return;
+      }
+    }
+
+    if (node.tagName === 'b' || node.tagName === 'strong') {
+      applyLabel(ctx, classifyBoldLabel($node.text()));
+      return;
+    }
+
+    if (node.tagName === 'a') {
+      pushLink(node);
+      return;
+    }
+
+    for (const child of $node.contents().toArray()) {
+      if (child.type === 'tag') walk(child as Element);
+    }
+  };
+
+  for (const child of root.contents().toArray()) {
+    if (child.type === 'tag') walk(child as Element);
+  }
+
+  return downloads;
+}

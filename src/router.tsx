@@ -3,7 +3,8 @@ import type { ProfileDto } from './types';
 import { AppShell } from './components/AppShell';
 import { useOffline } from './contexts/Offline';
 import { ProfilePage } from './pages/ProfilePage';
-import { StorePage } from './pages/StorePage';
+import { StoreBrowsePage } from './pages/StoreBrowsePage';
+import { StoreHomePage } from './pages/StoreHomePage';
 import { GameDetailPage } from './pages/GameDetailPage';
 import { LibraryLayout } from './components/library/LibraryLayout';
 import { LibraryPage } from './pages/LibraryPage';
@@ -13,9 +14,10 @@ import { LibraryMediaViewerPage } from './pages/LibraryMediaViewerPage';
 import { DownloadsPage } from './pages/DownloadsPage';
 import { NewsPage } from './pages/NewsPage';
 import { FriendsPage } from './pages/FriendsPage';
-import { FriendProfilePage } from './pages/FriendProfilePage';
+import { MemberProfilePage } from './pages/MemberProfilePage';
 import { AlertsPage } from './pages/AlertsPage';
-import { AchievementsHubPage } from './pages/AchievementsHubPage';
+import { ForumSearchPage } from './pages/ForumSearchPage';
+import { ThreadDetailPage } from './pages/ThreadDetailPage';
 import { SettingsPage } from './pages/SettingsPage';
 
 interface BuildOpts {
@@ -35,24 +37,18 @@ export function buildRouter({ profile, onLoggedOut }: BuildOpts) {
       element: <AppShell profile={profile} onLoggedOut={onLoggedOut} />,
       children: [
         { index: true, element: <HomeRedirect /> },
-        { path: 'store', element: <StorePage /> },
+        { path: 'store', element: <StoreHomePage /> },
+        { path: 'store/browse', element: <StoreBrowsePage /> },
         { path: 'store/game/:threadId', element: <GameDetailPage /> },
-        {
-          // Layout keeps the Steam-skin game-list panel mounted across the
-          // library home and game detail routes (pass-through otherwise).
-          path: 'library',
-          element: <LibraryLayout />,
-          children: [
-            { index: true, element: <LibraryPage /> },
-            { path: 'collection/:collectionId', element: <LibraryCollectionPage /> },
-            { path: 'game/:threadId', element: <LibraryGamePage /> },
-          ],
-        },
+        { path: 'search', element: <ForumSearchPage /> },
+        { path: 'thread/:threadId', element: <ThreadDetailPage /> },
+        { path: 'library', element: <LibraryPage /> },
+        { path: 'library/game/:threadId', element: <LibraryGamePage /> },
         { path: 'library/game/:threadId/view', element: <LibraryMediaViewerPage /> },
         { path: 'downloads', element: <DownloadsPage /> },
         { path: 'news', element: <NewsPage /> },
         { path: 'friends', element: <FriendsPage /> },
-        { path: 'friends/:userId', element: <FriendProfilePage /> },
+        { path: 'members/:userId', element: <MemberProfilePage /> },
         { path: 'profile', element: <ProfilePage /> },
         { path: 'achievements', element: <AchievementsHubPage /> },
         { path: 'alerts', element: <AlertsPage /> },

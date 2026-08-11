@@ -16,6 +16,7 @@ export const KEY_MIXDROP_EMAIL = 'mixdrop_api_email';
 export const KEY_MIXDROP_API_KEY = 'mixdrop_api_key';
 
 export const KEY_STORE_SCROLL_MODE = 'store_scroll_mode';
+export const KEY_DISCUSSION_AUTO_SHOW_SIGNATURES = 'discussion_auto_show_signatures';
 
 export const KEY_DL_AUTO_EXTRACT = 'dl_auto_extract';
 export const KEY_DL_SPEED_MBPS = 'dl_speed_mbps';

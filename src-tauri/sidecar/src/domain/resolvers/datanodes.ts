@@ -17,10 +17,10 @@ export function parseDatanodesUrl(raw: string): ParsedDatanodesUrl {
   try {
     u = new URL(raw.trim());
   } catch {
-    throw new RpcError(RPC_ERROR.INVALID_PARAMS, `invalid DataNodes URL: ${raw}`);
+    throw new RpcError(RPC_ERROR.INVALID_PARAMS, 'error.datanodes.invalidUrl');
   }
   if (!/^(www\.)?datanodes\.to$/i.test(u.hostname)) {
-    throw new RpcError(RPC_ERROR.INVALID_PARAMS, `not a DataNodes URL: ${raw}`);
+    throw new RpcError(RPC_ERROR.INVALID_PARAMS, 'error.datanodes.invalidUrl');
   }
   const segs = u.pathname.split('/').filter(Boolean);
   const isCode = (s: string) =>
@@ -39,7 +39,7 @@ export function parseDatanodesUrl(raw: string): ParsedDatanodesUrl {
     }
   }
   if (!code) {
-    throw new RpcError(RPC_ERROR.INVALID_PARAMS, 'DataNodes URL missing file code');
+    throw new RpcError(RPC_ERROR.INVALID_PARAMS, 'error.datanodes.missingCode');
   }
   const navigateUrl = fileName
     ? `https://datanodes.to/${code}/${encodeURIComponent(normalizeDatanodesFileName(fileName))}`
@@ -87,7 +87,7 @@ export async function resolveDatanodes(url: string): Promise<{
     await page.goto(parsed.navigateUrl, { waitUntil: 'domcontentloaded', timeout: 60_000 });
     const bodyText = await page.locator('body').innerText();
     if (/permalink not found|no such file|file not found/i.test(bodyText)) {
-      throw new RpcError(RPC_ERROR.INTERNAL, 'DataNodes: arquivo não encontrado ou expirado');
+      throw new RpcError(RPC_ERROR.INTERNAL, 'error.datanodes.notFound');
     }
 
     await page.getByText(/4\/4 complete/i).waitFor({ timeout: 120_000 });
@@ -101,7 +101,7 @@ export async function resolveDatanodes(url: string): Promise<{
 
     const btn = page.getByText(/Continue to Download/i);
     if (!(await btn.count())) {
-      throw new RpcError(RPC_ERROR.INTERNAL, 'DataNodes: botão de download não encontrado');
+      throw new RpcError(RPC_ERROR.INTERNAL, 'error.datanodes.noButton');
     }
 
     await btn.click({ force: true });
@@ -113,8 +113,7 @@ export async function resolveDatanodes(url: string): Promise<{
     if (!directUrl) {
       throw new RpcError(
         RPC_ERROR.INTERNAL,
-        'DataNodes: download gratuito exige ads no navegador. ' +
-          'Configure uma API key em Configurações → Hosts → DataNodes (datanodes.to/account).',
+        'error.datanodes.needsAds',
       );
     }
 
@@ -125,10 +124,13 @@ export async function resolveDatanodes(url: string): Promise<{
     if (/timeout|timed out/i.test(msg)) {
       throw new RpcError(
         RPC_ERROR.INTERNAL,
-        'DataNodes: tempo esgotado ao preparar o download — tente novamente ou configure API key',
+        'error.datanodes.timeout',
       );
     }
-    throw new RpcError(RPC_ERROR.INTERNAL, `DataNodes: ${msg}`);
+    throw new RpcError(
+      RPC_ERROR.INTERNAL,
+      `error.datanodes.generic|${JSON.stringify({ detail: msg })}`,
+    );
   } finally {
     await context.close().catch(() => undefined);
   }

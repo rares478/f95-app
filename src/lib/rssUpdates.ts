@@ -5,10 +5,10 @@ import * as settings from './settings';
 import * as updates from './updates';
 import type { RssFeedItem } from '../types/rss';
 
+export { extractThreadIdFromUrl } from './f95ThreadUrls';
+
 export const KEY_RSS_LAST_POLL_AT = 'rss_last_poll_at';
 export const KEY_RSS_GUIDS_SEEDED = 'rss_guids_seeded';
-
-const THREAD_URL_RE = /\/threads\/(\d+)/;
 
 /**
  * Poll the F95 RSS feed, cross-check library games for updates, and enqueue
@@ -68,12 +68,6 @@ export async function pollRssLibraryUpdates(): Promise<number> {
 
   await settings.set(KEY_RSS_LAST_POLL_AT, String(Date.now()));
   return created;
-}
-
-export function extractThreadIdFromUrl(url: string | null): string | null {
-  if (!url) return null;
-  const m = url.match(THREAD_URL_RE);
-  return m ? m[1] : null;
 }
 
 export function storePathForRssItem(item: RssFeedItem): string {

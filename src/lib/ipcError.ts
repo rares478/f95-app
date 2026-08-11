@@ -1,5 +1,8 @@
-/** Extract a readable message from Tauri invoke failures. */
-export function formatIpcError(err: unknown): string {
+import { tStandalone } from './i18n';
+import { translateBackendMessage } from './backendMessage';
+
+/** Extract a readable message from Tauri invoke failures (no translation). */
+export function extractRawMessage(err: unknown): string {
   if (typeof err === 'string') return err;
   if (err instanceof Error) return err.message;
   if (err && typeof err === 'object') {
@@ -13,4 +16,10 @@ export function formatIpcError(err: unknown): string {
     }
   }
   return String(err);
+}
+
+/** Extract and translate a message from Tauri invoke failures for UI display. */
+export function formatIpcError(err: unknown): string {
+  const raw = extractRawMessage(err);
+  return translateBackendMessage(raw, tStandalone);
 }

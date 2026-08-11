@@ -29,6 +29,14 @@ describe('classifyHost', () => {
       host: 'pixeldrain',
       category: 'direct',
     });
+    expect(classifyHost('https://akirabox.com/abc/file')).toEqual({
+      host: 'akirabox',
+      category: 'direct',
+    });
+    expect(classifyHost('https://vikingfile.com/f/abc')).toEqual({
+      host: 'vikingfile',
+      category: 'direct',
+    });
   });
 
   it('classifies F95 masked URLs by embedded host', () => {

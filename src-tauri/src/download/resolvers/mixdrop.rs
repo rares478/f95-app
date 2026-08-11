@@ -22,9 +22,11 @@ fn mixdrop_err_needs_browser(e: &AppError) -> bool {
     match e {
         AppError::Cloudflare(_) => true,
         AppError::Other(msg) => {
-            msg.contains("reCAPTCHA")
+            msg.contains("error.mixdrop.captcha")
+                || msg.contains("reCAPTCHA")
                 || msg.contains("captcha")
                 || msg.contains("genticket")
+                || msg.contains("verification")
                 || msg.contains("verificação")
         }
         _ => false,
@@ -140,7 +142,8 @@ pub(crate) async fn resolve_mixdrop_with_cookies(
             })
         }
         Err(AppError::Other(ref msg))
-            if msg.contains("reCAPTCHA")
+            if msg.contains("error.mixdrop.captcha")
+                || msg.contains("reCAPTCHA")
                 || msg.contains("captcha")
                 || msg.contains("genticket") =>
         {
@@ -209,7 +212,8 @@ pub(crate) async fn resolve_mixdrop_interactive(
             })
         }
         Err(AppError::Other(ref msg))
-            if msg.contains("reCAPTCHA")
+            if msg.contains("error.mixdrop.captcha")
+                || msg.contains("reCAPTCHA")
                 || msg.contains("captcha")
                 || msg.contains("genticket") =>
         {

@@ -1,16 +1,26 @@
-import { useState } from 'react';
-import { openUrl } from '@tauri-apps/plugin-opener';
-import type { GameDownload, SocialLink } from '../../types/game';
+import { useState, type ReactNode } from 'react';
+import { createPortal } from 'react-dom';
+import type { GameDownload } from '../../types/game';
 import * as downloads from '../../lib/downloads';
 import * as library from '../../lib/library';
 import * as libraries from '../../lib/libraries';
 import * as ipc from '../../lib/ipc';
+import { saveLinksSnapshot } from '../../lib/libraryDownloadLinks';
+import { groupDownloads } from '../../lib/groupDownloads';
+import {
+  HOST_COLORS,
+  shouldShowHostBadge,
+  STREAMABLE_HOSTS,
+} from '../../lib/downloadHosts';
 import { useOffline } from '../../contexts/Offline';
 import { useT } from '../../lib/i18n';
+import { formatIpcError } from '../../lib/ipcError';
 import { dialog } from '../../lib/dialog';
 import { InstallLocationModal } from '../InstallLocationModal';
+import { InstallPlanWizard } from '../library/InstallPlanWizard';
 import type { InstallLibraryWithDisk } from '../../types/install-library';
 import type { SamCategory } from '../../types/sam';
+import '../../styles/install-plan.css';
 
 export interface DownloadLinksGameInfo {
   threadId: string;
@@ -24,38 +34,42 @@ export interface DownloadLinksGameInfo {
 interface Props {
   game: DownloadLinksGameInfo;
   downloads: GameDownload[];
-  social: SocialLink[];
   embedded?: boolean;
+  /** Called after a wizard/download start succeeds (e.g. refresh library UI). */
+  onStarted?: () => void;
 }
 
-const STREAMABLE_HOSTS = new Set(['pixeldrain', 'mediafire', 'gofile', 'mega', 'uploadhaven', 'buzzheavier', 'datanodes', 'gdrive', 'workupload', 'mixdrop']);
-
-const HOST_COLORS: Record<string, string> = {
-  mega: '#d9272e',
-  mediafire: 'var(--status-info)',
-  mixdrop: '#e85c00',
-  pixeldrain: '#3a3a8f',
-  gofile: '#4d4d4d',
-  workupload: '#1f7a3a',
-  uploadhaven: '#888888',
-  datanodes: '#2a8aa8',
-  buzzheavier: '#a87a2a',
-  gdrive: '#4285f4',
-  bunkr: '#8a3a3a',
-  cyberfile: '#6f4d8a',
-  cyberdrop: '#8a4d6f',
-  rapidgator: '#cc8a3a',
-  '1fichier': '#3aaa8a',
-};
-
-export function DownloadLinks({ game, downloads: items, social, embedded }: Props) {
+export function DownloadLinks({
+  game,
+  downloads: items,
+  embedded,
+  onStarted,
+}: Props) {
   const { t } = useT();
   const { isOffline } = useOffline();
   const [busyUrl, setBusyUrl] = useState<string | null>(null);
   const [pickerOpen, setPickerOpen] = useState(false);
   const [pending, setPending] = useState<GameDownload | null>(null);
+  const [wizardOpen, setWizardOpen] = useState(false);
+  const [linksOpen, setLinksOpen] = useState(false);
 
   const groups = groupDownloads(items);
+
+  async function prepareWizardStart() {
+    await library.add({
+      threadId: game.threadId,
+      category: game.category,
+      title: game.title,
+      threadUrl: game.threadUrl,
+      thumbnailUrl: game.thumbnailUrl,
+      currentVersion: game.version,
+    });
+    try {
+      await saveLinksSnapshot(game.threadId, items, game.version);
+    } catch (err) {
+      console.warn('[library] failed to cache download links on install start', err);
+    }
+  }
 
   async function startDownload(download: GameDownload, libraryPath?: string) {
     if (isOffline) {
@@ -72,6 +86,12 @@ export function DownloadLinks({ game, downloads: items, social, embedded }: Prop
         thumbnailUrl: game.thumbnailUrl,
         currentVersion: game.version,
       });
+      await library.setStatus(game.threadId, 'downloading');
+      try {
+        await saveLinksSnapshot(game.threadId, items, game.version);
+      } catch (err) {
+        console.warn('[library] failed to cache download links on download start', err);
+      }
       const row = await downloads.create({
         threadId: game.threadId,
         host: download.host,
@@ -85,8 +105,9 @@ export function DownloadLinks({ game, downloads: items, social, embedded }: Prop
         libraryPath,
         platformGroup: download.group,
       });
+      onStarted?.();
     } catch (err) {
-      await dialog.alert(t('dl.start.failed', { error: formatError(err) }), { kind: 'error' });
+      await dialog.alert(t('dl.start.failed', { error: formatIpcError(err) }), { kind: 'error' });
     } finally {
       setBusyUrl(null);
     }
@@ -111,14 +132,12 @@ export function DownloadLinks({ game, downloads: items, social, embedded }: Prop
     await startDownload(dl, lib.path);
   }
 
-  if (items.length === 0 && social.length === 0) {
+  if (items.length === 0) {
     return <p className="dl-meta-text">{t('dl.empty')}</p>;
   }
 
-  return (
+  const linksBody = (
     <>
-      {!embedded && <h3>{t('dl.section')}</h3>}
-
       {groups.map(([label, groupItems]) => (
         <div key={label ?? 'default'} style={{ marginBottom: 12 }}>
           {label && (
@@ -158,7 +177,7 @@ export function DownloadLinks({ game, downloads: items, social, embedded }: Prop
                         ? t('dl.btn.tooltipSupported', { host: download.host })
                         : t('dl.btn.tooltipUnsupported', { host: download.host })
                     }
-                    onClick={() => onDownloadClick(download)}
+                    onClick={() => void onDownloadClick(download)}
                   >
                     {busyUrl === download.url
                       ? '…'
@@ -172,27 +191,43 @@ export function DownloadLinks({ game, downloads: items, social, embedded }: Prop
           </ul>
         </div>
       ))}
+    </>
+  );
 
-      {social.length > 0 && (
-        <div style={{ marginTop: 16 }}>
-          <div className="dl-meta-text" style={{ marginBottom: 8, fontWeight: 600 }}>
-            {t('dl.support')}
-          </div>
-          <ul style={{ listStyle: 'none', margin: 0, padding: 0, display: 'grid', gap: 6 }}>
-            {social.map((link) => (
-              <li key={link.url}>
-                <button
-                  type="button"
-                  className="dl-link-btn"
-                  onClick={() => openUrl(link.url)}
-                >
-                  {link.text?.trim() || link.host}
-                </button>
-              </li>
-            ))}
-          </ul>
+  return (
+    <>
+      {!embedded && <h3>{t('dl.section')}</h3>}
+
+      {items.length > 0 && (
+        <div className="install-wizard-store-actions">
+          <button
+            type="button"
+            className="dl-action-btn dl-action-btn-accent"
+            onClick={() => setWizardOpen(true)}
+          >
+            {t('libcard.cta.install')}
+          </button>
+          <button
+            type="button"
+            className="dl-action-btn"
+            onClick={() => setLinksOpen(true)}
+          >
+            {t('dl.showAllLinks')}
+          </button>
         </div>
       )}
+
+      <InstallPlanWizard
+        open={wizardOpen}
+        threadId={game.threadId}
+        title={game.title}
+        links={items}
+        gameVersion={game.version}
+        intent="install"
+        onClose={() => setWizardOpen(false)}
+        onStarted={onStarted}
+        prepareStart={prepareWizardStart}
+      />
 
       <InstallLocationModal
         open={pickerOpen}
@@ -205,37 +240,89 @@ export function DownloadLinks({ game, downloads: items, social, embedded }: Prop
         }}
         onConfirm={onLibraryPicked}
       />
+
+      {linksOpen && (
+        <AllLinksModal
+          title={game.title}
+          closeLabel={t('common.cancel')}
+          onClose={() => setLinksOpen(false)}
+        >
+          {linksBody}
+        </AllLinksModal>
+      )}
     </>
   );
 }
 
-function shouldShowHostBadge(label: string, host: string): boolean {
-  const norm = (s: string) => s.trim().toLowerCase().replace(/[\s._-]+/g, '');
-  const nl = norm(label);
-  const nh = norm(host);
-  if (!nh) return false;
-  if (nl === nh) return false;
-  if (nl.includes(nh) || nh.includes(nl)) return false;
-  return true;
+function AllLinksModal({
+  title,
+  children,
+  closeLabel,
+  onClose,
+}: {
+  title: string;
+  children: ReactNode;
+  closeLabel: string;
+  onClose: () => void;
+}) {
+  return createPortal(
+    <div style={overlayStyle} onClick={onClose}>
+      <div
+        style={modalStyle}
+        onClick={(e) => e.stopPropagation()}
+        role="dialog"
+        aria-modal="true"
+        aria-label={`${title} links`}
+      >
+        <h2 style={titleStyle}>{title}</h2>
+        <div style={bodyStyle}>{children}</div>
+        <div style={footerStyle}>
+          <button type="button" className="dl-action-btn" onClick={onClose}>{closeLabel}</button>
+        </div>
+      </div>
+    </div>,
+    document.body,
+  );
 }
 
-function groupDownloads(items: GameDownload[]): [string | null, GameDownload[]][] {
-  const map = new Map<string | null, GameDownload[]>();
-  const order: (string | null)[] = [];
-  for (const item of items) {
-    const key = item.group?.trim() || null;
-    if (!map.has(key)) {
-      order.push(key);
-      map.set(key, []);
-    }
-    map.get(key)!.push(item);
-  }
-  return order.map((key) => [key, map.get(key)!]);
-}
+const overlayStyle: React.CSSProperties = {
+  position: 'fixed',
+  inset: 0,
+  background: 'rgba(0, 0, 0, 0.65)',
+  display: 'flex',
+  alignItems: 'center',
+  justifyContent: 'center',
+  zIndex: 2000,
+};
 
-function formatError(err: unknown): string {
-  if (err && typeof err === 'object' && 'message' in err) {
-    return String((err as { message: string }).message);
-  }
-  return String(err);
-}
+const modalStyle: React.CSSProperties = {
+  background: 'var(--bg-base)',
+  border: '1px solid var(--border)',
+  borderRadius: 6,
+  padding: '20px 22px',
+  width: 'min(920px, calc(100vw - 40px))',
+  maxHeight: 'calc(100vh - 80px)',
+  display: 'flex',
+  flexDirection: 'column',
+  gap: 12,
+  boxShadow: '0 8px 32px rgba(0,0,0,0.6)',
+};
+
+const titleStyle: React.CSSProperties = {
+  margin: 0,
+  fontSize: 17,
+  fontWeight: 700,
+  color: 'var(--text-primary)',
+};
+
+const bodyStyle: React.CSSProperties = {
+  overflow: 'auto',
+  minHeight: 0,
+  paddingRight: 2,
+};
+
+const footerStyle: React.CSSProperties = {
+  display: 'flex',
+  justifyContent: 'flex-end',
+};
+

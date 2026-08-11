@@ -4,12 +4,14 @@ import { useParams, useNavigate, useSearchParams } from 'react-router-dom';
 import { parseSamCategory } from '../constants/samCategories';
 import DOMPurify from 'dompurify';
 import { openUrl } from '@tauri-apps/plugin-opener';
-import { gameDetail } from '../lib/ipc';
+import * as ipc from '../lib/ipc';
 import { dialog } from '../lib/dialog';
 import * as library from '../lib/library';
+import { saveLinksFromDetail } from '../lib/libraryDownloadLinks';
 import { GameDescription } from '../components/game/GameDescription';
 import { clearGridPreviewCache } from '../lib/gridPreviewQueue';
 import { clearRemoteImageQueue } from '../lib/remoteImageQueue';
+import { recordStoreView } from '../lib/storeViewHistory';
 import { ScreenshotGallery } from '../components/game/ScreenshotGallery';
 import { StoreAchievementsSection } from '../components/game/StoreAchievementsSection';
 import { DownloadLinks } from '../components/game/DownloadLinks';
@@ -25,8 +27,6 @@ import {
   GameDetailMain,
   GameDetailShell,
   GameDetailSection,
-  GameDetailStat,
-  GameDetailStatGrid,
   GameDetailTag,
   GameDetailTagList,
   GameDetailAside,
@@ -34,12 +34,20 @@ import {
   GameDetailBtnSecondary,
   PrefixPill,
 } from '../components/game/GameDetailLayout';
-import { OfflineGate } from '../components/OfflineGate';
+import { SocialLinkChips } from '../components/game/SocialLinkChips';
+import { MoreLikeThis } from '../components/game/MoreLikeThis';
+import { ThreadDiscussion } from '../components/game/ThreadDiscussion';
 import { useContextMenu } from '../components/contextMenu';
 import { useOffline } from '../contexts/Offline';
+import { useStoreFilters } from '../contexts/StoreFilters';
+import { BROWSE_PATH } from '../lib/browseHandoff';
+import { useTagCatalog } from '../contexts/TagCatalogContext';
 import { buildStoreMenu } from '../lib/contextMenus/buildStoreMenu';
 import { useT } from '../lib/i18n';
-import type { GameDetail, GamePrefix } from '../types/game';
+import { formatIpcError } from '../lib/ipcError';
+import { findSamTagByNameOrSlug } from '../lib/tagCatalog';
+import type { GameDetail, GamePrefix, GameTag } from '../types/game';
+import type { SamTag } from '../types/sam';
 
 type State =
   | { kind: 'loading' }
@@ -60,15 +68,9 @@ const FIELD_ORDER = [
 
 const SKIP_FIELDS = new Set(['Overview', 'Genre', 'Installation', 'Changelog']);
 
+/** Not wrapped in OfflineGate: hard-gating remounts this page whenever the
+ *  periodic connectivity probe flickers, wiping loaded detail back to loading. */
 export function GameDetailPage() {
-  return (
-    <OfflineGate>
-      <GameDetailPageInner />
-    </OfflineGate>
-  );
-}
-
-function GameDetailPageInner() {
   const { threadId } = useParams<{ threadId: string }>();
   const [searchParams] = useSearchParams();
   const category = parseSamCategory(searchParams.get('cat'));
@@ -76,6 +78,8 @@ function GameDetailPageInner() {
   const { t } = useT();
   const { isOffline } = useOffline();
   const { openMenuAt } = useContextMenu();
+  const { catalog } = useTagCatalog();
+  const { filterByTag } = useStoreFilters();
   const [state, setState] = useState<State>({ kind: 'loading' });
   const [inLibrary, setInLibrary] = useState(false);
   const [adding, setAdding] = useState(false);
@@ -116,14 +120,15 @@ function GameDetailPageInner() {
     if (!threadId) return;
     let cancelled = false;
     setState({ kind: 'loading' });
-    gameDetail(threadId)
+    ipc
+      .gameDetail(threadId)
       .then((data) => {
         if (cancelled) return;
         setState({ kind: 'ready', data });
       })
       .catch((err) => {
         if (cancelled) return;
-        setState({ kind: 'error', message: formatError(err) });
+        setState({ kind: 'error', message: formatIpcError(err) });
       });
     library
       .isInLibrary(threadId)
@@ -144,6 +149,17 @@ function GameDetailPageInner() {
     );
   }, [state]);
 
+  useEffect(() => {
+    if (state.kind !== 'ready') return;
+    void recordStoreView({
+      threadId: state.data.threadId,
+      category,
+      title: state.data.title,
+      thumbnailUrl: state.data.bannerUrl,
+      threadUrl: state.data.threadUrl,
+    });
+  }, [state, category]);
+
   useEffect(
     () => () => {
       clearRemoteImageQueue();
@@ -152,8 +168,41 @@ function GameDetailPageInner() {
     [],
   );
 
+  async function resolveSamTag(tag: GameTag): Promise<SamTag | null> {
+    const local = findSamTagByNameOrSlug(catalog, tag);
+    if (local) return local;
+    try {
+      const results = await ipc.samTagSearch(category, tag.name);
+      const nameLc = tag.name.trim().toLowerCase();
+      const slugLc = tag.slug.trim().toLowerCase();
+      return (
+        results.find((r) => r.name.trim().toLowerCase() === nameLc) ??
+        results.find((r) => r.name.trim().toLowerCase().replace(/[^a-z0-9]+/g, '-') === slugLc) ??
+        results[0] ??
+        null
+      );
+    } catch (err) {
+      console.warn('[gamedetail] tag search failed', err);
+      return null;
+    }
+  }
+
+  async function onTagClick(tag: GameTag) {
+    const sam = await resolveSamTag(tag);
+    if (!sam) {
+      await dialog.alert(t('gamedetail.tag.notFound', { name: tag.name }), { kind: 'info' });
+      return;
+    }
+    filterByTag(sam, category);
+    navigate(BROWSE_PATH);
+  }
+
   async function onAddToLibrary() {
     if (state.kind !== 'ready' || adding) return;
+    if (isOffline) {
+      await dialog.alert(t('offline.actionBlocked'), { kind: 'info' });
+      return;
+    }
     setAdding(true);
     try {
       await library.add({
@@ -164,9 +213,14 @@ function GameDetailPageInner() {
         thumbnailUrl: state.data.bannerUrl,
         currentVersion: state.data.version,
       });
+      try {
+        await saveLinksFromDetail(state.data.threadId, state.data);
+      } catch (err) {
+        console.warn('[library] failed to cache download links on add', err);
+      }
       setInLibrary(true);
     } catch (err) {
-      await dialog.alert(formatError(err), { kind: 'error' });
+      await dialog.alert(formatIpcError(err), { kind: 'error' });
     } finally {
       setAdding(false);
     }
@@ -201,14 +255,16 @@ function GameDetailPageInner() {
   const g = state.data;
   const displayPrefixes = normalizeDetailPrefixes(g.prefixes, g.version);
   const sanitized = DOMPurify.sanitize(g.descriptionHtml, {
-    ADD_TAGS: ['details', 'summary'],
-    ADD_ATTR: ['target', 'rel', 'loading'],
+    ADD_TAGS: ['details', 'summary', 'button'],
+    ADD_ATTR: ['target', 'rel', 'loading', 'type', 'hidden'],
   });
 
   const orderedFields = FIELD_ORDER.filter((k) => g.fields[k]);
   const extraFields = Object.entries(g.fields).filter(
     ([k]) => !FIELD_ORDER.includes(k) && !SKIP_FIELDS.has(k),
   );
+  const developerName = (g.fields.Developer ?? g.developer ?? '').trim();
+  const showDeveloperRow = Boolean(developerName) || g.social.length > 0;
 
   return (
     <GameDetailShell onContextMenu={openDetailContextMenu}>
@@ -230,6 +286,21 @@ function GameDetailPageInner() {
         }
         title={g.title}
         meta={buildHeroMeta(g, t)}
+        tags={
+          g.tags.length > 0 ? (
+            <GameDetailTagList>
+              {g.tags.map((tag) => (
+                <GameDetailTag
+                  key={tag.slug}
+                  title={t('gamedetail.tag.filterBy', { name: tag.name })}
+                  onClick={() => void onTagClick(tag)}
+                >
+                  {tag.name}
+                </GameDetailTag>
+              ))}
+            </GameDetailTagList>
+          ) : undefined
+        }
         actions={
           <>
             {inLibrary ? (
@@ -248,52 +319,11 @@ function GameDetailPageInner() {
         }
       />
 
-      <GameDetailStatGrid>
-        {g.fields['Developer'] && (
-          <GameDetailStat label={t('gamedetail.field.developer')} value={g.fields['Developer']} />
-        )}
-        {g.fields['Publisher'] && (
-          <GameDetailStat label={t('gamedetail.field.publisher')} value={g.fields['Publisher']} />
-        )}
-        {g.version && (
-          <GameDetailStat label={t('gamedetail.field.version')} value={g.version} highlight />
-        )}
-        {g.fields['Thread Updated'] && (
-          <GameDetailStat
-            label={t('gamedetail.field.updated')}
-            value={g.fields['Thread Updated']}
-          />
-        )}
-        {g.fields['OS'] && (
-          <GameDetailStat
-            label={t('gamedetail.field.os')}
-            value={g.fields['OS']}
-            className="game-detail-stat-wide"
-          />
-        )}
-        {g.downloads.length > 0 && (
-          <GameDetailStat
-            label={t('gamedetail.field.downloads')}
-            value={t('gamedetail.field.downloadsCount', { count: g.downloads.length })}
-          />
-        )}
-      </GameDetailStatGrid>
-
       <GameDetailBody>
         <GameDetailMain>
           {g.screenshots.length > 0 && (
             <GameDetailSection title={t('gamedetail.section.screenshots')}>
               <ScreenshotGallery images={g.screenshots} />
-            </GameDetailSection>
-          )}
-
-          {g.tags.length > 0 && (
-            <GameDetailSection title={t('gamedetail.section.tags')}>
-              <GameDetailTagList>
-                {g.tags.map((tag) => (
-                  <GameDetailTag key={tag.slug}>{tag.name}</GameDetailTag>
-                ))}
-              </GameDetailTagList>
             </GameDetailSection>
           )}
 
@@ -304,18 +334,36 @@ function GameDetailPageInner() {
             />
           </GameDetailSection>
 
-          {category === 'games' && <StoreAchievementsSection detail={g} />}
+          <MoreLikeThis threadId={g.threadId} category={category} tags={g.tags} />
+
+          <ThreadDiscussion threadId={g.threadId} />
         </GameDetailMain>
 
         <GameDetailAside>
           <GameDetailSection title={t('gamedetail.section.info')}>
             <GameDetailFields>
-              {orderedFields.map((k) => (
-                <GameDetailField key={k} label={k} value={g.fields[k]} />
-              ))}
-              {extraFields.map(([k, v]) => (
-                <GameDetailField key={k} label={k} value={v} />
-              ))}
+              {showDeveloperRow && (
+                <GameDetailField
+                  key="Developer"
+                  label="Developer"
+                  value={
+                    <>
+                      {developerName}
+                      <SocialLinkChips links={g.social} />
+                    </>
+                  }
+                />
+              )}
+              {orderedFields
+                .filter((k) => k !== 'Developer')
+                .map((k) => (
+                  <GameDetailField key={k} label={k} value={g.fields[k]} />
+                ))}
+              {extraFields
+                .filter(([k]) => k !== 'Developer')
+                .map(([k, v]) => (
+                  <GameDetailField key={k} label={k} value={v} />
+                ))}
             </GameDetailFields>
           </GameDetailSection>
 
@@ -331,7 +379,7 @@ function GameDetailPageInner() {
                 version: g.version,
               }}
               downloads={g.downloads}
-              social={g.social}
+              onStarted={() => setInLibrary(true)}
             />
           </GameDetailSection>
         </GameDetailAside>
@@ -377,16 +425,20 @@ function buildHeroMeta(
   };
 
   if (g.developer) {
+    const key = normMetaKey(g.developer);
     push(
-      normMetaKey(g.developer),
-      <GameDetailChip title={t('gamedetail.meta.developer')}>{g.developer}</GameDetailChip>,
+      key,
+      <GameDetailChip key={key} title={t('gamedetail.meta.developer')}>
+        {g.developer}
+      </GameDetailChip>,
     );
   }
 
   if (g.version) {
+    const key = normMetaKey(g.version);
     push(
-      normMetaKey(g.version),
-      <GameDetailChip accent title={t('gamedetail.meta.version')}>
+      key,
+      <GameDetailChip key={key} accent title={t('gamedetail.meta.version')}>
         {g.version}
       </GameDetailChip>,
     );
@@ -396,18 +448,22 @@ function buildHeroMeta(
   if (release && !metaValuesMatch(release, g.version ?? '')) {
     const updated = g.fields['Thread Updated']?.trim() ?? '';
     if (!updated || !metaValuesMatch(release, updated)) {
+      const key = normMetaKey(release);
       push(
-        normMetaKey(release),
-        <GameDetailChip title={t('gamedetail.meta.releaseDate')}>{release}</GameDetailChip>,
+        key,
+        <GameDetailChip key={key} title={t('gamedetail.meta.releaseDate')}>
+          {release}
+        </GameDetailChip>,
       );
     }
   }
 
   const os = g.fields['OS']?.trim();
   if (os) {
+    const key = normMetaKey(os);
     push(
-      normMetaKey(os),
-      <GameDetailChip title={os} className="game-detail-chip-truncate">
+      key,
+      <GameDetailChip key={key} title={os} className="game-detail-chip-truncate">
         {truncateChip(os)}
       </GameDetailChip>,
     );
@@ -434,11 +490,4 @@ function normalizeDetailPrefixes(
     out.push(p);
   }
   return out;
-}
-
-function formatError(err: unknown): string {
-  if (err && typeof err === 'object' && 'message' in err) {
-    return String((err as { message: string }).message);
-  }
-  return String(err);
 }

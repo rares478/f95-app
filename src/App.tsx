@@ -1,9 +1,11 @@
-import { useEffect, useMemo, useState } from 'react';
+import { useCallback, useEffect, useMemo, useRef, useState } from 'react';
 import { RouterProvider } from 'react-router-dom';
 import { getCurrentWindow } from '@tauri-apps/api/window';
 import { listen } from '@tauri-apps/api/event';
 import { LoginWindow } from './components/LoginWindow';
 import { MainAppGate } from './components/MainAppGate';
+import { DownloadsProvider } from './contexts/Downloads';
+import { InstallAssignProvider } from './contexts/InstallAssign';
 import { OfflineProvider } from './contexts/Offline';
 import { AppDialogProvider } from './components/AppDialogProvider';
 import { ContextMenuProvider } from './components/contextMenu';
@@ -24,9 +26,15 @@ import type { ProfileDto } from './types';
 import './App.css';
 import './styles/steam-skin.css';
 import './styles/store-filter.css';
+import './styles/store-discovery.css';
+import './styles/game-detail.css';
+import './styles/profile.css';
+import './styles/sidebar.css';
 import './styles/offline.css';
 import './styles/context-menu.css';
 import './styles/notifications.css';
+import './styles/forum-search.css';
+import './styles/thread-detail.css';
 import './styles/settings-store.css';
 import './styles/settings-changelog.css';
 import './styles/version-info-modal.css';
@@ -204,10 +212,12 @@ function App() {
           <OfflineProvider>
             <MainAppGate>
               {({ profile, onLoggedOut }) => (
-                <>
-                  <RouterRoot profile={profile} onLoggedOut={onLoggedOut} />
-                  <DevDebugConsole />
-                </>
+                <DownloadsProvider>
+                  <InstallAssignProvider>
+                    <RouterRoot profile={profile} onLoggedOut={onLoggedOut} />
+                    <DevDebugConsole />
+                  </InstallAssignProvider>
+                </DownloadsProvider>
               )}
             </MainAppGate>
           </OfflineProvider>
@@ -225,9 +235,20 @@ function RouterRoot({
   profile: ProfileDto;
   onLoggedOut: () => void;
 }) {
+  // Keep the browser router instance alive across parent re-renders. A new
+  // createBrowserRouter() remounts the whole tree (spoilers, forms, scroll).
+  const onLoggedOutRef = useRef(onLoggedOut);
+  onLoggedOutRef.current = onLoggedOut;
+
+  const stableOnLoggedOut = useCallback(() => {
+    onLoggedOutRef.current();
+  }, []);
+
   const router = useMemo(
-    () => buildRouter({ profile, onLoggedOut }),
-    [profile, onLoggedOut],
+    () => buildRouter({ profile, onLoggedOut: stableOnLoggedOut }),
+    // profile is fixed after MainAppGate boot; only rebuild if logout handler identity must change
+    // eslint-disable-next-line react-hooks/exhaustive-deps -- intentionally omit profile
+    [stableOnLoggedOut],
   );
   return <RouterProvider router={router} />;
 }

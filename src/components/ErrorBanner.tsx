@@ -1,3 +1,5 @@
+import { useT } from '../lib/i18n';
+import { translateBackendMessage } from '../lib/backendMessage';
 import type { BackendError } from '../types';
 
 interface Props {
@@ -5,24 +7,13 @@ interface Props {
   onDismiss?: () => void;
 }
 
-const FRIENDLY: Record<string, string> = {
-  invalid_credentials: 'Usuário ou senha incorretos.',
-  two_factor_required:
-    'Esta conta tem autenticação de dois fatores ativa. Suporte a 2FA não está implementado nesta versão.',
-  cloudflare:
-    'O Cloudflare bloqueou a requisição (Just a moment…). Esta versão não resolve o desafio — precisaria habilitar Playwright no sidecar.',
-  sidecar_timeout: 'Sem resposta do sidecar Node. Verifique se o processo está rodando.',
-  sidecar_crash: 'O sidecar Node terminou de forma inesperada.',
-  not_initialized: 'A ponte com o sidecar ainda não foi inicializada.',
-  protocol: 'Erro de protocolo entre Tauri e o sidecar.',
-  io: 'Erro de IO ao falar com o sidecar.',
-  other: 'Erro inesperado.',
-};
-
 export function ErrorBanner({ error, onDismiss }: Props) {
+  const { t } = useT();
   const isBackend = typeof error !== 'string';
-  const title = isBackend ? FRIENDLY[error.code] ?? 'Erro' : 'Erro';
-  const detail = isBackend ? error.message : error;
+  const title = isBackend ? friendlyTitle(error.code, t) : t('common.error');
+  const detail = isBackend
+    ? translateBackendMessage(error.message, t)
+    : translateBackendMessage(error, t);
 
   return (
     <div
@@ -55,7 +46,7 @@ export function ErrorBanner({ error, onDismiss }: Props) {
               padding: 0,
               lineHeight: 1,
             }}
-            aria-label="Fechar"
+            aria-label={t('titlebar.close')}
           >
             ×
           </button>
@@ -63,4 +54,13 @@ export function ErrorBanner({ error, onDismiss }: Props) {
       </div>
     </div>
   );
+}
+
+function friendlyTitle(
+  code: string,
+  t: (key: string, vars?: Record<string, string | number>) => string,
+): string {
+  const key = `auth.error.${code}`;
+  const translated = t(key);
+  return translated === key ? t('auth.error.other') : translated;
 }

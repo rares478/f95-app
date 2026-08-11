@@ -7,19 +7,18 @@ import { item, offlineTitle } from './helpers';
 
 export function buildFriendsMenu(
   user: FollowedUser,
-  opts: { isOffline: boolean; t: TranslateFn; onViewProfile?: () => void },
+  opts: {
+    isOffline: boolean;
+    t: TranslateFn;
+    onViewProfile: (userId: string) => void;
+  },
 ): ContextMenuItem[] {
   const off = offlineTitle(opts.isOffline, opts.t);
-  const items: ContextMenuItem[] = [];
-  if (opts.onViewProfile) {
-    items.push(
-      item('view', opts.t('contextMenu.viewProfile'), opts.onViewProfile, {
-        disabled: opts.isOffline,
-        title: off,
-      }),
-    );
-  }
-  items.push(
+  return [
+    item('view', opts.t('friends.viewProfile'), () => opts.onViewProfile(user.userId), {
+      disabled: opts.isOffline,
+      title: off,
+    }),
     item('profile', opts.t('contextMenu.openProfile'), () => openUrl(user.profileUrl), {
       disabled: opts.isOffline,
       title: off,

@@ -55,7 +55,7 @@ export async function ensureSeeded(): Promise<void> {
   }
   await execute(
     `INSERT INTO install_libraries (label, path, is_default) VALUES (?, ?, 1)`,
-    ['Padrão', defaultPath],
+    ['Default', defaultPath],
   );
 }
 
@@ -103,7 +103,7 @@ export async function getDefault(): Promise<InstallLibrary | null> {
 /** Add a new library. Throws if the path is already registered. */
 export async function add(args: { label: string; path: string }): Promise<InstallLibrary> {
   const path = normalizePath(args.path);
-  if (!path) throw new Error('caminho inválido');
+  if (!path) throw new Error('invalid path');
   const label = args.label.trim() || deriveLabelFromPath(path);
   const res = await execute(
     `INSERT INTO install_libraries (label, path, is_default) VALUES (?, ?, 0)`,
@@ -111,17 +111,17 @@ export async function add(args: { label: string; path: string }): Promise<Instal
   );
   const id = res.lastInsertId;
   if (id == null || id <= 0) {
-    throw new Error('falha ao inserir biblioteca');
+    throw new Error('failed to insert library');
   }
   const created = await get(id);
-  if (!created) throw new Error('linha desapareceu após insert');
+  if (!created) throw new Error('row disappeared after insert');
   return created;
 }
 
 /** Make `id` the default library. Clears the flag on the previous default. */
 export async function setDefault(id: number): Promise<void> {
   // SQLite has no atomic UPDATE...WHERE...UPDATE, so do it in two statements.
-  // Race-wise this is fine because the user clicks "Definir padrão" serially.
+  // Race-wise this is fine because the user clicks "Make default" serially.
   await execute(`UPDATE install_libraries SET is_default = 0 WHERE is_default = 1`);
   await execute(`UPDATE install_libraries SET is_default = 1 WHERE id = ?`, [id]);
 }
@@ -135,12 +135,12 @@ export async function setDefault(id: number): Promise<void> {
 export async function remove(id: number): Promise<void> {
   const all = await list();
   if (all.length <= 1) {
-    throw new Error('não dá pra remover a última biblioteca');
+    throw new Error('cannot remove the last library');
   }
   const target = all.find((l) => l.id === id);
   if (!target) return;
   if (target.isDefault) {
-    throw new Error('defina outra como padrão antes de remover essa');
+    throw new Error('set another library as default before removing this one');
   }
   await execute(`DELETE FROM install_libraries WHERE id = ?`, [id]);
 }

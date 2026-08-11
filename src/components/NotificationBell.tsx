@@ -1,12 +1,11 @@
 import { useCallback, useEffect, useLayoutEffect, useRef, useState } from 'react';
 import { createPortal } from 'react-dom';
 import { Link, useNavigate } from 'react-router-dom';
-import { openUrl } from '@tauri-apps/plugin-opener';
 import { useNotifications } from '../contexts/Notifications';
 import { useOffline } from '../contexts/Offline';
 import { formatRelativeDate } from '../lib/formatDate';
+import { openF95NotificationTarget } from '../lib/openF95NotificationTarget';
 import { useT } from '../lib/i18n';
-import { extractThreadIdFromUrl } from '../lib/rssUpdates';
 
 interface NotificationBellProps {
   /**
@@ -127,7 +126,6 @@ export function NotificationBell({ placement = 'side' }: NotificationBellProps) 
                   }
 
                   const a = entry.alert;
-                  const threadId = extractThreadIdFromUrl(a.url);
                   return (
                     <li key={a.alertId}>
                       <button
@@ -136,8 +134,7 @@ export function NotificationBell({ placement = 'side' }: NotificationBellProps) 
                         onClick={() => {
                           void markRead(a.alertId, 'f95');
                           setOpen(false);
-                          if (threadId) navigate(`/store/game/${threadId}?cat=games`);
-                          else if (a.url) void openUrl(a.url);
+                          void openF95NotificationTarget(a.url, navigate);
                         }}
                       >
                         {a.avatarUrl ? (
