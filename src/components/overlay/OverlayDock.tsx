@@ -25,7 +25,6 @@ const TAB_LABEL_KEYS: Record<OverlayTab, string> = {
   notes: 'overlay.tab.notes',
   guides: 'overlay.tab.guides',
   browser: 'overlay.tab.browser',
-  achievements: 'overlay.tab.achievements',
 };
 
 export function OverlayDock({

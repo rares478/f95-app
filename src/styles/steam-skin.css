@@ -71,6 +71,11 @@
   );
 }
 
+/* Library split view: keep scroll inside each panel, not on .app-main */
+:root[data-skin='steam'] .app-main:has(> .steam-library) {
+  overflow: hidden !important;
+}
+
 /* ------------------------------------------------------------------ */
 /* Typography details                                                  */
 /* ------------------------------------------------------------------ */
@@ -456,21 +461,18 @@
   display: flex;
   align-items: stretch;
   width: 100%;
-  min-height: 100%;
+  flex: 1;
+  min-height: 0;
+  height: 100%;
+  overflow: hidden;
   box-sizing: border-box;
 }
 
-/* Chrome height above/below .app-main with the top nav present:
- * titlebar 32 + topnav 44 + statusbar 28 = 104px. A fixed height (not
- * max-height) keeps the panel filling the full column even when the
- * library has only a couple of games. */
 :root[data-skin='steam'] .steam-library-sidebar {
   width: 250px;
   flex-shrink: 0;
-  position: sticky;
-  top: 0;
-  align-self: flex-start;
-  height: calc(100vh - 104px);
+  height: 100%;
+  min-height: 0;
   display: flex;
   flex-direction: column;
   box-sizing: border-box;
@@ -660,6 +662,9 @@
 :root[data-skin='steam'] .steam-library-main {
   flex: 1;
   min-width: 0;
+  min-height: 0;
+  overflow-y: auto;
+  overscroll-behavior: contain;
   box-sizing: border-box;
 }
 

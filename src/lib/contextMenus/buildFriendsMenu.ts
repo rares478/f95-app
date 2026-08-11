@@ -26,6 +26,5 @@ export function buildFriendsMenu(
     item('copy', opts.t('contextMenu.copyProfileLink'), () =>
       copyTextWithFeedback(user.profileUrl),
     ),
-  );
-  return items;
+  ];
 }

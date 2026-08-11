@@ -3,6 +3,7 @@ const ru: Record<string, string> = {
   // ─── Sidebar nav ────────────────────────────────────────────────────────
   'nav.store': 'Магазин',
   'nav.library': 'Библиотека',
+  'nav.search': 'Форум',
   'nav.downloads': 'Загрузки',
   'nav.news': 'Новости',
   'nav.friends': 'Друзья',
@@ -346,11 +347,23 @@ const ru: Record<string, string> = {
 
   'settings.theme.section': 'Тема',
   'settings.theme.hint': 'Применяется сразу. Выбор сохраняется и восстанавливается при следующем запуске.',
+
+  'settings.navLayout.section': 'Навигация',
+  'settings.navLayout.hint': 'Где показывать главное меню — боковая панель или верхняя панель.',
+  'settings.navLayout.side': 'Боковая панель',
+  'settings.navLayout.sideHint': 'Вертикальное меню слева с разделами и значками.',
+  'settings.navLayout.top': 'Верхняя панель',
+  'settings.navLayout.topHint': 'Горизонтальные ссылки сверху с иконками справа.',
   'settings.theme.active': 'АКТИВНА',
 
   'settings.skin.section': 'Стиль приложения',
   'settings.skin.hint':
     'Меняет структуру и раскладку приложения (меню, магазин и библиотека), сохраняя цвета выбранной выше темы.',
+  'settings.skin.default.label': 'Стандарт',
+  'settings.skin.default.desc': 'Исходная структура приложения.',
+  'settings.skin.steam.label': 'Steam',
+  'settings.skin.steam.desc':
+    'Макет клиента Steam: верхнее меню, боковой список игр в библиотеке, прямые углы и градиенты. Использует цвета выбранной темы.',
 
   'settings.store.section': 'Магазин',
   'settings.store.hint': 'Как листать результаты на вкладке Магазин.',
@@ -562,6 +575,28 @@ const ru: Record<string, string> = {
   'settings.updates.failed': 'Не удалось проверить обновления: {error}',
   'settings.updates.installFailed': 'Не удалось установить обновление: {error}',
   'settings.updates.installing': 'Установка обновления…',
+
+  'settings.tray.section': 'Системный трей',
+  'settings.tray.hint': 'Держать приложение в области уведомлений. При включении закрытие окна скрывает приложение вместо выхода.',
+  'settings.tray.enabled': 'Показывать значок в трее',
+  'tray.menu.label': 'Меню трея',
+  'tray.show': 'Показать F95 App',
+  'tray.library': 'Библиотека',
+  'tray.recentGames': 'Недавние игры',
+  'tray.recent.empty': 'Нет недавних игр',
+  'tray.recent.loading': 'Загрузка…',
+  'tray.downloads': 'Загрузки',
+  'tray.settings': 'Настройки',
+  'tray.changelog': 'Список изменений',
+  'tray.checkUpdates': 'Проверить обновления',
+  'tray.quit': 'Выйти',
+
+  'settings.changelog.section': 'Список изменений',
+  'settings.changelog.hint': 'Основные изменения по версиям приложения.',
+  'settings.changelog.unreleased': 'Не выпущено',
+  'settings.changelog.showMore': 'Показать больше версий',
+  'settings.changelog.showLess': 'Показать меньше',
+  'settings.updates.checkNow': 'Проверить обновления',
   'appUpdate.banner.title': 'Доступно обновление',
   'appUpdate.banner.body': 'Версия {version} готова к установке.',
   'appUpdate.banner.updateNow': 'Обновить сейчас',
@@ -1183,11 +1218,12 @@ const ru: Record<string, string> = {
   'settings.theme.light.desc': 'Белый фон, тёмный текст. Для дня.',
   'settings.theme.red.label': 'F95 Красная',
   'settings.theme.red.desc': 'В красных тонах с кремовым текстом.',
+  'settings.theme.steam.label': 'Steam',
+  'settings.theme.steam.desc': 'Классическая Steam-палитра: тёмно-синий с голубым акцентом.',
 
   // ─── Friends ────────────────────────────────────────────────────────────
   'friends.loadFailed': 'Ошибка загрузки: {error}',
   'friends.openProfile': 'Открыть профиль',
-  'friends.viewProfile': 'Смотреть профиль',
   'friends.count': '{count} {count, plural}',
   'friends.count.one': 'человек',
   'friends.count.other': 'людей',

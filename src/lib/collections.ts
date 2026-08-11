@@ -2,7 +2,7 @@
  * Steam-style library collections ("folders").
  *
  * Backed by `library_collections` + `library_collection_games` (migration
- * v8). Membership is N:N — a game can live in any number of collections.
+ * v14). Membership is N:N — a game can live in any number of collections.
  * Every mutation fires COLLECTIONS_CHANGE_EVENT on `window` so live views
  * (Steam library sidebar, LibraryPage filter pills, picker modal) refresh
  * without prop plumbing.

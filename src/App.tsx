@@ -12,6 +12,7 @@ import { ContextMenuProvider } from './components/contextMenu';
 import { buildRouter } from './router';
 import * as settings from './lib/settings';
 import * as theme from './lib/theme';
+import * as navLayout from './lib/navLayout';
 import * as ipc from './lib/ipc';
 import { LocaleProvider } from './lib/i18n';
 import { DevDebugConsole } from './components/DevDebugConsole';
@@ -24,12 +25,14 @@ import { runStartupUpdateCheck } from './lib/appUpdater';
 import { tStandalone } from './lib/i18n';
 import type { ProfileDto } from './types';
 import './App.css';
+import './styles/theme.css';
 import './styles/steam-skin.css';
 import './styles/store-filter.css';
 import './styles/store-discovery.css';
 import './styles/game-detail.css';
 import './styles/profile.css';
 import './styles/sidebar.css';
+import './styles/top-nav.css';
 import './styles/offline.css';
 import './styles/context-menu.css';
 import './styles/notifications.css';
@@ -41,8 +44,6 @@ import './styles/version-info-modal.css';
 import './styles/nav-accent.css';
 import './styles/custom-video-fullscreen.css';
 import './styles/collections.css';
-import './styles/profile.css';
-import './styles/achievements.css';
 
 type AppWindowKind = 'login' | 'main' | 'overlay' | 'overlay-hint' | 'tray-menu';
 
@@ -73,12 +74,14 @@ function App() {
 
   useEffect(() => {
     (async () => {
-      const [savedTheme, savedSkin] = await Promise.all([
+      const [savedTheme, savedSkin, savedNavLayout] = await Promise.all([
         theme.loadSavedTheme(),
         theme.loadSavedSkin(),
+        navLayout.loadSavedNavLayout(),
       ]);
       theme.applyTheme(savedTheme);
       theme.applySkin(savedSkin);
+      navLayout.applyNavLayout(savedNavLayout);
       setThemeReady(true);
     })();
   }, []);

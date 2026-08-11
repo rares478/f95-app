@@ -3,6 +3,7 @@ const pt: Record<string, string> = {
   // ─── Sidebar nav ────────────────────────────────────────────────────────
   'nav.store': 'Loja',
   'nav.library': 'Biblioteca',
+  'nav.search': 'Fórum',
   'nav.downloads': 'Downloads',
   'nav.news': 'Novidades',
   'nav.friends': 'Amigos',
@@ -348,11 +349,23 @@ const pt: Record<string, string> = {
 
   'settings.theme.section': 'Tema',
   'settings.theme.hint': 'Aplica imediatamente. A escolha fica salva e volta no próximo launch.',
+
+  'settings.navLayout.section': 'Navegação',
+  'settings.navLayout.hint': 'Onde o menu principal aparece — barra lateral ou barra superior.',
+  'settings.navLayout.side': 'Barra lateral',
+  'settings.navLayout.sideHint': 'Navegação vertical à esquerda com seções e ícones.',
+  'settings.navLayout.top': 'Barra superior',
+  'settings.navLayout.topHint': 'Links horizontais no topo com ícones de utilidade à direita.',
   'settings.theme.active': 'ATIVO',
 
   'settings.skin.section': 'Estilo do aplicativo',
   'settings.skin.hint':
     'Muda a estrutura e o layout do app (menu, loja e biblioteca) mantendo as cores do tema selecionado acima.',
+  'settings.skin.default.label': 'Padrão',
+  'settings.skin.default.desc': 'A estrutura visual original do app.',
+  'settings.skin.steam.label': 'Steam',
+  'settings.skin.steam.desc':
+    'Layout do cliente Steam: menu no topo, lista lateral na biblioteca, cantos retos e gradientes. Usa as cores do tema selecionado.',
 
   'settings.store.section': 'Loja',
   'settings.store.hint': 'Como navegar pelos resultados na aba Loja.',
@@ -567,6 +580,28 @@ const pt: Record<string, string> = {
   'settings.updates.failed': 'Não foi possível verificar atualizações: {error}',
   'settings.updates.installFailed': 'Não foi possível instalar a atualização: {error}',
   'settings.updates.installing': 'Instalando atualização…',
+
+  'settings.tray.section': 'Bandeja do sistema',
+  'settings.tray.hint': 'Mantém o app na área de notificação. Com isso ativo, fechar a janela oculta o app em vez de encerrar.',
+  'settings.tray.enabled': 'Mostrar ícone na bandeja',
+  'tray.menu.label': 'Menu da bandeja',
+  'tray.show': 'Mostrar F95 App',
+  'tray.library': 'Biblioteca',
+  'tray.recentGames': 'Jogos recentes',
+  'tray.recent.empty': 'Nenhum jogo recente',
+  'tray.recent.loading': 'Carregando…',
+  'tray.downloads': 'Downloads',
+  'tray.settings': 'Configurações',
+  'tray.changelog': 'Changelog',
+  'tray.checkUpdates': 'Verificar atualizações',
+  'tray.quit': 'Sair',
+
+  'settings.changelog.section': 'Changelog',
+  'settings.changelog.hint': 'Principais mudanças por versão do app.',
+  'settings.changelog.unreleased': 'Não publicado',
+  'settings.changelog.showMore': 'Mostrar mais versões',
+  'settings.changelog.showLess': 'Mostrar menos',
+  'settings.updates.checkNow': 'Verificar atualizações',
   'appUpdate.banner.title': 'Atualização disponível',
   'appUpdate.banner.body': 'A versão {version} está pronta para instalar.',
   'appUpdate.banner.updateNow': 'Atualizar agora',
@@ -1188,11 +1223,12 @@ const pt: Record<string, string> = {
   'settings.theme.light.desc': 'Fundo branco, texto escuro. Pro daytime.',
   'settings.theme.red.label': 'Vermelho F95',
   'settings.theme.red.desc': 'Banhado em vermelho com texto creme.',
+  'settings.theme.steam.label': 'Steam',
+  'settings.theme.steam.desc': 'Azul-marinho clássico da Steam com destaque azul-claro.',
 
   // ─── Friends ────────────────────────────────────────────────────────────
   'friends.loadFailed': 'Falha ao carregar: {error}',
   'friends.openProfile': 'Abrir perfil',
-  'friends.viewProfile': 'Ver perfil',
   'friends.count': '{count} {count, plural}',
   'friends.count.one': 'pessoa',
   'friends.count.other': 'pessoas',

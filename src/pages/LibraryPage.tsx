@@ -1,5 +1,5 @@
 import { useCallback, useEffect, useMemo, useState } from 'react';
-import { useSearchParams } from 'react-router-dom';
+import { useNavigate, useSearchParams } from 'react-router-dom';
 import { LibraryCategoryBar } from '../components/library/LibraryCategoryBar';
 import { LibraryCard } from '../components/library/LibraryCard';
 import { CollectionFolderCard } from '../components/library/CollectionFolderCard';
@@ -10,6 +10,14 @@ import { useOffline } from '../contexts/Offline';
 import { useLibraryGameActions } from '../hooks/useLibraryGameActions';
 import { useLibraryInstallFlow } from '../hooks/useLibraryInstallFlow';
 import { useDownloads } from '../contexts/Downloads';
+import { promptCreateCollection } from '../lib/collectionActions';
+import {
+  COLLECTIONS_CHANGE_EVENT,
+  listCollections,
+  listMemberships,
+  type CollectionMembership,
+  type LibraryCollection,
+} from '../lib/collections';
 import { formatIpcError } from '../lib/ipcError';
 import { useT } from '../lib/i18n';
 import { dialog } from '../lib/dialog';
@@ -46,9 +54,7 @@ const SORTS: { id: LibrarySort; labelKey: string }[] = [
 
 export function LibraryPage() {
   const { t } = useT();
-  // Steam skin: LibraryLayout mounts the game-list panel (with its own
-  // search) on the left, so this page hides its standalone search input.
-  const steamMode = useSkin() === 'steam';
+  const navigate = useNavigate();
   const [searchParams, setSearchParams] = useSearchParams();
   const category = parseSamCategory(searchParams.get('cat'));
   const [items, setItems] = useState<LibraryGame[]>([]);
@@ -60,7 +66,6 @@ export function LibraryPage() {
   const [checking, setChecking] = useState<{ done: number; total: number } | null>(null);
   const [collections, setCollections] = useState<LibraryCollection[]>([]);
   const [memberships, setMemberships] = useState<CollectionMembership[]>([]);
-  // Full library snapshot (all categories) feeding the folder mosaics.
   const [allGames, setAllGames] = useState<LibraryGame[]>([]);
   const setCategory = useCallback(
     (next: SamCategory) => {
@@ -110,6 +115,35 @@ export function LibraryPage() {
   }, [downloadSyncKey, reload]);
 
   useEffect(() => {
+    let cancelled = false;
+    const loadCollections = async () => {
+      try {
+        const [cols, mems, all] = await Promise.all([
+          listCollections(),
+          listMemberships(),
+          library.list({}),
+        ]);
+        if (!cancelled) {
+          setCollections(cols);
+          setMemberships(mems);
+          setAllGames(all);
+        }
+      } catch (err) {
+        console.warn('[collections] load failed', err);
+      }
+    };
+    void loadCollections();
+    const onChange = () => {
+      void loadCollections();
+    };
+    window.addEventListener(COLLECTIONS_CHANGE_EVENT, onChange);
+    return () => {
+      cancelled = true;
+      window.removeEventListener(COLLECTIONS_CHANGE_EVENT, onChange);
+    };
+  }, []);
+
+  useEffect(() => {
     if (items.length === 0) return;
     prefetchLibraryThumbnails(items);
   }, [items]);
@@ -135,6 +169,27 @@ export function LibraryPage() {
       .sort((a, b) => (b.lastPlayedAt ?? '').localeCompare(a.lastPlayedAt ?? ''))
       .slice(0, 4);
   }, [items, search, status, category]);
+
+  const collectionCards = useMemo(() => {
+    if (collections.length === 0) return [];
+    const byId = new Map(allGames.map((g) => [g.threadId, g]));
+    return collections
+      .map((collection) => ({
+        collection,
+        games: memberships
+          .filter((m) => m.collectionId === collection.id)
+          .map((m) => byId.get(m.threadId))
+          .filter((g): g is LibraryGame => g !== undefined && g.category === category),
+      }))
+      .filter((card) => card.games.length > 0);
+  }, [collections, memberships, allGames, category]);
+
+  const showCollectionsSection = !search.trim() && status === 'all';
+
+  async function onNewCollection() {
+    const id = await promptCreateCollection(t);
+    if (id !== null) navigate(`/library/collection/${id}`);
+  }
 
   const installFlow = useLibraryInstallFlow({ onStarted: () => { void reload(); } });
   const { openLibraryContextMenu, playOrStop } = useLibraryGameActions({
@@ -211,21 +266,18 @@ export function LibraryPage() {
       <LibraryCategoryBar category={category} onCategory={setCategory} />
 
       <div style={controlsStyle}>
-        {/* In Steam mode the search lives in the left game-list panel. */}
-        {!steamMode && (
-          <input
-            type="text"
-            value={search}
-            placeholder={t('library.search')}
-            onChange={(e) => setSearch(e.target.value)}
-            style={searchInput}
-          />
-        )}
+        <input
+          type="text"
+          value={search}
+          placeholder={t('library.search')}
+          onChange={(e) => setSearch(e.target.value)}
+          style={searchInput}
+        />
 
         <select
           value={sort}
           onChange={(e) => setSort(e.target.value as LibrarySort)}
-          style={steamMode ? { ...selectStyle, marginLeft: 'auto' } : selectStyle}
+          style={selectStyle}
         >
           {SORTS.map((s) => (
             <option key={s.id} value={s.id}>
@@ -252,17 +304,24 @@ export function LibraryPage() {
 
       {error && <div style={errorBox}>{error}</div>}
 
-      {/* Folder shelf — real folders, like Steam collections: click opens
-          the collection page. Hidden while searching to keep results focused. */}
-      {collectionCards.length > 0 && !search.trim() && (
-        <>
-          <h2 style={allGamesHeadingStyle}>{t('library.collections.manageTitle')}</h2>
-          <div className="collection-folder-grid">
-            {collectionCards.map(({ collection, games }) => (
-              <CollectionFolderCard key={collection.id} collection={collection} games={games} />
-            ))}
+      {showCollectionsSection && (
+        <section style={collectionsSectionStyle}>
+          <div style={collectionsHeaderStyle}>
+            <h2 style={allGamesHeadingStyle}>{t('library.collections.manageTitle')}</h2>
+            <button type="button" style={updateBtn} onClick={() => void onNewCollection()}>
+              {t('library.collections.create')}
+            </button>
           </div>
-        </>
+          {collectionCards.length > 0 ? (
+            <div className="collection-folder-grid">
+              {collectionCards.map(({ collection, games }) => (
+                <CollectionFolderCard key={collection.id} collection={collection} games={games} />
+              ))}
+            </div>
+          ) : collections.length === 0 ? (
+            <p className="collection-modal-empty">{t('library.collections.empty')}</p>
+          ) : null}
+        </section>
       )}
 
       {loading && items.length === 0 ? (
@@ -430,6 +489,18 @@ const allGamesHeadingStyle: React.CSSProperties = {
   textTransform: 'uppercase',
   letterSpacing: 1.2,
   margin: '0 0 14px',
+};
+
+const collectionsSectionStyle: React.CSSProperties = {
+  marginBottom: 8,
+};
+
+const collectionsHeaderStyle: React.CSSProperties = {
+  display: 'flex',
+  alignItems: 'center',
+  justifyContent: 'space-between',
+  gap: 12,
+  marginBottom: 4,
 };
 
 const errorBox: React.CSSProperties = {

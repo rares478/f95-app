@@ -43,10 +43,6 @@ export const RPC_METHODS = {
     params: { filters: 'SamFilters' },
     result: 'unknown',
   },
-  samTagSearch: {
-    params: { category: 'string', search: 'string' },
-    result: 'unknown',
-  },
   samOptions: {
     params: { category: 'string' },
     result: 'unknown',

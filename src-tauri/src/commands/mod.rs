@@ -1,4 +1,3 @@
-mod achievements;
 mod alerts;
 mod app_log_cmd;
 mod auth;
@@ -15,7 +14,6 @@ mod sam;
 mod state;
 mod window;
 
-pub use achievements::*;
 pub use alerts::*;
 pub use app_log_cmd::*;
 pub use auth::*;

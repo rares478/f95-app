@@ -17,7 +17,6 @@ export const DEFAULT_PANEL_LAYOUTS: OverlayPanelLayouts = {
   notes: { x: 72, y: 48, w: 400, h: 360, open: true },
   guides: { x: 96, y: 420, w: 360, h: 280, open: false },
   browser: { x: 500, y: 72, w: 540, h: 420, open: false },
-  achievements: { x: 180, y: 120, w: 460, h: 400, open: false },
 };
 
 export function clampPanelLayout(

@@ -146,15 +146,6 @@ impl SidecarClient {
             .await
     }
 
-    pub async fn sam_tag_search(&self, category: &str, search: &str) -> Result<Value, AppError> {
-        self.inner
-            .call(
-                "samTagSearch",
-                json!({ "category": category, "search": search }),
-            )
-            .await
-    }
-
     pub async fn sam_options(&self, category: &str) -> Result<Value, AppError> {
         self.inner
             .call("samOptions", json!({ "category": category }))

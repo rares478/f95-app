@@ -6,6 +6,7 @@ import { useDownloadSettings } from '../contexts/DownloadSettings';
 import * as library from '../lib/library';
 import { useOffline } from '../contexts/Offline';
 import { useT } from '../lib/i18n';
+import { VersionInfoModal } from './VersionInfoModal';
 import { formatDownloadSpeed } from '../lib/downloadSettings';
 import type { DownloadProgress, DownloadRow } from '../types/download';
 import { formatBytes, formatDuration, stateKey } from '../types/download';
