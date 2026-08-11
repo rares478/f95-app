@@ -183,50 +183,7 @@ export class SamClient {
     return normalizeSamPage(res.body, filters, url);
   }
 
-  /** Autocomplete tags for the filter sidebar (`cmd=tags`). */
-  async searchTags(category: SamCategory, search: string): Promise<SamTag[]> {
-    await this.ensureTagCatalog();
-
-    const params = new URLSearchParams();
-    params.set('cmd', 'tags');
-    params.set('cat', category);
-    const q = search.trim();
-    if (q) params.set('search', q);
-    const url = `${SAM_DATA_URL}?${params.toString()}`;
-    log(`[sam] GET ${url}`);
-    const res = await this.http.get(url, {
-      headers: { accept: 'application/json', 'x-requested-with': 'XMLHttpRequest' },
-    });
-    assertNotCloudflareChallenge(res.body, res.headers, {
-      message: 'Cloudflare challenge encountered on SAM endpoint',
-    });
-    if (res.status >= 400) {
-      throw new RpcError(
-        RPC_ERROR.INTERNAL,
-        `SAM tags HTTP ${res.status} (body head: ${res.body.slice(0, 200)})`,
-      );
-    }
-
-    const remote = normalizeSamTags(res.body, tagCatalogCache);
-    if (q) {
-      // Merge local catalog matches so typos / partial names still surface.
-      const local = searchCatalogTags(tagCatalogCache, q, 40);
-      return mergeTagLists(remote, local).slice(0, 40);
-    }
-    return remote.length > 0 ? remote : searchCatalogTags(tagCatalogCache, '', 40);
-  }
-
-  private async ensureTagCatalog(): Promise<void> {
-    if (tagCatalogCache.size >= 80) return;
-    try {
-      const fromPage = await this.bootstrapTagCatalog();
-      mergeTagCatalog(fromPage);
-    } catch (err) {
-      log(`[sam] tag catalog ensure skipped: ${(err as Error).message}`);
-    }
-  }
-
-  /** Latest updates RSS feed (`cmd=rss`). Public — no login required. */
+  /** Prefix groups + tag catalog for filters and card labels. */
   async fetchRss(category: SamCategory = 'games'): Promise<RssFeed> {
     const params = new URLSearchParams();
     params.set('cmd', 'rss');

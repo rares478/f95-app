@@ -22,12 +22,8 @@ export function GameOverlayRoot() {
 
   useEffect(() => {
     (async () => {
-      const [savedTheme, savedSkin] = await Promise.all([
-        theme.loadSavedTheme(),
-        theme.loadSavedSkin(),
-      ]);
+      const savedTheme = await theme.loadSavedTheme();
       theme.applyTheme(savedTheme);
-      theme.applySkin(savedSkin);
       setThemeReady(true);
     })();
   }, []);

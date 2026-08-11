@@ -34,7 +34,7 @@ use commands::{
     launch_game, login, login_mega, login_uploadhaven, logout, migrate_saves, move_install_cancel,
     move_install_start, open_captcha_window, ping_sidecar, resolve_media_preview,
     resolve_post, resolve_remote_image_preview, restart_to_login, reveal_in_explorer, running_games, sam_list,
-    sam_options, sam_tag_search, scan_install_media, set_buzzheavier_account, set_datanodes_key,
+    sam_options, scan_install_media, set_buzzheavier_account, set_datanodes_key,
     set_gofile_credentials, set_mega_session, set_mixdrop_credentials, set_uploadhaven_session,
     stop_game, thread_posts, thread_reply, bbcode_preview, verify_buzzheavier_account, verify_datanodes_key, verify_gofile_credentials,
     verify_mega_session, verify_mixdrop_credentials, verify_uploadhaven_session,
@@ -128,6 +128,12 @@ pub fn run() {
             sql: migrations::V13_STORE_VIEW_HISTORY,
             kind: MigrationKind::Up,
         },
+        Migration {
+            version: 14,
+            description: "library_collections",
+            sql: migrations::V14_LIBRARY_COLLECTIONS,
+            kind: MigrationKind::Up,
+        },
     ];
 
     tauri::Builder::default()
@@ -190,7 +196,6 @@ pub fn run() {
             check_network,
             logout,
             sam_list,
-            sam_tag_search,
             sam_options,
             fetch_rss_feed,
             fetch_alerts_popup,
@@ -257,13 +262,7 @@ pub fn run() {
             overlay_get_game_hint_payload,
             overlay_hide_game_hint,
             overlay_pause_follow,
-            overlay_sync_compact_from_window,
-            achievements_configure,
-            achievements_scan_now,
-            achievement_toast,
-            steam_fetch_achievement_schema,
-            steam_search_games,
-            steam_detect_appid
+            overlay_sync_compact_from_window
         ])
         .build(tauri::generate_context!())
         .expect("error while running tauri application")

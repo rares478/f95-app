@@ -5,12 +5,24 @@
  */
 import type { ContextMenuItem } from '../components/contextMenu/types';
 import {
+  createCollection,
   deleteCollection,
   renameCollection,
   type LibraryCollection,
 } from './collections';
 import { dialog } from './dialog';
 import type { TFunction } from './i18n';
+
+/** Returns the new collection id, or null if cancelled / empty. */
+export async function promptCreateCollection(t: TFunction): Promise<number | null> {
+  const name = await dialog.prompt(t('library.collections.renamePrompt'), {
+    title: t('library.collections.manageTitle'),
+    placeholder: t('library.collections.namePlaceholder'),
+  });
+  if (!name?.trim()) return null;
+  const id = await createCollection(name.trim());
+  return id ?? null;
+}
 
 export async function promptRenameCollection(
   col: LibraryCollection,

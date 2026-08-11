@@ -8,41 +8,44 @@ interface Props {
   profile: ProfileDto;
 }
 
+const MAIN_LINKS = [
+  { to: '/store', key: 'nav.store' },
+  { to: '/library', key: 'nav.library' },
+  { to: '/search', key: 'nav.search' },
+  { to: '/news', key: 'nav.news' },
+  { to: '/friends', key: 'nav.friends' },
+] as const;
+
 /**
- * Steam-style horizontal header nav, rendered by AppShell instead of the
- * left sidebar when the Steam skin is active. Mirrors the Steam client
- * chrome: big uppercase section links on the left (STORE / LIBRARY / ...)
- * and utility icons + avatar on the right. All styling lives in
- * `styles/steam-skin.css` under the `data-skin='steam'` scope.
+ * Horizontal header nav — alternative to the left sidebar. Styled via
+ * `styles/top-nav.css`.
  */
-export function SteamTopNav({ profile }: Props) {
+export function TopNav({ profile }: Props) {
   const { t } = useT();
   const { isOffline } = useOffline();
 
   return (
-    <nav className="steam-topnav">
-      <div className="steam-topnav-links">
-        <NavLink to="/store" className="steam-topnav-link">
-          {t('nav.store')}
-        </NavLink>
-        <NavLink to="/library" className="steam-topnav-link">
-          {t('nav.library')}
-        </NavLink>
-        <NavLink to="/search" className="steam-topnav-link">
-          {t('nav.search')}
-        </NavLink>
-        <NavLink to="/news" className="steam-topnav-link">
-          {t('nav.news')}
-        </NavLink>
-        <NavLink to="/friends" className="steam-topnav-link">
-          {t('nav.friends')}
-        </NavLink>
+    <nav className="app-topnav">
+      <div className="app-topnav-links">
+        {MAIN_LINKS.map((item) => (
+          <NavLink
+            key={item.to}
+            to={item.to}
+            className={({ isActive }) =>
+              `app-topnav-link${isActive ? ' app-topnav-link-active' : ''}`
+            }
+          >
+            {t(item.key)}
+          </NavLink>
+        ))}
       </div>
 
-      <div className="steam-topnav-side">
+      <div className="app-topnav-side">
         <NavLink
           to="/downloads"
-          className="steam-topnav-icon"
+          className={({ isActive }) =>
+            `app-topnav-icon${isActive ? ' app-topnav-icon-active' : ''}`
+          }
           title={t('nav.downloads')}
           aria-label={t('nav.downloads')}
         >
@@ -51,31 +54,37 @@ export function SteamTopNav({ profile }: Props) {
         <NotificationBell placement="below" />
         <NavLink
           to="/settings"
-          className="steam-topnav-icon"
+          className={({ isActive }) =>
+            `app-topnav-icon${isActive ? ' app-topnav-icon-active' : ''}`
+          }
           title={t('nav.settings')}
           aria-label={t('nav.settings')}
         >
           <IconSettings />
         </NavLink>
 
-        <NavLink to="/profile" className="steam-topnav-user" title={t('nav.profile')}>
+        <NavLink
+          to="/profile"
+          className="app-topnav-user"
+          title={t('nav.profile')}
+        >
           {profile.avatarUrl ? (
             <img
               src={profile.avatarUrl}
               alt={profile.username}
-              className={`steam-topnav-avatar${isOffline ? ' steam-topnav-avatar--offline' : ''}`}
+              className={`app-topnav-avatar${isOffline ? ' app-topnav-avatar--offline' : ''}`}
             />
           ) : (
             <span
-              className={`steam-topnav-avatar steam-topnav-avatar-fallback${
-                isOffline ? ' steam-topnav-avatar--offline' : ''
+              className={`app-topnav-avatar app-topnav-avatar-fallback${
+                isOffline ? ' app-topnav-avatar--offline' : ''
               }`}
             >
               {profile.username.charAt(0).toUpperCase()}
             </span>
           )}
           <span
-            className={`steam-topnav-username${isOffline ? ' steam-topnav-username--offline' : ''}`}
+            className={`app-topnav-username${isOffline ? ' app-topnav-username--offline' : ''}`}
           >
             {profile.username}
           </span>

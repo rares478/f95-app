@@ -13,7 +13,6 @@ import { clearGridPreviewCache } from '../lib/gridPreviewQueue';
 import { clearRemoteImageQueue } from '../lib/remoteImageQueue';
 import { recordStoreView } from '../lib/storeViewHistory';
 import { ScreenshotGallery } from '../components/game/ScreenshotGallery';
-import { StoreAchievementsSection } from '../components/game/StoreAchievementsSection';
 import { DownloadLinks } from '../components/game/DownloadLinks';
 import {
   GameDetailBackBar,
@@ -169,22 +168,7 @@ export function GameDetailPage() {
   );
 
   async function resolveSamTag(tag: GameTag): Promise<SamTag | null> {
-    const local = findSamTagByNameOrSlug(catalog, tag);
-    if (local) return local;
-    try {
-      const results = await ipc.samTagSearch(category, tag.name);
-      const nameLc = tag.name.trim().toLowerCase();
-      const slugLc = tag.slug.trim().toLowerCase();
-      return (
-        results.find((r) => r.name.trim().toLowerCase() === nameLc) ??
-        results.find((r) => r.name.trim().toLowerCase().replace(/[^a-z0-9]+/g, '-') === slugLc) ??
-        results[0] ??
-        null
-      );
-    } catch (err) {
-      console.warn('[gamedetail] tag search failed', err);
-      return null;
-    }
+    return findSamTagByNameOrSlug(catalog, tag);
   }
 
   async function onTagClick(tag: GameTag) {

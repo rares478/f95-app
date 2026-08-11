@@ -9,11 +9,13 @@ import * as libraries from '../lib/libraries';
 import * as downloads from '../lib/downloads';
 import * as settings from '../lib/settings';
 import * as theme from '../lib/theme';
+import * as navLayout from '../lib/navLayout';
 import { useT, LOCALES, type Locale } from '../lib/i18n';
 import { execute, query } from '../lib/db';
 import { clearCredentials } from '../lib/stronghold';
 import type { InstallLibraryWithDisk } from '../types/install-library';
 import type { SkinId, ThemeId } from '../lib/theme';
+import type { NavLayoutId } from '../lib/navLayout';
 import { useDownloadSettings } from '../contexts/DownloadSettings';
 import { useStoreSettings } from '../contexts/StoreSettings';
 import { useDiscussionSettings } from '../contexts/DiscussionSettings';
@@ -43,19 +45,17 @@ import {
   syncOverlayHotkey,
 } from '../lib/overlayHotkey';
 import { getAutoUpdateEnabled, setAutoUpdateEnabled } from '../lib/appUpdateSettings';
-import { checkForAppUpdate, installAppUpdate } from '../lib/appUpdater';
-import { LoadingState } from '../components/ui/LoadingState';
-import { AchievementsSettingsCard } from '../components/settings/AchievementsSettingsCard';
-import { useScrollSpy } from '../hooks/useScrollSpy';
 import {
   loadAppRuntimeSettings,
   saveAppRuntimeSettings,
   subscribeAppRuntimeSettings,
   type AppRuntimeSettings,
 } from '../lib/appRuntimeSettings';
-import { checkForAppUpdateInteractive } from '../lib/appUpdater';
-import { getChangelogEntries } from '../lib/changelog';
 import { syncTrayIcon } from '../lib/tray';
+import { getChangelogEntries } from '../lib/changelog';
+import { checkForAppUpdate, installAppUpdate } from '../lib/appUpdater';
+import { LoadingState } from '../components/ui/LoadingState';
+import { useScrollSpy } from '../hooks/useScrollSpy';
 
 interface AppInfo {
   name: string;
@@ -157,10 +157,6 @@ export function SettingsPage({ onLoggedOut: _onLoggedOut }: Props) {
     return translateBackendMessage(raw, t);
   }
   const [devDebug, setDevDebug] = useState<DevDebugSettings | null>(null);
-  const [runtime, setRuntime] = useState<AppRuntimeSettings | null>(null);
-  const [updateBusy, setUpdateBusy] = useState(false);
-  const [changelogExpanded, setChangelogExpanded] = useState(false);
-  const changelogEntries = useMemo(() => getChangelogEntries(), []);
   const [experimental, setExperimental] = useState<ExperimentalSettings | null>(null);
   const [runningCount, setRunningCount] = useState(0);
   const [overlayAnchorProbe, setOverlayAnchorProbe] = useState<string | null>(null);
@@ -169,13 +165,17 @@ export function SettingsPage({ onLoggedOut: _onLoggedOut }: Props) {
   const [counts, setCounts] = useState<CacheCounts | null>(null);
   const [busy, setBusy] = useState<string | null>(null);
   const [autoUpdate, setAutoUpdate] = useState(true);
+  const [runtime, setRuntime] = useState<AppRuntimeSettings | null>(null);
   const [updateBusy, setUpdateBusy] = useState(false);
+  const [changelogExpanded, setChangelogExpanded] = useState(false);
+  const changelogEntries = useMemo(() => getChangelogEntries(), []);
   const [installing, setInstalling] = useState(false);
   const [libs, setLibs] = useState<InstallLibraryWithDisk[]>([]);
   const [libsLoading, setLibsLoading] = useState(true);
   const [activeSection, setActiveSection] = useState<SettingsSectionId>('appearance');
   const [activeTheme, setActiveTheme] = useState<ThemeId>(theme.currentTheme());
   const [activeSkin, setActiveSkin] = useState<SkinId>(theme.currentSkin());
+  const [activeNavLayout, setActiveNavLayout] = useState<NavLayoutId>(navLayout.currentNavLayout());
   const [gofileToken, setGofileToken] = useState('');
   const [gofileAccountId, setGofileAccountId] = useState('');
   const [gofileSaved, setGofileSaved] = useState<{ token: string | null; accountId: string | null }>({
@@ -277,14 +277,14 @@ export function SettingsPage({ onLoggedOut: _onLoggedOut }: Props) {
   }, []);
 
   useEffect(() => {
-    if (!isDevDebugPanelAvailable()) return;
-    void loadDevDebugSettings().then(setDevDebug);
-    return subscribeDevDebugSettings(setDevDebug);
+    void loadAppRuntimeSettings().then(setRuntime);
+    return subscribeAppRuntimeSettings(setRuntime);
   }, []);
 
   useEffect(() => {
-    void loadAppRuntimeSettings().then(setRuntime);
-    return subscribeAppRuntimeSettings(setRuntime);
+    if (!isDevDebugPanelAvailable()) return;
+    void loadDevDebugSettings().then(setDevDebug);
+    return subscribeDevDebugSettings(setDevDebug);
   }, []);
 
   useEffect(() => {
@@ -833,6 +833,15 @@ export function SettingsPage({ onLoggedOut: _onLoggedOut }: Props) {
     }
   }
 
+  async function onPickNavLayout(id: NavLayoutId) {
+    setActiveNavLayout(id);
+    try {
+      await navLayout.setNavLayout(id);
+    } catch (err) {
+      console.warn('[navLayout] persist failed', err);
+    }
+  }
+
   async function onPickLocale(id: Locale) {
     try {
       await setLocale(id);
@@ -993,16 +1002,16 @@ export function SettingsPage({ onLoggedOut: _onLoggedOut }: Props) {
                 {theme.SKINS.map((sk) => {
                   const selected = sk.id === activeSkin;
                   const isSteam = sk.id === 'steam';
+                  const label = t(`settings.skin.${sk.id}.label`);
+                  const desc = t(`settings.skin.${sk.id}.desc`);
                   return (
                     <button
                       key={sk.id}
                       type="button"
                       className={`settings-theme-card${selected ? ' settings-theme-card-active' : ''}`}
-                      onClick={() => onPickSkin(sk.id)}
-                      title={sk.description}
+                      onClick={() => void onPickSkin(sk.id)}
+                      title={desc}
                     >
-                      {/* Mini mockup drawn with the ACTIVE theme's variables, so it
-                          shows how each skin looks with the colors picked above. */}
                       <div
                         className="settings-theme-swatch"
                         style={{
@@ -1046,15 +1055,42 @@ export function SettingsPage({ onLoggedOut: _onLoggedOut }: Props) {
                         </div>
                       </div>
                       <div className="settings-theme-meta">
-                        <strong>{sk.label}</strong>
+                        <strong>{label}</strong>
                         {selected && <span className="settings-pill">{t('settings.theme.active')}</span>}
                       </div>
-                      <span className="settings-theme-desc">{sk.description}</span>
+                      <span className="settings-theme-desc">{desc}</span>
                     </button>
                   );
                 })}
               </div>
             </div>
+
+            {activeSkin === 'default' && (
+            <div className="settings-card">
+              <h3 className="settings-card-title">{t('settings.navLayout.section')}</h3>
+              <p className="settings-card-hint">{t('settings.navLayout.hint')}</p>
+              <div className="settings-store-scroll-grid">
+                {navLayout.NAV_LAYOUTS.map((layout) => {
+                  const selected = layout.id === activeNavLayout;
+                  return (
+                    <button
+                      key={layout.id}
+                      type="button"
+                      className={`settings-store-scroll-card${selected ? ' settings-store-scroll-card-active' : ''}`}
+                      onClick={() => void onPickNavLayout(layout.id)}
+                    >
+                      <span className="settings-store-scroll-icon" aria-hidden>
+                        {layout.id === 'side' ? '▌' : '▬'}
+                      </span>
+                      <span className="settings-store-scroll-label">{t(layout.labelKey)}</span>
+                      <span className="settings-store-scroll-desc">{t(layout.hintKey)}</span>
+                      {selected && <span className="settings-pill">{t('settings.theme.active')}</span>}
+                    </button>
+                  );
+                })}
+              </div>
+            </div>
+            )}
 
             <div className="settings-card">
               <h3 className="settings-card-title">{t('settings.store.section')}</h3>
@@ -1906,62 +1942,6 @@ export function SettingsPage({ onLoggedOut: _onLoggedOut }: Props) {
           <section id="settings-system" className="settings-section">
             <SectionHeader title={t('settings.nav.system')} />
 
-            {runtime && (
-              <>
-                <div className="settings-card">
-                  <h3 className="settings-card-title">{t('settings.updates.section')}</h3>
-                  <p className="settings-card-hint">{t('settings.updates.hint')}</p>
-                  <div className="settings-checklist">
-                    <label className="settings-check-row">
-                      <input
-                        type="checkbox"
-                        checked={runtime.autoUpdateEnabled}
-                        onChange={(e) =>
-                          void saveAppRuntimeSettings({ autoUpdateEnabled: e.target.checked })
-                        }
-                      />
-                      <span>{t('settings.updates.auto')}</span>
-                    </label>
-                  </div>
-                  <div className="settings-offline-actions" style={{ marginTop: 12 }}>
-                    <button
-                      type="button"
-                      className="settings-btn"
-                      disabled={updateBusy || isOffline}
-                      onClick={() => {
-                        setUpdateBusy(true);
-                        void checkForAppUpdateInteractive(t).finally(() => setUpdateBusy(false));
-                      }}
-                    >
-                      {updateBusy ? t('settings.updates.checking') : t('settings.updates.checkNow')}
-                    </button>
-                  </div>
-                </div>
-
-                <div className="settings-card">
-                  <h3 className="settings-card-title">{t('settings.tray.section')}</h3>
-                  <p className="settings-card-hint">{t('settings.tray.hint')}</p>
-                  <div className="settings-checklist">
-                    <label className="settings-check-row">
-                      <input
-                        type="checkbox"
-                        checked={runtime.trayIconEnabled}
-                        onChange={(e) => {
-                          const enabled = e.target.checked;
-                          void saveAppRuntimeSettings({ trayIconEnabled: enabled }).then(() =>
-                            syncTrayIcon(t),
-                          );
-                        }}
-                      />
-                      <span>{t('settings.tray.enabled')}</span>
-                    </label>
-                  </div>
-                </div>
-              </>
-            )}
-
-            <AchievementsSettingsCard />
-
             <div id="settings-offline" className="settings-card">
               <h3 className="settings-card-title">{t('settings.offline.section')}</h3>
               <p className="settings-card-hint">{t('settings.offline.hint')}</p>
@@ -2119,23 +2099,27 @@ export function SettingsPage({ onLoggedOut: _onLoggedOut }: Props) {
               </div>
             </div>
 
-            <div className="settings-card settings-about-card">
-              <h3 className="settings-card-title">{t('settings.about.section')}</h3>
-              <dl className="settings-about-dl">
-                <div>
-                  <dt>{t('settings.about.app')}</dt>
-                  <dd>
-                    {info
-                      ? t('settings.about.appLine', { name: info.name, version: info.version })
-                      : '…'}
-                  </dd>
+            {runtime && (
+              <div className="settings-card">
+                <h3 className="settings-card-title">{t('settings.tray.section')}</h3>
+                <p className="settings-card-hint">{t('settings.tray.hint')}</p>
+                <div className="settings-checklist">
+                  <label className="settings-check-row">
+                    <input
+                      type="checkbox"
+                      checked={runtime.trayIconEnabled}
+                      onChange={(e) => {
+                        const enabled = e.target.checked;
+                        void saveAppRuntimeSettings({ trayIconEnabled: enabled }).then(() =>
+                          syncTrayIcon(t),
+                        );
+                      }}
+                    />
+                    <span>{t('settings.tray.enabled')}</span>
+                  </label>
                 </div>
-                <div>
-                  <dt>{t('settings.about.tauri')}</dt>
-                  <dd>{info?.tauriVersion ?? '…'}</dd>
-                </div>
-              </dl>
-            </div>
+              </div>
+            )}
 
             <div className="settings-card">
               <h3 className="settings-card-title">{t('settings.changelog.section')}</h3>
@@ -2143,7 +2127,10 @@ export function SettingsPage({ onLoggedOut: _onLoggedOut }: Props) {
               <div className="settings-changelog">
                 {(changelogExpanded ? changelogEntries : changelogEntries.slice(0, 3)).map(
                   (entry) => (
-                    <article key={`${entry.version}-${entry.date ?? 'na'}`} className="settings-changelog-entry">
+                    <article
+                      key={`${entry.version}-${entry.date ?? 'na'}`}
+                      className="settings-changelog-entry"
+                    >
                       <header className="settings-changelog-head">
                         <h4 className="settings-changelog-version">
                           {entry.version === 'Unreleased'
@@ -2182,6 +2169,24 @@ export function SettingsPage({ onLoggedOut: _onLoggedOut }: Props) {
                     : t('settings.changelog.showMore')}
                 </button>
               )}
+            </div>
+
+            <div className="settings-card settings-about-card">
+              <h3 className="settings-card-title">{t('settings.about.section')}</h3>
+              <dl className="settings-about-dl">
+                <div>
+                  <dt>{t('settings.about.app')}</dt>
+                  <dd>
+                    {info
+                      ? t('settings.about.appLine', { name: info.name, version: info.version })
+                      : '…'}
+                  </dd>
+                </div>
+                <div>
+                  <dt>{t('settings.about.tauri')}</dt>
+                  <dd>{info?.tauriVersion ?? '…'}</dd>
+                </div>
+              </dl>
             </div>
           </section>
 
@@ -2493,7 +2498,6 @@ export function SettingsPage({ onLoggedOut: _onLoggedOut }: Props) {
                         ['notes', 'settings.experimental.featureNotes'],
                         ['guides', 'settings.experimental.featureGuides'],
                         ['browser', 'settings.experimental.featureBrowser'],
-                        ['achievements', 'settings.experimental.featureAchievements'],
                       ] as const
                     ).map(([key, labelKey]) => (
                       <label key={key} className="settings-check-row">

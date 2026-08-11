@@ -11,9 +11,8 @@ import type {
 } from '../types';
 import { logout } from '../lib/ipc';
 import * as ipc from '../lib/ipc';
-import * as library from '../lib/library';
 import { clearCredentials } from '../lib/stronghold';
-import { useT, type TFunction } from '../lib/i18n';
+import { useT } from '../lib/i18n';
 import { dialog } from '../lib/dialog';
 import { GameDescription } from './game/GameDescription';
 import { Spinner } from './ui/Spinner';
@@ -25,12 +24,7 @@ interface Props {
   onBack?: () => void;
 }
 
-interface LibraryStats {
-  total: number;
-  installed: number;
-  playtimeSeconds: number;
-  mostPlayed: LibraryGame | null;
-}
+type Tab = 'profile-posts' | 'latest-activity' | 'about';
 
 function sanitizeProfileHtml(html: string): string {
   return DOMPurify.sanitize(html, {
@@ -63,11 +57,6 @@ export function ProfileView({
       setWorking(false);
     }
   }
-
-  const mostPlayedLabel =
-    libStats?.mostPlayed && (libStats.mostPlayed.totalPlaytimeSeconds ?? 0) > 0
-      ? libStats.mostPlayed.title
-      : '—';
 
   return (
     <div className="profile-page">

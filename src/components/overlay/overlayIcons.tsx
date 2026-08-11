@@ -38,17 +38,6 @@ export function OverlayTabIcon({ tab, size = 16 }: IconProps & { tab: OverlayTab
           <path d="M3 12h18M12 3a14 14 0 0 1 0 18M12 3a14 14 0 0 0 0 18" stroke="currentColor" strokeWidth="1.6" />
         </svg>
       );
-    case 'achievements':
-      return (
-        <svg width={s} height={s} viewBox="0 0 24 24" fill="none" aria-hidden>
-          <path
-            d="M8 4h8l1 4 4 1-3 3 1 5-5-2-5 2 1-5-3-3 4-1 1-4Z"
-            stroke="currentColor"
-            strokeWidth="1.6"
-            strokeLinejoin="round"
-          />
-        </svg>
-      );
     default:
       return null;
   }

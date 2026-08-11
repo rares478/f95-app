@@ -8,11 +8,6 @@ export function createSamHandlers(ctx: AppContext): Record<string, RpcHandler> {
       const filters = (p?.filters ?? p ?? {}) as SamFilters;
       return ctx.getSam().list(filters);
     },
-    samTagSearch: async (p) => {
-      const category = (p?.category ?? 'games') as SamFilters['category'];
-      const search = typeof p?.search === 'string' ? p.search : '';
-      return ctx.getSam().searchTags(category ?? 'games', search);
-    },
     samOptions: async (p) => {
       const category = (p?.category ?? 'games') as SamFilters['category'];
       return ctx.getSam().options(category ?? 'games');

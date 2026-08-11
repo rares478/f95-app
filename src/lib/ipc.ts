@@ -1,6 +1,6 @@
 import { invoke } from '@tauri-apps/api/core';
 import type { ProfileDto, PaginatedActivity, PaginatedProfilePosts } from '../types';
-import type { SamFilters, SamOptionsResult, SamPage, SamTag } from '../types/sam';
+import type { SamFilters, SamOptionsResult, SamPage } from '../types/sam';
 import type { SamCategory } from '../types/sam';
 import type { GameDetail } from '../types/game';
 import type { ForumSearchPage } from '../types/forumSearch';
@@ -13,7 +13,7 @@ import type {
 } from '../types/threadPosts';
 import type { CbzPreviewResult, InstallMediaIndex } from '../types/media';
 import type { F95AlertsListResult, F95AlertsPopupResult } from '../types/alerts';
-import type { FollowedUser, MemberProfileDto } from '../types/social';
+import type { FollowedUser } from '../types/social';
 import type { RssFeed, RssFeedOptions } from '../types/rss';
 import type { RunningInfo } from '../types/session';
 import type {
@@ -55,10 +55,6 @@ export async function logout(): Promise<void> {
 
 export async function samList(filters: SamFilters): Promise<SamPage> {
   return invoke<SamPage>('sam_list', { filters });
-}
-
-export async function samTagSearch(category: SamCategory, search: string): Promise<SamTag[]> {
-  return invoke<SamTag[]>('sam_tag_search', { category, search });
 }
 
 export async function samOptions(category: SamCategory): Promise<SamOptionsResult> {
@@ -510,88 +506,6 @@ export interface MixdropVerifyResult {
 
 export async function verifyMixdropCredentials(): Promise<MixdropVerifyResult> {
   return invoke<MixdropVerifyResult>('verify_mixdrop_credentials');
-}
-
-/* ── Achievements Steam ────────────────────────────────────────────────── */
-
-export interface SteamAchievementSchemaEntry {
-  apiName: string;
-  displayName: string;
-  description: string;
-  iconUrl: string;
-  iconGrayUrl: string;
-  hidden: boolean;
-  globalPercent: number | null;
-}
-
-export async function steamFetchAchievementSchema(args: {
-  appId: string;
-  language: string;
-  apiKey?: string | null;
-}): Promise<SteamAchievementSchemaEntry[]> {
-  return invoke<SteamAchievementSchemaEntry[]>('steam_fetch_achievement_schema', {
-    appId: args.appId,
-    language: args.language,
-    apiKey: args.apiKey ?? null,
-  });
-}
-
-export interface SteamSearchResult {
-  appId: string;
-  name: string;
-}
-
-export async function steamSearchGames(term: string): Promise<SteamSearchResult[]> {
-  return invoke<SteamSearchResult[]>('steam_search_games', { term });
-}
-
-export async function steamDetectAppid(args: {
-  installPath?: string | null;
-  exePath?: string | null;
-}): Promise<string | null> {
-  return invoke<string | null>('steam_detect_appid', {
-    installPath: args.installPath ?? null,
-    exePath: args.exePath ?? null,
-  });
-}
-
-export interface AchievementWatchConfig {
-  threadId: string;
-  appId: string;
-  exePath: string | null;
-  installPath?: string | null;
-  title?: string | null;
-  /** Modo experimental: procurar conquistas nos saves do próprio jogo. */
-  saveScan?: boolean;
-  /** Nomes do schema (api + display) — necessários quando saveScan ativo. */
-  achievementNames?: { apiName: string; displayName: string }[];
-}
-
-export async function achievementsConfigure(
-  games: AchievementWatchConfig[],
-): Promise<void> {
-  return invoke('achievements_configure', { games });
-}
-
-export async function achievementsScanNow(): Promise<void> {
-  return invoke('achievements_scan_now');
-}
-
-export interface AchievementToastItem {
-  title: string;
-  description: string | null;
-  iconUrl: string | null;
-}
-
-/** Toast estilo Hydra sobre a janela do jogo. Retorna false se o jogo não
- *  está rodando (chamador cai para a notificação do sininho). */
-export async function achievementToast(args: {
-  threadId: string;
-  items: AchievementToastItem[];
-  unlockedCount: number;
-  totalCount: number;
-}): Promise<boolean> {
-  return invoke<boolean>('achievement_toast', args);
 }
 
 export async function completeLogin(): Promise<void> {

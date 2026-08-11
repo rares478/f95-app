@@ -275,3 +275,24 @@ CREATE TABLE IF NOT EXISTS store_view_history (
 CREATE INDEX IF NOT EXISTS idx_store_view_history_viewed_at
   ON store_view_history(viewed_at DESC);
 "#;
+
+/// v14: Steam-style library collections — user-named folders grouping library
+/// entries. Membership is N:N; junction rows are removed explicitly on delete
+/// since the SQLite plugin doesn't enable foreign_keys enforcement.
+pub const V14_LIBRARY_COLLECTIONS: &str = r#"
+CREATE TABLE library_collections (
+  id         INTEGER PRIMARY KEY AUTOINCREMENT,
+  name       TEXT NOT NULL,
+  position   INTEGER NOT NULL DEFAULT 0,
+  created_at TEXT NOT NULL DEFAULT (datetime('now'))
+);
+
+CREATE TABLE library_collection_games (
+  collection_id INTEGER NOT NULL,
+  thread_id     TEXT NOT NULL,
+  added_at      TEXT NOT NULL DEFAULT (datetime('now')),
+  PRIMARY KEY (collection_id, thread_id),
+  FOREIGN KEY (collection_id) REFERENCES library_collections(id) ON DELETE CASCADE
+);
+CREATE INDEX idx_collection_games_thread ON library_collection_games(thread_id);
+"#;

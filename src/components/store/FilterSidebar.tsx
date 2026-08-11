@@ -395,7 +395,7 @@ function TagFilterInput({
   max: number;
 }) {
   const { t } = useT();
-  const { catalog, setFromRecord } = useTagCatalog();
+  const { catalog } = useTagCatalog();
   const [query, setQuery] = useState('');
   const [suggestions, setSuggestions] = useState<SamTag[]>([]);
   const [loading, setLoading] = useState(false);
@@ -426,7 +426,6 @@ function TagFilterInput({
         out.push({ id, name });
         if (out.length >= 40) break;
       }
-      scored.push({ tag: { id, name }, score });
     }
     return sortTagsByQuery(out, q);
   }, [catalog, query, filteredIds]);
@@ -458,37 +457,6 @@ function TagFilterInput({
 
     setSuggestions(localSuggestions);
     setLoading(localSuggestions.length === 0);
-
-    const tmr = setTimeout(() => {
-      // Only show the loading row when we have nothing useful yet.
-      if (local.length === 0) setLoading(true);
-      ipc
-        .samTagSearch(category, q)
-        .then((rows) => {
-          if (cancelled) return;
-          if (rows.length > 0) {
-            const record: Record<string, string> = {};
-            for (const tag of rows) record[String(tag.id)] = tag.name;
-            setFromRecord(record);
-          }
-          const selectedSet = selectedIdsRef.current;
-          const localNow = buildLocalSuggestions(query, selectedSet);
-          const merged = new Map<number, SamTag>();
-          for (const tag of [...rows, ...localSuggestions]) {
-            if (filteredIds.has(tag.id)) continue;
-            if (!tagMatchesQuery(tag.name, q)) continue;
-            merged.set(tag.id, tag);
-          }
-          setSuggestions(sortTagsByQuery([...merged.values()], q).slice(0, 40));
-        })
-        .catch((err) => {
-          console.warn('[filter] tag search failed', err);
-          setSuggestions(localSuggestions);
-        })
-        .finally(() => setLoading(false));
-    }, 220);
-
-    return () => clearTimeout(tmr);
   }, [category, query, open, filteredIds, localSuggestions, catalog]);
 
   const updateMenuPosition = useCallback(() => {

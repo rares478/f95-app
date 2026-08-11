@@ -19,7 +19,6 @@ export interface ExperimentalFeatures {
   notes: boolean;
   guides: boolean;
   browser: boolean;
-  achievements: boolean;
 }
 
 export interface ExperimentalSettings {
@@ -53,7 +52,6 @@ const DEFAULT_FEATURES: ExperimentalFeatures = {
   notes: true,
   guides: true,
   browser: true,
-  achievements: true,
 };
 
 const DEFAULTS: ExperimentalSettings = {
@@ -97,7 +95,6 @@ function parseFeatures(raw: string | null): ExperimentalFeatures {
       notes: o.notes !== false,
       guides: o.guides !== false,
       browser: o.browser !== false,
-      achievements: o.achievements !== false,
     };
   } catch {
     return { ...DEFAULT_FEATURES };

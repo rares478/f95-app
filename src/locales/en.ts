@@ -4,7 +4,7 @@
 const en: Record<string, string> = {
   // ─── Sidebar nav ────────────────────────────────────────────────────────
   'nav.store': 'Store',
-  'nav.search': 'Search',
+  'nav.search': 'Forum',
   'nav.library': 'Library',
   'nav.downloads': 'Downloads',
   'nav.news': 'News',
@@ -380,11 +380,23 @@ const en: Record<string, string> = {
 
   'settings.theme.section': 'Theme',
   'settings.theme.hint': 'Applied immediately. Saved and restored on next launch.',
+
+  'settings.navLayout.section': 'Navigation',
+  'settings.navLayout.hint': 'Choose where the main menu appears — left sidebar or top bar.',
+  'settings.navLayout.side': 'Sidebar',
+  'settings.navLayout.sideHint': 'Vertical navigation on the left with sections and icons.',
+  'settings.navLayout.top': 'Top bar',
+  'settings.navLayout.topHint': 'Horizontal header links with utility icons on the right.',
   'settings.theme.active': 'ACTIVE',
 
   'settings.skin.section': 'App style',
   'settings.skin.hint':
     'Changes the app structure and layout (menu, store and library) while keeping the colors of the theme selected above.',
+  'settings.skin.default.label': 'Default',
+  'settings.skin.default.desc': 'The original app structure.',
+  'settings.skin.steam.label': 'Steam',
+  'settings.skin.steam.desc':
+    'Steam client layout: top menu, library game list panel, square corners and gradients. Uses your selected theme colors.',
 
   'settings.store.section': 'Store',
   'settings.store.hint': 'How to browse results on the Store tab.',
@@ -599,6 +611,28 @@ const en: Record<string, string> = {
   'settings.updates.failed': 'Could not check for updates: {error}',
   'settings.updates.installFailed': 'Could not install the update: {error}',
   'settings.updates.installing': 'Installing update…',
+
+  'settings.tray.section': 'System tray',
+  'settings.tray.hint': 'Keep the app in the notification area. When enabled, closing the window hides it instead of quitting.',
+  'settings.tray.enabled': 'Show tray icon',
+  'tray.menu.label': 'Tray menu',
+  'tray.show': 'Show F95 App',
+  'tray.library': 'Library',
+  'tray.recentGames': 'Recent games',
+  'tray.recent.empty': 'No recent games',
+  'tray.recent.loading': 'Loading…',
+  'tray.downloads': 'Downloads',
+  'tray.settings': 'Settings',
+  'tray.changelog': 'Changelog',
+  'tray.checkUpdates': 'Check for updates',
+  'tray.quit': 'Quit',
+
+  'settings.changelog.section': 'Changelog',
+  'settings.changelog.hint': 'Notable changes by app version.',
+  'settings.changelog.unreleased': 'Unreleased',
+  'settings.changelog.showMore': 'Show more versions',
+  'settings.changelog.showLess': 'Show less',
+  'settings.updates.checkNow': 'Check for updates',
   'appUpdate.banner.title': 'Update available',
   'appUpdate.banner.body': 'Version {version} is ready to install.',
   'appUpdate.banner.updateNow': 'Update now',
@@ -1217,11 +1251,12 @@ const en: Record<string, string> = {
   'settings.theme.light.desc': 'White background, dark text. For daytime.',
   'settings.theme.red.label': 'F95 Red',
   'settings.theme.red.desc': 'Washed in red with cream text.',
+  'settings.theme.steam.label': 'Steam',
+  'settings.theme.steam.desc': 'Classic Steam navy blues with light-blue accent.',
 
   // ─── Friends page extra ─────────────────────────────────────────────────
   'friends.loadFailed': 'Failed to load: {error}',
   'friends.openProfile': 'Open profile',
-  'friends.viewProfile': 'View profile',
   'friends.count': '{count} {count, plural}',
   'friends.count.one': 'person',
   'friends.count.other': 'people',

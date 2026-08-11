@@ -20,7 +20,6 @@ import {
 import * as ipc from '../../lib/ipc';
 import * as library from '../../lib/library';
 import type { OverlayAnchorStatus, OverlayContext } from '../../types/overlay';
-import { OverlayAchievementsPanel } from './OverlayAchievementsPanel';
 import { OverlayBrandBar } from './OverlayBrandBar';
 import { closeOverlayEmbeddedBrowser, OverlayBrowserPanel } from './OverlayBrowserPanel';
 import { OverlayDock } from './OverlayDock';
@@ -45,7 +44,6 @@ const TAB_LABEL_KEYS: Record<OverlayTab, string> = {
   notes: 'overlay.tab.notes',
   guides: 'overlay.tab.guides',
   browser: 'overlay.tab.browser',
-  achievements: 'overlay.tab.achievements',
 };
 
 export function GameOverlayApp() {
@@ -269,10 +267,6 @@ export function GameOverlayApp() {
             homeUrl={exp.browserHomeUrl}
             boundsKey={`${panelLayouts.browser.x}-${panelLayouts.browser.y}-${panelLayouts.browser.w}-${panelLayouts.browser.h}`}
           />
-        );
-      case 'achievements':
-        return (
-          <OverlayAchievementsPanel threadId={threadId} enabled={exp.features.achievements} />
         );
       default:
         return null;

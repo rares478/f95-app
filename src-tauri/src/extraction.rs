@@ -20,6 +20,7 @@ use std::thread;
 use std::time::{Duration, Instant};
 
 const COPY_BUF: usize = 1024 * 1024;
+const DISK_SPACE_MARGIN: u64 = 256 * 1024 * 1024;
 
 pub type ExtractProgressFn = Arc<dyn Fn(u8, Option<u64>) + Send + Sync>;
 
@@ -46,6 +47,69 @@ pub fn extract(
         }
     }
     result
+}
+
+fn preflight_disk_space(archive: &Path, dest: &Path, ext: &str) -> Result<(), AppError> {
+    let needed = estimated_unpacked_size(archive, ext).unwrap_or_else(|| {
+        fs::metadata(archive).map(|m| m.len().saturating_mul(2)).unwrap_or(0)
+    });
+    if needed == 0 {
+        return Ok(());
+    }
+    let probe = if dest.exists() {
+        dest
+    } else {
+        dest.parent().unwrap_or(dest)
+    };
+    let Ok(free) = fs4::available_space(probe) else {
+        return Ok(());
+    };
+    let needed_total = needed.saturating_add(DISK_SPACE_MARGIN);
+    if free < needed_total {
+        return Err(AppError::Other(format!(
+            "Espaço em disco insuficiente para extrair: o conteúdo precisa de ~{} e o destino ({}) tem só {} livres. Libere espaço ou adicione uma biblioteca de instalação em outro disco (Configurações → Armazenamento).",
+            fmt_bytes(needed_total),
+            probe.display(),
+            fmt_bytes(free)
+        )));
+    }
+    Ok(())
+}
+
+fn estimated_unpacked_size(archive: &Path, ext: &str) -> Option<u64> {
+    match ext {
+        "zip" => {
+            let f = fs::File::open(archive).ok()?;
+            let mut z = zip::ZipArchive::new(f).ok()?;
+            let mut total = 0u64;
+            for i in 0..z.len() {
+                if let Ok(entry) = z.by_index_raw(i) {
+                    total = total.saturating_add(entry.size());
+                }
+            }
+            Some(total)
+        }
+        "rar" => {
+            let open = unrar::Archive::new(archive).open_for_listing().ok()?;
+            let mut total = 0u64;
+            for header in open.flatten() {
+                total = total.saturating_add(header.unpacked_size);
+            }
+            Some(total)
+        }
+        _ => None,
+    }
+}
+
+fn fmt_bytes(bytes: u64) -> String {
+    const GB: f64 = 1024.0 * 1024.0 * 1024.0;
+    const MB: f64 = 1024.0 * 1024.0;
+    let b = bytes as f64;
+    if b >= GB {
+        format!("{:.1} GB", b / GB)
+    } else {
+        format!("{:.0} MB", b / MB)
+    }
 }
 
 fn extract_in_process(

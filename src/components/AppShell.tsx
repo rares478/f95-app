@@ -1,21 +1,24 @@
-import { Outlet } from 'react-router-dom';
+import { useEffect } from 'react';
+import { Outlet, useNavigate } from 'react-router-dom';
 import { DownloadSettingsProvider } from '../contexts/DownloadSettings';
 import { StoreSettingsProvider } from '../contexts/StoreSettings';
 import { DiscussionSettingsProvider } from '../contexts/DiscussionSettings';
 import { StoreFiltersProvider } from '../contexts/StoreFilters';
 import { RunningGamesProvider } from '../contexts/RunningGames';
 import { NotificationsProvider } from '../contexts/Notifications';
-import { AchievementsBridge } from './AchievementsBridge';
 import { Sidebar } from './Sidebar';
+import { TopNav } from './TopNav';
 import { SteamTopNav } from './SteamTopNav';
+import { useSkin } from '../hooks/useSkin';
 import { TitleBar } from './TitleBar';
 import { StatusBar } from './StatusBar';
-import { useSkin } from '../hooks/useSkin';
+import { useNavLayout } from '../hooks/useNavLayout';
 import { LaunchingOverlay } from './LaunchingOverlay';
 import { AppUpdateBootstrap } from './AppUpdateBootstrap';
 import { CatalogBootstrap } from './store/CatalogBootstrap';
 import { PrefixCatalogProvider } from '../contexts/PrefixCatalogContext';
 import { TagCatalogProvider } from '../contexts/TagCatalogContext';
+import { CollectionPickerModal } from './library/CollectionPickerModal';
 import { tStandalone } from '../lib/i18n';
 import { startTrayActionBridge } from '../lib/trayActions';
 import { startTrayIconSync } from '../lib/tray';
@@ -33,8 +36,10 @@ interface Props {
  */
 export function AppShell({ profile, onLoggedOut }: Props) {
   const navigate = useNavigate();
-  // Steam skin swaps the left sidebar for a Steam-style top nav.
-  const steamNav = useSkin() === 'steam';
+  const skin = useSkin();
+  const navLayoutId = useNavLayout();
+  const steamSkin = skin === 'steam';
+  const topNav = steamSkin || navLayoutId === 'top';
 
   // Start tray after the main shell mounts — settings DB is ready by then.
   useEffect(() => startTrayIconSync(tStandalone), []);
@@ -65,9 +70,10 @@ export function AppShell({ profile, onLoggedOut }: Props) {
                 <AppUpdateBootstrap />
                 <div style={rootStyle} className="app-shell">
                   <TitleBar />
-                  {steamNav && <SteamTopNav profile={profile} />}
+                  {steamSkin && <SteamTopNav profile={profile} />}
+                  {!steamSkin && topNav && <TopNav profile={profile} />}
                   <div style={bodyStyle} className="app-shell-body">
-                    {!steamNav && <Sidebar profile={profile} />}
+                    {!topNav && <Sidebar profile={profile} />}
                     <main style={contentStyle} className="app-main">
                       <Outlet context={{ profile, onLoggedOut }} />
                     </main>
