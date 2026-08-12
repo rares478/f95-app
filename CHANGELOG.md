@@ -15,10 +15,31 @@ together when cutting a release:
 
 ## [Unreleased]
 
+## [1.7.3] - 2026-08-12
+
 ### Added
+- Library collections with folders, collection pages, and a collection picker.
 - Auto-update from GitHub Releases, with a Settings toggle to disable automatic checks.
 - In-app changelog for app versions under Settings → System.
 - System tray icon with show/quit actions and a Settings toggle (close hides to tray when enabled).
+- App skins (Default and Steam) with a Steam color theme and Steam-style library layout.
+- Top navigation layout option for the default skin.
+- In-app friend/member profiles from the Friends page.
+- Improved store search with relevance ranking and better tag filtering.
+- Extraction preflight disk-space checks and clearer unrar errors.
+
+### Changed
+- Renamed the Search nav item to Forum across all locales.
+
+### Fixed
+- Steam skin library scroll: game detail and sidebar now scroll independently.
+- Steam skin top nav now includes the Forum link.
+
+## [1.7.2] - 2026-08-10
+
+### Improved
+- Deep-link forum search hits to the exact post page.
+- Open F95 thread links from post HTML in-app.
 
 ## [1.0.1] - 2026-08-05
 
