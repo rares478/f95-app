@@ -40,16 +40,20 @@ mod win {
     use super::{GameWindowMatch, OverlayAttachMode, ScreenRect};
     use crate::error::AppError;
     use serde_json::json;
+    use std::collections::{HashSet, VecDeque};
+    use std::path::{Path, PathBuf};
     use std::sync::Mutex;
     use windows::core::BOOL;
-    use windows::Win32::Foundation::{HWND, LPARAM, POINT, RECT};
+    use windows::Win32::Foundation::{CloseHandle, HWND, LPARAM, POINT, RECT};
     use windows::Win32::Graphics::Gdi::{
         GetMonitorInfoW, MonitorFromPoint, MonitorFromWindow, MONITOR_DEFAULTTONEAREST, MONITORINFO,
     };
-    use std::collections::{HashSet, VecDeque};
     use windows::Win32::System::Diagnostics::ToolHelp::{
         CreateToolhelp32Snapshot, Process32FirstW, Process32NextW, PROCESSENTRY32W,
         TH32CS_SNAPPROCESS,
+    };
+    use windows::Win32::System::Threading::{
+        OpenProcess, QueryFullProcessImageNameW, PROCESS_NAME_FORMAT, PROCESS_QUERY_LIMITED_INFORMATION,
     };
     use windows::Win32::UI::WindowsAndMessaging::{
         EnumChildWindows, EnumWindows, GetAncestor, GetClassNameW, GetCursorPos, GetForegroundWindow,
@@ -109,6 +113,7 @@ mod win {
             || class.contains("glfw")
             || class.contains("unreal")
             || class.contains("gfx")
+            || class.contains("renpy")
         {
             1.25
         } else {
@@ -366,6 +371,149 @@ mod win {
             }
         }
         preferred
+    }
+
+    fn normalize_dir_key(dir: &Path) -> String {
+        let mut s = dir.to_string_lossy().replace('\\', "/").to_lowercase();
+        while s.ends_with('/') {
+            s.pop();
+        }
+        s.push('/');
+        s
+    }
+
+    fn process_exe_path(pid: u32) -> Option<PathBuf> {
+        if pid == 0 {
+            return None;
+        }
+        unsafe {
+            let handle = OpenProcess(PROCESS_QUERY_LIMITED_INFORMATION, false, pid).ok()?;
+            let mut buf = [0u16; 32_768];
+            let mut size = buf.len() as u32;
+            let ok = QueryFullProcessImageNameW(
+                handle,
+                PROCESS_NAME_FORMAT(0),
+                windows::core::PWSTR(buf.as_mut_ptr()),
+                &mut size,
+            )
+            .is_ok();
+            let _ = CloseHandle(handle);
+            if !ok || size == 0 {
+                return None;
+            }
+            Some(PathBuf::from(String::from_utf16_lossy(
+                &buf[..size as usize],
+            )))
+        }
+    }
+
+    fn all_process_pids() -> Vec<u32> {
+        let mut out = Vec::new();
+        unsafe {
+            let snap = match CreateToolhelp32Snapshot(TH32CS_SNAPPROCESS, 0) {
+                Ok(h) => h,
+                Err(_) => return out,
+            };
+            let mut entry = PROCESSENTRY32W {
+                dwSize: std::mem::size_of::<PROCESSENTRY32W>() as u32,
+                ..Default::default()
+            };
+            if Process32FirstW(snap, &mut entry).is_err() {
+                return out;
+            }
+            loop {
+                out.push(entry.th32ProcessID);
+                if Process32NextW(snap, &mut entry).is_err() {
+                    break;
+                }
+            }
+        }
+        out
+    }
+
+    fn pids_with_exe_under_dir(install_dir: &Path) -> Vec<u32> {
+        let install_key = normalize_dir_key(install_dir);
+        all_process_pids()
+            .into_iter()
+            .filter(|&pid| {
+                process_exe_path(pid).is_some_and(|path| {
+                    path.parent()
+                        .map(normalize_dir_key)
+                        .is_some_and(|parent| parent == install_key || parent.starts_with(&install_key))
+                })
+            })
+            .collect()
+    }
+
+    fn session_candidate_pids(root_pid: u32, install_dir: &Path) -> Vec<u32> {
+        let mut seen = HashSet::new();
+        if root_pid != 0 {
+            for pid in process_tree_pids(root_pid) {
+                seen.insert(pid);
+            }
+            let resolved = resolve_visible_game_pid(root_pid);
+            if resolved != 0 {
+                seen.insert(resolved);
+            }
+        }
+        for pid in pids_with_exe_under_dir(install_dir) {
+            seen.insert(pid);
+        }
+        seen.into_iter().collect()
+    }
+
+    fn session_has_game_window(root_pid: u32, install_dir: &Path) -> bool {
+        session_candidate_pids(root_pid, install_dir)
+            .iter()
+            .any(|&pid| game_has_window_surface(pid))
+    }
+
+    /// After a launcher stub exits, keep measuring until no game window remains.
+    /// Ren'Py and similar engines often reparent the real game out of the stub tree.
+    pub async fn wait_for_game_window_session_end(root_pid: u32, install_dir: PathBuf) {
+        use tokio::time::{sleep, Duration};
+
+        const POLL: Duration = Duration::from_millis(800);
+        const STARTUP_POLLS: u32 = 20;
+        const EXIT_POLLS: u32 = 3;
+
+        let mut saw_window = false;
+
+        for _ in 0..STARTUP_POLLS {
+            if session_has_game_window(root_pid, &install_dir) {
+                saw_window = true;
+                break;
+            }
+            sleep(POLL).await;
+        }
+
+        if !saw_window {
+            // Direct-run games may already have exited; a few polls avoids instant zero-duration.
+            for _ in 0..5 {
+                if session_has_game_window(root_pid, &install_dir) {
+                    saw_window = true;
+                    break;
+                }
+                sleep(POLL).await;
+            }
+        }
+
+        if !saw_window {
+            return;
+        }
+
+        let mut empty_streak = 0u32;
+        loop {
+            if session_has_game_window(root_pid, &install_dir) {
+                empty_streak = 0;
+            } else {
+                empty_streak += 1;
+                if empty_streak >= EXIT_POLLS {
+                    break;
+                }
+            }
+            sleep(POLL).await;
+        }
     }
 
     pub fn win32_show_no_activate(hwnd: HWND) {
@@ -961,6 +1109,9 @@ pub fn resolve_visible_game_pid(preferred: u32) -> u32 {
 pub fn process_tree_has_window_surface(_root: u32) -> bool {
     false
 }
+
+#[cfg(not(windows))]
+pub async fn wait_for_game_window_session_end(_root_pid: u32, _install_dir: std::path::PathBuf) {}
 
 #[cfg(not(windows))]
 pub fn clear_cached_match() {}

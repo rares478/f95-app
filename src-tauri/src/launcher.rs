@@ -90,6 +90,7 @@ impl LauncherManager {
         })?;
         let pid = child.id().unwrap_or(0);
         let started = Instant::now();
+        let install_dir = cwd.clone();
 
         let (kill_tx, kill_rx) = oneshot::channel::<()>();
         let inner_clone = self.inner.clone();
@@ -104,9 +105,11 @@ impl LauncherManager {
                     // Ren'Py and similar stubs exit immediately after spawning the real game.
                     #[cfg(windows)]
                     {
-                        while crate::game_window::process_tree_has_window_surface(root_pid) {
-                            tokio::time::sleep(std::time::Duration::from_millis(800)).await;
-                        }
+                        crate::game_window::wait_for_game_window_session_end(
+                            root_pid,
+                            install_dir.clone(),
+                        )
+                        .await;
                     }
                     status
                 } => status,
