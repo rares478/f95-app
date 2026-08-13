@@ -341,10 +341,25 @@ export async function syncGameExeCache(threadId: string): Promise<void> {
   const rows = await listExes(threadId);
   const resolved = resolvePlayExe(rows);
   if (!resolved) {
+    const games = await query<{ install_path: string | null }>(
+      `SELECT install_path FROM library_games WHERE thread_id = ?`,
+      [threadId],
+    );
+    const installPath = games[0]?.install_path ?? null;
+    if (installPath) {
+      // Keep the game installed when files remain but no exe is registered.
+      await execute(
+        `UPDATE library_games
+            SET exe_path = NULL, install_status = 'installed'
+          WHERE thread_id = ?`,
+        [threadId],
+      );
+      return;
+    }
     await execute(
       `UPDATE library_games
           SET exe_path = NULL, install_path = NULL, install_status = 'not_installed'
-          WHERE thread_id = ?`,
+        WHERE thread_id = ?`,
       [threadId],
     );
     return;

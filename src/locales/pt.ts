@@ -695,6 +695,8 @@ const pt: Record<string, string> = {
   'libdetail.exe.add': 'Adicionar .exe',
   'libdetail.exe.setDefault': 'Definir padrão',
   'libdetail.exe.rename': 'Renomear',
+  'libdetail.exe.changePath': 'Alterar caminho',
+  'libdetail.exe.changePathTitle': 'Selecionar executável para "{name}"',
   'libdetail.exe.remove': 'Remover',
   'libdetail.exe.openFolder': 'Abrir pasta',
   'libdetail.exe.play': 'Jogar',
@@ -706,6 +708,8 @@ const pt: Record<string, string> = {
   'libdetail.exe.duplicate': 'Esse executável já está neste jogo.',
   'libdetail.exe.removeConfirm':
     'Remover "{name}" deste jogo? Os arquivos no disco não são apagados.',
+  'libdetail.exe.removeConfirmOnlyExe':
+    'Remover "{name}"? O jogo continua instalado, mas você precisará apontar para um novo .exe para jogar. Os arquivos no disco não são apagados.',
   'libdetail.exe.removeConfirmTitle': 'Remover executável',
   'libdetail.action.checkUpdate': 'Verificar atualização',
   'libdetail.action.openViewer': 'Abrir visualizador',

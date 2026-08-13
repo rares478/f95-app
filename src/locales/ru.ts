@@ -690,6 +690,8 @@ const ru: Record<string, string> = {
   'libdetail.exe.add': 'Добавить .exe',
   'libdetail.exe.setDefault': 'Сделать основным',
   'libdetail.exe.rename': 'Переименовать',
+  'libdetail.exe.changePath': 'Изменить путь',
+  'libdetail.exe.changePathTitle': 'Выберите исполняемый файл для «{name}»',
   'libdetail.exe.remove': 'Удалить',
   'libdetail.exe.openFolder': 'Открыть папку',
   'libdetail.exe.play': 'Играть',
@@ -701,6 +703,8 @@ const ru: Record<string, string> = {
   'libdetail.exe.duplicate': 'Этот исполняемый файл уже добавлен для этой игры.',
   'libdetail.exe.removeConfirm':
     'Убрать «{name}» из этой игры? Файлы на диске не удаляются.',
+  'libdetail.exe.removeConfirmOnlyExe':
+    'Убрать «{name}»? Игра останется установленной, но для запуска нужно будет указать новый .exe. Файлы на диске не удаляются.',
   'libdetail.exe.removeConfirmTitle': 'Удалить исполняемый файл',
   'libdetail.action.checkUpdate': 'Проверить обновление',
   'libdetail.action.openViewer': 'Открыть просмотр',

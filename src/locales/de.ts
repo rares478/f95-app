@@ -690,6 +690,8 @@ const de: Record<string, string> = {
   'libdetail.exe.add': '.exe hinzufügen',
   'libdetail.exe.setDefault': 'Als Standard',
   'libdetail.exe.rename': 'Umbenennen',
+  'libdetail.exe.changePath': 'Pfad ändern',
+  'libdetail.exe.changePathTitle': 'Ausführbare Datei für „{name}“ wählen',
   'libdetail.exe.remove': 'Entfernen',
   'libdetail.exe.openFolder': 'Ordner öffnen',
   'libdetail.exe.play': 'Spielen',
@@ -701,6 +703,8 @@ const de: Record<string, string> = {
   'libdetail.exe.duplicate': 'Diese ausführbare Datei ist bereits bei diesem Spiel.',
   'libdetail.exe.removeConfirm':
     '„{name}“ von diesem Spiel entfernen? Dateien auf der Festplatte bleiben erhalten.',
+  'libdetail.exe.removeConfirmOnlyExe':
+    '„{name}“ entfernen? Das Spiel bleibt installiert, aber Sie müssen eine neue .exe angeben, um zu spielen. Dateien auf der Festplatte bleiben erhalten.',
   'libdetail.exe.removeConfirmTitle': 'Ausführbare Datei entfernen',
   'libdetail.action.checkUpdate': 'Auf Update prüfen',
   'libdetail.action.openViewer': 'Viewer öffnen',

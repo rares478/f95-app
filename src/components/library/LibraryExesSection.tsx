@@ -1,3 +1,4 @@
+import { open as openFileDialog } from '@tauri-apps/plugin-dialog';
 import { dialog } from '../../lib/dialog';
 import * as ipc from '../../lib/ipc';
 import * as library from '../../lib/library';
@@ -77,9 +78,41 @@ export function LibraryExesSection({
     await onChanged();
   }
 
+  async function onChangePath(row: LibraryGameExe) {
+    if (disabled) return;
+    const selected = await openFileDialog({
+      multiple: false,
+      directory: false,
+      title: t('libdetail.exe.changePathTitle', { name: exeDisplayName(row) }),
+      filters: [
+        { name: t('contextMenu.exeFilter'), extensions: ['exe', 'sh', 'app', 'bat', 'cmd'] },
+        { name: t('contextMenu.allFilter'), extensions: ['*'] },
+      ],
+    });
+    if (typeof selected !== 'string') return;
+    try {
+      await library.updateExePaths(
+        row.id,
+        selected,
+        exeParentDir(selected) || row.installPath,
+      );
+      await onChanged();
+    } catch (err) {
+      if (err instanceof Error && err.message === 'DUPLICATE_EXE_PATH') {
+        await dialog.alert(t('libdetail.exe.duplicate'), { kind: 'warning' });
+        return;
+      }
+      throw err;
+    }
+  }
+
   async function onRemove(row: LibraryGameExe) {
     const name = exeDisplayName(row);
-    const ok = await dialog.confirm(t('libdetail.exe.removeConfirm', { name }), {
+    const message =
+      exes.length === 1
+        ? t('libdetail.exe.removeConfirmOnlyExe', { name })
+        : t('libdetail.exe.removeConfirm', { name });
+    const ok = await dialog.confirm(message, {
       title: t('libdetail.exe.removeConfirmTitle'),
       kind: 'warning',
     });
@@ -153,6 +186,14 @@ export function LibraryExesSection({
                     onClick={() => void onRename(row)}
                   >
                     {t('libdetail.exe.rename')}
+                  </button>
+                  <button
+                    type="button"
+                    className="library-exes-action"
+                    disabled={disabled}
+                    onClick={() => void onChangePath(row)}
+                  >
+                    {t('libdetail.exe.changePath')}
                   </button>
                   <button
                     type="button"

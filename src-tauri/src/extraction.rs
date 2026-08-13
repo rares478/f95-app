@@ -594,6 +594,12 @@ const BLOCK_KEYWORDS: &[&str] = &[
     "ffmpeg",
     "crashpad",
     "crashreport",
+    "crashhandler",
+    "bugreporter",
+    "unitycrashhandler",
+    "unityplayer",
+    "monobleedingedge",
+    "createdump",
     "updater",
     "python.exe",
     "node.exe",
@@ -601,6 +607,10 @@ const BLOCK_KEYWORDS: &[&str] = &[
     "remove.exe",
     "regsvr",
 ];
+
+/// When the best candidate scores above this, treat detection as uncertain
+/// and return `None` so the user picks manually.
+const UNCERTAIN_SCORE_THRESHOLD: i64 = 45;
 
 /// Walk `root` recursively and return the most likely game executable.
 /// Returns `None` if no candidates exist or all of them look like
@@ -617,7 +627,7 @@ pub fn find_main_exe(root: &Path, game_title: &str) -> Option<PathBuf> {
     // the user can pick manually.
     let best = candidates.into_iter().next()?;
     let best_score = score_path(&best, root, &title_key);
-    if best_score >= 10_000 {
+    if best_score >= 10_000 || best_score > UNCERTAIN_SCORE_THRESHOLD {
         None
     } else {
         Some(best)
@@ -650,12 +660,20 @@ fn score_path(path: &Path, root: &Path, title_key: &str) -> i64 {
             return 10_000;
         }
     }
+    // Unity ships support binaries inside *_Data and MonoBleedingEdge trees.
+    if is_blocked_support_path(&rel_str) {
+        return 10_000;
+    }
 
     let mut score: i64 = 0;
 
     // Strong positive (lower score) for matching the game title prefix.
     if !title_key.is_empty() && name.contains(title_key) {
         score -= 1000;
+    }
+    // Unity games ship Foo.exe alongside Foo_Data/.
+    if has_unity_data_sibling(path) {
+        score -= 800;
     }
     // Common launcher filenames.
     match name.as_str() {
@@ -673,6 +691,22 @@ fn score_path(path: &Path, root: &Path, title_key: &str) -> i64 {
     score += name.len() as i64;
 
     score
+}
+
+fn is_blocked_support_path(rel_str: &str) -> bool {
+    rel_str.contains("_data/") || rel_str.contains("_data\\")
+}
+
+fn has_unity_data_sibling(path: &Path) -> bool {
+    let stem = match path.file_stem().and_then(|s| s.to_str()) {
+        Some(s) if !s.is_empty() => s,
+        _ => return false,
+    };
+    let parent = match path.parent() {
+        Some(p) => p,
+        None => return false,
+    };
+    parent.join(format!("{stem}_Data")).is_dir()
 }
 
 fn walk(dir: &Path, out: &mut Vec<PathBuf>, depth: usize) {
@@ -738,5 +772,56 @@ ERROR: Cannot delete output file : The process cannot access the file because it
 ERROR: Can not open the file as archive
 ";
         assert!(!is_lock_only_extract_failure(stderr));
+    }
+
+    fn test_root(name: &str) -> PathBuf {
+        let p = std::env::temp_dir().join(format!(
+            "f95_app_test_{name}_{}",
+            std::process::id()
+        ));
+        let _ = std::fs::remove_dir_all(&p);
+        std::fs::create_dir_all(&p).unwrap();
+        p
+    }
+
+    #[test]
+    fn find_main_exe_prefers_unity_game_over_crash_handler() {
+        let root = test_root("unity_pick");
+        std::fs::write(root.join("UnityCrashHandler64.exe"), b"").unwrap();
+        std::fs::write(root.join("MyGame.exe"), b"").unwrap();
+        std::fs::create_dir(root.join("MyGame_Data")).unwrap();
+
+        let found = find_main_exe(&root, "My Game").expect("game exe");
+        assert_eq!(found.file_name().unwrap().to_str().unwrap(), "MyGame.exe");
+    }
+
+    #[test]
+    fn find_main_exe_blocks_crashreport() {
+        let root = test_root("crashreport");
+        std::fs::write(root.join("CrashReport.exe"), b"").unwrap();
+
+        assert!(find_main_exe(&root, "Some Game").is_none());
+    }
+
+    #[test]
+    fn find_main_exe_blocks_support_exes_inside_data_folder() {
+        let root = test_root("data_plugins");
+        let data = root.join("Game_Data");
+        std::fs::create_dir_all(data.join("Plugins")).unwrap();
+        std::fs::write(data.join("Plugins").join("helper.exe"), b"").unwrap();
+
+        assert!(find_main_exe(&root, "Game").is_none());
+    }
+
+    #[test]
+    fn find_main_exe_returns_none_when_only_uncertain_candidates() {
+        let root = test_root("uncertain");
+        std::fs::write(
+            root.join("SomeRandomLongUtilityNameThatIsNotTheGame.exe"),
+            b"",
+        )
+        .unwrap();
+
+        assert!(find_main_exe(&root, "Totally Different Title").is_none());
     }
 }

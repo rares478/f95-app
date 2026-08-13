@@ -307,4 +307,46 @@ describe('library multi-exe façade', () => {
     expect(clearGame).toBeTruthy();
     expect(clearGame![1]).toEqual(['t1']);
   });
+
+  it('removeExe keeps game installed when install_path remains', async () => {
+    const row: ExeDbRow = {
+      id: 'a',
+      thread_id: 't1',
+      exe_path: 'D:/s1/wrong.exe',
+      install_path: 'D:/s1',
+      label: null,
+      sort_order: 0,
+      is_default: 1,
+      last_launched_at: null,
+      created_at: '2026-01-01T00:00:00.000Z',
+    };
+
+    // select by id → wasDefault listExes → sync listExes → query install_path
+    query
+      .mockResolvedValueOnce([row])
+      .mockResolvedValueOnce([])
+      .mockResolvedValueOnce([])
+      .mockResolvedValueOnce([{ install_path: 'D:/s1' }]);
+
+    await library.removeExe('a');
+
+    const deleteCall = execute.mock.calls.find((c) =>
+      String(c[0]).includes('DELETE FROM library_game_exes'),
+    );
+    expect(deleteCall).toBeTruthy();
+
+    const gameUpdate = execute.mock.calls.find(
+      (c) =>
+        String(c[0]).includes('UPDATE library_games') &&
+        String(c[0]).includes("install_status = 'installed'") &&
+        String(c[0]).includes('exe_path = NULL'),
+    );
+    expect(gameUpdate).toBeTruthy();
+    expect(gameUpdate![1]).toEqual(['t1']);
+    expect(
+      execute.mock.calls.some((c) =>
+        String(c[0]).includes("install_status = 'not_installed'"),
+      ),
+    ).toBe(false);
+  });
 });
