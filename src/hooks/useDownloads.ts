@@ -7,6 +7,7 @@ import {
   libraryPathForDownloadRow,
   rememberDownloadLibrary,
 } from '../lib/downloadLibraryPath';
+import { isHtmlEngine } from '../lib/storeEngine';
 import * as libraries from '../lib/libraries';
 import * as ipc from '../lib/ipc';
 import { loadDownloadSettings } from '../lib/downloadSettings';
@@ -130,12 +131,14 @@ export async function runExtraction(
                 .map((j) => j.extractPath),
               jobCount: planJobs.length,
             });
+      const preferHtml = isHtmlEngine(game.storeTags);
       const runExtract = async () => {
         const result = await ipc.extractArchive({
           archivePath,
           gameTitle: game.title,
           downloadId: resolvedDownloadId,
           destDir,
+          preferHtml,
         });
         await markJobExtracted(linkedJob.id, result.destDir);
         return result;
@@ -170,6 +173,7 @@ export async function runExtraction(
               const found = await ipc.findMainExe({
                 root: sharedDest,
                 gameTitle: game.title,
+                preferHtml,
               });
               if (found) exePath = found;
             } catch (err) {
@@ -293,6 +297,7 @@ export async function runExtraction(
       archivePath,
       gameTitle: game.title,
       downloadId: resolvedDownloadId,
+      preferHtml: isHtmlEngine(game.storeTags),
     });
     const cat = game.category ?? 'games';
     const mediaOnly = cat === 'comics' || cat === 'animations' || cat === 'assets';

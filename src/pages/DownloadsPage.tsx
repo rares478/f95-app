@@ -10,6 +10,7 @@ import type { DownloadGameInfo } from '../components/downloads/DownloadCard';
 import { DownloadActiveCard, DownloadHistoryRow } from '../components/downloads/DownloadRowItem';
 import * as downloads from '../lib/downloads';
 import { libraryPathForDownloadRow } from '../lib/downloadLibraryPath';
+import { isHtmlEngine } from '../lib/storeEngine';
 import * as library from '../lib/library';
 import * as ipc from '../lib/ipc';
 import {
@@ -188,14 +189,14 @@ export function DownloadsPage() {
     if (!job || job.assignStatus !== 'pending') return;
     let exePath: string | null = null;
     if (job.extractPath) {
+      const libGame = await library.get(row.threadId);
       const gameTitle =
-        libraryMap[row.threadId]?.title ??
-        (await library.get(row.threadId))?.title ??
-        '';
+        libGame?.title ?? libraryMap[row.threadId]?.title ?? '';
       try {
         exePath = await ipc.findMainExe({
           root: job.extractPath,
           gameTitle,
+          preferHtml: isHtmlEngine(libGame?.storeTags),
         });
       } catch {
         exePath = null;

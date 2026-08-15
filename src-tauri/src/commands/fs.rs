@@ -27,6 +27,7 @@ pub async fn extract_archive(
     game_title: String,
     download_id: Option<i64>,
     dest_dir: Option<String>,
+    prefer_html: Option<bool>,
 ) -> Result<ExtractResult, AppError> {
     let bundled_root = app
         .path()
@@ -61,6 +62,7 @@ pub async fn extract_archive(
         None
     });
     let progress = download_id.map(|id| make_extract_progress(app.clone(), id));
+    let prefer_html = prefer_html.unwrap_or(false);
     let result = tokio::task::spawn_blocking(move || -> Result<ExtractResult, AppError> {
         let archive = PathBuf::from(&archive_path);
         if !archive.exists() {
@@ -88,7 +90,7 @@ pub async fn extract_archive(
             _ => parent.join(stem),
         };
         crate::extraction::extract(&archive, &dest, bundled_7z.as_deref(), progress)?;
-        let exe = crate::extraction::find_main_launch(&dest, &game_title);
+        let exe = crate::extraction::find_main_launch(&dest, &game_title, prefer_html);
         Ok(ExtractResult {
             dest_dir: dest.to_string_lossy().into_owned(),
             exe_path: exe.map(|p| p.to_string_lossy().into_owned()),
@@ -104,13 +106,18 @@ pub async fn extract_archive(
     Ok(result)
 }
 
-/// Re-detect the main launch file (`.exe` or HTML entry) under an already-extracted folder.
-/// Used when reopening Assign from Downloads after the live extract event.
+/// Re-detect the main launch file under an already-extracted folder.
+/// When `prefer_html` is true, search for an HTML entry; otherwise `.exe` only.
 #[tauri::command]
-pub async fn find_main_exe(root: String, game_title: String) -> Option<String> {
+pub async fn find_main_exe(
+    root: String,
+    game_title: String,
+    prefer_html: Option<bool>,
+) -> Option<String> {
     let root_path = PathBuf::from(root);
+    let prefer_html = prefer_html.unwrap_or(false);
     tokio::task::spawn_blocking(move || {
-        crate::extraction::find_main_launch(&root_path, &game_title)
+        crate::extraction::find_main_launch(&root_path, &game_title, prefer_html)
             .map(|p| p.to_string_lossy().into_owned())
     })
     .await

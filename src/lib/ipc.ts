@@ -246,6 +246,7 @@ export async function extractArchive(args: {
   gameTitle: string;
   downloadId?: number | null;
   destDir?: string | null;
+  preferHtml?: boolean;
 }): Promise<ExtractResult> {
   return invoke<ExtractResult>('extract_archive', args);
 }
@@ -253,6 +254,7 @@ export async function extractArchive(args: {
 export async function findMainExe(args: {
   root: string;
   gameTitle: string;
+  preferHtml?: boolean;
 }): Promise<string | null> {
   return invoke<string | null>('find_main_exe', args);
 }

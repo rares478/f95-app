@@ -634,9 +634,13 @@ pub fn find_main_exe(root: &Path, game_title: &str) -> Option<PathBuf> {
     }
 }
 
-/// Prefer a real `.exe`; if none, fall back to an HTML entry page.
-pub fn find_main_launch(root: &Path, game_title: &str) -> Option<PathBuf> {
-    find_main_exe(root, game_title).or_else(|| find_main_html(root, game_title))
+/// Pick launch file by engine hint: HTML engine → HTML entry; otherwise `.exe` only.
+pub fn find_main_launch(root: &Path, game_title: &str, prefer_html: bool) -> Option<PathBuf> {
+    if prefer_html {
+        find_main_html(root, game_title)
+    } else {
+        find_main_exe(root, game_title)
+    }
 }
 
 /// Walk for `index.html` / title-like HTML entry pages (browser games).
@@ -956,21 +960,29 @@ ERROR: Can not open the file as archive
     }
 
     #[test]
-    fn find_main_launch_falls_back_to_html() {
+    fn find_main_launch_html_engine_finds_index() {
         let root = test_root("launch_html");
         std::fs::write(root.join("index.html"), b"").unwrap();
 
-        let found = find_main_launch(&root, "MoR").expect("launch");
+        let found = find_main_launch(&root, "MoR", true).expect("launch");
         assert_eq!(found.file_name().unwrap().to_str().unwrap(), "index.html");
     }
 
     #[test]
-    fn find_main_launch_prefers_exe_over_html() {
+    fn find_main_launch_non_html_skips_html() {
+        let root = test_root("launch_exe_only");
+        std::fs::write(root.join("index.html"), b"").unwrap();
+
+        assert!(find_main_launch(&root, "MoR", false).is_none());
+    }
+
+    #[test]
+    fn find_main_launch_non_html_prefers_exe() {
         let root = test_root("launch_exe");
         std::fs::write(root.join("index.html"), b"").unwrap();
         std::fs::write(root.join("Game.exe"), b"").unwrap();
 
-        let found = find_main_launch(&root, "Game").expect("launch");
+        let found = find_main_launch(&root, "Game", false).expect("launch");
         assert_eq!(found.file_name().unwrap().to_str().unwrap(), "Game.exe");
     }
 }
