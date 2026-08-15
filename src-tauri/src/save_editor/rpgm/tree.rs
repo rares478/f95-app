@@ -379,4 +379,50 @@ mod tests {
         .unwrap_err();
         assert!(err.to_string().contains("error.saveEditor.patchType"));
     }
+
+    /// Optional real-world smoke: skip when `tests/fixtures/natsuki-file1.rpgsave` is absent.
+    #[test]
+    fn natsuki_fixture_if_present() {
+        let fixture = PathBuf::from(env!("CARGO_MANIFEST_DIR"))
+            .join("tests")
+            .join("fixtures")
+            .join("natsuki-file1.rpgsave");
+        if !fixture.is_file() {
+            eprintln!(
+                "skip: natsuki fixture absent at {}",
+                fixture.display()
+            );
+            return;
+        }
+
+        let raw = fs::read_to_string(&fixture).unwrap();
+        let json_text = decompress_rpgsave(&raw).expect("fixture must decompress");
+        let value: serde_json::Value =
+            serde_json::from_str(&json_text).expect("fixture must be JSON");
+        assert!(
+            value.get("party").is_some(),
+            "fixture JSON must contain party key"
+        );
+        assert!(
+            value.pointer("/party/_gold").is_some(),
+            "fixture must expose party._gold for patch smoke"
+        );
+
+        // Mutate a temp copy so the committed fixture stays pristine.
+        let work = temp_file("natsuki-smoke.rpgsave", raw.as_bytes());
+        write_rpgsave_patches(
+            &work,
+            &[RenpySavePatch {
+                path: "party._gold".into(),
+                value: serde_json::json!(424242),
+            }],
+        )
+        .unwrap();
+        let tree = read_rpgsave_file(&work, None).unwrap();
+        assert_eq!(
+            find(&tree, "party._gold").unwrap().value,
+            Some(serde_json::json!(424242))
+        );
+        let _ = fs::remove_file(&work);
+    }
 }
