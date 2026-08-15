@@ -7,6 +7,7 @@
     "core:default",
     "sql:default",
     "core:event:default",
+    "process:default",
     "core:window:allow-hide",
     "core:window:allow-show",
     "core:window:allow-close",

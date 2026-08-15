@@ -1,4 +1,4 @@
-import { useEffect } from 'react';
+import { useEffect, useEffectEvent } from 'react';
 import { Outlet, useNavigate } from 'react-router-dom';
 import { DownloadSettingsProvider } from '../contexts/DownloadSettings';
 import { StoreSettingsProvider } from '../contexts/StoreSettings';
@@ -44,17 +44,25 @@ export function AppShell({ profile, onLoggedOut }: Props) {
   // Start tray after the main shell mounts — settings DB is ready by then.
   useEffect(() => startTrayIconSync(tStandalone), []);
 
+  // Stable callbacks so the tray bridge is not torn down on every navigate identity change.
+  const onTrayNavigate = useEffectEvent((to: Parameters<typeof navigate>[0]) => {
+    navigate(to);
+  });
+  const onTrayChangelog = useEffectEvent(() => {
+    window.dispatchEvent(new CustomEvent('f95:open-version-modal'));
+  });
+
   useEffect(
     () =>
       startTrayActionBridge({
         navigate: (to) => {
-          navigate(to);
+          onTrayNavigate(to);
         },
         openChangelog: () => {
-          window.dispatchEvent(new CustomEvent('f95:open-version-modal'));
+          onTrayChangelog();
         },
       }),
-    [navigate],
+    [],
   );
 
   return (

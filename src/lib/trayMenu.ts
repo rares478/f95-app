@@ -6,6 +6,7 @@ import { emit, listen, type UnlistenFn } from '@tauri-apps/api/event';
 import { PhysicalPosition, LogicalSize } from '@tauri-apps/api/dpi';
 import { WebviewWindow } from '@tauri-apps/api/webviewWindow';
 import { currentMonitor, getCurrentWindow } from '@tauri-apps/api/window';
+import { exit } from '@tauri-apps/plugin-process';
 
 export const TRAY_MENU_LABEL = 'tray-menu';
 export const TRAY_MENU_ACTION_EVENT = 'tray-menu:action';
@@ -256,6 +257,19 @@ export async function emitTrayMenuAction(
   action: TrayMenuAction,
   extras?: { threadId?: string },
 ): Promise<void> {
+  // Quit must not depend on the main webview receiving an event — when the
+  // app is tray-hidden, that listener can miss the click (or be briefly
+  // unsubscribed while AppShell remounts the bridge). Exit from this window.
+  if (action === 'quit') {
+    try {
+      await hideTrayMenu();
+    } catch {
+      /* best-effort */
+    }
+    await exit(0);
+    return;
+  }
+
   await emit(TRAY_MENU_ACTION_EVENT, {
     action,
     ...extras,

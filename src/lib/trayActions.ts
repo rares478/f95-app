@@ -79,6 +79,8 @@ async function handleTrayAction(
       await checkForAppUpdateInteractive(tStandalone);
       break;
     case 'quit':
+      // Prefer tray-window exit (emitTrayMenuAction); keep as fallback if an
+      // older menu build still emits quit to the main window.
       await exit(0);
       break;
     default:
