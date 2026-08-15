@@ -11,6 +11,7 @@ import { LibraryPage } from './pages/LibraryPage';
 import { LibraryCollectionPage } from './pages/LibraryCollectionPage';
 import { LibraryGamePage } from './pages/LibraryGamePage';
 import { LibraryMediaViewerPage } from './pages/LibraryMediaViewerPage';
+import { LibrarySaveEditorPage } from './pages/LibrarySaveEditorPage';
 import { DownloadsPage } from './pages/DownloadsPage';
 import { NewsPage } from './pages/NewsPage';
 import { FriendsPage } from './pages/FriendsPage';
@@ -48,6 +49,7 @@ export function buildRouter({ profile, onLoggedOut }: BuildOpts) {
           { path: 'game/:threadId', element: <LibraryGamePage /> },
         ] },
         { path: 'library/game/:threadId/view', element: <LibraryMediaViewerPage /> },
+        { path: 'library/game/:threadId/saves', element: <LibrarySaveEditorPage /> },
         { path: 'downloads', element: <DownloadsPage /> },
         { path: 'news', element: <NewsPage /> },
         { path: 'friends', element: <FriendsPage /> },

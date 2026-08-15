@@ -20,7 +20,7 @@ import { PrefixCatalogProvider } from '../contexts/PrefixCatalogContext';
 import { TagCatalogProvider } from '../contexts/TagCatalogContext';
 import { CollectionPickerModal } from './library/CollectionPickerModal';
 import { tStandalone } from '../lib/i18n';
-import { startTrayActionBridge } from '../lib/trayActions';
+import { startTrayActionBridge, type TrayNavigateTarget } from '../lib/trayActions';
 import { startTrayIconSync } from '../lib/tray';
 import type { ProfileDto } from '../types';
 
@@ -45,7 +45,7 @@ export function AppShell({ profile, onLoggedOut }: Props) {
   useEffect(() => startTrayIconSync(tStandalone), []);
 
   // Stable callbacks so the tray bridge is not torn down on every navigate identity change.
-  const onTrayNavigate = useEffectEvent((to: Parameters<typeof navigate>[0]) => {
+  const onTrayNavigate = useEffectEvent((to: TrayNavigateTarget) => {
     navigate(to);
   });
   const onTrayChangelog = useEffectEvent(() => {
