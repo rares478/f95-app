@@ -238,7 +238,18 @@ fn list_get_mut<'a>(value: &'a mut Value, idx: usize) -> Result<&'a mut Value, A
 
 fn set_primitive(leaf: &mut Value, patch: &serde_json::Value) -> Result<(), AppError> {
     match leaf {
-        Value::I64(_) | Value::Int(_) => {
+        Value::I64(_) => {
+            let Some(i) = json_as_i64(patch) else {
+                return Err(AppError::keyed("error.saveEditor.patchType"));
+            };
+            *leaf = Value::I64(i);
+            Ok(())
+        }
+        Value::Int(bi) => {
+            // Match tree policy: Int is editable only when it fits i64.
+            if bi.to_string().parse::<i64>().is_err() {
+                return Err(AppError::keyed("error.saveEditor.patchType"));
+            }
             let Some(i) = json_as_i64(patch) else {
                 return Err(AppError::keyed("error.saveEditor.patchType"));
             };
@@ -266,7 +277,11 @@ fn set_primitive(leaf: &mut Value, patch: &serde_json::Value) -> Result<(), AppE
             *leaf = Value::String(s.to_string());
             Ok(())
         }
-        Value::Bytes(_) => {
+        Value::Bytes(b) => {
+            // Match tree policy: Bytes are editable only when valid UTF-8.
+            if std::str::from_utf8(b).is_err() {
+                return Err(AppError::keyed("error.saveEditor.patchType"));
+            }
             let Some(s) = patch.as_str() else {
                 return Err(AppError::keyed("error.saveEditor.patchType"));
             };
@@ -293,6 +308,20 @@ mod tests {
     use serde_pickle::{value_to_vec, HashableValue, SerOptions, Value};
     use std::collections::BTreeMap;
 
+    /// Build a `Value::Int` larger than i64 via pickle LONG1 round-trip (no num-bigint dep).
+    fn opaque_big_int() -> Value {
+        // PROTO 2 + LONG1(9 bytes) encoding 2^64 + STOP
+        let mut pickle = vec![0x80, 0x02, 0x8a, 0x09];
+        pickle.extend_from_slice(&[0, 0, 0, 0, 0, 0, 0, 0, 1]);
+        pickle.push(0x2e);
+        let v = value_from_slice(&pickle, DeOptions::new()).unwrap();
+        assert!(
+            matches!(&v, Value::Int(bi) if bi.to_string().parse::<i64>().is_err()),
+            "expected opaque BigInt, got {v:?}"
+        );
+        v
+    }
+
     fn sample_log() -> Vec<u8> {
         let mut store = BTreeMap::new();
         store.insert(HashableValue::String("money".into()), Value::I64(100));
@@ -305,6 +334,15 @@ mod tests {
         store.insert(
             HashableValue::String("inv".into()),
             Value::List(vec![Value::I64(7), Value::I64(8)]),
+        );
+        store.insert(HashableValue::String("huge".into()), opaque_big_int());
+        store.insert(
+            HashableValue::String("raw".into()),
+            Value::Bytes(vec![0xff, 0xfe, 0xfd]),
+        );
+        store.insert(
+            HashableValue::String("utf8bytes".into()),
+            Value::Bytes(b"ok".to_vec()),
         );
 
         let mut roots = BTreeMap::new();
@@ -395,5 +433,60 @@ mod tests {
         )
         .unwrap_err();
         assert!(err.to_string().contains("error.saveEditor.patchMissing"));
+    }
+
+    #[test]
+    fn opaque_int_and_bytes_not_editable_in_tree() {
+        let tree = log_to_tree(&sample_log()).unwrap();
+        let huge = find_path(&tree, "store.huge").unwrap();
+        assert!(!huge.editable);
+        assert_eq!(huge.type_, "opaque");
+        let raw = find_path(&tree, "store.raw").unwrap();
+        assert!(!raw.editable);
+        assert_eq!(raw.type_, "opaque");
+        let utf8 = find_path(&tree, "store.utf8bytes").unwrap();
+        assert!(utf8.editable);
+        assert_eq!(utf8.type_, "string");
+    }
+
+    #[test]
+    fn reject_patch_on_opaque_int() {
+        let err = apply_patches(
+            &sample_log(),
+            &[RenpySavePatch {
+                path: "store.huge".into(),
+                value: json!(1),
+            }],
+        )
+        .unwrap_err();
+        assert!(err.to_string().contains("error.saveEditor.patchType"));
+    }
+
+    #[test]
+    fn reject_patch_on_opaque_bytes() {
+        let err = apply_patches(
+            &sample_log(),
+            &[RenpySavePatch {
+                path: "store.raw".into(),
+                value: json!("nope"),
+            }],
+        )
+        .unwrap_err();
+        assert!(err.to_string().contains("error.saveEditor.patchType"));
+    }
+
+    #[test]
+    fn utf8_bytes_still_patchable() {
+        let patched = apply_patches(
+            &sample_log(),
+            &[RenpySavePatch {
+                path: "store.utf8bytes".into(),
+                value: json!("hi"),
+            }],
+        )
+        .unwrap();
+        let tree = log_to_tree(&patched).unwrap();
+        let node = find_path(&tree, "store.utf8bytes").unwrap();
+        assert_eq!(node.value, Some(json!("hi")));
     }
 }
