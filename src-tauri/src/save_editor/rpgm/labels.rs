@@ -155,7 +155,12 @@ fn display_name_for_path(path: &str, names: &InventoryNames) -> Option<String> {
 }
 
 fn system_display_name_for_path(path: &str, names: &SystemNames) -> Option<String> {
-    let (id_str, map) = if let Some(rest) = path.strip_prefix("switches._data.") {
+    // JsonEx encodes arrays as { "@a": [...], "@c": n } → paths like switches._data.@a[1].
+    let (id_str, map) = if let Some(rest) = path.strip_prefix("switches._data.@a[") {
+        (rest.strip_suffix(']')?, &names.switches)
+    } else if let Some(rest) = path.strip_prefix("variables._data.@a[") {
+        (rest.strip_suffix(']')?, &names.variables)
+    } else if let Some(rest) = path.strip_prefix("switches._data.") {
         (rest, &names.switches)
     } else if let Some(rest) = path.strip_prefix("variables._data.") {
         (rest, &names.variables)
@@ -308,6 +313,25 @@ mod tests {
         assert_eq!(
             find(&tree, "variables._data.1").unwrap().name,
             "Gold multiplier (1)"
+        );
+    }
+
+    #[test]
+    fn decorates_jsonex_array_switch_paths() {
+        let dir = temp_data_dir();
+        fs::write(
+            dir.join("System.json"),
+            r#"{"switches":["","Intro done"],"variables":[""]}"#,
+        )
+        .unwrap();
+        let mut tree = json_to_tree(&serde_json::json!({
+            "switches": {"_data": {"@a": [null, true], "@c": 1}}
+        }));
+        let names = load_system_names(&dir);
+        decorate_system_names(&mut tree, &names);
+        assert_eq!(
+            find(&tree, "switches._data.@a[1]").unwrap().name,
+            "Intro done (1)"
         );
     }
 

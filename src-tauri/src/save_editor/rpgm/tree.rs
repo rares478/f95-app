@@ -427,6 +427,20 @@ mod tests {
             find(&tree, "party._gold").unwrap().value,
             Some(serde_json::json!(424242))
         );
+        // JsonEx actor path must be patchable.
+        write_rpgsave_patches(
+            &work,
+            &[RenpySavePatch {
+                path: "actors._data.@a[1]._hp".into(),
+                value: serde_json::json!(999),
+            }],
+        )
+        .unwrap();
+        let tree = read_rpgsave_file(&work, None).unwrap();
+        assert_eq!(
+            find(&tree, "actors._data.@a[1]._hp").unwrap().value,
+            Some(serde_json::json!(999))
+        );
         let _ = fs::remove_file(&work);
     }
 }

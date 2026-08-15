@@ -71,16 +71,33 @@ export interface ActorCard {
   index: number;
   path: string;
   title: string;
-  fields: ActorField[];
+  /** Ordered core stats (Name, HP, MP, Level, Exp, optional TP/Nickname). */
+  coreFields: ActorField[];
+  /** Other editable `_` scalars, sorted by key. */
+  extraFields: ActorField[];
 }
 
-const ACTOR_SCALAR_KEYS = new Set(['_hp', '_mp', '_level', '_exp', '_name']);
+/** Core actor fields shown in the always-visible row (spec order). */
+export const ACTOR_CORE_KEYS = [
+  '_name',
+  '_hp',
+  '_mp',
+  '_level',
+  '_exp',
+  '_tp',
+  '_nickname',
+] as const;
+
+const ACTOR_CORE_KEY_SET = new Set<string>(ACTOR_CORE_KEYS);
+
+/** Collapse “Other fields” when extras exceed this count. */
+export const ACTOR_EXTRAS_COLLAPSE_AT = 8;
 
 export function extractActorCards(tree: RenpyVarNode): ActorCard[] {
   const data = findNode(tree, 'actors._data');
-  if (!data?.children) return [];
+  const entries = collectionEntries(data);
   const cards: ActorCard[] = [];
-  for (const child of data.children) {
+  for (const child of entries) {
     if (child.type === 'null' || child.value === null) continue;
     if (!child.children) continue;
     const indexStr = leafIndex(child);
@@ -88,12 +105,12 @@ export function extractActorCards(tree: RenpyVarNode): ActorCard[] {
     const index = Number(indexStr);
     if (!Number.isFinite(index)) continue;
 
-    const fields: ActorField[] = [];
+    const byKey = new Map<string, ActorField>();
     for (const field of child.children) {
       if (!isPrimitiveLeaf(field)) continue;
       if (!field.editable) continue;
-      if (!ACTOR_SCALAR_KEYS.has(field.name) && !isSimilarActorScalar(field)) continue;
-      fields.push({
+      if (!ACTOR_CORE_KEY_SET.has(field.name) && !isSimilarActorScalar(field)) continue;
+      byKey.set(field.name, {
         path: field.path,
         key: field.name,
         value: field.value,
@@ -101,15 +118,40 @@ export function extractActorCards(tree: RenpyVarNode): ActorCard[] {
       });
     }
 
-    const nameField = fields.find((f) => f.key === '_name');
+    const coreFields: ActorField[] = [];
+    for (const key of ACTOR_CORE_KEYS) {
+      const f = byKey.get(key);
+      if (f) coreFields.push(f);
+    }
+
+    const extraFields = [...byKey.values()]
+      .filter((f) => !ACTOR_CORE_KEY_SET.has(f.key))
+      .sort((a, b) => a.key.localeCompare(b.key));
+
+    const nameField = coreFields.find((f) => f.key === '_name') ?? byKey.get('_name');
     const title =
       typeof nameField?.value === 'string' && nameField.value.length > 0
         ? nameField.value
         : `#${index}`;
 
-    cards.push({ index, path: child.path, title, fields });
+    cards.push({ index, path: child.path, title, coreFields, extraFields });
   }
   return cards;
+}
+
+/** Filter extras by key/label; always keep paths in `dirtyPaths`. */
+export function filterActorExtraFields(
+  fields: ActorField[],
+  query: string,
+  dirtyPaths?: Set<string>,
+): ActorField[] {
+  const q = query.trim().toLowerCase();
+  if (!q) return fields;
+  return fields.filter((f) => {
+    if (dirtyPaths?.has(f.path)) return true;
+    const label = f.key.startsWith('_') ? f.key.slice(1) : f.key;
+    return f.key.toLowerCase().includes(q) || label.toLowerCase().includes(q);
+  });
 }
 
 export interface IndexedRow {
@@ -125,9 +167,9 @@ export function extractIndexedRows(
   rootPath: 'switches._data' | 'variables._data',
 ): IndexedRow[] {
   const parent = findNode(tree, rootPath);
-  if (!parent?.children) return [];
   const rows: IndexedRow[] = [];
-  for (const child of parent.children) {
+  for (const child of collectionEntries(parent)) {
+    if (child.type === 'null' || child.value === null) continue;
     if (!isPrimitiveLeaf(child)) continue;
     const index = leafIndex(child);
     if (index == null) continue;
@@ -186,13 +228,24 @@ function numberOrNull(value: unknown): number | null {
 }
 
 function extractActorIds(node: RenpyVarNode | null): number[] {
-  if (!node?.children) return [];
   const ids: number[] = [];
-  for (const child of node.children) {
+  for (const child of collectionEntries(node)) {
     const n = numberOrNull(child.value);
     if (n != null) ids.push(n);
   }
   return ids;
+}
+
+/**
+ * RPG Maker JsonEx encodes arrays as `{ "@a": [...], "@c": n }`.
+ * Plain JSON arrays/objects are returned as-is (minus `@` / `@c` metadata).
+ */
+export function collectionEntries(node: RenpyVarNode | null | undefined): RenpyVarNode[] {
+  if (!node?.children?.length) return [];
+  const wrapped = node.children.find((c) => c.name === '@a');
+  if (wrapped?.children) return wrapped.children;
+  if (node.type === 'list') return node.children;
+  return node.children.filter((c) => c.name !== '@' && c.name !== '@c');
 }
 
 function isDefaultVariableValue(value: unknown): boolean {

@@ -107,11 +107,11 @@ describe('RPGM panel data wiring', () => {
     expect(filterInventoryRows(rows, '  ').map((r) => r.id)).toEqual(['1', '9']);
   });
 
-  it('actor cards expose patchable primitive field paths', () => {
+  it('actor cards expose patchable core field paths', () => {
     const cards = extractActorCards(sampleTree());
     expect(cards).toHaveLength(1);
     expect(cards[0].title).toBe('Natsuki');
-    const hp = cards[0].fields.find((f) => f.key === '_hp');
+    const hp = cards[0].coreFields.find((f) => f.key === '_hp');
     expect(hp?.path).toBe('actors._data[1]._hp');
     const onPatch = vi.fn();
     onPatch(hp!.path, 999);

@@ -6,6 +6,7 @@ import {
   extractIndexedRows,
   extractInventoryRows,
   extractPartyView,
+  filterActorExtraFields,
   filterNonDefaultSwitches,
   filterNonDefaultVariables,
   findNode,
@@ -145,7 +146,7 @@ describe('extractPartyView', () => {
 });
 
 describe('extractActorCards', () => {
-  it('skips null actors and only exposes primitive scalar fields', () => {
+  it('splits core stats from extra scalars in stable order', () => {
     const cards = extractActorCards(sampleTree());
     expect(cards).toHaveLength(1);
     expect(cards[0]).toMatchObject({
@@ -153,19 +154,149 @@ describe('extractActorCards', () => {
       path: 'actors._data[1]',
       title: 'Natsuki',
     });
-    expect(cards[0].fields.map((f) => f.key).sort()).toEqual([
-      '_exp',
-      '_hp',
-      '_level',
-      '_mp',
+    expect(cards[0].coreFields.map((f) => f.key)).toEqual([
       '_name',
+      '_hp',
+      '_mp',
+      '_level',
+      '_exp',
     ]);
-    expect(cards[0].fields.find((f) => f.key === '_hp')).toEqual({
+    expect(cards[0].extraFields).toEqual([]);
+    expect(cards[0].coreFields.find((f) => f.key === '_hp')).toEqual({
       path: 'actors._data[1]._hp',
       key: '_hp',
       value: 100,
       type: 'int',
     });
+  });
+
+  it('puts non-core _ scalars into extraFields sorted by key', () => {
+    const tree = group('', 'root', [
+      group('actors', 'actors', [
+        group('actors._data', '_data', [
+          group('actors._data[1]', '1', [
+            leaf('actors._data[1]._name', '_name', 'string', 'Karryn'),
+            leaf('actors._data[1]._hp', '_hp', 'int', 100),
+            leaf('actors._data[1]._CCMOD_Z', '_CCMOD_Z', 'int', 1),
+            leaf('actors._data[1]._CCMOD_A', '_CCMOD_A', 'bool', true),
+            leaf('actors._data[1]._tp', '_tp', 'int', 50),
+          ]),
+        ]),
+      ]),
+    ]);
+    const card = extractActorCards(tree)[0];
+    expect(card.coreFields.map((f) => f.key)).toEqual(['_name', '_hp', '_tp']);
+    expect(card.extraFields.map((f) => f.key)).toEqual(['_CCMOD_A', '_CCMOD_Z']);
+  });
+
+  it('unwraps JsonEx @a arrays under actors._data', () => {
+    const tree = group('', 'root', [
+      group('actors', 'actors', [
+        group('actors._data', '_data', [
+          {
+            path: 'actors._data.@a',
+            name: '@a',
+            type: 'list',
+            editable: false,
+            children: [
+              leaf('actors._data.@a[0]', '0', 'null', null, false),
+              group('actors._data.@a[1]', '1', [
+                leaf('actors._data.@a[1]._name', '_name', 'string', 'Natsuki'),
+                leaf('actors._data.@a[1]._hp', '_hp', 'int', 450),
+                leaf('actors._data.@a[1]._mp', '_mp', 'int', 90),
+                leaf('actors._data.@a[1]._level', '_level', 'int', 1),
+              ]),
+            ],
+          },
+          leaf('actors._data.@c', '@c', 'int', 18, false),
+        ]),
+      ]),
+    ]);
+    const cards = extractActorCards(tree);
+    expect(cards).toHaveLength(1);
+    expect(cards[0]).toMatchObject({
+      index: 1,
+      path: 'actors._data.@a[1]',
+      title: 'Natsuki',
+    });
+    expect(cards[0].coreFields.find((f) => f.key === '_hp')).toEqual({
+      path: 'actors._data.@a[1]._hp',
+      key: '_hp',
+      value: 450,
+      type: 'int',
+    });
+  });
+});
+
+describe('filterActorExtraFields', () => {
+  it('filters by key and keeps dirty paths', () => {
+    const fields = [
+      { path: 'a._CCMOD_A', key: '_CCMOD_A', value: 1, type: 'int' },
+      { path: 'a._CCMOD_Z', key: '_CCMOD_Z', value: 2, type: 'int' },
+      { path: 'a._foo', key: '_foo', value: 3, type: 'int' },
+    ];
+    expect(filterActorExtraFields(fields, 'ccmod_a').map((f) => f.key)).toEqual(['_CCMOD_A']);
+    expect(
+      filterActorExtraFields(fields, 'nope', new Set(['a._foo'])).map((f) => f.key),
+    ).toEqual(['_foo']);
+  });
+});
+
+describe('JsonEx collection unwrap', () => {
+  it('reads party._actors and switches from @a wrappers', () => {
+    const tree = group('', 'root', [
+      group('party', 'party', [
+        leaf('party._gold', '_gold', 'int', 10),
+        leaf('party._steps', '_steps', 'int', 1),
+        group('party._actors', '_actors', [
+          {
+            path: 'party._actors.@a',
+            name: '@a',
+            type: 'list',
+            editable: false,
+            children: [
+              leaf('party._actors.@a[0]', '0', 'int', 1),
+              leaf('party._actors.@a[1]', '1', 'int', 2),
+            ],
+          },
+          leaf('party._actors.@c', '@c', 'int', 5, false),
+        ]),
+      ]),
+      group('switches', 'switches', [
+        group('switches._data', '_data', [
+          {
+            path: 'switches._data.@a',
+            name: '@a',
+            type: 'list',
+            editable: false,
+            children: [
+              leaf('switches._data.@a[0]', '0', 'null', null, false),
+              leaf('switches._data.@a[1]', 'Intro done (1)', 'bool', true),
+              leaf('switches._data.@a[2]', '2', 'bool', false),
+            ],
+          },
+          leaf('switches._data.@c', '@c', 'int', 9, false),
+        ]),
+      ]),
+    ]);
+
+    expect(extractPartyView(tree).actorIds).toEqual([1, 2]);
+    expect(extractIndexedRows(tree, 'switches._data')).toEqual([
+      {
+        path: 'switches._data.@a[1]',
+        index: '1',
+        label: 'Intro done (1)',
+        value: true,
+        type: 'bool',
+      },
+      {
+        path: 'switches._data.@a[2]',
+        index: '2',
+        label: '2',
+        value: false,
+        type: 'bool',
+      },
+    ]);
   });
 });
 

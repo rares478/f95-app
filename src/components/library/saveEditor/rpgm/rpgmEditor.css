@@ -103,10 +103,43 @@
   gap: 10px;
 }
 
+.rpgm-fields--core {
+  grid-template-columns: repeat(auto-fill, minmax(160px, 1fr));
+}
+
+.rpgm-fields--extras {
+  display: flex;
+  flex-direction: column;
+  gap: 8px;
+}
+
 .rpgm-field {
   display: flex;
   flex-direction: column;
   gap: 4px;
+  min-width: 0;
+}
+
+.rpgm-field-label {
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+  min-width: 0;
+}
+
+.rpgm-field--extra {
+  display: grid;
+  grid-template-columns: minmax(0, 1fr) minmax(96px, 180px);
+  align-items: center;
+  gap: 8px 12px;
+}
+
+.rpgm-field--extra.rpgm-field--bool {
+  grid-template-columns: minmax(0, 1fr) auto;
+}
+
+.rpgm-field--extra .save-editor-input {
+  width: 100%;
   min-width: 0;
 }
 
@@ -325,6 +358,47 @@
   flex-direction: row;
   align-items: center;
   gap: 8px;
+}
+
+.rpgm-actor-extras {
+  display: flex;
+  flex-direction: column;
+  gap: 8px;
+  margin-top: 4px;
+  padding-top: 8px;
+  border-top: 1px solid var(--border-faint);
+}
+
+.rpgm-actor-extras-toolbar {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  gap: 8px;
+}
+
+.rpgm-actor-extras-toggle {
+  display: inline-flex;
+  align-items: baseline;
+  gap: 8px;
+  margin: 0;
+  padding: 4px 0;
+  border: none;
+  background: transparent;
+  color: var(--text-secondary);
+  font: inherit;
+  font-size: 12px;
+  cursor: pointer;
+}
+
+.rpgm-actor-extras-toggle:hover {
+  color: var(--text-primary);
+}
+
+.rpgm-actor-extras-count {
+  color: var(--text-faint);
+  font-weight: 600;
+  text-transform: uppercase;
+  letter-spacing: 0.04em;
 }
 
 .rpgm-bool-input {
