@@ -756,6 +756,8 @@ const en: Record<string, string> = {
   'libdetail.sessions.running': '▶ in progress',
   'libdetail.sessions.interrupted': '— session interrupted',
   'libdetail.section.tags': 'Custom tags',
+  'libdetail.section.storeTags': 'Store tags',
+  'libdetail.storeTags.empty': 'No store tags cached yet.',
   'libdetail.tags.empty': 'No tags yet.',
   'libdetail.tags.input': 'Add tag and press Enter…',
   'libdetail.section.location': 'Location',

@@ -678,6 +678,21 @@ export function LibraryGamePage() {
           </GameDetailSection>
           )}
 
+          <GameDetailSection title={t('libdetail.section.storeTags')}>
+            <div className="game-detail-tags">
+              {g.storeTags.length === 0 && (
+                <span className="game-detail-empty-hint">
+                  {t('libdetail.storeTags.empty')}
+                </span>
+              )}
+              {g.storeTags.map((tag) => (
+                <span key={tag} className="game-detail-custom-tag">
+                  {tag}
+                </span>
+              ))}
+            </div>
+          </GameDetailSection>
+
           <GameDetailSection title={t('libdetail.section.tags')}>
             <div className="game-detail-tags">
               {g.customTags.length === 0 && (

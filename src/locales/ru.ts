@@ -720,6 +720,8 @@ const ru: Record<string, string> = {
   'libdetail.sessions.running': '▶ идёт',
   'libdetail.sessions.interrupted': '— сессия прервана',
   'libdetail.section.tags': 'Свои теги',
+  'libdetail.section.storeTags': 'Теги магазина',
+  'libdetail.storeTags.empty': 'Теги магазина пока не сохранены.',
   'libdetail.tags.empty': 'Пока нет тегов.',
   'libdetail.tags.input': 'Добавить тег и нажать Enter…',
   'libdetail.section.location': 'Расположение',

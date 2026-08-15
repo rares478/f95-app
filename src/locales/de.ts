@@ -720,6 +720,8 @@ const de: Record<string, string> = {
   'libdetail.sessions.running': '▶ läuft',
   'libdetail.sessions.interrupted': '— Sitzung unterbrochen',
   'libdetail.section.tags': 'Eigene Tags',
+  'libdetail.section.storeTags': 'Store-Tags',
+  'libdetail.storeTags.empty': 'Noch keine Store-Tags zwischengespeichert.',
   'libdetail.tags.empty': 'Noch keine Tags.',
   'libdetail.tags.input': 'Tag hinzufügen und Enter drücken…',
   'libdetail.section.location': 'Ort',
