@@ -1,7 +1,7 @@
 import { useEffect, useRef, useState } from 'react';
 import { Link } from 'react-router-dom';
 import { useStoreContextMenu } from '../../hooks/useStoreContextMenu';
-import { toF95FullUrl } from '../../lib/f95ImageUrl';
+import { storeGameImageUrl } from '../../lib/f95ImageUrl';
 import { useT } from '../../lib/i18n';
 import { useIsInLibrary } from '../../lib/libraryMembership';
 import type { SamCategory, SamGameCard } from '../../types/sam';
@@ -58,7 +58,7 @@ export function WideCapsuleCard({ game, category }: Props) {
   };
 
   const meta = game.version || shortUpdatedAt(game.updatedAt);
-  const imageSrc = game.thumbnailUrl ? toF95FullUrl(game.thumbnailUrl) : null;
+  const imageSrc = storeGameImageUrl(game, 'thumb');
 
   return (
     <Link

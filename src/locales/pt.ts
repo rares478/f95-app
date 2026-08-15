@@ -548,7 +548,7 @@ const pt: Record<string, string> = {
   'settings.maintenance.finishedEntries': '{count} registros',
   'settings.maintenance.sessions': 'Sessões salvas',
   'settings.maintenance.sessionsHint': 'Preservadas (afetam total de horas)',
-  'settings.maintenance.confirmCache': 'Apagar o cache local de jogos (capa, prefixes, tags)? A próxima visita à Loja vai recarregar tudo do F95Zone.',
+  'settings.maintenance.confirmCache': 'Apagar o cache da Loja (trilhos de descoberta, destaque, cards, prefixes, tags)? A próxima visita à Loja vai recarregar tudo do F95Zone.',
   'settings.maintenance.confirmFinished': 'Remover o histórico de downloads concluídos/cancelados/falhos? Os arquivos baixados continuam no disco.',
 
   'settings.dev.section': 'Desenvolvedor',

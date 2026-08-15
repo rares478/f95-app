@@ -47,10 +47,14 @@ fn io_err(e: impl ToString) -> AppError {
 }
 
 fn to_full_url(url: &str) -> String {
-    if !url.contains("/thumb/") {
-        return url.to_string();
-    }
-    url.replace("/thumb/", "/")
+    let mut out = if url.contains("/thumb/") {
+        url.replace("/thumb/", "/")
+    } else {
+        url.to_string()
+    };
+    // SAM serves downscaled assets on preview.*; full binaries live on attachments.*.
+    out = out.replace("://preview.f95zone.to/", "://attachments.f95zone.to/");
+    out
 }
 
 fn to_thumb_url(full: &str) -> String {

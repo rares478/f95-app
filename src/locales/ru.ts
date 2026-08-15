@@ -546,7 +546,7 @@ const ru: Record<string, string> = {
   'settings.maintenance.finishedEntries': '{count} записей',
   'settings.maintenance.sessions': 'Сохранённые сессии',
   'settings.maintenance.sessionsHint': 'Сохраняются (влияют на общее время игры)',
-  'settings.maintenance.confirmCache': 'Очистить локальный кэш игр (обложки, prefixes, теги)? При следующем визите в Магазин всё подгрузится заново с F95Zone.',
+  'settings.maintenance.confirmCache': 'Очистить кэш Магазина (ленты, витрина, карточки, prefixes, теги)? При следующем визите в Магазин всё подгрузится заново с F95Zone.',
   'settings.maintenance.confirmFinished': 'Удалить историю завершённых/отменённых/неудачных загрузок? Скачанные файлы останутся на диске.',
 
   'settings.dev.section': 'Разработчик',

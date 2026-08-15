@@ -1,7 +1,7 @@
 import { useEffect, useRef, useState, type MouseEvent } from 'react';
 import { Link } from 'react-router-dom';
 import { useStoreContextMenu } from '../../hooks/useStoreContextMenu';
-import { toF95FullUrl } from '../../lib/f95ImageUrl';
+import { storeGameImageUrl } from '../../lib/f95ImageUrl';
 import { useT } from '../../lib/i18n';
 import { useIsInLibrary } from '../../lib/libraryMembership';
 import type { SamCategory, SamGameCard } from '../../types/sam';
@@ -158,7 +158,9 @@ export function SpotlightHero({ slides, category }: Props) {
       <aside className="spotlight-up-next">
         <h3 className="spotlight-up-next-title">{t('store.home.upNext')}</h3>
         <div className="spotlight-up-next-list">
-          {slides.map((slide, i) => (
+          {slides.map((slide, i) => {
+            const thumbSrc = storeGameImageUrl(slide, 'thumb');
+            return (
             <button
               key={slide.threadId}
               type="button"
@@ -167,8 +169,8 @@ export function SpotlightHero({ slides, category }: Props) {
               onClick={() => setActive(i)}
             >
               <span className="spotlight-up-next-thumb">
-                {slide.thumbnailUrl ? (
-                  <img src={slide.thumbnailUrl} alt="" loading="lazy" />
+                {thumbSrc ? (
+                  <img src={thumbSrc} alt="" loading="lazy" />
                 ) : (
                   <span className="spotlight-up-next-fallback">
                     {slide.title.slice(0, 1).toUpperCase()}
@@ -182,7 +184,8 @@ export function SpotlightHero({ slides, category }: Props) {
                 )}
               </span>
             </button>
-          ))}
+            );
+          })}
         </div>
       </aside>
     </section>
@@ -204,7 +207,7 @@ function SpotlightSlide({
 }) {
   const { t } = useT();
   const inLibrary = useIsInLibrary(game.threadId);
-  const imageSrc = game.thumbnailUrl ? toF95FullUrl(game.thumbnailUrl) : null;
+  const imageSrc = storeGameImageUrl(game, 'full');
   const className = [
     'spotlight-slide',
     `spotlight-slide--${layer}`,

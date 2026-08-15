@@ -1,6 +1,7 @@
 import { useEffect, useMemo, useRef, useState } from 'react';
 import { Link } from 'react-router-dom';
 import { useStoreContextMenu } from '../../hooks/useStoreContextMenu';
+import { storeGameThumbUrls } from '../../lib/f95ImageUrl';
 import { useT } from '../../lib/i18n';
 import { useIsInLibrary } from '../../lib/libraryMembership';
 import type { SamCategory, SamGameCard } from '../../types/sam';
@@ -24,18 +25,10 @@ export function RailGameCard({ game, category }: Props) {
   const [slide, setSlide] = useState(0);
   const openTimerRef = useRef<number | null>(null);
 
-  const images = useMemo(() => {
-    const out: string[] = [];
-    const seen = new Set<string>();
-    const push = (url: string | null | undefined) => {
-      if (!url || seen.has(url)) return;
-      seen.add(url);
-      out.push(url);
-    };
-    push(game.thumbnailUrl);
-    for (const s of game.screens) push(s);
-    return out;
-  }, [game.thumbnailUrl, game.screens]);
+  const images = useMemo(
+    () => storeGameThumbUrls(game),
+    [game.thumbnailUrl, game.screens],
+  );
 
   useEffect(() => {
     if (!hovered || images.length <= 1) {

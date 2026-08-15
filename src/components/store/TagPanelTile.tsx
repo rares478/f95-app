@@ -1,6 +1,6 @@
 import { Link } from 'react-router-dom';
 import { useStoreContextMenu } from '../../hooks/useStoreContextMenu';
-import { toF95FullUrl } from '../../lib/f95ImageUrl';
+import { storeGameImageUrl } from '../../lib/f95ImageUrl';
 import { useT } from '../../lib/i18n';
 import { useIsInLibrary } from '../../lib/libraryMembership';
 import type { SamCategory, SamGameCard } from '../../types/sam';
@@ -29,7 +29,7 @@ export function TagPanelTile({ game, category }: Props) {
         ? { kind: 'likes' as const, text: formatCount(game.likes) }
         : null;
 
-  const imageSrc = game.thumbnailUrl ? toF95FullUrl(game.thumbnailUrl) : null;
+  const imageSrc = storeGameImageUrl(game, 'full');
 
   return (
     <Link

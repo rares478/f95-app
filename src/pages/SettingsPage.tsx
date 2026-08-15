@@ -687,15 +687,16 @@ export function SettingsPage({ onLoggedOut: _onLoggedOut }: Props) {
 
   async function refreshCounts() {
     try {
-      const [games, dls, sessions] = await Promise.all([
+      const [games, pools, dls, sessions] = await Promise.all([
         query<{ n: number }>('SELECT COUNT(*) AS n FROM games_cache'),
+        query<{ n: number }>('SELECT COUNT(*) AS n FROM discovery_pools'),
         query<{ n: number }>(
           `SELECT COUNT(*) AS n FROM downloads WHERE state IN ('completed','cancelled','failed','needs_browser')`,
         ),
         query<{ n: number }>('SELECT COUNT(*) AS n FROM play_sessions'),
       ]);
       setCounts({
-        games: games[0]?.n ?? 0,
+        games: (games[0]?.n ?? 0) + (pools[0]?.n ?? 0),
         finishedDownloads: dls[0]?.n ?? 0,
         sessions: sessions[0]?.n ?? 0,
       });
@@ -713,6 +714,7 @@ export function SettingsPage({ onLoggedOut: _onLoggedOut }: Props) {
     setBusy('games');
     try {
       await execute('DELETE FROM games_cache');
+      await execute('DELETE FROM discovery_pools');
       await refreshCounts();
     } finally {
       setBusy(null);

@@ -579,7 +579,7 @@ const en: Record<string, string> = {
   'settings.maintenance.finishedEntries': '{count} entries',
   'settings.maintenance.sessions': 'Saved sessions',
   'settings.maintenance.sessionsHint': 'Preserved (affect total playtime)',
-  'settings.maintenance.confirmCache': 'Clear local games cache (cover art, prefixes, tags)? The next Store visit will reload everything from F95Zone.',
+  'settings.maintenance.confirmCache': 'Clear Store cache (discovery rails, spotlight, game cards, prefixes, tags)? The next Store visit will reload everything from F95Zone.',
   'settings.maintenance.confirmFinished': 'Clear history of finished/cancelled/failed downloads? Downloaded files stay on disk.',
 
   'settings.dev.section': 'Developer',

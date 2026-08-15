@@ -546,7 +546,7 @@ const de: Record<string, string> = {
   'settings.maintenance.finishedEntries': '{count} Einträge',
   'settings.maintenance.sessions': 'Gespeicherte Sitzungen',
   'settings.maintenance.sessionsHint': 'Bleiben erhalten (zählen zur Gesamtspielzeit)',
-  'settings.maintenance.confirmCache': 'Lokalen Spielecache (Cover, Prefixes, Tags) löschen? Beim nächsten Shop-Besuch wird alles erneut von F95Zone geladen.',
+  'settings.maintenance.confirmCache': 'Shop-Cache löschen (Discovery-Leisten, Spotlight, Spielkarten, Prefixes, Tags)? Beim nächsten Shop-Besuch wird alles erneut von F95Zone geladen.',
   'settings.maintenance.confirmFinished': 'Verlauf der abgeschlossenen/abgebrochenen/fehlgeschlagenen Downloads löschen? Die heruntergeladenen Dateien bleiben.',
 
   'settings.dev.section': 'Entwickler',
