@@ -87,14 +87,35 @@ pub fn write_log_bytes(save_path: &Path, new_log: &[u8]) -> Result<(), AppError>
         })?;
     }
     fs::rename(&new_path, save_path).map_err(|e| {
-        let _ = fs::remove_file(&new_path);
-        AppError::Io(format!(
-            "failed to rename {} -> {}: {e}",
-            new_path.display(),
-            save_path.display()
-        ))
+        // Live path is already gone — never delete `.new`; it is the only copy.
+        recover_after_failed_rename(&new_path, save_path, e)
     })?;
     Ok(())
+}
+
+/// After `remove_file(save_path)` succeeded but `rename(.new → save)` failed:
+/// keep `.new`, try to copy it back to `save_path`, and return an error that
+/// includes the recovery path. Does **not** delete `.new`.
+fn recover_after_failed_rename(
+    new_path: &Path,
+    save_path: &Path,
+    rename_err: std::io::Error,
+) -> AppError {
+    match fs::copy(new_path, save_path) {
+        Ok(_) => AppError::Io(format!(
+            "failed to rename {} -> {}: {rename_err}; restored {} by copying from recovery file {}",
+            new_path.display(),
+            save_path.display(),
+            save_path.display(),
+            new_path.display()
+        )),
+        Err(copy_err) => AppError::Io(format!(
+            "failed to rename {} -> {}: {rename_err}; recovery file kept at {} (copy restore failed: {copy_err})",
+            new_path.display(),
+            save_path.display(),
+            new_path.display()
+        )),
+    }
 }
 
 /// True if the save zip contains a `screenshot.png` member.
@@ -236,6 +257,46 @@ mod tests {
         assert_eq!(member_bytes(&p, "json"), b"{}");
         assert!(zip_has_screenshot(&p));
         let _ = fs::remove_file(&p);
+    }
+
+    /// Rename failure after live remove is hard to force on Windows; this tests
+    /// the recovery helper that must keep `.new` and attempt copy-restore.
+    #[test]
+    fn recover_after_failed_rename_keeps_new_and_restores() {
+        let save = temp_save_path();
+        let new_path = temp_new_path(&save);
+        fs::write(&new_path, b"recovery-body").unwrap();
+        assert!(!save.exists());
+
+        let err = recover_after_failed_rename(
+            &new_path,
+            &save,
+            std::io::Error::new(std::io::ErrorKind::PermissionDenied, "simulated rename fail"),
+        );
+
+        assert!(
+            new_path.exists(),
+            ".new must not be deleted on rename failure"
+        );
+        assert_eq!(fs::read(&new_path).unwrap(), b"recovery-body");
+        assert!(
+            save.exists(),
+            "copy restore should recreate save_path from .new"
+        );
+        assert_eq!(fs::read(&save).unwrap(), b"recovery-body");
+
+        let msg = err.to_string();
+        assert!(
+            msg.contains(&new_path.display().to_string()),
+            "error must include recovery path for manual recovery: {msg}"
+        );
+        assert!(
+            msg.contains("restored") || msg.contains("recovery file"),
+            "error should describe restore/recovery: {msg}"
+        );
+
+        let _ = fs::remove_file(&save);
+        let _ = fs::remove_file(&new_path);
     }
 
     #[test]
