@@ -197,6 +197,17 @@ describe('extractIndexedRows', () => {
     ]);
   });
 
+  it('passes through Name (1) decorated labels as-is', () => {
+    const tree = group('', 'root', [
+      group('switches', 'switches', [
+        group('switches._data', '_data', [
+          leaf('switches._data.1', 'Name (1)', 'bool', true),
+        ]),
+      ]),
+    ]);
+    expect(extractIndexedRows(tree, 'switches._data')[0].label).toBe('Name (1)');
+  });
+
   it('extracts variable rows including decorated labels', () => {
     const rows = extractIndexedRows(sampleTree(), 'variables._data');
     expect(rows.find((r) => r.index === '1')).toEqual({
