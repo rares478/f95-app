@@ -15,6 +15,18 @@ together when cutting a release:
 
 ## [Unreleased]
 
+## [1.7.4] - 2026-08-15
+
+### Added
+- Ren'Py Save Editor: browse and surgically edit save variables from Library game detail.
+- RPG Maker MV/MZ Save Editor: list `.rpgsave` slots, LZ-String decode/encode, and primitive patches with backups.
+- Curated RPG Maker tabs (Party, Inventory, Actors, Switches, Variables) plus Raw tree; `System.json` switch/variable names and item DB labels when available.
+
+### Fixed
+- Ren'Py 7/8 edits no longer break loads (pickle splice, FRAME sizes, drop stale zip signatures).
+- RPG Maker JsonEx `@a` array wrappers for actors, switches, variables, and party members.
+- Actors tab layout for dense modded saves: core stats plus searchable, collapsible extras.
+
 ## [1.7.3] - 2026-08-12
 
 ### Added
