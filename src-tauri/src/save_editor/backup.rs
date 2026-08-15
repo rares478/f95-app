@@ -87,6 +87,10 @@ pub fn list_backups(
 }
 
 /// Backup current live, then copy `backup_file` over `live_path`.
+///
+/// The restore source is read into memory first so that
+/// [`backup_before_write`]'s prune cannot delete the file we are restoring
+/// when the slot is already at [`MAX_BACKUPS_PER_SLOT`].
 pub fn restore_backup(
     backups_root: &Path,
     thread_id: &str,
@@ -96,8 +100,15 @@ pub fn restore_backup(
     install_root: &Path,
 ) -> Result<(), AppError> {
     ensure_under_root(live_path, install_root)?;
+    // Preserve restore source before prune can remove it.
+    let restore_bytes = fs::read(backup_file).map_err(|e| {
+        AppError::Io(format!(
+            "failed to read restore source {}: {e}",
+            backup_file.display()
+        ))
+    })?;
     backup_before_write(backups_root, thread_id, slot_key, live_path)?;
-    fs::copy(backup_file, live_path).map_err(|e| {
+    fs::write(live_path, &restore_bytes).map_err(|e| {
         AppError::Io(format!(
             "failed to restore {} -> {}: {e}",
             backup_file.display(),
@@ -279,6 +290,53 @@ mod tests {
             has_pre_restore_a,
             "expected a backup of pre-restore live content A, got {listed:?}"
         );
+    }
+
+    #[test]
+    fn restore_oldest_succeeds_when_slot_at_max_backups() {
+        let root = tempfile_root("restore-full");
+        let backups_root = root.join("save_backups");
+        let install = root.join("game");
+        let live = install.join("saves").join("1-1.save");
+
+        let mut oldest_path = PathBuf::new();
+        for i in 0..MAX_BACKUPS_PER_SLOT {
+            let content = format!("backup-{i}");
+            write_file(&live, content.as_bytes());
+            let path = backup_at(
+                &backups_root,
+                "thread1",
+                "1-1.save",
+                &live,
+                1_700_000_000_000 + i as u64,
+            )
+            .unwrap();
+            if i == 0 {
+                oldest_path = path;
+            }
+        }
+
+        assert_eq!(
+            list_backups(&backups_root, "thread1", "1-1.save")
+                .unwrap()
+                .len(),
+            MAX_BACKUPS_PER_SLOT
+        );
+        write_file(&live, b"current-live");
+        let oldest_bytes = fs::read(&oldest_path).unwrap();
+        assert_eq!(oldest_bytes, b"backup-0");
+
+        restore_backup(
+            &backups_root,
+            "thread1",
+            "1-1.save",
+            &oldest_path,
+            &live,
+            &install,
+        )
+        .expect("restore of oldest must succeed even when prune runs at capacity");
+
+        assert_eq!(fs::read(&live).unwrap(), b"backup-0");
     }
 
     #[test]
