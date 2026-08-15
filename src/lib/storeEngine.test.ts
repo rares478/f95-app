@@ -1,5 +1,5 @@
 import { describe, expect, it } from 'vitest';
-import { isHtmlEngine, isRenPyEngine } from './storeEngine';
+import { isHtmlEngine, isRenPyEngine, isRpgmEngine } from './storeEngine';
 
 describe('isHtmlEngine', () => {
   it('is false for empty or missing tags', () => {
@@ -35,5 +35,25 @@ describe('isRenPyEngine', () => {
   it('is false for other engines only', () => {
     expect(isRenPyEngine(['HTML', 'Adventure'])).toBe(false);
     expect(isRenPyEngine(['Unity'])).toBe(false);
+  });
+});
+
+describe('isRpgmEngine', () => {
+  it('is false for empty or missing tags', () => {
+    expect(isRpgmEngine([])).toBe(false);
+    expect(isRpgmEngine(null)).toBe(false);
+    expect(isRpgmEngine(undefined)).toBe(false);
+  });
+
+  it('is true when RPGM engine tag is present (case-insensitive)', () => {
+    expect(isRpgmEngine(['Adventure', 'RPGM'])).toBe(true);
+    expect(isRpgmEngine(['rpgm'])).toBe(true);
+    expect(isRpgmEngine(['Rpgm'])).toBe(true);
+  });
+
+  it('is false for other engines only', () => {
+    expect(isRpgmEngine(['HTML', 'Adventure'])).toBe(false);
+    expect(isRpgmEngine(["Ren'Py"])).toBe(false);
+    expect(isRpgmEngine(['Unity'])).toBe(false);
   });
 });

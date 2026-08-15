@@ -29,6 +29,7 @@ import type {
   RenpySaveSlot,
   RenpyVarNode,
 } from '../types/renpySave';
+import type { RpgmProbeResult } from '../types/rpgmSave';
 import * as settings from './settings';
 import {
   rememberDownloadLibrary,
@@ -379,6 +380,46 @@ export async function renpySaveBackupRestore(args: {
   backupFileName: string;
 }): Promise<void> {
   return invoke<void>('renpy_save_backup_restore', args);
+}
+
+export async function rpgmSavesProbe(installPath: string): Promise<RpgmProbeResult> {
+  return invoke<RpgmProbeResult>('rpgm_saves_probe', { installPath });
+}
+
+export async function rpgmSavesList(installPath: string): Promise<RenpySaveSlot[]> {
+  return invoke<RenpySaveSlot[]>('rpgm_saves_list', { installPath });
+}
+
+export async function rpgmSaveRead(args: {
+  installPath: string;
+  slotKey: string;
+}): Promise<RenpyVarNode> {
+  return invoke<RenpyVarNode>('rpgm_save_read', args);
+}
+
+export async function rpgmSaveWrite(args: {
+  threadId: string;
+  installPath: string;
+  slotKey: string;
+  patches: RenpySavePatch[];
+}): Promise<RenpyVarNode> {
+  return invoke<RenpyVarNode>('rpgm_save_write', args);
+}
+
+export async function rpgmSaveBackupsList(args: {
+  threadId: string;
+  slotKey: string;
+}): Promise<RenpySaveBackup[]> {
+  return invoke<RenpySaveBackup[]>('rpgm_save_backups_list', args);
+}
+
+export async function rpgmSaveBackupRestore(args: {
+  threadId: string;
+  installPath: string;
+  slotKey: string;
+  backupFileName: string;
+}): Promise<void> {
+  return invoke<void>('rpgm_save_backup_restore', args);
 }
 
 export async function deleteInstallDir(args: {

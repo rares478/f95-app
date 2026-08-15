@@ -54,7 +54,7 @@ import type { PlaySession } from '../types/session';
 import type { InstallLibraryWithDisk } from '../types/install-library';
 import { formatPlaytime, statusColor, statusKey } from '../types/library';
 import type { SamCategory } from '../types/sam';
-import { shouldShowSaveEditor } from '../lib/renpySaveGate';
+import { shouldShowSaveEditor } from '../lib/saveEditorGate';
 
 function categoryLabelKey(cat: SamCategory): string {
   return `libdetail.category.${cat}`;

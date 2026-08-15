@@ -15,7 +15,7 @@ import {
 } from '../libraryGameActions';
 import type { LibraryGame } from '../../types/library';
 import { openManageCollections } from '../collections';
-import { isRenPyEngine } from '../storeEngine';
+import { isRenPyEngine, isRpgmEngine } from '../storeEngine';
 import { item, offlineTitle, sep } from './helpers';
 
 function primaryLabel(
@@ -101,7 +101,10 @@ export function buildLibraryMenu(
       );
     }
     // Sync fast-path of shouldShowSaveEditor (tag gate); probe path is async-only on detail page.
-    if (game.installStatus === 'installed' && isRenPyEngine(game.storeTags)) {
+    if (
+      game.installStatus === 'installed' &&
+      (isRenPyEngine(game.storeTags) || isRpgmEngine(game.storeTags))
+    ) {
       items.push(
         item('saveEditor', t('libdetail.action.saveEditor'), () =>
           navigate(`/library/game/${game.threadId}/saves`),
