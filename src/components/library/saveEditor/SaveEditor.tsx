@@ -113,7 +113,9 @@ export function SaveEditor({ game, onClose }: Props) {
     if (!installPath) {
       setEngineReady(true);
       setSlotsLoading(false);
-      return;
+      return () => {
+        cancelled = true;
+      };
     }
 
     void resolveSaveEditorEngine({
