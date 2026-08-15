@@ -176,3 +176,4 @@ mod tests {
         assert_eq!(err.to_string(), "error.saveEditor.pathEscape");
     }
 }
+

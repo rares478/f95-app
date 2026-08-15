@@ -17,7 +17,7 @@ use num_traits::ToPrimitive;
 use serde::de::Visitor;
 use serde::{de, forward_to_deserialize_any};
 use std::char;
-use std::collections::BTreeMap;
+use std::collections::{BTreeMap, BTreeSet};
 use std::io;
 use std::io::{BufRead, BufReader, Read};
 use std::iter::FusedIterator;
@@ -1154,25 +1154,41 @@ impl<R: Read> Deserializer<R> {
                 Ok(value::Value::Tuple(new?))
             }
             Value::Set(v) => {
-                let new = v
-                    .into_iter()
-                    .map(|v| self.convert_value(v).and_then(|rv| rv.into_hashable()))
-                    .collect::<Result<_>>();
-                Ok(value::Value::Set(new?))
+                let mut set = BTreeSet::new();
+                for item in v {
+                    let converted = self.convert_value(item)?;
+                    // Ren'Py saves can put recovered objects in sets; skip unhashables
+                    // instead of failing the whole pickle.
+                    if let Ok(h) = converted.into_hashable() {
+                        set.insert(h);
+                    }
+                }
+                Ok(value::Value::Set(set))
             }
             Value::FrozenSet(v) => {
-                let new = v
-                    .into_iter()
-                    .map(|v| self.convert_value(v).and_then(|rv| rv.into_hashable()))
-                    .collect::<Result<_>>();
-                Ok(value::Value::FrozenSet(new?))
+                let mut set = BTreeSet::new();
+                for item in v {
+                    let converted = self.convert_value(item)?;
+                    if let Ok(h) = converted.into_hashable() {
+                        set.insert(h);
+                    }
+                }
+                Ok(value::Value::FrozenSet(set))
             }
             Value::Dict(v) => {
                 let mut map = BTreeMap::new();
                 for (key, value) in v {
-                    let real_key = self.convert_value(key).and_then(|rv| rv.into_hashable())?;
                     let real_value = self.convert_value(value)?;
-                    map.insert(real_key, real_value);
+                    let converted_key = self.convert_value(key)?;
+                    // Custom objects used as dict keys become Dict/List after NEWOBJ
+                    // recovery and aren't hashable — drop those entries rather than
+                    // aborting parse of an otherwise usable Ren'Py save.
+                    match converted_key.into_hashable() {
+                        Ok(real_key) => {
+                            map.insert(real_key, real_value);
+                        }
+                        Err(_) => continue,
+                    }
                 }
                 Ok(value::Value::Dict(map))
             }

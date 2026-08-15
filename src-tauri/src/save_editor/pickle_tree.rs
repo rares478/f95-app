@@ -75,9 +75,12 @@ fn value_to_node(value: &Value, path: &str, name: &str) -> RenpyVarNode {
             let mut children: Vec<RenpyVarNode> = map
                 .iter()
                 .map(|(key, child)| {
-                    let child_name = hashable_key_name(key);
-                    let child_path = join_path(path, &child_name);
-                    value_to_node(child, &child_path, &child_name)
+                    let key_name = hashable_key_name(key);
+                    let child_path = join_path(path, &key_name);
+                    // Ren'Py often stores flat keys like "store.money" — keep the full key
+                    // in `path` for patching, but show a shorter label in the tree.
+                    let display = display_var_name(&key_name);
+                    value_to_node(child, &child_path, &display)
                 })
                 .collect();
             children.sort_by(|a, b| a.name.cmp(&b.name));
@@ -144,11 +147,32 @@ fn leaf(
     }
 }
 
+fn display_var_name(key: &str) -> String {
+    key.strip_prefix("store.")
+        .unwrap_or(key)
+        .to_string()
+}
+
+fn escape_path_segment(name: &str) -> String {
+    let mut out = String::with_capacity(name.len());
+    for c in name.chars() {
+        match c {
+            '\\' | '.' => {
+                out.push('\\');
+                out.push(c);
+            }
+            _ => out.push(c),
+        }
+    }
+    out
+}
+
 fn join_path(parent: &str, name: &str) -> String {
+    let seg = escape_path_segment(name);
     if parent.is_empty() {
-        name.to_string()
+        seg
     } else {
-        format!("{parent}.{name}")
+        format!("{parent}.{seg}")
     }
 }
 
@@ -176,8 +200,26 @@ fn parse_path(path: &str) -> Result<Vec<PathSegment>, AppError> {
         return Err(AppError::keyed("error.saveEditor.patchMissing"));
     }
 
+    // Split on `.` but treat `\.` as a literal dot inside a key (flat Ren'Py store keys).
+    let mut raw_parts: Vec<String> = Vec::new();
+    let mut buf = String::new();
+    let mut chars = path.chars().peekable();
+    while let Some(c) = chars.next() {
+        if c == '\\' {
+            match chars.next() {
+                Some(next) => buf.push(next),
+                None => return Err(AppError::keyed("error.saveEditor.patchMissing")),
+            }
+        } else if c == '.' {
+            raw_parts.push(std::mem::take(&mut buf));
+        } else {
+            buf.push(c);
+        }
+    }
+    raw_parts.push(buf);
+
     let mut segments = Vec::new();
-    for part in path.split('.') {
+    for part in raw_parts {
         let mut key = String::new();
         let mut indices = Vec::new();
         let mut chars = part.chars().peekable();
@@ -545,9 +587,10 @@ mod tests {
             tree.children.as_ref().map(|c| !c.is_empty()).unwrap_or(false),
             "expected store variables in tree"
         );
-        // Known primitive from the save header region
-        let sports = find_path(&tree, "store.talk_sports");
+        // Known primitive from the save header region (display strips "store." prefix)
+        let sports = find_path(&tree, "store\\.talk_sports");
         assert!(sports.is_some(), "expected store.talk_sports");
+        assert_eq!(sports.unwrap().name, "talk_sports");
         assert_eq!(sports.unwrap().type_, "bool");
     }
 
@@ -558,6 +601,48 @@ mod tests {
             return;
         }
         let tree = read_save_tree(std::path::Path::new(path)).expect("zip+log parse");
-        assert!(find_path(&tree, "store.talk_sports").is_some());
+        assert!(find_path(&tree, "store\\.talk_sports").is_some());
+    }
+
+    #[test]
+    fn parses_multiple_holiday_island_slot_logs_if_present() {
+        for name in ["1-1-LT1.log.bin", "1-4-LT1.log.bin", "1-2-LT1.log.bin", "1-3-LT1.log.bin"] {
+            let path = format!(r"{name}");
+            let Ok(log) = std::fs::read(&path) else {
+                eprintln!("skip missing {name}");
+                continue;
+            };
+            let tree = log_to_tree(&log).unwrap_or_else(|e| panic!("{name}: {e}"));
+            let n = tree.children.as_ref().map(|c| c.len()).unwrap_or(0);
+            assert!(n > 10, "{name} expected many store vars, got {n}");
+        }
+    }
+
+    #[test]
+    fn flat_store_dotted_key_patches() {
+        use serde_pickle::{HashableValue, Value};
+        let mut map = std::collections::BTreeMap::new();
+        map.insert(
+            HashableValue::String("store.day".into()),
+            Value::I64(5),
+        );
+        let log = value_to_vec(&Value::Dict(map), SerOptions::new()).unwrap();
+        let tree = log_to_tree(&log).unwrap();
+        let day = find_path(&tree, "store\\.day").unwrap();
+        assert_eq!(day.name, "day");
+        assert_eq!(day.value, Some(json!(5)));
+        let patched = apply_patches(
+            &log,
+            &[RenpySavePatch {
+                path: "store\\.day".into(),
+                value: json!(9),
+            }],
+        )
+        .unwrap();
+        let tree = log_to_tree(&patched).unwrap();
+        assert_eq!(
+            find_path(&tree, "store\\.day").unwrap().value,
+            Some(json!(9))
+        );
     }
 }

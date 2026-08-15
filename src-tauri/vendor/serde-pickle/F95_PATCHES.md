@@ -12,5 +12,5 @@ Changes in `src/de.rs`:
 
 1. Map `renpy.python` / `renpy.revertable` `RevertableList` → `Global::List` and
    `RevertableSet` → `Global::Set`.
-2. On `NEWOBJ`, if the class is `List` or `Set`/`Frozenset`, push an empty list/set
-   instead of an empty dict.
+3. When converting dicts/sets, **skip unhashable keys/items** (recovered custom
+   objects) instead of failing the whole save with `ValueNotHashable`.
