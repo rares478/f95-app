@@ -9,6 +9,15 @@ pub struct RenpyProbeResult {
 
 #[derive(Debug, Clone, Serialize, PartialEq, Eq)]
 #[serde(rename_all = "camelCase")]
+pub struct RpgmProbeResult {
+    pub is_rpgm_layout: bool,
+    pub saves_dir: Option<String>,
+    /// `"mv"` | `"mz"` when layout detected
+    pub variant: Option<String>,
+}
+
+#[derive(Debug, Clone, Serialize, PartialEq, Eq)]
+#[serde(rename_all = "camelCase")]
 pub struct RenpySaveSlot {
     pub key: String,
     /// One of: `slot` | `auto` | `quick` | `persistent` | `other`
