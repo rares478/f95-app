@@ -29,10 +29,6 @@ pub fn resolve_saves_dir(install: &Path) -> Option<(PathBuf, &'static str)> {
         if mz_has && !mv_has {
             return Some((mz_save, "mz"));
         }
-        if mv_has && mz_has {
-            // Both have saves; prefer MV www/save as the more specific layout.
-            return Some((mv_save, "mv"));
-        }
         if mv_core {
             return Some((mv_save, "mv"));
         }
