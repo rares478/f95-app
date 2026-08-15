@@ -1579,6 +1579,7 @@ version = "1.7.3"
 dependencies = [
  "anyhow",
  "chrono",
+ "crc32fast",
  "flate2",
  "fs4",
  "futures",

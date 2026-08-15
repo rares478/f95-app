@@ -128,14 +128,20 @@ impl LauncherManager {
             let exit_status = tokio::select! {
                 status = async {
                     let status = child.wait().await;
-                    // Ren'Py and similar stubs exit immediately after spawning the real game.
+                    // Ren'Py-style stubs exit almost immediately after spawning the
+                    // real game. Only then do we keep the session open until the
+                    // successor process ends. If the waited process ran for a while,
+                    // it *was* the game — do not burn ~16s looking for a window.
                     #[cfg(windows)]
                     {
-                        crate::game_window::wait_for_game_window_session_end(
-                            root_pid,
-                            install_dir.clone(),
-                        )
-                        .await;
+                        const STUB_MAX: std::time::Duration = std::time::Duration::from_secs(3);
+                        if started.elapsed() < STUB_MAX {
+                            crate::game_window::wait_for_game_window_session_end(
+                                root_pid,
+                                install_dir.clone(),
+                            )
+                            .await;
+                        }
                     }
                     status
                 } => status,

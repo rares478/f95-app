@@ -25,17 +25,22 @@ pub fn log_to_tree(log: &[u8]) -> Result<RenpyVarNode, AppError> {
 }
 
 /// Apply primitive patches to `log` pickle bytes. No cross-type coercion.
+///
+/// Validates types against a decoded tree, then surgically splices new encodings
+/// into the original pickle so Ren'Py class instances and protocol stay intact.
 pub fn apply_patches(log: &[u8], patches: &[RenpySavePatch]) -> Result<Vec<u8>, AppError> {
     let mut value = value_from_slice(log, de_options())
         .map_err(|_| AppError::keyed("error.saveEditor.parse"))?;
 
+    let mut pending: Vec<(String, serde_json::Value)> = Vec::with_capacity(patches.len());
     for patch in patches {
         let roots = roots_mut(&mut value);
         let leaf = navigate_mut(roots, &patch.path)?;
         set_primitive(leaf, &patch.value)?;
+        pending.push((patch.path.clone(), patch.value.clone()));
     }
 
-    value_to_vec(&value, SerOptions::new()).map_err(|_| AppError::keyed("error.saveEditor.parse"))
+    crate::save_editor::pickle_splice::splice_primitives(log, &pending)
 }
 
 /// Read a save zip's `log` and return its variable tree.
@@ -190,9 +195,13 @@ fn hashable_key_name(key: &HashableValue) -> String {
 }
 
 #[derive(Debug)]
-struct PathSegment {
-    key: String,
-    indices: Vec<usize>,
+pub(crate) struct PathSegment {
+    pub key: String,
+    pub indices: Vec<usize>,
+}
+
+pub(crate) fn parse_path_segments(path: &str) -> Result<Vec<PathSegment>, AppError> {
+    parse_path(path)
 }
 
 fn parse_path(path: &str) -> Result<Vec<PathSegment>, AppError> {
@@ -273,9 +282,35 @@ fn dict_get_mut<'a>(value: &'a mut Value, key: &str) -> Result<&'a mut Value, Ap
     let Value::Dict(map) = value else {
         return Err(AppError::keyed("error.saveEditor.patchMissing"));
     };
-    let hv = HashableValue::String(key.to_string());
-    map.get_mut(&hv)
-        .ok_or_else(|| AppError::keyed("error.saveEditor.patchMissing"))
+
+    // Ren'Py / pickle often store attribute names as UNICODE → Bytes, while flat
+    // store keys may be String. Tree paths always use the display string form.
+    let string_key = HashableValue::String(key.to_string());
+    if map.contains_key(&string_key) {
+        return map
+            .get_mut(&string_key)
+            .ok_or_else(|| AppError::keyed("error.saveEditor.patchMissing"));
+    }
+
+    let bytes_key = HashableValue::Bytes(key.as_bytes().to_vec());
+    if map.contains_key(&bytes_key) {
+        return map
+            .get_mut(&bytes_key)
+            .ok_or_else(|| AppError::keyed("error.saveEditor.patchMissing"));
+    }
+
+    // Numeric / bool / other keys: match the same display name the tree uses.
+    let matched = map
+        .keys()
+        .find(|k| hashable_key_name(k) == key)
+        .cloned();
+    if let Some(k) = matched {
+        return map
+            .get_mut(&k)
+            .ok_or_else(|| AppError::keyed("error.saveEditor.patchMissing"));
+    }
+
+    Err(AppError::keyed("error.saveEditor.patchMissing"))
 }
 
 fn list_get_mut<'a>(value: &'a mut Value, idx: usize) -> Result<&'a mut Value, AppError> {
@@ -400,7 +435,7 @@ mod tests {
         roots.insert(HashableValue::String("store".into()), Value::Dict(store));
 
         let roots_tuple = Value::Tuple(vec![Value::Dict(roots), Value::None]);
-        value_to_vec(&roots_tuple, SerOptions::new()).unwrap()
+        value_to_vec(&roots_tuple, SerOptions::new().proto_v2()).unwrap()
     }
 
     fn find_path<'a>(tree: &'a RenpyVarNode, path: &str) -> Option<&'a RenpyVarNode> {
@@ -458,6 +493,22 @@ mod tests {
         .unwrap();
         let tree = log_to_tree(&patched).unwrap();
         assert_eq!(find_path(&tree, "store.money").unwrap().value, Some(json!(999)));
+    }
+
+    #[test]
+    fn patched_log_uses_pickle_protocol_v2() {
+        let patched = apply_patches(
+            &sample_log(),
+            &[RenpySavePatch {
+                path: "store.money".into(),
+                value: json!(999),
+            }],
+        )
+        .unwrap();
+        // PROTO opcode + protocol 2 — required by Ren'Py 7 / Python 2 cPickle.
+        assert!(patched.len() >= 2);
+        assert_eq!(patched[0], 0x80);
+        assert_eq!(patched[1], 0x02);
     }
 
     #[test]
@@ -575,11 +626,20 @@ mod tests {
         assert_eq!(node.value, Some(json!(42)));
     }
 
+    fn optional_fixture(name: &str) -> Option<std::path::PathBuf> {
+        let path = std::path::Path::new(env!("CARGO_MANIFEST_DIR"))
+            .join("tests")
+            .join("fixtures")
+            .join(name);
+        path.is_file().then_some(path)
+    }
+
     #[test]
     fn parses_holiday_island_save_log_fixture() {
-        let path = r"holiday-log.bin";
-        let Ok(log) = std::fs::read(path) else {
-            eprintln!("skip: holiday-log.bin not present");
+        let Some(path) = optional_fixture("holiday-log.bin") else {
+            return;
+        };
+        let Ok(log) = std::fs::read(&path) else {
             return;
         };
         let tree = log_to_tree(&log).expect("Holiday Island log should parse");
@@ -596,20 +656,20 @@ mod tests {
 
     #[test]
     fn reads_holiday_island_save_zip_if_present() {
-        let path = r"E:\Downloads\New Folder\Other\3782\Current · Win_Linux · Full-HolidayIsland-0.5.0.0-pc\HolidayIsland-0.5.0.0-pc\game\saves\1-1-LT1.save";
-        if !std::path::Path::new(path).is_file() {
+        let Some(path) = optional_fixture("1-1-LT1.save") else {
             return;
-        }
-        let tree = read_save_tree(std::path::Path::new(path)).expect("zip+log parse");
+        };
+        let tree = read_save_tree(&path).expect("zip+log parse");
         assert!(find_path(&tree, "store\\.talk_sports").is_some());
     }
 
     #[test]
     fn parses_multiple_holiday_island_slot_logs_if_present() {
         for name in ["1-1-LT1.log.bin", "1-4-LT1.log.bin", "1-2-LT1.log.bin", "1-3-LT1.log.bin"] {
-            let path = format!(r"{name}");
+            let Some(path) = optional_fixture(name) else {
+                continue;
+            };
             let Ok(log) = std::fs::read(&path) else {
-                eprintln!("skip missing {name}");
                 continue;
             };
             let tree = log_to_tree(&log).unwrap_or_else(|e| panic!("{name}: {e}"));
@@ -626,7 +686,7 @@ mod tests {
             HashableValue::String("store.day".into()),
             Value::I64(5),
         );
-        let log = value_to_vec(&Value::Dict(map), SerOptions::new()).unwrap();
+        let log = value_to_vec(&Value::Dict(map), SerOptions::new().proto_v2()).unwrap();
         let tree = log_to_tree(&log).unwrap();
         let day = find_path(&tree, "store\\.day").unwrap();
         assert_eq!(day.name, "day");
@@ -643,6 +703,133 @@ mod tests {
         assert_eq!(
             find_path(&tree, "store\\.day").unwrap().value,
             Some(json!(9))
+        );
+    }
+    #[test]
+    fn bytes_dict_keys_are_patchable() {
+        // Ren'Py object attrs are SHORT_BINSTRING in the pickle (read back as Bytes).
+        // Build a minimal PROTO2 blob that matches that encoding (not codecs/REDUCE).
+        let mut p = vec![0x80, 0x02]; // PROTO 2
+        p.push(b'}'); // EMPTY_DICT roots
+        p.push(b'('); // MARK
+        // key store.player
+        p.push(b'U');
+        p.push(12);
+        p.extend_from_slice(b"store.player");
+        // value: empty dict + hacking/charm
+        p.push(b'}');
+        p.push(b'(');
+        p.push(b'U');
+        p.push(7);
+        p.extend_from_slice(b"hacking");
+        p.push(b'K');
+        p.push(1); // BININT1 1
+        p.push(b'U');
+        p.push(5);
+        p.extend_from_slice(b"charm");
+        p.push(b'K');
+        p.push(3);
+        p.push(b'u'); // SETITEMS player
+        p.push(b'u'); // SETITEMS roots
+        p.push(b'.'); // STOP
+
+        let tree = log_to_tree(&p).unwrap();
+        let hack = find_path(&tree, "store\\.player.hacking").unwrap();
+        assert!(hack.editable);
+        assert_eq!(hack.value, Some(json!(1)));
+
+        let patched = apply_patches(
+            &p,
+            &[
+                RenpySavePatch {
+                    path: "store\\.player.hacking".into(),
+                    value: json!(99),
+                },
+                RenpySavePatch {
+                    path: "store\\.player.charm".into(),
+                    value: json!(7),
+                },
+            ],
+        )
+        .unwrap();
+        let tree = log_to_tree(&patched).unwrap();
+        assert_eq!(
+            find_path(&tree, "store\\.player.hacking").unwrap().value,
+            Some(json!(99))
+        );
+        assert_eq!(
+            find_path(&tree, "store\\.player.charm").unwrap().value,
+            Some(json!(7))
+        );
+    }
+
+    #[test]
+    fn avelis_money_updates_frame_size_if_present() {
+        let Some(path) = optional_fixture("avelis-log.bin") else {
+            return;
+        };
+        let Ok(log) = std::fs::read(&path) else {
+            return;
+        };
+        assert_eq!(log[0], 0x80);
+        assert_eq!(log[1], 5);
+        assert_eq!(log[2], 0x95); // FRAME
+        let frame_before = u64::from_le_bytes(log[3..11].try_into().unwrap());
+
+        let patched = apply_patches(
+            &log,
+            &[RenpySavePatch {
+                path: "store\\.money".into(),
+                value: json!(999),
+            }],
+        )
+        .expect("patch 999");
+        assert_eq!(patched[0], 0x80);
+        assert_eq!(patched[1], 5);
+        assert_eq!(patched[2], 0x95);
+        let frame_after = u64::from_le_bytes(patched[3..11].try_into().unwrap());
+        let delta = patched.len() as i64 - log.len() as i64;
+        assert_eq!(
+            frame_after as i64 - frame_before as i64,
+            delta,
+            "FRAME size must track splice length change"
+        );
+        let tree = log_to_tree(&patched).unwrap();
+        assert_eq!(
+            find_path(&tree, "store\\.money").unwrap().value,
+            Some(json!(999))
+        );
+    }
+
+    #[test]
+    fn fixture_player_hacking_patch_if_present() {
+        let Some(path) = optional_fixture("1-4-LT1.log.bin") else {
+            return;
+        };
+        let Ok(log) = std::fs::read(&path) else {
+            return;
+        };
+        let patched = apply_patches(
+            &log,
+            &[RenpySavePatch {
+                path: "store\\.player.hacking".into(),
+                value: json!(99),
+            }],
+        )
+        .expect("patch hacking on fixture");
+        // Surgical splice: keep protocol 2 and nearly the same size (not a full rewrite).
+        assert_eq!(patched[0], 0x80);
+        assert_eq!(patched[1], 0x02);
+        assert!(
+            patched.len().abs_diff(log.len()) < 16,
+            "expected near in-place splice, orig={} patched={}",
+            log.len(),
+            patched.len()
+        );
+        let tree = log_to_tree(&patched).unwrap();
+        assert_eq!(
+            find_path(&tree, "store\\.player.hacking").unwrap().value,
+            Some(json!(99))
         );
     }
 }

@@ -1,5 +1,6 @@
 mod backup;
 mod discover;
+mod pickle_splice;
 mod pickle_tree;
 mod types;
 mod zip_save;

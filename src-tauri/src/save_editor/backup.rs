@@ -1,4 +1,8 @@
 //! Bounded per-slot backups under `{app_local_data}/save_backups`.
+//!
+//! The first edit of a slot copies the live save to `original.save`. Later edits
+//! leave that file alone so the pre-edit original stays available. Restore
+//! writes the chosen backup over the live slot without creating another backup.
 
 use super::reject_path_component;
 use crate::error::AppError;
@@ -9,6 +13,9 @@ use std::time::{SystemTime, UNIX_EPOCH};
 
 pub const MAX_BACKUPS_PER_SLOT: usize = 10;
 
+/// Fixed name for the first pre-edit snapshot of a slot.
+pub const ORIGINAL_BACKUP_NAME: &str = "original.save";
+
 #[derive(Debug, Clone, Serialize, PartialEq, Eq)]
 #[serde(rename_all = "camelCase")]
 pub struct RenpySaveBackup {
@@ -18,26 +25,15 @@ pub struct RenpySaveBackup {
     pub size_bytes: u64,
 }
 
-/// Copy live save into the slot backup dir; prune to [`MAX_BACKUPS_PER_SLOT`].
+/// Copy live save to `original.save` if that file does not exist yet.
+///
+/// Subsequent edits keep the existing original. Still prunes leftover
+/// timestamped backups from older app versions down to [`MAX_BACKUPS_PER_SLOT`].
 pub fn backup_before_write(
     backups_root: &Path,
     thread_id: &str,
     slot_key: &str,
     live_path: &Path,
-) -> Result<PathBuf, AppError> {
-    let ts = SystemTime::now()
-        .duration_since(UNIX_EPOCH)
-        .map(|d| d.as_millis() as u64)
-        .unwrap_or(0);
-    backup_at(backups_root, thread_id, slot_key, live_path, ts)
-}
-
-fn backup_at(
-    backups_root: &Path,
-    thread_id: &str,
-    slot_key: &str,
-    live_path: &Path,
-    timestamp_ms: u64,
 ) -> Result<PathBuf, AppError> {
     let dir = slot_backup_dir(backups_root, thread_id, slot_key)?;
     fs::create_dir_all(&dir).map_err(|e| {
@@ -50,27 +46,22 @@ fn backup_at(
     ensure_under_root(&thread_root, backups_root)?;
     ensure_under_root(&dir, backups_root)?;
 
-    let mut ts = timestamp_ms;
-    let dest = loop {
-        let candidate = dir.join(format!("{ts}.save"));
-        if !candidate.exists() {
-            break candidate;
-        }
-        ts = ts.saturating_add(1);
-    };
-    fs::copy(live_path, &dest).map_err(|e| {
-        AppError::Io(format!(
-            "failed to backup {} -> {}: {e}",
-            live_path.display(),
-            dest.display()
-        ))
-    })?;
+    let dest = dir.join(ORIGINAL_BACKUP_NAME);
+    if !dest.exists() {
+        fs::copy(live_path, &dest).map_err(|e| {
+            AppError::Io(format!(
+                "failed to backup {} -> {}: {e}",
+                live_path.display(),
+                dest.display()
+            ))
+        })?;
+    }
 
     prune_slot_backups(&dir)?;
     Ok(dest)
 }
 
-/// List backups for a slot, newest first.
+/// List backups for a slot, newest first (`original.save` sorted by mtime with the rest).
 pub fn list_backups(
     backups_root: &Path,
     thread_id: &str,
@@ -84,18 +75,22 @@ pub fn list_backups(
 
     let mut backups = collect_backup_files(&dir)?;
     backups.sort_by(|a, b| {
-        b.mtime_ms
-            .cmp(&a.mtime_ms)
-            .then_with(|| b.file_name.cmp(&a.file_name))
+        // Prefer showing original first when mtimes tie / for clarity.
+        let a_orig = a.file_name == ORIGINAL_BACKUP_NAME;
+        let b_orig = b.file_name == ORIGINAL_BACKUP_NAME;
+        match (a_orig, b_orig) {
+            (true, false) => std::cmp::Ordering::Less,
+            (false, true) => std::cmp::Ordering::Greater,
+            _ => b
+                .mtime_ms
+                .cmp(&a.mtime_ms)
+                .then_with(|| b.file_name.cmp(&a.file_name)),
+        }
     });
     Ok(backups)
 }
 
-/// Backup current live, then copy `backup_file` over `live_path`.
-///
-/// The restore source is read into memory first so that
-/// [`backup_before_write`]'s prune cannot delete the file we are restoring
-/// when the slot is already at [`MAX_BACKUPS_PER_SLOT`].
+/// Copy `backup_file` over `live_path` without creating a new backup.
 ///
 /// `backup_file` must remain under `{backups_root}/{thread_id}/`.
 pub fn restore_backup(
@@ -112,14 +107,12 @@ pub fn restore_backup(
     let thread_root = backups_root.join(thread_id);
     ensure_under_root(&thread_root, backups_root)?;
     ensure_under_root(backup_file, &thread_root)?;
-    // Preserve restore source before prune can remove it.
     let restore_bytes = fs::read(backup_file).map_err(|e| {
         AppError::Io(format!(
             "failed to read restore source {}: {e}",
             backup_file.display()
         ))
     })?;
-    backup_before_write(backups_root, thread_id, slot_key, live_path)?;
     fs::write(live_path, &restore_bytes).map_err(|e| {
         AppError::Io(format!(
             "failed to restore {} -> {}: {e}",
@@ -219,13 +212,23 @@ fn prune_slot_backups(dir: &Path) -> Result<(), AppError> {
     if backups.len() <= MAX_BACKUPS_PER_SLOT {
         return Ok(());
     }
-    // Prefer filesystem mtime; break ties with timestamp embedded in the file name.
+    // Never delete original.save; prune oldest timestamp leftovers first.
     backups.sort_by(|a, b| {
-        b.mtime_ms
-            .cmp(&a.mtime_ms)
-            .then_with(|| b.file_name.cmp(&a.file_name))
+        let a_orig = a.file_name == ORIGINAL_BACKUP_NAME;
+        let b_orig = b.file_name == ORIGINAL_BACKUP_NAME;
+        match (a_orig, b_orig) {
+            (true, false) => std::cmp::Ordering::Less, // original sorts as "newest"/kept
+            (false, true) => std::cmp::Ordering::Greater,
+            _ => b
+                .mtime_ms
+                .cmp(&a.mtime_ms)
+                .then_with(|| b.file_name.cmp(&a.file_name)),
+        }
     });
     for old in backups.into_iter().skip(MAX_BACKUPS_PER_SLOT) {
+        if old.file_name == ORIGINAL_BACKUP_NAME {
+            continue;
+        }
         let _ = fs::remove_file(&old.path);
     }
     Ok(())
@@ -261,31 +264,33 @@ mod tests {
     }
 
     #[test]
-    fn backup_creates_timestamped_copy_and_prunes_to_10() {
-        let root = tempfile_root("prune");
+    fn backup_writes_original_once_and_keeps_contents() {
+        let root = tempfile_root("original-once");
         let backups_root = root.join("save_backups");
         let install = root.join("game");
         let live = install.join("saves").join("1-1.save");
-        write_file(&live, b"live");
+        write_file(&live, b"first");
 
-        for i in 0..12u64 {
-            backup_at(
-                &backups_root,
-                "thread1",
-                "1-1.save",
-                &live,
-                1_700_000_000_000 + i,
-            )
-            .unwrap();
-        }
+        let dest = backup_before_write(&backups_root, "thread1", "1-1.save", &live).unwrap();
+        assert_eq!(dest.file_name().and_then(|n| n.to_str()), Some(ORIGINAL_BACKUP_NAME));
+        assert_eq!(fs::read(&dest).unwrap(), b"first");
+
+        write_file(&live, b"second");
+        let dest2 = backup_before_write(&backups_root, "thread1", "1-1.save", &live).unwrap();
+        assert_eq!(dest2, dest);
+        assert_eq!(
+            fs::read(&dest).unwrap(),
+            b"first",
+            "original.save must not be overwritten on later edits"
+        );
 
         let listed = list_backups(&backups_root, "thread1", "1-1.save").unwrap();
-        assert_eq!(listed.len(), 10);
-        assert_eq!(MAX_BACKUPS_PER_SLOT, 10);
+        assert_eq!(listed.len(), 1);
+        assert_eq!(listed[0].file_name, ORIGINAL_BACKUP_NAME);
     }
 
     #[test]
-    fn restore_replaces_live_and_keeps_pre_restore_backup() {
+    fn restore_replaces_live_without_extra_backup() {
         let root = tempfile_root("restore");
         let backups_root = root.join("save_backups");
         let install = root.join("game");
@@ -293,8 +298,7 @@ mod tests {
         write_file(&live, b"A");
 
         let backup_path =
-            backup_at(&backups_root, "thread1", "1-1.save", &live, 1_700_000_000_100).unwrap();
-        // Overwrite the backup file contents to "B" while live stays "A"
+            backup_before_write(&backups_root, "thread1", "1-1.save", &live).unwrap();
         fs::write(&backup_path, b"B").unwrap();
         write_file(&live, b"A");
 
@@ -311,60 +315,38 @@ mod tests {
         assert_eq!(fs::read(&live).unwrap(), b"B");
 
         let listed = list_backups(&backups_root, "thread1", "1-1.save").unwrap();
-        let has_pre_restore_a = listed.iter().any(|b| {
-            fs::read(Path::new(&b.path)).ok().as_deref() == Some(b"A".as_slice())
-        });
-        assert!(
-            has_pre_restore_a,
-            "expected a backup of pre-restore live content A, got {listed:?}"
-        );
+        assert_eq!(listed.len(), 1, "restore must not create another backup");
+        assert_eq!(listed[0].file_name, ORIGINAL_BACKUP_NAME);
+        assert_eq!(fs::read(Path::new(&listed[0].path)).unwrap(), b"B");
     }
 
     #[test]
-    fn restore_oldest_succeeds_when_slot_at_max_backups() {
-        let root = tempfile_root("restore-full");
+    fn restore_original_succeeds() {
+        let root = tempfile_root("restore-orig");
         let backups_root = root.join("save_backups");
         let install = root.join("game");
         let live = install.join("saves").join("1-1.save");
-
-        let mut oldest_path = PathBuf::new();
-        for i in 0..MAX_BACKUPS_PER_SLOT {
-            let content = format!("backup-{i}");
-            write_file(&live, content.as_bytes());
-            let path = backup_at(
-                &backups_root,
-                "thread1",
-                "1-1.save",
-                &live,
-                1_700_000_000_000 + i as u64,
-            )
-            .unwrap();
-            if i == 0 {
-                oldest_path = path;
-            }
-        }
-
-        assert_eq!(
-            list_backups(&backups_root, "thread1", "1-1.save")
-                .unwrap()
-                .len(),
-            MAX_BACKUPS_PER_SLOT
-        );
-        write_file(&live, b"current-live");
-        let oldest_bytes = fs::read(&oldest_path).unwrap();
-        assert_eq!(oldest_bytes, b"backup-0");
+        write_file(&live, b"original-bytes");
+        let backup_path =
+            backup_before_write(&backups_root, "thread1", "1-1.save", &live).unwrap();
+        write_file(&live, b"edited");
 
         restore_backup(
             &backups_root,
             "thread1",
             "1-1.save",
-            &oldest_path,
+            &backup_path,
             &live,
             &install,
         )
-        .expect("restore of oldest must succeed even when prune runs at capacity");
-
-        assert_eq!(fs::read(&live).unwrap(), b"backup-0");
+        .unwrap();
+        assert_eq!(fs::read(&live).unwrap(), b"original-bytes");
+        assert_eq!(
+            list_backups(&backups_root, "thread1", "1-1.save")
+                .unwrap()
+                .len(),
+            1
+        );
     }
 
     #[test]

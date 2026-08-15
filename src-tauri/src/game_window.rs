@@ -53,7 +53,8 @@ mod win {
         TH32CS_SNAPPROCESS,
     };
     use windows::Win32::System::Threading::{
-        OpenProcess, QueryFullProcessImageNameW, PROCESS_NAME_FORMAT, PROCESS_QUERY_LIMITED_INFORMATION,
+        GetExitCodeProcess, OpenProcess, QueryFullProcessImageNameW, PROCESS_NAME_FORMAT,
+        PROCESS_QUERY_LIMITED_INFORMATION,
     };
     use windows::Win32::UI::WindowsAndMessaging::{
         EnumChildWindows, EnumWindows, GetAncestor, GetClassNameW, GetCursorPos, GetForegroundWindow,
@@ -462,55 +463,70 @@ mod win {
         seen.into_iter().collect()
     }
 
-    fn session_has_game_window(root_pid: u32, install_dir: &Path) -> bool {
+    fn process_is_alive(pid: u32) -> bool {
+        if pid == 0 {
+            return false;
+        }
+        unsafe {
+            let Ok(handle) = OpenProcess(PROCESS_QUERY_LIMITED_INFORMATION, false, pid) else {
+                return false;
+            };
+            let mut exit_code = 0u32;
+            let ok = GetExitCodeProcess(handle, &mut exit_code).is_ok();
+            let _ = CloseHandle(handle);
+            // STILL_ACTIVE == 259
+            ok && exit_code == 259
+        }
+    }
+
+    fn live_session_pids(root_pid: u32, install_dir: &Path) -> Vec<u32> {
         session_candidate_pids(root_pid, install_dir)
+            .into_iter()
+            .filter(|&pid| process_is_alive(pid))
+            .collect()
+    }
+
+    fn session_has_game_window(root_pid: u32, install_dir: &Path) -> bool {
+        live_session_pids(root_pid, install_dir)
             .iter()
             .any(|&pid| game_has_window_surface(pid))
     }
 
-    /// After a launcher stub exits, keep measuring until no game window remains.
+    /// After a launcher stub exits, keep measuring until the real game is gone.
     /// Ren'Py and similar engines often reparent the real game out of the stub tree.
     pub async fn wait_for_game_window_session_end(root_pid: u32, install_dir: PathBuf) {
         use tokio::time::{sleep, Duration};
 
-        const POLL: Duration = Duration::from_millis(800);
+        const POLL: Duration = Duration::from_millis(250);
+        // ~5s to notice a successor after a stub exits (was ~16s).
         const STARTUP_POLLS: u32 = 20;
-        const EXIT_POLLS: u32 = 3;
+        const EXIT_CONFIRM_POLLS: u32 = 2;
 
-        let mut saw_window = false;
-
+        let mut saw_successor = false;
         for _ in 0..STARTUP_POLLS {
-            if session_has_game_window(root_pid, &install_dir) {
-                saw_window = true;
+            if !live_session_pids(root_pid, &install_dir).is_empty()
+                || session_has_game_window(root_pid, &install_dir)
+            {
+                saw_successor = true;
                 break;
             }
             sleep(POLL).await;
         }
 
-        if !saw_window {
-            // Direct-run games may already have exited; a few polls avoids instant zero-duration.
-            for _ in 0..5 {
-                if session_has_game_window(root_pid, &install_dir) {
-                    saw_window = true;
-                    break;
-                }
-                sleep(POLL).await;
-            }
-        }
-
-        if !saw_window {
+        if !saw_successor {
             return;
         }
 
         let mut empty_streak = 0u32;
         loop {
-            if session_has_game_window(root_pid, &install_dir) {
-                empty_streak = 0;
-            } else {
+            let live = live_session_pids(root_pid, &install_dir);
+            if live.is_empty() {
                 empty_streak += 1;
-                if empty_streak >= EXIT_POLLS {
+                if empty_streak >= EXIT_CONFIRM_POLLS {
                     break;
                 }
+            } else {
+                empty_streak = 0;
             }
             sleep(POLL).await;
         }

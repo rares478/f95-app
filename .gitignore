@@ -26,10 +26,6 @@ dist-ssr
 # Git worktrees (local isolation)
 .worktrees/
 
-
-
-
-
 # Local debug / scrape artifacts
 tmp-*
 uh-post-*.html

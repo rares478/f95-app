@@ -1,4 +1,4 @@
-import { useMemo, useState } from 'react';
+import { useEffect, useMemo, useState } from 'react';
 import type { RenpyVarNode } from '../../../types/renpySave';
 import { useT } from '../../../lib/i18n';
 
@@ -51,6 +51,7 @@ function TreeNodeView({
   selectedPath,
   dirtyPaths,
   forceOpen,
+  collapseVersion,
   onSelect,
 }: {
   node: RenpyVarNode;
@@ -58,14 +59,27 @@ function TreeNodeView({
   selectedPath: string | null;
   dirtyPaths: Set<string>;
   forceOpen: boolean;
+  collapseVersion: number;
   onSelect: (node: RenpyVarNode) => void;
 }) {
   const hasChildren = (node.children?.length ?? 0) > 0;
   const [open, setOpen] = useState(depth < 2 || forceOpen);
-  const expanded = forceOpen || open;
+
+  // Search expands matches initially; user can still collapse afterward.
+  useEffect(() => {
+    if (forceOpen) setOpen(true);
+  }, [forceOpen, node.path]);
+
+  useEffect(() => {
+    if (collapseVersion > 0) setOpen(false);
+  }, [collapseVersion]);
+
+  const expanded = open;
   const active = selectedPath === node.path;
   const dirty = dirtyPaths.has(node.path);
   const clickable = node.editable || hasChildren;
+
+  const toggleOpen = () => setOpen((v) => !v);
 
   return (
     <li className="save-editor-tree-item">
@@ -82,15 +96,15 @@ function TreeNodeView({
           .join(' ')}
         style={{ paddingLeft: 6 + depth * 10 }}
         onClick={() => {
-          if (node.editable) onSelect(node);
-          else if (hasChildren) setOpen((v) => !v);
+          if (hasChildren) toggleOpen();
+          else if (node.editable) onSelect(node);
         }}
         onKeyDown={(e) => {
           if (!clickable) return;
           if (e.key === 'Enter' || e.key === ' ') {
             e.preventDefault();
-            if (node.editable) onSelect(node);
-            else if (hasChildren) setOpen((v) => !v);
+            if (hasChildren) toggleOpen();
+            else if (node.editable) onSelect(node);
           }
         }}
       >
@@ -101,7 +115,7 @@ function TreeNodeView({
             aria-expanded={expanded}
             onClick={(e) => {
               e.stopPropagation();
-              setOpen((v) => !v);
+              toggleOpen();
             }}
           >
             {expanded ? '▾' : '▸'}
@@ -110,10 +124,10 @@ function TreeNodeView({
           <span className="save-editor-tree-toggle save-editor-tree-toggle--spacer" />
         )}
         <span className="save-editor-tree-name">{node.name}</span>
-        <span className="save-editor-tree-type">{node.type}</span>
         {!hasChildren && node.value !== undefined && (
           <span className="save-editor-tree-value">{formatInlineValue(node.value)}</span>
         )}
+        <span className="save-editor-tree-type">{node.type}</span>
       </div>
       {hasChildren && expanded && (
         <ul className="save-editor-tree-children">
@@ -125,6 +139,7 @@ function TreeNodeView({
               selectedPath={selectedPath}
               dirtyPaths={dirtyPaths}
               forceOpen={forceOpen}
+              collapseVersion={collapseVersion}
               onSelect={onSelect}
             />
           ))}
@@ -143,6 +158,7 @@ export function SaveVarTree({
   onSelect,
 }: Props) {
   const { t } = useT();
+  const [collapseVersion, setCollapseVersion] = useState(0);
   const q = search.trim().toLowerCase();
   const filtered = useMemo(() => {
     if (!root) return null;
@@ -151,7 +167,7 @@ export function SaveVarTree({
 
   return (
     <div className="save-editor-col">
-      <div className="save-editor-col-head">
+      <div className="save-editor-col-head save-editor-col-head--tree">
         <input
           className="save-editor-search"
           type="search"
@@ -160,6 +176,14 @@ export function SaveVarTree({
           placeholder={t('saveEditor.search')}
           aria-label={t('saveEditor.search')}
         />
+        <button
+          type="button"
+          className="save-editor-collapse-all"
+          disabled={!filtered}
+          onClick={() => setCollapseVersion((v) => v + 1)}
+        >
+          {t('saveEditor.collapseAll')}
+        </button>
       </div>
       <div className="save-editor-col-body">
         {!root && (
@@ -176,6 +200,7 @@ export function SaveVarTree({
               selectedPath={selectedPath}
               dirtyPaths={dirtyPaths}
               forceOpen={Boolean(q)}
+              collapseVersion={collapseVersion}
               onSelect={onSelect}
             />
           </ul>
