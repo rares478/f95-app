@@ -23,9 +23,10 @@ together when cutting a release:
 - Curated RPG Maker tabs (Party, Inventory, Actors, Switches, Variables) plus Raw tree; `System.json` switch/variable names and item DB labels when available.
 
 ### Fixed
-- Ren'Py 7/8 edits no longer break loads (pickle splice, FRAME sizes, drop stale zip signatures).
-- RPG Maker JsonEx `@a` array wrappers for actors, switches, variables, and party members.
-- Actors tab layout for dense modded saves: core stats plus searchable, collapsible extras.
+- Login no longer hangs forever on “Loading session…” (network/session probe timeouts + clearer auth bootstrap logs).
+- Store spotlight and tag panels use full-resolution images via `attachments.f95zone.to` (SAM `preview.*` CDN was showing soft/downscaled art).
+- Store rails / Up next keep lightweight preview covers instead of inventing broken `/thumb/` URLs.
+- Settings → Maintenance → Store cache now also clears discovery pools so the Store home actually refreshes on the next visit.
 
 ## [1.7.3] - 2026-08-12
 
