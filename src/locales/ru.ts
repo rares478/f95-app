@@ -267,6 +267,7 @@ const ru: Record<string, string> = {
   'saveEditor.noInstallPath': 'Папка установки не задана.',
   'saveEditor.slots': 'Слоты сохранений',
   'saveEditor.pickSlot': 'Выберите слот, чтобы просмотреть переменные.',
+  'saveEditor.noMatches': 'Нет переменных, соответствующих поиску.',
   'saveEditor.pickVar': 'Выберите редактируемую переменную, чтобы изменить значение.',
   'saveEditor.path': 'Путь',
   'saveEditor.type': 'Тип',

@@ -1,4 +1,4 @@
-import { useCallback, useEffect, useMemo, useState } from 'react';
+import { useCallback, useEffect, useMemo, useRef, useState } from 'react';
 import { SaveSlotList } from './SaveSlotList';
 import { SaveVarTree } from './SaveVarTree';
 import { SaveEditPanel } from './SaveEditPanel';
@@ -47,9 +47,14 @@ export function SaveEditor({ game, onClose }: Props) {
   const [slotsError, setSlotsError] = useState<string | null>(null);
 
   const [selectedKey, setSelectedKey] = useState<string | null>(null);
+  /** Slot key the currently displayed tree/backups belong to (null while loading or idle). */
+  const [treeSlotKey, setTreeSlotKey] = useState<string | null>(null);
   const [tree, setTree] = useState<RenpyVarNode | null>(null);
   const [treeLoading, setTreeLoading] = useState(false);
   const [treeError, setTreeError] = useState<string | null>(null);
+  const treeLoadGenRef = useRef(0);
+  const selectedKeyRef = useRef<string | null>(null);
+  selectedKeyRef.current = selectedKey;
 
   const [search, setSearch] = useState('');
   const [selectedPath, setSelectedPath] = useState<string | null>(null);
@@ -60,10 +65,11 @@ export function SaveEditor({ game, onClose }: Props) {
   const [restoring, setRestoring] = useState<string | null>(null);
   const [actionError, setActionError] = useState<string | null>(null);
 
+  const treeMatchesSelection = treeSlotKey != null && treeSlotKey === selectedKey;
   const dirtyCount = patches.size;
   const selectedNode = useMemo(
-    () => (selectedPath ? findNode(tree, selectedPath) : null),
-    [tree, selectedPath],
+    () => (selectedPath && treeMatchesSelection ? findNode(tree, selectedPath) : null),
+    [tree, selectedPath, treeMatchesSelection],
   );
 
   const draftValue = useMemo(() => {
@@ -95,14 +101,16 @@ export function SaveEditor({ game, onClose }: Props) {
   }, [installPath]);
 
   const loadBackups = useCallback(
-    async (slotKey: string) => {
+    async (slotKey: string, generation: number) => {
       try {
         const list = await ipc.renpySaveBackupsList({
           threadId: game.threadId,
           slotKey,
         });
+        if (generation !== treeLoadGenRef.current) return;
         setBackups(list);
       } catch {
+        if (generation !== treeLoadGenRef.current) return;
         setBackups([]);
       }
     },
@@ -112,20 +120,29 @@ export function SaveEditor({ game, onClose }: Props) {
   const loadTree = useCallback(
     async (slotKey: string) => {
       if (!installPath) return;
+      const generation = ++treeLoadGenRef.current;
       setTreeLoading(true);
       setTreeError(null);
       setTree(null);
+      setTreeSlotKey(null);
       setSelectedPath(null);
+      setBackups([]);
       try {
         const root = await ipc.renpySaveRead({ installPath, slotKey });
+        if (generation !== treeLoadGenRef.current || selectedKeyRef.current !== slotKey) return;
         setTree(root);
-        await loadBackups(slotKey);
+        setTreeSlotKey(slotKey);
+        await loadBackups(slotKey, generation);
       } catch (err) {
+        if (generation !== treeLoadGenRef.current || selectedKeyRef.current !== slotKey) return;
         setTree(null);
+        setTreeSlotKey(null);
         setTreeError(formatIpcError(err));
         setBackups([]);
       } finally {
-        setTreeLoading(false);
+        if (generation === treeLoadGenRef.current) {
+          setTreeLoading(false);
+        }
       }
     },
     [installPath, loadBackups],
@@ -153,6 +170,7 @@ export function SaveEditor({ game, onClose }: Props) {
       setPatches(new Map());
       setSearch('');
       setActionError(null);
+      selectedKeyRef.current = slot.key;
       setSelectedKey(slot.key);
       await loadTree(slot.key);
     },
@@ -185,7 +203,17 @@ export function SaveEditor({ game, onClose }: Props) {
   );
 
   const handleApply = useCallback(async () => {
-    if (!installPath || !selectedKey || patches.size === 0 || isRunning) return;
+    if (
+      !installPath ||
+      !selectedKey ||
+      patches.size === 0 ||
+      isRunning ||
+      treeSlotKey !== selectedKey
+    ) {
+      return;
+    }
+    const slotKey = selectedKey;
+    const generation = treeLoadGenRef.current;
     setApplying(true);
     setActionError(null);
     const patchList: RenpySavePatch[] = [...patches.entries()].map(([path, value]) => ({
@@ -196,22 +224,27 @@ export function SaveEditor({ game, onClose }: Props) {
       const root = await ipc.renpySaveWrite({
         threadId: game.threadId,
         installPath,
-        slotKey: selectedKey,
+        slotKey,
         patches: patchList,
       });
+      if (selectedKeyRef.current !== slotKey || generation !== treeLoadGenRef.current) return;
       setTree(root);
+      setTreeSlotKey(slotKey);
       setPatches(new Map());
-      await loadBackups(selectedKey);
+      await loadBackups(slotKey, generation);
     } catch (err) {
-      setActionError(formatIpcError(err));
+      if (selectedKeyRef.current === slotKey) {
+        setActionError(formatIpcError(err));
+      }
     } finally {
       setApplying(false);
     }
-  }, [installPath, selectedKey, patches, isRunning, game.threadId, loadBackups]);
+  }, [installPath, selectedKey, treeSlotKey, patches, isRunning, game.threadId, loadBackups]);
 
   const handleRestore = useCallback(
     async (backup: RenpySaveBackup) => {
-      if (!installPath || !selectedKey || isRunning) return;
+      if (!installPath || !selectedKey || isRunning || treeSlotKey !== selectedKey) return;
+      const slotKey = selectedKey;
       const ok = await dialog.confirm(
         t('saveEditor.restoreConfirm', { name: backup.fileName }),
         {
@@ -221,10 +254,10 @@ export function SaveEditor({ game, onClose }: Props) {
           cancelLabel: t('common.cancel'),
         },
       );
-      if (!ok) return;
+      if (!ok || selectedKeyRef.current !== slotKey) return;
 
       const discardOk = await confirmDiscardIfDirty();
-      if (!discardOk) return;
+      if (!discardOk || selectedKeyRef.current !== slotKey) return;
 
       setRestoring(backup.fileName);
       setActionError(null);
@@ -232,13 +265,16 @@ export function SaveEditor({ game, onClose }: Props) {
         await ipc.renpySaveBackupRestore({
           threadId: game.threadId,
           installPath,
-          slotKey: selectedKey,
+          slotKey,
           backupFileName: backup.fileName,
         });
+        if (selectedKeyRef.current !== slotKey) return;
         setPatches(new Map());
-        await loadTree(selectedKey);
+        await loadTree(slotKey);
       } catch (err) {
-        setActionError(formatIpcError(err));
+        if (selectedKeyRef.current === slotKey) {
+          setActionError(formatIpcError(err));
+        }
       } finally {
         setRestoring(null);
       }
@@ -246,6 +282,7 @@ export function SaveEditor({ game, onClose }: Props) {
     [
       installPath,
       selectedKey,
+      treeSlotKey,
       isRunning,
       t,
       confirmDiscardIfDirty,
@@ -323,16 +360,16 @@ export function SaveEditor({ game, onClose }: Props) {
             />
           )}
           <SaveEditPanel
-            selected={selectedNode}
+            selected={treeMatchesSelection ? selectedNode : null}
             draftValue={draftValue}
             onDraftChange={handleDraftChange}
-            dirtyCount={dirtyCount}
+            dirtyCount={treeMatchesSelection ? dirtyCount : 0}
             applying={applying}
-            readOnly={isRunning}
-            restoreDisabled={isRunning}
-            applyDisabled={isRunning}
+            readOnly={isRunning || !treeMatchesSelection}
+            restoreDisabled={isRunning || !treeMatchesSelection}
+            applyDisabled={isRunning || !treeMatchesSelection}
             onApply={() => void handleApply()}
-            backups={backups}
+            backups={treeMatchesSelection ? backups : []}
             restoring={restoring}
             onRestore={(b) => void handleRestore(b)}
           />

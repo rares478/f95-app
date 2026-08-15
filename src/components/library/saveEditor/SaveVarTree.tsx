@@ -166,7 +166,7 @@ export function SaveVarTree({
           <p className="save-editor-empty">{t('saveEditor.pickSlot')}</p>
         )}
         {root && !filtered && (
-          <p className="save-editor-empty">{t('saveEditor.pickSlot')}</p>
+          <p className="save-editor-empty">{t('saveEditor.noMatches')}</p>
         )}
         {filtered && (
           <ul className="save-editor-tree">

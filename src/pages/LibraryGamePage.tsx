@@ -193,9 +193,14 @@ export function LibraryGamePage() {
       return;
     }
     let cancelled = false;
-    shouldShowSaveEditor(readyGame).then((v) => {
-      if (!cancelled) setShowSaveEditor(v);
-    });
+    setShowSaveEditor(false);
+    shouldShowSaveEditor(readyGame)
+      .then((v) => {
+        if (!cancelled) setShowSaveEditor(v);
+      })
+      .catch(() => {
+        if (!cancelled) setShowSaveEditor(false);
+      });
     return () => {
       cancelled = true;
     };

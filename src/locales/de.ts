@@ -267,6 +267,7 @@ const de: Record<string, string> = {
   'saveEditor.noInstallPath': 'Kein Installationsordner gesetzt.',
   'saveEditor.slots': 'Spielstände',
   'saveEditor.pickSlot': 'Wähle einen Spielstand, um Variablen zu durchsuchen.',
+  'saveEditor.noMatches': 'Keine Variablen entsprechen der Suche.',
   'saveEditor.pickVar': 'Wähle eine editierbare Variable, um ihren Wert zu ändern.',
   'saveEditor.path': 'Pfad',
   'saveEditor.type': 'Typ',

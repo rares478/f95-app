@@ -268,6 +268,7 @@ const pt: Record<string, string> = {
   'saveEditor.noInstallPath': 'Nenhuma pasta de instalação definida.',
   'saveEditor.slots': 'Slots de save',
   'saveEditor.pickSlot': 'Selecione um slot para navegar nas variáveis.',
+  'saveEditor.noMatches': 'Nenhuma variável corresponde à busca.',
   'saveEditor.pickVar': 'Selecione uma variável editável para alterar o valor.',
   'saveEditor.path': 'Caminho',
   'saveEditor.type': 'Tipo',

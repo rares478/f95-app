@@ -299,6 +299,7 @@ const en: Record<string, string> = {
   'saveEditor.noInstallPath': 'No install folder set.',
   'saveEditor.slots': 'Save slots',
   'saveEditor.pickSlot': 'Select a save slot to browse variables.',
+  'saveEditor.noMatches': 'No variables match your search.',
   'saveEditor.pickVar': 'Select an editable variable to change its value.',
   'saveEditor.path': 'Path',
   'saveEditor.type': 'Type',
