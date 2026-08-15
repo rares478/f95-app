@@ -3,6 +3,7 @@
 use crate::error::AppError;
 use crate::save_editor::pickle_tree::parse_path_segments;
 use crate::save_editor::rpgm::codec::{compress_rpgsave, decompress_rpgsave};
+use crate::save_editor::rpgm::labels::{decorate_inventory_names, load_inventory_names};
 use crate::save_editor::types::{RenpySavePatch, RenpyVarNode};
 use serde_json::Value;
 use std::fs;
@@ -23,7 +24,8 @@ pub fn apply_patches_json(root: &mut Value, patches: &[RenpySavePatch]) -> Resul
 }
 
 /// Read a `.rpgsave` file (LZ-String base64) into a variable tree.
-pub fn read_rpgsave_file(path: &Path) -> Result<RenpyVarNode, AppError> {
+/// When `data_dir` is set, decorate inventory node display names from DB JSON.
+pub fn read_rpgsave_file(path: &Path, data_dir: Option<&Path>) -> Result<RenpyVarNode, AppError> {
     let raw = fs::read_to_string(path).map_err(|e| {
         AppError::Io(format!(
             "failed to read rpgsave {}: {e}",
@@ -33,7 +35,12 @@ pub fn read_rpgsave_file(path: &Path) -> Result<RenpyVarNode, AppError> {
     let json_text = decompress_rpgsave(&raw)?;
     let value: Value = serde_json::from_str(&json_text)
         .map_err(|_| AppError::keyed("error.saveEditor.parse"))?;
-    Ok(json_to_tree(&value))
+    let mut tree = json_to_tree(&value);
+    if let Some(dir) = data_dir {
+        let names = load_inventory_names(dir);
+        decorate_inventory_names(&mut tree, &names);
+    }
+    Ok(tree)
 }
 
 /// Patch a `.rpgsave` on disk and return the updated tree.
@@ -351,7 +358,7 @@ mod tests {
             }],
         )
         .unwrap();
-        let tree = read_rpgsave_file(&path).unwrap();
+        let tree = read_rpgsave_file(&path, None).unwrap();
         assert_eq!(
             find(&tree, "party._gold").unwrap().value,
             Some(serde_json::json!(999))
