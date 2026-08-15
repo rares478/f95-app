@@ -1,10 +1,12 @@
 import { describe, expect, it, vi } from 'vitest';
 import type { RenpyVarNode } from '../../../../types/renpySave';
 import {
+  extractActorCards,
   extractInventoryRows,
   extractPartyView,
 } from '../../../../lib/rpgmSaveView';
 import { filterInventoryRows } from './RpgmInventoryPanel';
+import { fieldLabel } from './RpgmActorsPanel';
 
 function leaf(
   path: string,
@@ -43,6 +45,21 @@ function sampleTree(): RenpyVarNode {
       ]),
       group('party._armors', '_armors', []),
     ]),
+    group('actors', 'actors', [
+      group('actors._data', '_data', [
+        leaf('actors._data[0]', '0', 'null', null, false),
+        group('actors._data[1]', '1', [
+          leaf('actors._data[1]._name', '_name', 'string', 'Natsuki'),
+          leaf('actors._data[1]._hp', '_hp', 'int', 100),
+          leaf('actors._data[1]._mp', '_mp', 'int', 50),
+          leaf('actors._data[1]._level', '_level', 'int', 5),
+          leaf('actors._data[1]._exp', '_exp', 'int', 1200),
+          group('actors._data[1]._equips', '_equips', [
+            leaf('actors._data[1]._equips[0]', '0', 'int', 1),
+          ]),
+        ]),
+      ]),
+    ]),
   ]);
 }
 
@@ -70,5 +87,18 @@ describe('RPGM panel data wiring', () => {
     expect(filterInventoryRows(rows, 'potion').map((r) => r.id)).toEqual(['1']);
     expect(filterInventoryRows(rows, '9').map((r) => r.id)).toEqual(['9']);
     expect(filterInventoryRows(rows, '  ').map((r) => r.id)).toEqual(['1', '9']);
+  });
+
+  it('actor cards expose patchable primitive field paths', () => {
+    const cards = extractActorCards(sampleTree());
+    expect(cards).toHaveLength(1);
+    expect(cards[0].title).toBe('Natsuki');
+    const hp = cards[0].fields.find((f) => f.key === '_hp');
+    expect(hp?.path).toBe('actors._data[1]._hp');
+    const onPatch = vi.fn();
+    onPatch(hp!.path, 999);
+    expect(onPatch).toHaveBeenCalledWith('actors._data[1]._hp', 999);
+    expect(fieldLabel('_hp')).toBe('HP');
+    expect(fieldLabel('_name')).toBe('Name');
   });
 });
