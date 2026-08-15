@@ -65,6 +65,7 @@ function base(over: Partial<LibraryGame> = {}): LibraryGame {
     lastPlayedAt: null,
     totalPlaytimeSeconds: 0,
     customTags: [],
+    storeTags: [],
     notes: '',
     downloadLinks: [],
     downloadLinksVersion: null,

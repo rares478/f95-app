@@ -134,6 +134,12 @@ pub fn run() {
             sql: migrations::V14_LIBRARY_COLLECTIONS,
             kind: MigrationKind::Up,
         },
+        Migration {
+            version: 15,
+            description: "library_store_tags",
+            sql: migrations::V15_LIBRARY_STORE_TAGS,
+            kind: MigrationKind::Up,
+        },
     ];
 
     tauri::Builder::default()

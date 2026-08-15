@@ -296,3 +296,8 @@ CREATE TABLE library_collection_games (
 );
 CREATE INDEX idx_collection_games_thread ON library_collection_games(thread_id);
 "#;
+
+/// v15 caches F95 store tags (plus engine prefix names) on library rows.
+pub const V15_LIBRARY_STORE_TAGS: &str = r#"
+ALTER TABLE library_games ADD COLUMN store_tags_json TEXT;
+"#;

@@ -67,6 +67,7 @@ interface DbRow {
   last_played_at: string | null;
   total_playtime_seconds: number;
   custom_tags_json: string | null;
+  store_tags_json?: string | null;
   notes: string | null;
   download_links_json?: string | null;
   download_links_version?: string | null;
@@ -101,16 +102,18 @@ function parseDownloadLinksJson(raw: string | null | undefined): GameDownload[] 
   }
 }
 
-function rowToGame(r: DbRow): LibraryGame {
-  let customTags: string[] = [];
-  if (r.custom_tags_json) {
-    try {
-      const parsed = JSON.parse(r.custom_tags_json);
-      if (Array.isArray(parsed)) customTags = parsed.filter((x) => typeof x === 'string');
-    } catch {
-      // ignore
-    }
+function parseStringTagsJson(raw: string | null | undefined): string[] {
+  if (!raw) return [];
+  try {
+    const parsed = JSON.parse(raw);
+    if (!Array.isArray(parsed)) return [];
+    return parsed.filter((x): x is string => typeof x === 'string');
+  } catch {
+    return [];
   }
+}
+
+function rowToGame(r: DbRow): LibraryGame {
   return {
     threadId: r.thread_id,
     category: parseSamCategory(r.category),
@@ -125,7 +128,8 @@ function rowToGame(r: DbRow): LibraryGame {
     addedAt: r.added_at,
     lastPlayedAt: r.last_played_at,
     totalPlaytimeSeconds: r.total_playtime_seconds ?? 0,
-    customTags,
+    customTags: parseStringTagsJson(r.custom_tags_json),
+    storeTags: parseStringTagsJson(r.store_tags_json),
     notes: r.notes ?? '',
     downloadLinks: parseDownloadLinksJson(r.download_links_json),
     downloadLinksVersion: r.download_links_version ?? null,
@@ -592,6 +596,16 @@ export async function setCustomTags(
   await execute(
     `UPDATE library_games SET custom_tags_json = ? WHERE thread_id = ?`,
     [json, threadId],
+  );
+}
+
+export async function setStoreTags(
+  threadId: string,
+  tags: string[],
+): Promise<void> {
+  await execute(
+    `UPDATE library_games SET store_tags_json = ? WHERE thread_id = ?`,
+    [JSON.stringify(tags), threadId],
   );
 }
 

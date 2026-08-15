@@ -20,6 +20,7 @@ function game(partial: Partial<LibraryGame> & Pick<LibraryGame, 'threadId' | 'ti
     lastPlayedAt: null,
     totalPlaytimeSeconds: 0,
     customTags: [],
+    storeTags: [],
     notes: '',
     downloadLinks: [],
     downloadLinksVersion: null,

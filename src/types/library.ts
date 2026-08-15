@@ -27,6 +27,7 @@ export interface LibraryGame {
   lastPlayedAt: string | null;
   totalPlaytimeSeconds: number;
   customTags: string[];
+  storeTags: string[];
   notes: string;
   downloadLinks: GameDownload[];
   downloadLinksVersion: string | null;
