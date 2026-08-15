@@ -1,7 +1,8 @@
 //! Bounded per-slot backups under `{app_local_data}/save_backups`.
 //!
-//! The first edit of a slot copies the live save to `original.save`. Later edits
-//! leave that file alone so the pre-edit original stays available. Restore
+//! The first edit of a slot copies the live save to `original.<ext>` (matching
+//! the live file extension, e.g. `original.save` or `original.rpgsave`). Later
+//! edits leave that file alone so the pre-edit original stays available. Restore
 //! writes the chosen backup over the live slot without creating another backup.
 
 use super::reject_path_component;
@@ -13,8 +14,20 @@ use std::time::{SystemTime, UNIX_EPOCH};
 
 pub const MAX_BACKUPS_PER_SLOT: usize = 10;
 
-/// Fixed name for the first pre-edit snapshot of a slot.
+/// Default first-backup name for Ren'Py `.save` lives (legacy constant).
 pub const ORIGINAL_BACKUP_NAME: &str = "original.save";
+
+/// First-backup file name derived from the live save's extension.
+pub fn original_backup_name_for(live_path: &Path) -> String {
+    match live_path.extension().and_then(|e| e.to_str()) {
+        Some(ext) if !ext.is_empty() => format!("original.{ext}"),
+        _ => ORIGINAL_BACKUP_NAME.to_string(),
+    }
+}
+
+fn is_original_backup_name(name: &str) -> bool {
+    name.starts_with("original.")
+}
 
 #[derive(Debug, Clone, Serialize, PartialEq, Eq)]
 #[serde(rename_all = "camelCase")]
@@ -25,7 +38,7 @@ pub struct RenpySaveBackup {
     pub size_bytes: u64,
 }
 
-/// Copy live save to `original.save` if that file does not exist yet.
+/// Copy live save to `original.<ext>` if that file does not exist yet.
 ///
 /// Subsequent edits keep the existing original. Still prunes leftover
 /// timestamped backups from older app versions down to [`MAX_BACKUPS_PER_SLOT`].
@@ -46,7 +59,7 @@ pub fn backup_before_write(
     ensure_under_root(&thread_root, backups_root)?;
     ensure_under_root(&dir, backups_root)?;
 
-    let dest = dir.join(ORIGINAL_BACKUP_NAME);
+    let dest = dir.join(original_backup_name_for(live_path));
     if !dest.exists() {
         fs::copy(live_path, &dest).map_err(|e| {
             AppError::Io(format!(
@@ -61,7 +74,7 @@ pub fn backup_before_write(
     Ok(dest)
 }
 
-/// List backups for a slot, newest first (`original.save` sorted by mtime with the rest).
+/// List backups for a slot, newest first (`original.*` sorted ahead of the rest).
 pub fn list_backups(
     backups_root: &Path,
     thread_id: &str,
@@ -76,8 +89,8 @@ pub fn list_backups(
     let mut backups = collect_backup_files(&dir)?;
     backups.sort_by(|a, b| {
         // Prefer showing original first when mtimes tie / for clarity.
-        let a_orig = a.file_name == ORIGINAL_BACKUP_NAME;
-        let b_orig = b.file_name == ORIGINAL_BACKUP_NAME;
+        let a_orig = is_original_backup_name(&a.file_name);
+        let b_orig = is_original_backup_name(&b.file_name);
         match (a_orig, b_orig) {
             (true, false) => std::cmp::Ordering::Less,
             (false, true) => std::cmp::Ordering::Greater,
@@ -191,7 +204,8 @@ fn collect_backup_files(dir: &Path) -> Result<Vec<RenpySaveBackup>, AppError> {
         let Some(name) = path.file_name().and_then(|n| n.to_str()) else {
             continue;
         };
-        if !name.ends_with(".save") {
+        let is_save_ext = name.ends_with(".save") || name.ends_with(".rpgsave");
+        if !is_save_ext && !is_original_backup_name(name) {
             continue;
         }
         let meta = entry.metadata().map_err(|e| {
@@ -212,10 +226,10 @@ fn prune_slot_backups(dir: &Path) -> Result<(), AppError> {
     if backups.len() <= MAX_BACKUPS_PER_SLOT {
         return Ok(());
     }
-    // Never delete original.save; prune oldest timestamp leftovers first.
+    // Never delete original.*; prune oldest timestamp leftovers first.
     backups.sort_by(|a, b| {
-        let a_orig = a.file_name == ORIGINAL_BACKUP_NAME;
-        let b_orig = b.file_name == ORIGINAL_BACKUP_NAME;
+        let a_orig = is_original_backup_name(&a.file_name);
+        let b_orig = is_original_backup_name(&b.file_name);
         match (a_orig, b_orig) {
             (true, false) => std::cmp::Ordering::Less, // original sorts as "newest"/kept
             (false, true) => std::cmp::Ordering::Greater,
@@ -226,7 +240,7 @@ fn prune_slot_backups(dir: &Path) -> Result<(), AppError> {
         }
     });
     for old in backups.into_iter().skip(MAX_BACKUPS_PER_SLOT) {
-        if old.file_name == ORIGINAL_BACKUP_NAME {
+        if is_original_backup_name(&old.file_name) {
             continue;
         }
         let _ = fs::remove_file(&old.path);
@@ -287,6 +301,29 @@ mod tests {
         let listed = list_backups(&backups_root, "thread1", "1-1.save").unwrap();
         assert_eq!(listed.len(), 1);
         assert_eq!(listed[0].file_name, ORIGINAL_BACKUP_NAME);
+    }
+
+    #[test]
+    fn backup_rpgsave_uses_original_rpgsave_name() {
+        let root = tempfile_root("original-rpgsave");
+        let backups_root = root.join("save_backups");
+        let install = root.join("game");
+        let live = install.join("saves").join("file1.rpgsave");
+        write_file(&live, b"rpgsave-bytes");
+
+        assert_eq!(original_backup_name_for(&live), "original.rpgsave");
+
+        let dest =
+            backup_before_write(&backups_root, "thread1", "file1.rpgsave", &live).unwrap();
+        assert_eq!(
+            dest.file_name().and_then(|n| n.to_str()),
+            Some("original.rpgsave")
+        );
+        assert_eq!(fs::read(&dest).unwrap(), b"rpgsave-bytes");
+
+        let listed = list_backups(&backups_root, "thread1", "file1.rpgsave").unwrap();
+        assert_eq!(listed.len(), 1);
+        assert_eq!(listed[0].file_name, "original.rpgsave");
     }
 
     #[test]
