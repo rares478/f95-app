@@ -101,12 +101,22 @@ describe('tryLoginAutoInstall', () => {
     const downloadAndInstall = vi.fn().mockResolvedValue(undefined);
     const update = { version: '1.2.3', downloadAndInstall };
     vi.mocked(check).mockResolvedValue(update as never);
+    const onChecking = vi.fn();
     const onInstalling = vi.fn();
 
     await expect(
-      tryLoginAutoInstall({ isDev: false, offline: false, onInstalling }),
+      tryLoginAutoInstall({
+        isDev: false,
+        offline: false,
+        onChecking,
+        onInstalling,
+      }),
     ).resolves.toBe('installed');
+    expect(onChecking).toHaveBeenCalledOnce();
     expect(onInstalling).toHaveBeenCalledOnce();
+    expect(onChecking.mock.invocationCallOrder[0]).toBeLessThan(
+      onInstalling.mock.invocationCallOrder[0]!,
+    );
     expect(downloadAndInstall).toHaveBeenCalledOnce();
     expect(relaunch).toHaveBeenCalledOnce();
     expect(appLog).toHaveBeenCalledWith('INFO', 'updater', 'check start');

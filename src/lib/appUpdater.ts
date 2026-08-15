@@ -94,6 +94,8 @@ export async function tryLoginAutoInstall(opts: {
   offline: boolean;
   /** Pre-started check overlapping session/login work; otherwise checks now. */
   updatePromise?: Promise<Update | null> | null;
+  /** Fires before awaiting the check so UI is not stuck on "Loading session…". */
+  onChecking?: () => void;
   onInstalling?: () => void;
 }): Promise<'installed' | 'continue'> {
   if (!shouldStartLoginUpdateCheck({
@@ -114,6 +116,7 @@ export async function tryLoginAutoInstall(opts: {
     return 'continue';
   }
 
+  opts.onChecking?.();
   const update = await (opts.updatePromise ?? checkForAppUpdate());
   if (!update) return 'continue';
 

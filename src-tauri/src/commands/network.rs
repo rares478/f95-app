@@ -18,6 +18,9 @@ pub struct NetworkStatus {
 
 fn probe_client() -> Result<Client, AppError> {
     Client::builder()
+        // DNS / TCP connect can ignore the request timeout on some stacks;
+        // cap both so login bootstrap cannot hang on "Loading session…".
+        .connect_timeout(Duration::from_secs(3))
         .timeout(Duration::from_secs(5))
         .redirect(reqwest::redirect::Policy::limited(5))
         .user_agent(PROBE_USER_AGENT)

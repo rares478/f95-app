@@ -181,13 +181,41 @@ export function useOffline(): OfflineContextValue {
   return ctx;
 }
 
+/** Host probe budget for login bootstrap — must stay below sidecar RPC timeouts. */
+const QUICK_PROBE_TIMEOUT_MS = 12_000;
+
+function withTimeout<T>(promise: Promise<T>, ms: number, label: string): Promise<T> {
+  return new Promise<T>((resolve, reject) => {
+    const timer = setTimeout(
+      () => reject(new Error(`${label} timed out after ${ms}ms`)),
+      ms,
+    );
+    promise.then(
+      (value) => {
+        clearTimeout(timer);
+        resolve(value);
+      },
+      (err) => {
+        clearTimeout(timer);
+        reject(err);
+      },
+    );
+  });
+}
+
 /** For login window (no OfflineProvider): quick offline probe. */
 export async function probeOfflineQuick(): Promise<boolean> {
   const manual = await settings.getBool(settings.KEY_OFFLINE_MODE_MANUAL, false);
   if (manual) return true;
   if (typeof navigator !== 'undefined' && !navigator.onLine) return true;
   try {
-    const status = await ipc.checkNetwork();
+    // Frontend deadline in case the host command never settles (seen as a
+    // permanent "Loading session…" hang with only "login window ready" logged).
+    const status = await withTimeout(
+      ipc.checkNetwork(),
+      QUICK_PROBE_TIMEOUT_MS,
+      'checkNetwork',
+    );
     return !status.internet || !status.f95Reachable;
   } catch {
     return true;

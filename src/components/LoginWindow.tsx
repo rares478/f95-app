@@ -20,8 +20,30 @@ type Phase =
   | { kind: 'auto-login' }     // trying stored creds
   | { kind: 'form'; prefill?: { username: string; password: string } }
   | { kind: 'submitting' }     // user clicked Sign in
-  | { kind: 'updating' }       // auto-update install before opening main
+  | { kind: 'updating'; installing?: boolean } // auto-update check/install before main
   | { kind: 'completing' };    // success — spawning main window
+
+/** Soft cap so a stuck F95 session probe cannot pin the login UI forever. */
+const SESSION_PROBE_TIMEOUT_MS = 45_000;
+
+function withTimeout<T>(promise: Promise<T>, ms: number, label: string): Promise<T> {
+  return new Promise<T>((resolve, reject) => {
+    const timer = setTimeout(
+      () => reject(new Error(`${label} timed out after ${ms}ms`)),
+      ms,
+    );
+    promise.then(
+      (value) => {
+        clearTimeout(timer);
+        resolve(value);
+      },
+      (err) => {
+        clearTimeout(timer);
+        reject(err);
+      },
+    );
+  });
+}
 
 /**
  * Standalone login window. Renders the Steam-style sign-in flow:
@@ -60,78 +82,104 @@ export function LoginWindow() {
       new URLSearchParams(window.location.search).get('logout') === '1';
 
     (async () => {
-      if (cameFromLogout) {
-        // Defensive: wipe any creds that survived the main-window logout
-        // (e.g. if `stronghold.save()` was slow to flush).
-        await clearCredentials().catch(() => {});
-        if (!cancelled) setPhase({ kind: 'form' });
-
-        // Pre-warm the sidecar so the user's upcoming Sign in click
-        // doesn't pay the ~1-2s Node spawn + init cost.
-        //
-        // CRITICAL: use `pingSidecar`, NOT `isLoggedIn` — the sidecar
-        // serializes RPCs in a strict queue. `isLoggedIn` fires a GET
-        // to F95Zone which can take many seconds; if the user clicks
-        // Sign in while that's still in flight, the login RPC waits
-        // behind it. `ping` is a no-op that returns instantly, freeing
-        // the queue immediately.
-        ipc.pingSidecar().catch(() => {});
-        return;
-      }
-
-      const offline = await probeOfflineQuick();
-      if (offline) {
-        const hasSession = await ipc.hasLocalSession();
-        if (hasSession && !cancelled) {
-          void appLog('INFO', 'auth', 'local session present');
-          await completeLogin({ offline: true });
-          return;
-        }
-        if (!cancelled) {
-          void appLog('INFO', 'auth', 'session missing');
-          setPhase({ kind: 'form' });
-        }
-        return;
-      }
-
-      if (
-        shouldStartLoginUpdateCheck({
-          isDev: import.meta.env.DEV,
-          offline: false,
-        })
-      ) {
-        updateCheckRef.current = checkForAppUpdate();
-      }
-
       try {
-        if (await ipc.isLoggedIn()) {
-          if (!cancelled) await completeLogin({ offline: false });
+        if (cameFromLogout) {
+          // Defensive: wipe any creds that survived the main-window logout
+          // (e.g. if `stronghold.save()` was slow to flush).
+          await clearCredentials().catch(() => {});
+          if (!cancelled) setPhase({ kind: 'form' });
+
+          // Pre-warm the sidecar so the user's upcoming Sign in click
+          // doesn't pay the ~1-2s Node spawn + init cost.
+          //
+          // CRITICAL: use `pingSidecar`, NOT `isLoggedIn` — the sidecar
+          // serializes RPCs in a strict queue. `isLoggedIn` fires a GET
+          // to F95Zone which can take many seconds; if the user clicks
+          // Sign in while that's still in flight, the login RPC waits
+          // behind it. `ping` is a no-op that returns instantly, freeing
+          // the queue immediately.
+          ipc.pingSidecar().catch(() => {});
           return;
         }
-      } catch {
-        // ignore — fall through
-      }
 
-      const stored = await loadCredentials().catch(() => null);
-      if (stored) {
-        if (cancelled) return;
-        setPhase({ kind: 'auto-login' });
-        try {
-          void appLog('INFO', 'auth', 'auto-login start');
-          await ipc.login(stored.username, stored.password);
-          if (!cancelled) await completeLogin({ offline: false });
-          return;
-        } catch {
+        void appLog('INFO', 'auth', 'probe offline start');
+        const offline = await probeOfflineQuick();
+        void appLog('INFO', 'auth', offline ? 'probe offline: yes' : 'probe offline: no');
+        if (offline) {
+          const hasSession = await ipc.hasLocalSession();
+          if (hasSession && !cancelled) {
+            void appLog('INFO', 'auth', 'local session present');
+            await completeLogin({ offline: true });
+            return;
+          }
           if (!cancelled) {
-            setUsername(stored.username);
-            setPassword(stored.password);
-            setPhase({ kind: 'form', prefill: stored });
+            void appLog('INFO', 'auth', 'session missing');
+            setPhase({ kind: 'form' });
           }
           return;
         }
-      }
 
-      if (!cancelled) setPhase({ kind: 'form' });
+        if (
+          shouldStartLoginUpdateCheck({
+            isDev: import.meta.env.DEV,
+            offline: false,
+          })
+        ) {
+          updateCheckRef.current = checkForAppUpdate();
+        }
+
+        try {
+          void appLog('INFO', 'auth', 'session probe start');
+          const loggedIn = await withTimeout(
+            ipc.isLoggedIn(),
+            SESSION_PROBE_TIMEOUT_MS,
+            'isLoggedIn',
+          );
+          void appLog('INFO', 'auth', loggedIn ? 'session probe: yes' : 'session probe: no');
+          if (loggedIn) {
+            if (!cancelled) await completeLogin({ offline: false });
+            return;
+          }
+        } catch (err) {
+          void appLog(
+            'WARN',
+            'auth',
+            `session probe failed: ${err instanceof Error ? err.message : String(err)}`,
+          );
+          // fall through to stored creds / form
+        }
+
+        const stored = await loadCredentials().catch(() => null);
+        if (stored) {
+          if (cancelled) return;
+          setPhase({ kind: 'auto-login' });
+          try {
+            void appLog('INFO', 'auth', 'auto-login start');
+            await ipc.login(stored.username, stored.password);
+            if (!cancelled) await completeLogin({ offline: false });
+            return;
+          } catch {
+            if (!cancelled) {
+              setUsername(stored.username);
+              setPassword(stored.password);
+              setPhase({ kind: 'form', prefill: stored });
+            }
+            return;
+          }
+        }
+
+        if (!cancelled) setPhase({ kind: 'form' });
+      } catch (err) {
+        void appLog(
+          'ERROR',
+          'auth',
+          `bootstrap failed: ${err instanceof Error ? err.message : String(err)}`,
+        );
+        if (!cancelled) {
+          setError(isBackendError(err) ? err : String(err));
+          setPhase({ kind: 'form' });
+        }
+      }
     })();
     return () => {
       cancelled = true;
@@ -146,7 +194,8 @@ export function LoginWindow() {
       isDev: import.meta.env.DEV,
       offline: opts.offline,
       updatePromise,
-      onInstalling: () => setPhase({ kind: 'updating' }),
+      onChecking: () => setPhase({ kind: 'updating' }),
+      onInstalling: () => setPhase({ kind: 'updating', installing: true }),
     });
     if (gate === 'installed') return;
 
@@ -214,7 +263,11 @@ export function LoginWindow() {
         ) : phase.kind === 'updating' ? (
           <div style={loadingStyle}>
             <Spinner />
-            <span>{t('appUpdate.status.updating')}</span>
+            <span>
+              {phase.installing
+                ? t('appUpdate.status.updating')
+                : t('settings.updates.checking')}
+            </span>
           </div>
         ) : phase.kind === 'completing' ? (
           <div style={loadingStyle}>
