@@ -7,9 +7,18 @@ use serde_json::json;
 use serde_pickle::{value_from_slice, value_to_vec, DeOptions, HashableValue, SerOptions, Value};
 use std::path::Path;
 
+fn de_options() -> DeOptions {
+    // Real Ren'Py saves reference custom classes (store.* game objects). Replace those
+    // with None/opaque stand-ins. RevertableList/Set are handled inside our patched
+    // serde-pickle (NEWOBJ → list/set so APPEND works).
+    DeOptions::new()
+        .replace_unresolved_globals()
+        .replace_recursive_structures()
+}
+
 /// Parse `log` pickle bytes into a `RenpyVarNode` tree rooted at the save's roots dict.
 pub fn log_to_tree(log: &[u8]) -> Result<RenpyVarNode, AppError> {
-    let value = value_from_slice(log, DeOptions::new())
+    let value = value_from_slice(log, de_options())
         .map_err(|_| AppError::keyed("error.saveEditor.parse"))?;
     let roots = roots_ref(&value);
     Ok(value_to_node(roots, "", "roots"))
@@ -17,7 +26,7 @@ pub fn log_to_tree(log: &[u8]) -> Result<RenpyVarNode, AppError> {
 
 /// Apply primitive patches to `log` pickle bytes. No cross-type coercion.
 pub fn apply_patches(log: &[u8], patches: &[RenpySavePatch]) -> Result<Vec<u8>, AppError> {
-    let mut value = value_from_slice(log, DeOptions::new())
+    let mut value = value_from_slice(log, de_options())
         .map_err(|_| AppError::keyed("error.saveEditor.parse"))?;
 
     for patch in patches {
@@ -488,5 +497,67 @@ mod tests {
         let tree = log_to_tree(&patched).unwrap();
         let node = find_path(&tree, "store.utf8bytes").unwrap();
         assert_eq!(node.value, Some(json!("hi")));
+    }
+
+    /// Minimal PROTO2 pickle: dict with key "items" → RevertableList via NEWOBJ + APPEND.
+    fn revertable_list_pickle() -> Vec<u8> {
+        // { 'items': RevertableList([42]) }
+        let mut p = Vec::new();
+        p.extend_from_slice(&[0x80, 0x02]); // PROTO 2
+        p.push(b'}'); // EMPTY_DICT
+        p.extend_from_slice(&[b'q', 0x00]); // BINPUT 0
+        p.push(b'('); // MARK
+        p.push(b'X'); // BINUNICODE 'items'
+        p.extend_from_slice(&5u32.to_le_bytes());
+        p.extend_from_slice(b"items");
+        // GLOBAL renpy.python\nRevertableList\n
+        p.push(b'c');
+        p.extend_from_slice(b"renpy.python\nRevertableList\n");
+        p.extend_from_slice(&[b'q', 0x01]);
+        p.push(b')'); // EMPTY_TUPLE
+        p.push(0x81); // NEWOBJ
+        p.extend_from_slice(&[b'q', 0x02]);
+        p.push(b'K'); // BININT1 42
+        p.push(42);
+        p.push(b'a'); // APPEND
+        p.push(b'u'); // SETITEMS
+        p.push(b'.'); // STOP
+        p
+    }
+
+    #[test]
+    fn parses_renpy_revertable_list_newobj_append() {
+        let tree = log_to_tree(&revertable_list_pickle()).unwrap();
+        let node = find_path(&tree, "items[0]").unwrap();
+        assert_eq!(node.type_, "int");
+        assert_eq!(node.value, Some(json!(42)));
+    }
+
+    #[test]
+    fn parses_holiday_island_save_log_fixture() {
+        let path = r"holiday-log.bin";
+        let Ok(log) = std::fs::read(path) else {
+            eprintln!("skip: holiday-log.bin not present");
+            return;
+        };
+        let tree = log_to_tree(&log).expect("Holiday Island log should parse");
+        assert!(
+            tree.children.as_ref().map(|c| !c.is_empty()).unwrap_or(false),
+            "expected store variables in tree"
+        );
+        // Known primitive from the save header region
+        let sports = find_path(&tree, "store.talk_sports");
+        assert!(sports.is_some(), "expected store.talk_sports");
+        assert_eq!(sports.unwrap().type_, "bool");
+    }
+
+    #[test]
+    fn reads_holiday_island_save_zip_if_present() {
+        let path = r"E:\Downloads\New Folder\Other\3782\Current · Win_Linux · Full-HolidayIsland-0.5.0.0-pc\HolidayIsland-0.5.0.0-pc\game\saves\1-1-LT1.save";
+        if !std::path::Path::new(path).is_file() {
+            return;
+        }
+        let tree = read_save_tree(std::path::Path::new(path)).expect("zip+log parse");
+        assert!(find_path(&tree, "store.talk_sports").is_some());
     }
 }
