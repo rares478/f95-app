@@ -12,7 +12,7 @@ pub use backup::{
 };
 pub use discover::{list_slots, probe_renpy_install, resolve_saves_dir};
 pub use pickle_tree::{apply_patches, log_to_tree, read_save_tree, write_save_patches};
-pub use types::{RenpyProbeResult, RenpySavePatch, RenpySaveSlot, RenpyVarNode};
+pub use types::{RpgmProbeResult, RenpyProbeResult, RenpySavePatch, RenpySaveSlot, RenpyVarNode};
 pub use zip_save::{read_log_bytes, write_log_bytes, zip_has_screenshot};
 
 use crate::error::AppError;
