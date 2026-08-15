@@ -17,6 +17,7 @@ mod mover;
 mod overlay_anchor;
 mod overlay_hotkey;
 mod remote_image_preview;
+mod save_editor;
 mod save_migration;
 mod shortcuts;
 mod sidecar;
