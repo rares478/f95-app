@@ -2,6 +2,7 @@ import { useCallback, useEffect, useMemo, useRef, useState } from 'react';
 import { SaveSlotList } from './SaveSlotList';
 import { SaveVarTree } from './SaveVarTree';
 import { SaveEditPanel } from './SaveEditPanel';
+import { RpgmEditorTabs } from './rpgm/RpgmEditorTabs';
 import { LoadingState } from '../../ui/LoadingState';
 import { useRunningGames } from '../../../contexts/RunningGames';
 import { dialog } from '../../../lib/dialog';
@@ -275,6 +276,15 @@ export function SaveEditor({ game, onClose }: Props) {
     setSelectedPath(node.path);
   }, []);
 
+  const handleSelectPath = useCallback(
+    (path: string) => {
+      const node = findNode(tree, path);
+      if (!node?.editable) return;
+      setSelectedPath(path);
+    },
+    [tree],
+  );
+
   const handleDraftChange = useCallback(
     (value: unknown) => {
       if (!selectedNode?.editable) return;
@@ -288,6 +298,21 @@ export function SaveEditor({ game, onClose }: Props) {
       });
     },
     [selectedNode],
+  );
+
+  const handlePatch = useCallback(
+    (path: string, value: unknown) => {
+      if (!treeMatchesSelection || !tree) return;
+      const node = findNode(tree, path);
+      const original = node?.value;
+      setPatches((prev) => {
+        const next = new Map(prev);
+        if (node && valuesEqual(value, original)) next.delete(path);
+        else next.set(path, value);
+        return next;
+      });
+    },
+    [tree, treeMatchesSelection],
   );
 
   const handleApply = useCallback(async () => {
@@ -459,6 +484,22 @@ export function SaveEditor({ game, onClose }: Props) {
                 <LoadingState label={t('saveEditor.loadingTree')} variant="compact" />
               </div>
             </div>
+          ) : engine === 'rpgm' && tree && treeMatchesSelection ? (
+            <RpgmEditorTabs
+              key={treeSlotKey}
+              tree={tree}
+              patches={patches}
+              dirtyPaths={dirtyPaths}
+              onPatch={handlePatch}
+              search={search}
+              onSearch={setSearch}
+              selectedPath={selectedPath}
+              onSelectPath={handleSelectPath}
+              selectedNode={selectedNode}
+              draftValue={draftValue}
+              onDraft={handleDraftChange}
+              disabled={isRunning}
+            />
           ) : (
             <SaveVarTree
               root={tree}

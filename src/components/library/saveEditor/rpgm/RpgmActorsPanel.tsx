@@ -4,6 +4,7 @@ import {
   type ActorCard,
   type ActorField,
 } from '../../../../lib/rpgmSaveView';
+import { useT } from '../../../../lib/i18n';
 import type { RpgmPatchProps } from './RpgmPartyPanel';
 import './rpgmEditor.css';
 
@@ -124,12 +125,13 @@ export function RpgmActorsPanel({
   onPatch,
   disabled = false,
 }: RpgmPatchProps) {
+  const { t } = useT();
   const cards = useMemo(() => extractActorCards(tree), [tree]);
 
   return (
     <div className="rpgm-panel">
       {cards.length === 0 ? (
-        <p className="rpgm-empty">No actors in this save.</p>
+        <p className="rpgm-empty">{t('saveEditor.rpgm.actors.empty')}</p>
       ) : (
         <div className="rpgm-actor-cards">
           {cards.map((card) => {
@@ -141,7 +143,7 @@ export function RpgmActorsPanel({
                   <span className="rpgm-actor-name">{title}</span>
                 </h3>
                 {card.fields.length === 0 ? (
-                  <p className="rpgm-empty">No editable fields.</p>
+                  <p className="rpgm-empty">{t('saveEditor.rpgm.actors.noFields')}</p>
                 ) : (
                   <div className="rpgm-fields">
                     {card.fields.map((field) => (

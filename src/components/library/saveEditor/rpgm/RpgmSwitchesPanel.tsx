@@ -6,6 +6,7 @@ import {
   filterNonDefaultSwitches,
   type IndexedRow,
 } from '../../../../lib/rpgmSaveView';
+import { useT } from '../../../../lib/i18n';
 import type { RpgmPatchProps } from './RpgmPartyPanel';
 import './rpgmEditor.css';
 
@@ -42,6 +43,7 @@ export function RpgmSwitchesPanel({
   onPatch,
   disabled = false,
 }: RpgmPatchProps) {
+  const { t } = useT();
   const [hideOff, setHideOff] = useState(false);
 
   const rows = useMemo(() => extractIndexedRows(tree, 'switches._data'), [tree]);
@@ -60,24 +62,24 @@ export function RpgmSwitchesPanel({
             disabled={disabled}
             onChange={(e) => setHideOff(e.target.checked)}
           />
-          <span>Hide off</span>
+          <span>{t('saveEditor.rpgm.switches.hideOff')}</span>
         </label>
       </div>
 
       {visible.length === 0 ? (
         <p className="rpgm-empty">
           {rows.length === 0
-            ? 'No switches in this save.'
-            : 'No switches match this filter.'}
+            ? t('saveEditor.rpgm.switches.empty')
+            : t('saveEditor.rpgm.switches.noMatches')}
         </p>
       ) : (
         <div className="rpgm-table-wrap">
           <table className="rpgm-table">
             <thead>
               <tr>
-                <th>Name</th>
-                <th>Id</th>
-                <th>On</th>
+                <th>{t('saveEditor.rpgm.switches.col.name')}</th>
+                <th>{t('saveEditor.rpgm.switches.col.id')}</th>
+                <th>{t('saveEditor.rpgm.switches.col.on')}</th>
               </tr>
             </thead>
             <tbody>

@@ -1,6 +1,7 @@
 import { useMemo } from 'react';
 import type { RenpyVarNode } from '../../../../types/renpySave';
 import { extractActorCards, extractPartyView } from '../../../../lib/rpgmSaveView';
+import { useT } from '../../../../lib/i18n';
 import './rpgmEditor.css';
 
 export type RpgmPatchProps = {
@@ -36,6 +37,7 @@ export function RpgmPartyPanel({
   onPatch,
   disabled = false,
 }: RpgmPatchProps) {
+  const { t } = useT();
   const party = useMemo(() => extractPartyView(tree), [tree]);
   const actorCards = useMemo(() => extractActorCards(tree), [tree]);
   const nameById = useMemo(() => {
@@ -52,12 +54,12 @@ export function RpgmPartyPanel({
   return (
     <div className="rpgm-panel">
       <section className="rpgm-section">
-        <h3 className="rpgm-section-title">Party</h3>
+        <h3 className="rpgm-section-title">{t('saveEditor.rpgm.party.section')}</h3>
         <div className="rpgm-fields">
           <label
             className={`rpgm-field${dirtyPaths.has(party.goldPath) ? ' rpgm-field--dirty' : ''}`}
           >
-            <span className="save-editor-label">Gold</span>
+            <span className="save-editor-label">{t('saveEditor.rpgm.party.gold')}</span>
             <input
               className="save-editor-input"
               type="number"
@@ -73,7 +75,7 @@ export function RpgmPartyPanel({
           <label
             className={`rpgm-field${dirtyPaths.has(party.stepsPath) ? ' rpgm-field--dirty' : ''}`}
           >
-            <span className="save-editor-label">Steps</span>
+            <span className="save-editor-label">{t('saveEditor.rpgm.party.steps')}</span>
             <input
               className="save-editor-input"
               type="number"
@@ -90,9 +92,9 @@ export function RpgmPartyPanel({
       </section>
 
       <section className="rpgm-section">
-        <h3 className="rpgm-section-title">Members</h3>
+        <h3 className="rpgm-section-title">{t('saveEditor.rpgm.party.members')}</h3>
         {party.actorIds.length === 0 ? (
-          <p className="rpgm-empty">No party members in this save.</p>
+          <p className="rpgm-empty">{t('saveEditor.rpgm.party.emptyMembers')}</p>
         ) : (
           <ul className="rpgm-actor-list">
             {party.actorIds.map((id, i) => {
@@ -100,7 +102,9 @@ export function RpgmPartyPanel({
               return (
                 <li key={`${id}-${i}`} className="rpgm-actor-item">
                   <span className="rpgm-actor-id">#{id}</span>
-                  <span className="rpgm-actor-name">{name ?? `Actor ${id}`}</span>
+                  <span className="rpgm-actor-name">
+                    {name ?? t('saveEditor.rpgm.party.actorFallback', { id })}
+                  </span>
                 </li>
               );
             })}

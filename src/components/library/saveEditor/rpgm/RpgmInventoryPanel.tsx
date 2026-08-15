@@ -4,14 +4,9 @@ import {
   type InventoryKind,
   type InventoryRow,
 } from '../../../../lib/rpgmSaveView';
+import { useT } from '../../../../lib/i18n';
 import type { RpgmPatchProps } from './RpgmPartyPanel';
 import './rpgmEditor.css';
-
-const KINDS: { kind: InventoryKind; label: string }[] = [
-  { kind: 'items', label: 'Items' },
-  { kind: 'weapons', label: 'Weapons' },
-  { kind: 'armors', label: 'Armors' },
-];
 
 /** Case-insensitive name/id filter for inventory rows (exported for smoke tests). */
 export function filterInventoryRows(rows: InventoryRow[], query: string): InventoryRow[] {
@@ -43,8 +38,15 @@ export function RpgmInventoryPanel({
   onPatch,
   disabled = false,
 }: RpgmPatchProps) {
+  const { t } = useT();
   const [kind, setKind] = useState<InventoryKind>('items');
   const [search, setSearch] = useState('');
+
+  const kinds: { kind: InventoryKind; labelKey: string }[] = [
+    { kind: 'items', labelKey: 'saveEditor.rpgm.inventory.items' },
+    { kind: 'weapons', labelKey: 'saveEditor.rpgm.inventory.weapons' },
+    { kind: 'armors', labelKey: 'saveEditor.rpgm.inventory.armors' },
+  ];
 
   const rows = useMemo(() => extractInventoryRows(tree, kind), [tree, kind]);
   const visible = useMemo(() => filterInventoryRows(rows, search), [rows, search]);
@@ -52,8 +54,12 @@ export function RpgmInventoryPanel({
   return (
     <div className="rpgm-panel">
       <div className="rpgm-toolbar">
-        <div className="rpgm-kind-tabs" role="tablist" aria-label="Inventory kind">
-          {KINDS.map((tab) => (
+        <div
+          className="rpgm-kind-tabs"
+          role="tablist"
+          aria-label={t('saveEditor.rpgm.tab.inventory')}
+        >
+          {kinds.map((tab) => (
             <button
               key={tab.kind}
               type="button"
@@ -63,14 +69,14 @@ export function RpgmInventoryPanel({
               disabled={disabled}
               onClick={() => setKind(tab.kind)}
             >
-              {tab.label}
+              {t(tab.labelKey)}
             </button>
           ))}
         </div>
         <input
           className="save-editor-search rpgm-search"
           type="search"
-          placeholder="Search by name or id…"
+          placeholder={t('saveEditor.rpgm.inventory.search')}
           value={search}
           disabled={disabled}
           onChange={(e) => setSearch(e.target.value)}
@@ -79,16 +85,18 @@ export function RpgmInventoryPanel({
 
       {visible.length === 0 ? (
         <p className="rpgm-empty">
-          {rows.length === 0 ? 'No entries in this inventory.' : 'No matches for this search.'}
+          {rows.length === 0
+            ? t('saveEditor.rpgm.inventory.empty')
+            : t('saveEditor.rpgm.inventory.noMatches')}
         </p>
       ) : (
         <div className="rpgm-table-wrap">
           <table className="rpgm-table">
             <thead>
               <tr>
-                <th>Name</th>
-                <th>Id</th>
-                <th>Count</th>
+                <th>{t('saveEditor.rpgm.inventory.col.name')}</th>
+                <th>{t('saveEditor.rpgm.inventory.col.id')}</th>
+                <th>{t('saveEditor.rpgm.inventory.col.count')}</th>
               </tr>
             </thead>
             <tbody>
@@ -109,7 +117,7 @@ export function RpgmInventoryPanel({
                         min={0}
                         value={count}
                         disabled={disabled}
-                        aria-label={`Count for ${row.name}`}
+                        aria-label={t('saveEditor.rpgm.inventory.countAria', { name: row.name })}
                         onChange={(e) => {
                           const n = parseCount(e.target.value);
                           if (n != null) onPatch(row.path, n);

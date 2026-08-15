@@ -6,6 +6,7 @@ import {
   filterNonDefaultVariables,
   type IndexedRow,
 } from '../../../../lib/rpgmSaveView';
+import { useT } from '../../../../lib/i18n';
 import type { RpgmPatchProps } from './RpgmPartyPanel';
 import { displayIndexedLabel } from './RpgmSwitchesPanel';
 import './rpgmEditor.css';
@@ -101,6 +102,7 @@ export function RpgmVariablesPanel({
   onPatch,
   disabled = false,
 }: RpgmPatchProps) {
+  const { t } = useT();
   const [hideDefaults, setHideDefaults] = useState(false);
 
   const rows = useMemo(() => extractIndexedRows(tree, 'variables._data'), [tree]);
@@ -119,24 +121,24 @@ export function RpgmVariablesPanel({
             disabled={disabled}
             onChange={(e) => setHideDefaults(e.target.checked)}
           />
-          <span>Hide defaults</span>
+          <span>{t('saveEditor.rpgm.variables.hideDefaults')}</span>
         </label>
       </div>
 
       {visible.length === 0 ? (
         <p className="rpgm-empty">
           {rows.length === 0
-            ? 'No variables in this save.'
-            : 'No variables match this filter.'}
+            ? t('saveEditor.rpgm.variables.empty')
+            : t('saveEditor.rpgm.variables.noMatches')}
         </p>
       ) : (
         <div className="rpgm-table-wrap">
           <table className="rpgm-table">
             <thead>
               <tr>
-                <th>Name</th>
-                <th>Id</th>
-                <th>Value</th>
+                <th>{t('saveEditor.rpgm.variables.col.name')}</th>
+                <th>{t('saveEditor.rpgm.variables.col.id')}</th>
+                <th>{t('saveEditor.rpgm.variables.col.value')}</th>
               </tr>
             </thead>
             <tbody>
