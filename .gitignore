@@ -31,3 +31,7 @@ tmp-*
 uh-post-*.html
 gdrive-cookies.txt
 gdrive-docs.bin
+
+# Local agent scratch
+.superpowers/
+
