@@ -2,6 +2,7 @@ import { beforeEach, describe, expect, it, vi } from 'vitest';
 import {
   ensureLinks,
   linksAreStale,
+  saveLinksFromDetail,
   targetLinksVersion,
 } from './libraryDownloadLinks';
 import * as ipc from './ipc';
@@ -167,11 +168,42 @@ describe('linksAreStale', () => {
 vi.mock('./ipc');
 vi.mock('./library');
 
+describe('saveLinksFromDetail', () => {
+  beforeEach(() => {
+    vi.spyOn(library, 'setDownloadLinks').mockResolvedValue(undefined);
+    vi.spyOn(library, 'setStoreTags').mockResolvedValue(undefined);
+  });
+
+  it('writes download links and store tags from detail', async () => {
+    await saveLinksFromDetail(
+      '1',
+      detail({
+        version: '2.0',
+        downloads: [structuredLink],
+        tags: [{ slug: 'adventure', name: 'Adventure' }],
+        prefixes: [{ name: "Ren'Py", cssClass: null }],
+      }),
+    );
+
+    expect(library.setDownloadLinks).toHaveBeenCalledWith(
+      '1',
+      [structuredLink],
+      '2.0',
+    );
+    expect(library.setStoreTags).toHaveBeenCalledWith('1', [
+      'Adventure',
+      "Ren'Py",
+    ]);
+  });
+});
+
 describe('ensureLinks', () => {
   beforeEach(() => {
     vi.mocked(ipc.gameDetail).mockReset();
     vi.mocked(library.setDownloadLinks).mockReset();
     vi.mocked(library.setDownloadLinks).mockResolvedValue(undefined);
+    vi.mocked(library.setStoreTags).mockReset();
+    vi.mocked(library.setStoreTags).mockResolvedValue(undefined);
   });
 
   it('throws empty_links without saving when fetch returns no downloads', async () => {

@@ -64,6 +64,7 @@ export async function saveLinksFromDetail(
 ): Promise<void> {
   const version = (detail.version ?? '').trim() || null;
   await saveLinksSnapshot(threadId, detail.downloads ?? [], version);
+  await library.setStoreTags(threadId, buildStoreTagsFromDetail(detail));
 }
 
 export async function saveLinksSnapshot(
