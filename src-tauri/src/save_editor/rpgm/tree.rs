@@ -3,7 +3,9 @@
 use crate::error::AppError;
 use crate::save_editor::pickle_tree::parse_path_segments;
 use crate::save_editor::rpgm::codec::{compress_rpgsave, decompress_rpgsave};
-use crate::save_editor::rpgm::labels::{decorate_inventory_names, load_inventory_names};
+use crate::save_editor::rpgm::labels::{
+    decorate_inventory_names, decorate_system_names, load_inventory_names, load_system_names,
+};
 use crate::save_editor::types::{RenpySavePatch, RenpyVarNode};
 use serde_json::Value;
 use std::fs;
@@ -39,6 +41,8 @@ pub fn read_rpgsave_file(path: &Path, data_dir: Option<&Path>) -> Result<RenpyVa
     if let Some(dir) = data_dir {
         let names = load_inventory_names(dir);
         decorate_inventory_names(&mut tree, &names);
+        let system = load_system_names(dir);
+        decorate_system_names(&mut tree, &system);
     }
     Ok(tree)
 }

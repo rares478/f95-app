@@ -9,7 +9,9 @@ use crate::save_editor::{
     restore_backup, RenpySavePatch, RenpySaveSlot, RenpyVarNode,
 };
 use discover::{list_slots, resolve_data_dir, resolve_saves_dir};
-use labels::{decorate_inventory_names, load_inventory_names};
+use labels::{
+    decorate_inventory_names, decorate_system_names, load_inventory_names, load_system_names,
+};
 use std::path::{Path, PathBuf};
 use tree::{read_rpgsave_file, write_rpgsave_patches};
 
@@ -45,6 +47,8 @@ pub fn write(
     if let Some(data_dir) = resolve_data_dir(install, variant) {
         let names = load_inventory_names(&data_dir);
         decorate_inventory_names(&mut tree, &names);
+        let system = load_system_names(&data_dir);
+        decorate_system_names(&mut tree, &system);
     }
     Ok(tree)
 }

@@ -1,4 +1,4 @@
-//! Inventory display names from RPG Maker Items/Weapons/Armors DB JSON.
+//! Inventory and System.json display names from RPG Maker DB JSON.
 
 use crate::save_editor::types::RenpyVarNode;
 use serde_json::Value;
@@ -13,6 +13,12 @@ pub struct InventoryNames {
     pub armors: HashMap<i64, String>,
 }
 
+#[derive(Debug, Clone, Default)]
+pub struct SystemNames {
+    pub switches: HashMap<i64, String>,
+    pub variables: HashMap<i64, String>,
+}
+
 /// Load name maps from `Items.json` / `Weapons.json` / `Armors.json`.
 /// Missing or corrupt files yield empty maps (never errors).
 pub fn load_inventory_names(data_dir: &Path) -> InventoryNames {
@@ -20,6 +26,26 @@ pub fn load_inventory_names(data_dir: &Path) -> InventoryNames {
         items: load_name_map(data_dir, "Items.json"),
         weapons: load_name_map(data_dir, "Weapons.json"),
         armors: load_name_map(data_dir, "Armors.json"),
+    }
+}
+
+/// Load switch/variable names from `System.json`.
+/// Missing or corrupt files yield empty maps (never errors).
+pub fn load_system_names(data_dir: &Path) -> SystemNames {
+    let path = data_dir.join("System.json");
+    let Ok(bytes) = fs::read(&path) else {
+        return SystemNames::default();
+    };
+    let text = strip_utf8_bom(&bytes);
+    let Ok(value) = serde_json::from_str::<Value>(text) else {
+        return SystemNames::default();
+    };
+    let Some(obj) = value.as_object() else {
+        return SystemNames::default();
+    };
+    SystemNames {
+        switches: load_indexed_string_array(obj.get("switches")),
+        variables: load_indexed_string_array(obj.get("variables")),
     }
 }
 
@@ -31,6 +57,18 @@ pub fn decorate_inventory_names(tree: &mut RenpyVarNode, names: &InventoryNames)
     if let Some(children) = tree.children.as_mut() {
         for child in children {
             decorate_inventory_names(child, names);
+        }
+    }
+}
+
+/// Set display `name` on switch/variable leaf nodes; leave `path` unchanged.
+pub fn decorate_system_names(tree: &mut RenpyVarNode, names: &SystemNames) {
+    if let Some(label) = system_display_name_for_path(&tree.path, names) {
+        tree.name = label;
+    }
+    if let Some(children) = tree.children.as_mut() {
+        for child in children {
+            decorate_system_names(child, names);
         }
     }
 }
@@ -83,6 +121,23 @@ fn json_id(v: &Value) -> Option<i64> {
     }
 }
 
+fn load_indexed_string_array(value: Option<&Value>) -> HashMap<i64, String> {
+    let Some(Value::Array(entries)) = value else {
+        return HashMap::new();
+    };
+    let mut map = HashMap::new();
+    for (index, entry) in entries.iter().enumerate() {
+        let Some(name) = entry.as_str() else {
+            continue;
+        };
+        if name.is_empty() {
+            continue;
+        }
+        map.insert(index as i64, name.to_string());
+    }
+    map
+}
+
 fn display_name_for_path(path: &str, names: &InventoryNames) -> Option<String> {
     let (id_str, map) = if let Some(rest) = path.strip_prefix("party._items.") {
         (rest, &names.items)
@@ -94,12 +149,34 @@ fn display_name_for_path(path: &str, names: &InventoryNames) -> Option<String> {
         return None;
     };
 
+    let id = parse_leaf_id(id_str)?;
+    let db_name = map.get(&id)?;
+    Some(format!("{db_name} ({id})"))
+}
+
+fn system_display_name_for_path(path: &str, names: &SystemNames) -> Option<String> {
+    let (id_str, map) = if let Some(rest) = path.strip_prefix("switches._data.") {
+        (rest, &names.switches)
+    } else if let Some(rest) = path.strip_prefix("variables._data.") {
+        (rest, &names.variables)
+    } else if let Some(rest) = path.strip_prefix("switches._data[") {
+        (rest.strip_suffix(']')?, &names.switches)
+    } else if let Some(rest) = path.strip_prefix("variables._data[") {
+        (rest.strip_suffix(']')?, &names.variables)
+    } else {
+        return None;
+    };
+
+    let id = parse_leaf_id(id_str)?;
+    let db_name = map.get(&id)?;
+    Some(format!("{db_name} ({id})"))
+}
+
+fn parse_leaf_id(id_str: &str) -> Option<i64> {
     if id_str.is_empty() || id_str.contains('.') || id_str.contains('[') {
         return None;
     }
-    let id: i64 = id_str.parse().ok()?;
-    let db_name = map.get(&id)?;
-    Some(format!("{db_name} ({id})"))
+    id_str.parse().ok()
 }
 
 #[cfg(test)]
@@ -197,5 +274,50 @@ mod tests {
         decorate_inventory_names(&mut tree, &names);
         assert_eq!(find(&tree, "party._weapons.3").unwrap().name, "Sword (3)");
         assert_eq!(find(&tree, "party._armors.4").unwrap().name, "Shield (4)");
+    }
+
+    fn temp_data_dir() -> PathBuf {
+        let unique = format!(
+            "f95-rpgm-system-{}-{}",
+            std::process::id(),
+            SystemTime::now()
+                .duration_since(UNIX_EPOCH)
+                .unwrap()
+                .as_nanos()
+        );
+        let dir = std::env::temp_dir().join(unique);
+        fs::create_dir_all(&dir).unwrap();
+        dir
+    }
+
+    #[test]
+    fn decorates_switch_and_variable_names_from_system_json() {
+        let dir = temp_data_dir();
+        fs::write(
+            dir.join("System.json"),
+            r#"{"switches":["","Intro done","Boss dead"],"variables":["","Gold multiplier",""]}"#,
+        )
+        .unwrap();
+        let mut tree = json_to_tree(&serde_json::json!({
+            "switches": {"_data": {"1": true, "2": false}},
+            "variables": {"_data": {"1": 5}}
+        }));
+        let names = load_system_names(&dir);
+        decorate_system_names(&mut tree, &names);
+        assert_eq!(find(&tree, "switches._data.1").unwrap().name, "Intro done (1)");
+        assert_eq!(
+            find(&tree, "variables._data.1").unwrap().name,
+            "Gold multiplier (1)"
+        );
+    }
+
+    #[test]
+    fn missing_system_json_keeps_index_names() {
+        let names = load_system_names(Path::new("/nonexistent-rpgm-system"));
+        let mut tree = json_to_tree(&serde_json::json!({
+            "switches": {"_data": {"3": true}}
+        }));
+        decorate_system_names(&mut tree, &names);
+        assert_eq!(find(&tree, "switches._data.3").unwrap().name, "3");
     }
 }
