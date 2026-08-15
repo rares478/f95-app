@@ -59,7 +59,6 @@ export function RpgmSwitchesPanel({
           <input
             type="checkbox"
             checked={hideOff}
-            disabled={disabled}
             onChange={(e) => setHideOff(e.target.checked)}
           />
           <span>{t('saveEditor.rpgm.switches.hideOff')}</span>

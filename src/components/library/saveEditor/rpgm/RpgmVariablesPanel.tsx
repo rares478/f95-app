@@ -118,7 +118,6 @@ export function RpgmVariablesPanel({
           <input
             type="checkbox"
             checked={hideDefaults}
-            disabled={disabled}
             onChange={(e) => setHideDefaults(e.target.checked)}
           />
           <span>{t('saveEditor.rpgm.variables.hideDefaults')}</span>

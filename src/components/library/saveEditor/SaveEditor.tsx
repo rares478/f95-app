@@ -302,17 +302,18 @@ export function SaveEditor({ game, onClose }: Props) {
 
   const handlePatch = useCallback(
     (path: string, value: unknown) => {
-      if (!treeMatchesSelection || !tree) return;
+      if (!treeMatchesSelection || !tree || isRunning) return;
       const node = findNode(tree, path);
-      const original = node?.value;
+      if (!node?.editable) return;
+      const original = node.value;
       setPatches((prev) => {
         const next = new Map(prev);
-        if (node && valuesEqual(value, original)) next.delete(path);
+        if (valuesEqual(value, original)) next.delete(path);
         else next.set(path, value);
         return next;
       });
     },
-    [tree, treeMatchesSelection],
+    [tree, treeMatchesSelection, isRunning],
   );
 
   const handleApply = useCallback(async () => {

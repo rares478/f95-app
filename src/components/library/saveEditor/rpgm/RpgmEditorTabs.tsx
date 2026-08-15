@@ -125,7 +125,6 @@ export function RpgmEditorTabs(props: {
             role="tab"
             aria-selected={tab === id}
             className={`rpgm-editor-tab${tab === id ? ' rpgm-editor-tab--active' : ''}`}
-            disabled={disabled}
             onClick={() => setTab(id)}
           >
             {t(TAB_LOCALE_KEY[id])}

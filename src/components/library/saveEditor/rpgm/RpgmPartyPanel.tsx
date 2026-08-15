@@ -56,38 +56,42 @@ export function RpgmPartyPanel({
       <section className="rpgm-section">
         <h3 className="rpgm-section-title">{t('saveEditor.rpgm.party.section')}</h3>
         <div className="rpgm-fields">
-          <label
-            className={`rpgm-field${dirtyPaths.has(party.goldPath) ? ' rpgm-field--dirty' : ''}`}
-          >
-            <span className="save-editor-label">{t('saveEditor.rpgm.party.gold')}</span>
-            <input
-              className="save-editor-input"
-              type="number"
-              step={1}
-              value={gold ?? ''}
-              disabled={disabled}
-              onChange={(e) => {
-                const n = parseIntInput(e.target.value);
-                if (n != null) onPatch(party.goldPath, n);
-              }}
-            />
-          </label>
-          <label
-            className={`rpgm-field${dirtyPaths.has(party.stepsPath) ? ' rpgm-field--dirty' : ''}`}
-          >
-            <span className="save-editor-label">{t('saveEditor.rpgm.party.steps')}</span>
-            <input
-              className="save-editor-input"
-              type="number"
-              step={1}
-              value={steps ?? ''}
-              disabled={disabled}
-              onChange={(e) => {
-                const n = parseIntInput(e.target.value);
-                if (n != null) onPatch(party.stepsPath, n);
-              }}
-            />
-          </label>
+          {party.gold != null && (
+            <label
+              className={`rpgm-field${dirtyPaths.has(party.goldPath) ? ' rpgm-field--dirty' : ''}`}
+            >
+              <span className="save-editor-label">{t('saveEditor.rpgm.party.gold')}</span>
+              <input
+                className="save-editor-input"
+                type="number"
+                step={1}
+                value={gold ?? ''}
+                disabled={disabled}
+                onChange={(e) => {
+                  const n = parseIntInput(e.target.value);
+                  if (n != null) onPatch(party.goldPath, n);
+                }}
+              />
+            </label>
+          )}
+          {party.steps != null && (
+            <label
+              className={`rpgm-field${dirtyPaths.has(party.stepsPath) ? ' rpgm-field--dirty' : ''}`}
+            >
+              <span className="save-editor-label">{t('saveEditor.rpgm.party.steps')}</span>
+              <input
+                className="save-editor-input"
+                type="number"
+                step={1}
+                value={steps ?? ''}
+                disabled={disabled}
+                onChange={(e) => {
+                  const n = parseIntInput(e.target.value);
+                  if (n != null) onPatch(party.stepsPath, n);
+                }}
+              />
+            </label>
+          )}
         </div>
       </section>
 

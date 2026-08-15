@@ -66,7 +66,6 @@ export function RpgmInventoryPanel({
               role="tab"
               aria-selected={kind === tab.kind}
               className={`rpgm-kind-tab${kind === tab.kind ? ' rpgm-kind-tab--active' : ''}`}
-              disabled={disabled}
               onClick={() => setKind(tab.kind)}
             >
               {t(tab.labelKey)}
@@ -78,7 +77,6 @@ export function RpgmInventoryPanel({
           type="search"
           placeholder={t('saveEditor.rpgm.inventory.search')}
           value={search}
-          disabled={disabled}
           onChange={(e) => setSearch(e.target.value)}
         />
       </div>
