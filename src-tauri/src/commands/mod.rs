@@ -11,6 +11,7 @@ mod hosts;
 mod network;
 pub mod overlay;
 mod sam;
+mod saves;
 mod state;
 mod window;
 
@@ -27,5 +28,6 @@ pub use hosts::*;
 pub use network::*;
 pub use overlay::*;
 pub use sam::*;
+pub use saves::*;
 pub use state::{build_state, ActivityItem, AppState, ProfileDto};
 pub use window::*;

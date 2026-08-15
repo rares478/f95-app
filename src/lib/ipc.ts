@@ -22,6 +22,13 @@ import type {
   OverlayContext,
   OverlayLayout,
 } from '../types/overlay';
+import type {
+  RenpyProbeResult,
+  RenpySaveBackup,
+  RenpySavePatch,
+  RenpySaveSlot,
+  RenpyVarNode,
+} from '../types/renpySave';
 import * as settings from './settings';
 import {
   rememberDownloadLibrary,
@@ -332,6 +339,46 @@ export async function migrateSaves(args: {
   newInstallDir: string;
 }): Promise<MigrationResult> {
   return invoke<MigrationResult>('migrate_saves', args);
+}
+
+export async function renpySavesProbe(installPath: string): Promise<RenpyProbeResult> {
+  return invoke<RenpyProbeResult>('renpy_saves_probe', { installPath });
+}
+
+export async function renpySavesList(installPath: string): Promise<RenpySaveSlot[]> {
+  return invoke<RenpySaveSlot[]>('renpy_saves_list', { installPath });
+}
+
+export async function renpySaveRead(args: {
+  installPath: string;
+  slotKey: string;
+}): Promise<RenpyVarNode> {
+  return invoke<RenpyVarNode>('renpy_save_read', args);
+}
+
+export async function renpySaveWrite(args: {
+  threadId: string;
+  installPath: string;
+  slotKey: string;
+  patches: RenpySavePatch[];
+}): Promise<RenpyVarNode> {
+  return invoke<RenpyVarNode>('renpy_save_write', args);
+}
+
+export async function renpySaveBackupsList(args: {
+  threadId: string;
+  slotKey: string;
+}): Promise<RenpySaveBackup[]> {
+  return invoke<RenpySaveBackup[]>('renpy_save_backups_list', args);
+}
+
+export async function renpySaveBackupRestore(args: {
+  threadId: string;
+  installPath: string;
+  slotKey: string;
+  backupFileName: string;
+}): Promise<void> {
+  return invoke<void>('renpy_save_backup_restore', args);
 }
 
 export async function deleteInstallDir(args: {

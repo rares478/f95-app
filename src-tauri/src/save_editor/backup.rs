@@ -91,6 +91,8 @@ pub fn list_backups(
 /// The restore source is read into memory first so that
 /// [`backup_before_write`]'s prune cannot delete the file we are restoring
 /// when the slot is already at [`MAX_BACKUPS_PER_SLOT`].
+///
+/// `backup_file` must remain under `{backups_root}/{thread_id}/`.
 pub fn restore_backup(
     backups_root: &Path,
     thread_id: &str,
@@ -100,6 +102,8 @@ pub fn restore_backup(
     install_root: &Path,
 ) -> Result<(), AppError> {
     ensure_under_root(live_path, install_root)?;
+    let thread_root = backups_root.join(thread_id);
+    ensure_under_root(backup_file, &thread_root)?;
     // Preserve restore source before prune can remove it.
     let restore_bytes = fs::read(backup_file).map_err(|e| {
         AppError::Io(format!(
@@ -116,6 +120,16 @@ pub fn restore_backup(
         ))
     })?;
     Ok(())
+}
+
+/// Path of a single backup file under the slot backup directory.
+pub fn resolve_backup_path(
+    backups_root: &Path,
+    thread_id: &str,
+    slot_key: &str,
+    backup_file_name: &str,
+) -> PathBuf {
+    slot_backup_dir(backups_root, thread_id, slot_key).join(backup_file_name)
 }
 
 /// Refuse paths that escape `root` after normalization.
