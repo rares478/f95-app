@@ -30,4 +30,4 @@ npx vitest run src/lib/saveEditorGate.test.ts src/lib/storeEngine.test.ts
 
 ## Commits
 
-See git log for the focused fix commit(s) on this branch after this report.
+- `e859680` — `fix(save-editor): address final review Important findings`
