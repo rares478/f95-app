@@ -14,6 +14,9 @@ function kindKey(kind: string): string {
     case 'auto':
     case 'quick':
     case 'persistent':
+    case 'file':
+    case 'global':
+    case 'config':
     case 'other':
       return `saveEditor.kind.${kind}`;
     default:

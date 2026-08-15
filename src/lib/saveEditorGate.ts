@@ -47,13 +47,18 @@ async function resolveFromProbes(
   tags: { renpy: boolean; rpgm: boolean },
   deps: Required<SaveEditorGateDeps>,
 ): Promise<SaveEditorEngine | null> {
-  const [renpy, rpgm] = await Promise.all([
+  // allSettled: one rejected probe must not hang / kill the other.
+  const [renpySettled, rpgmSettled] = await Promise.allSettled([
     deps.renpyProbe(installPath),
     deps.rpgmProbe(installPath),
   ]);
+  const renpy =
+    renpySettled.status === 'fulfilled' ? renpySettled.value : null;
+  const rpgm =
+    rpgmSettled.status === 'fulfilled' ? rpgmSettled.value : null;
 
-  const renpyDir = renpy.savesDir != null;
-  const rpgmDir = rpgm.savesDir != null;
+  const renpyDir = renpy?.savesDir != null;
+  const rpgmDir = rpgm?.savesDir != null;
 
   if (renpyDir && !rpgmDir) return 'renpy';
   if (rpgmDir && !renpyDir) return 'rpgm';
@@ -62,8 +67,8 @@ async function resolveFromProbes(
   }
 
   // No savesDir: layout flag, Ren'Py before RPGM.
-  if (renpy.isRenpyLayout) return 'renpy';
-  if (rpgm.isRpgmLayout) return 'rpgm';
+  if (renpy?.isRenpyLayout) return 'renpy';
+  if (rpgm?.isRpgmLayout) return 'rpgm';
 
   // No layout: tag fallback (both tags → Ren'Py first per spec).
   if (tags.renpy) return 'renpy';

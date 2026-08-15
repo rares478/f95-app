@@ -318,6 +318,9 @@ const en: Record<string, string> = {
   'saveEditor.kind.auto': 'Auto',
   'saveEditor.kind.quick': 'Quick',
   'saveEditor.kind.persistent': 'Persistent',
+  'saveEditor.kind.file': 'File',
+  'saveEditor.kind.global': 'Global',
+  'saveEditor.kind.config': 'Config',
   'saveEditor.kind.other': 'Other',
   'saveEditor.hasScreenshot': 'Has screenshot',
 

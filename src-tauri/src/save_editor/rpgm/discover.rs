@@ -61,7 +61,11 @@ pub fn probe_rpgm_install(install: &Path) -> RpgmProbeResult {
 }
 
 /// List `.rpgsave` files in a resolved saves directory.
+/// Missing or non-directory path → empty list (spec: Missing saves dir → Empty slot list).
 pub fn list_slots(saves_dir: &Path) -> Result<Vec<RenpySaveSlot>, AppError> {
+    if !saves_dir.is_dir() {
+        return Ok(Vec::new());
+    }
     let entries = fs::read_dir(saves_dir).map_err(|e| {
         AppError::Io(format!(
             "failed to read saves dir {}: {e}",
@@ -218,5 +222,21 @@ mod tests {
         assert!(!keys.iter().any(|k| *k == "readme.txt"));
         assert_eq!(slots.iter().find(|s| s.key == "file1.rpgsave").unwrap().kind, "file");
         assert_eq!(slots.iter().find(|s| s.key == "global.rpgsave").unwrap().kind, "global");
+    }
+
+    #[test]
+    fn list_slots_missing_dir_returns_empty() {
+        let dir = tempfile_or_std_temp("missing-slots").join("no-such-save-dir");
+        let slots = list_slots(&dir).unwrap();
+        assert!(slots.is_empty());
+    }
+
+    #[test]
+    fn list_for_install_missing_save_dir_returns_empty() {
+        let root = tempfile_or_std_temp("orch-missing-save");
+        // MV layout marker without www/save directory yet.
+        write_file(&root.join("www/js/rpg_core.js"), b"");
+        let slots = super::super::list_for_install(&root).unwrap();
+        assert!(slots.is_empty());
     }
 }

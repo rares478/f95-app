@@ -122,11 +122,19 @@ export function SaveEditor({ game, onClose }: Props) {
       installStatus,
       installPath,
       storeTags,
-    }).then((resolved) => {
-      if (cancelled) return;
-      setEngine(resolved);
-      setEngineReady(true);
-    });
+    })
+      .then((resolved) => {
+        if (cancelled) return;
+        setEngine(resolved);
+      })
+      .catch((err) => {
+        if (cancelled) return;
+        setEngine(null);
+        setSlotsError(formatIpcError(err));
+      })
+      .finally(() => {
+        if (!cancelled) setEngineReady(true);
+      });
 
     return () => {
       cancelled = true;

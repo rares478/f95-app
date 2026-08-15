@@ -286,6 +286,9 @@ const ru: Record<string, string> = {
   'saveEditor.kind.auto': 'Авто',
   'saveEditor.kind.quick': 'Быстрый',
   'saveEditor.kind.persistent': 'Постоянный',
+  'saveEditor.kind.file': 'Файл',
+  'saveEditor.kind.global': 'Глобальный',
+  'saveEditor.kind.config': 'Конфиг',
   'saveEditor.kind.other': 'Другое',
   'saveEditor.hasScreenshot': 'Есть скриншот',
 

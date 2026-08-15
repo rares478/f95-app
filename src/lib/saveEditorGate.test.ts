@@ -170,4 +170,27 @@ describe('shouldShowSaveEditor / resolveSaveEditorEngine', () => {
       }),
     ).toBe('rpgm');
   });
+
+  it('resolves when one probe rejects (does not hang on the other)', async () => {
+    const renpyProbe = vi.fn().mockRejectedValue(new Error('renpy probe failed'));
+    const rpgmProbe = vi.fn().mockResolvedValue(
+      rpgmProbeResult({ isRpgmLayout: true, savesDir: 'D:/Games/Rpg/www/save', variant: 'mv' }),
+    );
+    await expect(
+      resolveSaveEditorEngine(game({ storeTags: [] }), { renpyProbe, rpgmProbe }),
+    ).resolves.toBe('rpgm');
+    expect(renpyProbe).toHaveBeenCalledOnce();
+    expect(rpgmProbe).toHaveBeenCalledOnce();
+  });
+
+  it('falls back to tags when both probes reject', async () => {
+    const renpyProbe = vi.fn().mockRejectedValue(new Error('renpy down'));
+    const rpgmProbe = vi.fn().mockRejectedValue(new Error('rpgm down'));
+    await expect(
+      resolveSaveEditorEngine(game({ storeTags: ["Ren'Py", 'RPGM'] }), {
+        renpyProbe,
+        rpgmProbe,
+      }),
+    ).resolves.toBe('renpy');
+  });
 });
