@@ -1,5 +1,6 @@
 //! Bounded per-slot backups under `{app_local_data}/save_backups`.
 
+use super::reject_path_component;
 use crate::error::AppError;
 use serde::Serialize;
 use std::fs;
@@ -38,13 +39,16 @@ fn backup_at(
     live_path: &Path,
     timestamp_ms: u64,
 ) -> Result<PathBuf, AppError> {
-    let dir = slot_backup_dir(backups_root, thread_id, slot_key);
+    let dir = slot_backup_dir(backups_root, thread_id, slot_key)?;
     fs::create_dir_all(&dir).map_err(|e| {
         AppError::Io(format!(
             "failed to create backup dir {}: {e}",
             dir.display()
         ))
     })?;
+    let thread_root = backups_root.join(thread_id);
+    ensure_under_root(&thread_root, backups_root)?;
+    ensure_under_root(&dir, backups_root)?;
 
     let mut ts = timestamp_ms;
     let dest = loop {
@@ -72,10 +76,11 @@ pub fn list_backups(
     thread_id: &str,
     slot_key: &str,
 ) -> Result<Vec<RenpySaveBackup>, AppError> {
-    let dir = slot_backup_dir(backups_root, thread_id, slot_key);
+    let dir = slot_backup_dir(backups_root, thread_id, slot_key)?;
     if !dir.is_dir() {
         return Ok(Vec::new());
     }
+    ensure_under_root(&dir, backups_root)?;
 
     let mut backups = collect_backup_files(&dir)?;
     backups.sort_by(|a, b| {
@@ -101,8 +106,11 @@ pub fn restore_backup(
     live_path: &Path,
     install_root: &Path,
 ) -> Result<(), AppError> {
+    reject_path_component(thread_id)?;
+    reject_path_component(slot_key)?;
     ensure_under_root(live_path, install_root)?;
     let thread_root = backups_root.join(thread_id);
+    ensure_under_root(&thread_root, backups_root)?;
     ensure_under_root(backup_file, &thread_root)?;
     // Preserve restore source before prune can remove it.
     let restore_bytes = fs::read(backup_file).map_err(|e| {
@@ -128,8 +136,8 @@ pub fn resolve_backup_path(
     thread_id: &str,
     slot_key: &str,
     backup_file_name: &str,
-) -> PathBuf {
-    slot_backup_dir(backups_root, thread_id, slot_key).join(backup_file_name)
+) -> Result<PathBuf, AppError> {
+    Ok(slot_backup_dir(backups_root, thread_id, slot_key)?.join(backup_file_name))
 }
 
 /// Refuse paths that escape `root` after normalization.
@@ -157,10 +165,16 @@ fn sanitize_slot_key(slot_key: &str) -> String {
         .collect()
 }
 
-fn slot_backup_dir(backups_root: &Path, thread_id: &str, slot_key: &str) -> PathBuf {
-    backups_root
+fn slot_backup_dir(
+    backups_root: &Path,
+    thread_id: &str,
+    slot_key: &str,
+) -> Result<PathBuf, AppError> {
+    reject_path_component(thread_id)?;
+    reject_path_component(slot_key)?;
+    Ok(backups_root
         .join(thread_id)
-        .join(sanitize_slot_key(slot_key))
+        .join(sanitize_slot_key(slot_key)))
 }
 
 fn system_time_to_ms(modified: Option<SystemTime>) -> u64 {
@@ -364,6 +378,73 @@ mod tests {
         write_file(&live, b"x");
 
         let err = ensure_under_root(&live, &install).unwrap_err();
+        assert_eq!(err.to_string(), "error.saveEditor.pathEscape");
+    }
+
+    #[test]
+    fn backup_before_write_rejects_dotdot_thread_id() {
+        let root = tempfile_root("tid-dotdot");
+        let backups_root = root.join("save_backups");
+        fs::create_dir_all(&backups_root).unwrap();
+        let live = root.join("live.save");
+        write_file(&live, b"x");
+
+        let err = backup_before_write(&backups_root, "..", "1-1.save", &live).unwrap_err();
+        assert_eq!(err.to_string(), "error.saveEditor.pathEscape");
+        assert!(
+            !root.join("1-1.save").exists(),
+            "must not create backups outside save_backups via .."
+        );
+    }
+
+    #[test]
+    fn backup_before_write_rejects_absolute_thread_id() {
+        let root = tempfile_root("tid-abs");
+        let backups_root = root.join("save_backups");
+        fs::create_dir_all(&backups_root).unwrap();
+        let live = root.join("live.save");
+        write_file(&live, b"x");
+        let abs_thread = root.join("escaped");
+
+        let err = backup_before_write(
+            &backups_root,
+            abs_thread.to_str().expect("utf-8 temp path"),
+            "1-1.save",
+            &live,
+        )
+        .unwrap_err();
+        assert_eq!(err.to_string(), "error.saveEditor.pathEscape");
+    }
+
+    #[test]
+    fn list_backups_rejects_dotdot_and_absolute_thread_id() {
+        let root = tempfile_root("list-tid");
+        let backups_root = root.join("save_backups");
+        fs::create_dir_all(&backups_root).unwrap();
+
+        let err = list_backups(&backups_root, "..", "1-1.save").unwrap_err();
+        assert_eq!(err.to_string(), "error.saveEditor.pathEscape");
+
+        let abs = root.join("elsewhere");
+        let err = list_backups(
+            &backups_root,
+            abs.to_str().expect("utf-8 temp path"),
+            "1-1.save",
+        )
+        .unwrap_err();
+        assert_eq!(err.to_string(), "error.saveEditor.pathEscape");
+    }
+
+    #[test]
+    fn list_backups_rejects_slot_key_path_escape() {
+        let root = tempfile_root("list-slot");
+        let backups_root = root.join("save_backups");
+        fs::create_dir_all(&backups_root).unwrap();
+
+        let err = list_backups(&backups_root, "thread1", "..").unwrap_err();
+        assert_eq!(err.to_string(), "error.saveEditor.pathEscape");
+
+        let err = list_backups(&backups_root, "thread1", "../x.save").unwrap_err();
         assert_eq!(err.to_string(), "error.saveEditor.pathEscape");
     }
 }
