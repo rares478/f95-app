@@ -3,6 +3,7 @@ import type { LibraryGame } from '../types/library';
 import { buildInstallCatalog } from './installCatalog';
 import * as library from './library';
 import * as ipc from './ipc';
+import { buildStoreTagsFromDetail } from './storeTagsFromDetail';
 
 export type LinkIntent = 'install' | 'update';
 
