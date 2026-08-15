@@ -10,6 +10,7 @@ interface DbRow {
   source_url: string;
   resolved_url: string | null;
   dest_path: string | null;
+  library_path: string | null;
   state: string;
   bytes_total: number | null;
   bytes_done: number;
@@ -27,6 +28,7 @@ function rowToDownload(r: DbRow): DownloadRow {
     sourceUrl: r.source_url,
     resolvedUrl: r.resolved_url,
     destPath: r.dest_path,
+    libraryPath: r.library_path,
     state: r.state as DownloadState,
     bytesTotal: r.bytes_total,
     bytesDone: r.bytes_done ?? 0,

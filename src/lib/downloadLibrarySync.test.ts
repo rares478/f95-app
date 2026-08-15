@@ -18,6 +18,7 @@ function row(
     sourceUrl: partial.sourceUrl ?? 'https://example.com/x',
     resolvedUrl: partial.resolvedUrl ?? null,
     destPath: partial.destPath ?? null,
+    libraryPath: partial.libraryPath ?? null,
     bytesDone: partial.bytesDone ?? 0,
     bytesTotal: partial.bytesTotal ?? null,
     gameVersion: partial.gameVersion ?? null,

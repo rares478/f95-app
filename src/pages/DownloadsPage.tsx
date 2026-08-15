@@ -9,6 +9,7 @@ import { formatDownloadSpeed } from '../lib/downloadSettings';
 import type { DownloadGameInfo } from '../components/downloads/DownloadCard';
 import { DownloadActiveCard, DownloadHistoryRow } from '../components/downloads/DownloadRowItem';
 import * as downloads from '../lib/downloads';
+import { libraryPathForDownloadRow } from '../lib/downloadLibraryPath';
 import * as library from '../lib/library';
 import * as ipc from '../lib/ipc';
 import {
@@ -246,11 +247,13 @@ export function DownloadsPage() {
     const pageUrl = row.resolvedUrl ?? row.sourceUrl;
     try {
       await downloads.markRetry(row.id);
+      const libraryPath = await libraryPathForDownloadRow(row);
       await ipc.downloadContinueCaptcha({
         id: row.id,
         sourceUrl: row.sourceUrl,
         pageUrl,
         threadId: row.threadId,
+        libraryPath,
       });
       await reload();
     } catch (err) {
@@ -288,6 +291,7 @@ export function DownloadsPage() {
       id: row.id,
       sourceUrl: row.sourceUrl,
       threadId: row.threadId,
+      libraryPath: await libraryPathForDownloadRow(row),
     });
     await reload();
   }

@@ -67,6 +67,32 @@ impl LauncherManager {
                 json!({ "path": exe_path }),
             ));
         }
+
+        // Browser games: open with the OS default app and skip process tracking.
+        if is_browser_launch_path(&exe) {
+            open_with_default_app(&exe)?;
+            let _ = app.emit(
+                "game:started",
+                json!({
+                    "threadId": thread_id,
+                    "sessionId": session_id,
+                    "pid": 0,
+                    "exePath": exe_path,
+                }),
+            );
+            let _ = app.emit(
+                "game:exited",
+                json!({
+                    "threadId": thread_id,
+                    "sessionId": session_id,
+                    "durationSeconds": 0,
+                    "exitCode": 0,
+                    "error": null,
+                }),
+            );
+            return Ok(0);
+        }
+
         // Most games look for resources relative to their own folder.
         let cwd = exe
             .parent()
@@ -244,4 +270,71 @@ pub struct RunningInfo {
     pub pid: u32,
     #[serde(rename = "elapsedSeconds")]
     pub elapsed_seconds: u64,
+}
+
+fn is_browser_launch_path(path: &PathBuf) -> bool {
+    path.extension()
+        .and_then(|s| s.to_str())
+        .map(|e| e.eq_ignore_ascii_case("html") || e.eq_ignore_ascii_case("htm"))
+        .unwrap_or(false)
+}
+
+fn open_with_default_app(path: &PathBuf) -> Result<(), AppError> {
+    let path_str = path.to_string_lossy().into_owned();
+    #[cfg(windows)]
+    {
+        std::process::Command::new("cmd")
+            .args(["/C", "start", "", &path_str])
+            .stdin(std::process::Stdio::null())
+            .stdout(std::process::Stdio::null())
+            .stderr(std::process::Stdio::null())
+            .spawn()
+            .map_err(|e| {
+                AppError::keyed_vars(
+                    "error.launch.spawnFailed",
+                    json!({ "detail": e.to_string() }),
+                )
+            })?;
+        return Ok(());
+    }
+    #[cfg(target_os = "macos")]
+    {
+        std::process::Command::new("open")
+            .arg(&path_str)
+            .stdin(std::process::Stdio::null())
+            .stdout(std::process::Stdio::null())
+            .stderr(std::process::Stdio::null())
+            .spawn()
+            .map_err(|e| {
+                AppError::keyed_vars(
+                    "error.launch.spawnFailed",
+                    json!({ "detail": e.to_string() }),
+                )
+            })?;
+        return Ok(());
+    }
+    #[cfg(all(unix, not(target_os = "macos")))]
+    {
+        std::process::Command::new("xdg-open")
+            .arg(&path_str)
+            .stdin(std::process::Stdio::null())
+            .stdout(std::process::Stdio::null())
+            .stderr(std::process::Stdio::null())
+            .spawn()
+            .map_err(|e| {
+                AppError::keyed_vars(
+                    "error.launch.spawnFailed",
+                    json!({ "detail": e.to_string() }),
+                )
+            })?;
+        return Ok(());
+    }
+    #[cfg(not(any(windows, unix)))]
+    {
+        let _ = path_str;
+        Err(AppError::keyed_vars(
+            "error.launch.spawnFailed",
+            json!({ "detail": "opening HTML games is not supported on this platform" }),
+        ))
+    }
 }

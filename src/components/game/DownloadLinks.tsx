@@ -117,7 +117,8 @@ export function DownloadLinks({
     await libraries.ensureSeeded();
     const libs = await libraries.listWithDisk();
     if (libs.length <= 1) {
-      await startDownload(download, libs[0]?.path);
+      const lib = await libraries.getDefault();
+      await startDownload(download, lib?.path);
       return;
     }
     setPending(download);

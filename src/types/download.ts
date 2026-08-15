@@ -16,6 +16,8 @@ export interface DownloadRow {
   sourceUrl: string;
   resolvedUrl: string | null;
   destPath: string | null;
+  /** Install library folder this download was routed into. */
+  libraryPath: string | null;
   state: DownloadState;
   bytesTotal: number | null;
   bytesDone: number;

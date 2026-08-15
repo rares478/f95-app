@@ -459,8 +459,9 @@ export function InstallPlanWizard({
 
     await libraries.ensureSeeded();
     const libs = await libraries.listWithDisk();
+    const lib = await libraries.getDefault();
     if (libs.length <= 1) {
-      await enqueuePlan(jobs, libs[0]?.path);
+      await enqueuePlan(jobs, lib?.path);
       return;
     }
     setPendingJobs(jobs);

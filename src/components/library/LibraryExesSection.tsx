@@ -85,7 +85,7 @@ export function LibraryExesSection({
       directory: false,
       title: t('libdetail.exe.changePathTitle', { name: exeDisplayName(row) }),
       filters: [
-        { name: t('contextMenu.exeFilter'), extensions: ['exe', 'sh', 'app', 'bat', 'cmd'] },
+        { name: t('contextMenu.exeFilter'), extensions: ['exe', 'html', 'htm', 'sh', 'app', 'bat', 'cmd'] },
         { name: t('contextMenu.allFilter'), extensions: ['*'] },
       ],
     });

@@ -24,6 +24,10 @@ import type {
 } from '../types/overlay';
 import * as settings from './settings';
 import {
+  rememberDownloadLibrary,
+  resolveDownloadLibraryPath,
+} from './downloadLibraryPath';
+import {
   getExperimentalSettings,
   loadExperimentalSettings,
 } from './experimentalSettings';
@@ -178,7 +182,9 @@ export async function downloadStart(args: {
 }): Promise<void> {
   await ensureUploadhavenSession();
   await ensureBuzzheavierAccount();
-  return invoke('download_start', args);
+  const libraryPath = await resolveDownloadLibraryPath(args.libraryPath);
+  await rememberDownloadLibrary(args.id, libraryPath);
+  return invoke('download_start', { ...args, libraryPath });
 }
 
 export async function downloadContinueChoice(args: {
@@ -187,7 +193,9 @@ export async function downloadContinueChoice(args: {
   threadId: string;
   libraryPath?: string | null;
 }): Promise<void> {
-  return invoke('download_continue_choice', args);
+  const libraryPath = await resolveDownloadLibraryPath(args.libraryPath);
+  await rememberDownloadLibrary(args.id, libraryPath);
+  return invoke('download_continue_choice', { ...args, libraryPath });
 }
 
 export async function downloadCancel(id: number): Promise<void> {
@@ -213,12 +221,14 @@ export async function downloadContinueCaptcha(args: {
   threadId: string;
   libraryPath?: string | null;
 }): Promise<void> {
+  const libraryPath = await resolveDownloadLibraryPath(args.libraryPath);
+  await rememberDownloadLibrary(args.id, libraryPath);
   return invoke('download_continue_captcha', {
     id: args.id,
     sourceUrl: args.sourceUrl,
     pageUrl: args.pageUrl,
     threadId: args.threadId,
-    libraryPath: args.libraryPath ?? null,
+    libraryPath,
   });
 }
 

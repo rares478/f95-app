@@ -614,7 +614,7 @@ const UNCERTAIN_SCORE_THRESHOLD: i64 = 45;
 
 /// Walk `root` recursively and return the most likely game executable.
 /// Returns `None` if no candidates exist or all of them look like
-/// installers/redists.
+/// installers/redistributables.
 pub fn find_main_exe(root: &Path, game_title: &str) -> Option<PathBuf> {
     let mut candidates: Vec<PathBuf> = Vec::new();
     walk(root, &mut candidates, 0);
@@ -628,6 +628,29 @@ pub fn find_main_exe(root: &Path, game_title: &str) -> Option<PathBuf> {
     let best = candidates.into_iter().next()?;
     let best_score = score_path(&best, root, &title_key);
     if best_score >= 10_000 || best_score > UNCERTAIN_SCORE_THRESHOLD {
+        None
+    } else {
+        Some(best)
+    }
+}
+
+/// Prefer a real `.exe`; if none, fall back to an HTML entry page.
+pub fn find_main_launch(root: &Path, game_title: &str) -> Option<PathBuf> {
+    find_main_exe(root, game_title).or_else(|| find_main_html(root, game_title))
+}
+
+/// Walk for `index.html` / title-like HTML entry pages (browser games).
+pub fn find_main_html(root: &Path, game_title: &str) -> Option<PathBuf> {
+    let mut candidates: Vec<PathBuf> = Vec::new();
+    walk_html(root, &mut candidates, 0);
+    if candidates.is_empty() {
+        return None;
+    }
+    let title_key = first_word_lowercase(game_title);
+    candidates.sort_by_key(|p| score_html_path(p, root, &title_key));
+    let best = candidates.into_iter().next()?;
+    let best_score = score_html_path(&best, root, &title_key);
+    if best_score >= 10_000 {
         None
     } else {
         Some(best)
@@ -734,6 +757,90 @@ fn walk(dir: &Path, out: &mut Vec<PathBuf>, depth: usize) {
     }
 }
 
+const HTML_BLOCK_KEYWORDS: &[&str] = &[
+    "node_modules",
+    "bower_components",
+    "/docs/",
+    "\\docs\\",
+    "/test/",
+    "\\test\\",
+    "/tests/",
+    "\\tests\\",
+    "readme",
+    "changelog",
+    "license",
+];
+
+fn score_html_path(path: &Path, root: &Path, title_key: &str) -> i64 {
+    let name = path
+        .file_name()
+        .and_then(|s| s.to_str())
+        .unwrap_or("")
+        .to_lowercase();
+    let stem = path
+        .file_stem()
+        .and_then(|s| s.to_str())
+        .unwrap_or("")
+        .to_lowercase();
+    let rel = path.strip_prefix(root).unwrap_or(path);
+    let rel_str = rel.to_string_lossy().to_lowercase();
+
+    for kw in HTML_BLOCK_KEYWORDS {
+        if rel_str.contains(kw) {
+            return 10_000;
+        }
+    }
+
+    let mut score: i64 = 0;
+    if stem == "index" {
+        score -= 2000;
+    }
+    if !title_key.is_empty() && (stem.contains(title_key) || name.contains(title_key)) {
+        score -= 1000;
+    }
+    match stem.as_str() {
+        "game" | "play" | "start" | "main" | "launch" => score -= 500,
+        _ => {}
+    }
+    let depth = rel.components().count() as i64;
+    score += depth * 10;
+    score += name.len() as i64;
+    score
+}
+
+fn walk_html(dir: &Path, out: &mut Vec<PathBuf>, depth: usize) {
+    if depth > 8 {
+        return;
+    }
+    let Ok(entries) = fs::read_dir(dir) else {
+        return;
+    };
+    for entry in entries.flatten() {
+        let path = entry.path();
+        let Ok(meta) = entry.file_type() else {
+            continue;
+        };
+        if meta.is_dir() {
+            let dirname = path
+                .file_name()
+                .and_then(|s| s.to_str())
+                .unwrap_or("")
+                .to_lowercase();
+            if dirname == "node_modules" || dirname == "bower_components" {
+                continue;
+            }
+            walk_html(&path, out, depth + 1);
+        } else if path
+            .extension()
+            .and_then(|s| s.to_str())
+            .map(|e| e.eq_ignore_ascii_case("html") || e.eq_ignore_ascii_case("htm"))
+            .unwrap_or(false)
+        {
+            out.push(path);
+        }
+    }
+}
+
 #[cfg(test)]
 mod tests {
     use super::*;
@@ -823,5 +930,47 @@ ERROR: Can not open the file as archive
         .unwrap();
 
         assert!(find_main_exe(&root, "Totally Different Title").is_none());
+    }
+
+    #[test]
+    fn find_main_html_prefers_index() {
+        let root = test_root("html_index");
+        std::fs::write(root.join("about.html"), b"").unwrap();
+        std::fs::write(root.join("index.html"), b"").unwrap();
+
+        let found = find_main_html(&root, "Masters of Raana").expect("html");
+        assert_eq!(found.file_name().unwrap().to_str().unwrap(), "index.html");
+    }
+
+    #[test]
+    fn find_main_html_prefers_title_match() {
+        let root = test_root("html_title");
+        std::fs::write(root.join("credits.html"), b"").unwrap();
+        std::fs::write(root.join("MastersOfRaana.html"), b"").unwrap();
+
+        let found = find_main_html(&root, "Masters of Raana").expect("html");
+        assert_eq!(
+            found.file_name().unwrap().to_str().unwrap(),
+            "MastersOfRaana.html"
+        );
+    }
+
+    #[test]
+    fn find_main_launch_falls_back_to_html() {
+        let root = test_root("launch_html");
+        std::fs::write(root.join("index.html"), b"").unwrap();
+
+        let found = find_main_launch(&root, "MoR").expect("launch");
+        assert_eq!(found.file_name().unwrap().to_str().unwrap(), "index.html");
+    }
+
+    #[test]
+    fn find_main_launch_prefers_exe_over_html() {
+        let root = test_root("launch_exe");
+        std::fs::write(root.join("index.html"), b"").unwrap();
+        std::fs::write(root.join("Game.exe"), b"").unwrap();
+
+        let found = find_main_launch(&root, "Game").expect("launch");
+        assert_eq!(found.file_name().unwrap().to_str().unwrap(), "Game.exe");
     }
 }

@@ -88,7 +88,7 @@ pub async fn extract_archive(
             _ => parent.join(stem),
         };
         crate::extraction::extract(&archive, &dest, bundled_7z.as_deref(), progress)?;
-        let exe = crate::extraction::find_main_exe(&dest, &game_title);
+        let exe = crate::extraction::find_main_launch(&dest, &game_title);
         Ok(ExtractResult {
             dest_dir: dest.to_string_lossy().into_owned(),
             exe_path: exe.map(|p| p.to_string_lossy().into_owned()),
@@ -104,13 +104,13 @@ pub async fn extract_archive(
     Ok(result)
 }
 
-/// Re-detect the main game executable under an already-extracted folder.
+/// Re-detect the main launch file (`.exe` or HTML entry) under an already-extracted folder.
 /// Used when reopening Assign from Downloads after the live extract event.
 #[tauri::command]
 pub async fn find_main_exe(root: String, game_title: String) -> Option<String> {
     let root_path = PathBuf::from(root);
     tokio::task::spawn_blocking(move || {
-        crate::extraction::find_main_exe(&root_path, &game_title)
+        crate::extraction::find_main_launch(&root_path, &game_title)
             .map(|p| p.to_string_lossy().into_owned())
     })
     .await

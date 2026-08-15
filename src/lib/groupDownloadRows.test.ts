@@ -13,6 +13,7 @@ function row(partial: Partial<DownloadRow> & Pick<DownloadRow, 'id' | 'threadId'
     sourceUrl: 'https://example.com',
     resolvedUrl: null,
     destPath: null,
+    libraryPath: null,
     state: 'completed',
     bytesTotal: null,
     bytesDone: 0,

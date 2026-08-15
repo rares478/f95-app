@@ -1,5 +1,6 @@
 import { useEffect, useState } from 'react';
 import { createPortal } from 'react-dom';
+import { open as openFileDialog } from '@tauri-apps/plugin-dialog';
 import { defaultExeLabel } from '../../lib/installAssign';
 import * as downloads from '../../lib/downloads';
 import { loadDownloadSettings } from '../../lib/downloadSettings';
@@ -10,6 +11,7 @@ import { formatIpcError } from '../../lib/ipcError';
 import * as library from '../../lib/library';
 import {
   exeDisplayName,
+  exeFilename,
   exeParentDir,
   type LibraryGameExe,
 } from '../../lib/libraryExes';
@@ -37,6 +39,11 @@ export interface ExtractAssignModalProps {
 
 type Mode = 'choose' | 'replace';
 
+function isHtmlLaunchPath(path: string | null): boolean {
+  if (!path) return false;
+  return /\.(html?|HTML?)$/.test(path);
+}
+
 export function ExtractAssignModal({
   pending,
   onClose,
@@ -47,13 +54,13 @@ export function ExtractAssignModal({
   const [game, setGame] = useState<LibraryGame | null>(null);
   const [exes, setExes] = useState<LibraryGameExe[]>([]);
   const [label, setLabel] = useState('');
+  const [launchPath, setLaunchPath] = useState<string | null>(null);
   const [mode, setMode] = useState<Mode>('choose');
   const [replaceId, setReplaceId] = useState<string>('');
   const [busy, setBusy] = useState(false);
   const [loadError, setLoadError] = useState<string | null>(null);
 
   const open = pending != null;
-  const exePath = pending?.exePath ?? null;
 
   useEffect(() => {
     if (!pending) {
@@ -61,6 +68,7 @@ export function ExtractAssignModal({
       setGame(null);
       setExes([]);
       setLabel('');
+      setLaunchPath(null);
       setMode('choose');
       setReplaceId('');
       setLoadError(null);
@@ -84,6 +92,7 @@ export function ExtractAssignModal({
         setJob(j);
         setGame(g);
         setExes(rows);
+        setLaunchPath(pending.exePath);
         setLabel(defaultExeLabel(j.sectionLabel, pending.exePath));
         setMode('choose');
         setReplaceId(rows[0]?.id ?? '');
@@ -110,7 +119,7 @@ export function ExtractAssignModal({
   async function afterAssigned(assignedExePath: string | null) {
     if (!job || !pending) return;
 
-    if (assignedExePath) {
+    if (assignedExePath && !isHtmlLaunchPath(assignedExePath)) {
       const dlSettings = await loadDownloadSettings();
       if (dlSettings.createShortcuts && game) {
         try {
@@ -144,14 +153,36 @@ export function ExtractAssignModal({
     await onDone();
   }
 
+  async function onBrowse() {
+    if (busy) return;
+    const selected = await openFileDialog({
+      multiple: false,
+      directory: false,
+      defaultPath: job?.extractPath ?? undefined,
+      title: t('modal.assign.browseTitle'),
+      filters: [
+        {
+          name: t('modal.assign.launchFilter'),
+          extensions: ['exe', 'html', 'htm', 'sh', 'app', 'bat', 'cmd'],
+        },
+        { name: t('contextMenu.allFilter'), extensions: ['*'] },
+      ],
+    });
+    if (typeof selected !== 'string') return;
+    setLaunchPath(selected);
+    if (!label.trim()) {
+      setLabel(exeFilename(selected));
+    }
+  }
+
   async function onAdd() {
-    if (!job || !pending || !exePath || busy) return;
+    if (!job || !pending || !launchPath || busy) return;
     setBusy(true);
     try {
-      const exe = await library.addExe(pending.threadId, exePath, label);
+      const exe = await library.addExe(pending.threadId, launchPath, label);
       await markJobAndBundleSiblingsAssign(job, 'assigned', { exeId: exe.id });
       await recomputePlanStatus(job.planId);
-      await afterAssigned(exePath);
+      await afterAssigned(launchPath);
     } catch (err) {
       if (err instanceof Error && err.message === 'DUPLICATE_EXE_PATH') {
         await dialog.alert(t('libdetail.exe.duplicate'), { kind: 'warning' });
@@ -167,14 +198,14 @@ export function ExtractAssignModal({
   }
 
   async function onReplaceConfirm() {
-    if (!job || !pending || !exePath || !replaceId || busy) return;
+    if (!job || !pending || !launchPath || !replaceId || busy) return;
     setBusy(true);
     try {
-      const installPath = exeParentDir(exePath) || job.extractPath;
-      await library.updateExePaths(replaceId, exePath, installPath);
+      const installPath = exeParentDir(launchPath) || job.extractPath;
+      await library.updateExePaths(replaceId, launchPath, installPath);
       await markJobAndBundleSiblingsAssign(job, 'assigned', { exeId: replaceId });
       await recomputePlanStatus(job.planId);
-      await afterAssigned(exePath);
+      await afterAssigned(launchPath);
     } catch (err) {
       if (err instanceof Error && err.message === 'DUPLICATE_EXE_PATH') {
         await dialog.alert(t('libdetail.exe.duplicate'), { kind: 'warning' });
@@ -227,7 +258,7 @@ export function ExtractAssignModal({
               <dt>{t('modal.assign.extractPath')}</dt>
               <dd>{job?.extractPath ?? '—'}</dd>
               <dt>{t('modal.assign.exePath')}</dt>
-              <dd>{exePath ?? t('modal.assign.noExe')}</dd>
+              <dd>{launchPath ?? t('modal.assign.noExe')}</dd>
             </dl>
 
             {mode === 'choose' ? (
@@ -240,7 +271,7 @@ export function ExtractAssignModal({
                     id="install-assign-label"
                     type="text"
                     value={label}
-                    disabled={!exePath || busy}
+                    disabled={!launchPath || busy}
                     onChange={(e) => setLabel(e.target.value)}
                   />
                 </div>
@@ -257,7 +288,15 @@ export function ExtractAssignModal({
                   <button
                     type="button"
                     className="dl-action-btn"
-                    disabled={busy || !exePath || exes.length === 0}
+                    disabled={busy}
+                    onClick={() => void onBrowse()}
+                  >
+                    {t('modal.assign.browse')}
+                  </button>
+                  <button
+                    type="button"
+                    className="dl-action-btn"
+                    disabled={busy || !launchPath || exes.length === 0}
                     onClick={() => setMode('replace')}
                   >
                     {t('modal.assign.replace')}
@@ -265,7 +304,7 @@ export function ExtractAssignModal({
                   <button
                     type="button"
                     className="dl-action-btn dl-action-btn-accent"
-                    disabled={busy || !exePath}
+                    disabled={busy || !launchPath}
                     onClick={onAdd}
                   >
                     {t('modal.assign.add')}
@@ -308,7 +347,7 @@ export function ExtractAssignModal({
                   <button
                     type="button"
                     className="dl-action-btn dl-action-btn-accent"
-                    disabled={busy || !exePath || !replaceId}
+                    disabled={busy || !launchPath || !replaceId}
                     onClick={onReplaceConfirm}
                   >
                     {t('modal.assign.replaceConfirm')}

@@ -3,6 +3,10 @@ import { listen, type UnlistenFn } from '@tauri-apps/api/event';
 import * as downloads from '../lib/downloads';
 import * as library from '../lib/library';
 import { syncLibraryFromDownloads, recoverStatusAfterDownloadFailure } from '../lib/downloadLibrarySync';
+import {
+  libraryPathForDownloadRow,
+  rememberDownloadLibrary,
+} from '../lib/downloadLibraryPath';
 import * as libraries from '../lib/libraries';
 import * as ipc from '../lib/ipc';
 import { loadDownloadSettings } from '../lib/downloadSettings';
@@ -575,6 +579,12 @@ export function useDownloads(options?: UseDownloadsOptions): {
             bytesTotal: e.payload.fileSize,
           });
           const row = await downloads.get(e.payload.id);
+          if (row?.destPath) {
+            await rememberDownloadLibrary(
+              e.payload.id,
+              await libraryPathForDownloadRow(row),
+            );
+          }
           if (row) {
             try {
               await library.setStatus(row.threadId, 'downloading');

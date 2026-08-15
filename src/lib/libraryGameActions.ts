@@ -106,7 +106,7 @@ export async function pickExeFor(
     directory: false,
     title: deps.t('contextMenu.pickExeTitle', { title: game.title }),
     filters: [
-      { name: deps.t('contextMenu.exeFilter'), extensions: ['exe', 'sh', 'app', 'bat', 'cmd'] },
+      { name: deps.t('contextMenu.exeFilter'), extensions: ['exe', 'html', 'htm', 'sh', 'app', 'bat', 'cmd'] },
       { name: deps.t('contextMenu.allFilter'), extensions: ['*'] },
     ],
   });
