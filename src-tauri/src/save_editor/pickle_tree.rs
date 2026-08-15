@@ -100,21 +100,17 @@ fn value_to_node(value: &Value, path: &str, name: &str) -> RenpyVarNode {
             }
         }
         Value::I64(i) => leaf(path, name, "int", Some(json!(*i)), true),
-        Value::Int(bi) => {
-            let s = bi.to_string();
-            let v = s
-                .parse::<i64>()
-                .map(|i| json!(i))
-                .unwrap_or_else(|_| json!(s));
-            leaf(path, name, "int", Some(v), true)
-        }
+        Value::Int(bi) => match bi.to_string().parse::<i64>() {
+            Ok(i) => leaf(path, name, "int", Some(json!(i)), true),
+            Err(_) => leaf(path, name, "opaque", None, false),
+        },
         Value::F64(f) => leaf(path, name, "float", Some(json!(*f)), true),
         Value::Bool(b) => leaf(path, name, "bool", Some(json!(*b)), true),
-        Value::String(s) => leaf(path, name, "str", Some(json!(s)), true),
-        Value::Bytes(b) => {
-            let s = String::from_utf8_lossy(b).into_owned();
-            leaf(path, name, "bytes", Some(json!(s)), true)
-        }
+        Value::String(s) => leaf(path, name, "string", Some(json!(s)), true),
+        Value::Bytes(b) => match std::str::from_utf8(b) {
+            Ok(s) => leaf(path, name, "string", Some(json!(s)), true),
+            Err(_) => leaf(path, name, "opaque", None, false),
+        },
         Value::None => leaf(path, name, "opaque", None, false),
         Value::Tuple(_) | Value::Set(_) | Value::FrozenSet(_) => {
             leaf(path, name, "opaque", None, false)
@@ -306,6 +302,10 @@ mod tests {
         );
         store.insert(HashableValue::String("on".into()), Value::Bool(true));
         store.insert(HashableValue::String("rate".into()), Value::F64(1.5));
+        store.insert(
+            HashableValue::String("inv".into()),
+            Value::List(vec![Value::I64(7), Value::I64(8)]),
+        );
 
         let mut roots = BTreeMap::new();
         roots.insert(HashableValue::String("store".into()), Value::Dict(store));
@@ -330,6 +330,31 @@ mod tests {
         let money = find_path(&tree, "store.money").unwrap();
         assert!(money.editable);
         assert_eq!(money.type_, "int");
+    }
+
+    #[test]
+    fn string_leaf_reports_type_string() {
+        let tree = log_to_tree(&sample_log()).unwrap();
+        let name = find_path(&tree, "store.name").unwrap();
+        assert_eq!(name.type_, "string");
+        assert!(name.editable);
+        assert_eq!(name.value, Some(json!("Ada")));
+    }
+
+    #[test]
+    fn list_index_path_round_trips() {
+        let patched = apply_patches(
+            &sample_log(),
+            &[RenpySavePatch {
+                path: "store.inv[0]".into(),
+                value: json!(42),
+            }],
+        )
+        .unwrap();
+        let tree = log_to_tree(&patched).unwrap();
+        let item = find_path(&tree, "store.inv[0]").unwrap();
+        assert_eq!(item.type_, "int");
+        assert_eq!(item.value, Some(json!(42)));
     }
 
     #[test]
