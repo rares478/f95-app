@@ -54,6 +54,7 @@ import type { PlaySession } from '../types/session';
 import type { InstallLibraryWithDisk } from '../types/install-library';
 import { formatPlaytime, statusColor, statusKey } from '../types/library';
 import type { SamCategory } from '../types/sam';
+import { shouldShowSaveEditor } from '../lib/renpySaveGate';
 
 function categoryLabelKey(cat: SamCategory): string {
   return `libdetail.category.${cat}`;
@@ -96,6 +97,7 @@ export function LibraryGamePage() {
     [downloadRows, threadId],
   );
   const readyGame = state.kind === 'ready' ? state.game : null;
+  const [showSaveEditor, setShowSaveEditor] = useState(false);
   const bannerRemote = readyGame
     ? storeDetail?.bannerUrl ?? readyGame.thumbnailUrl
     : null;
@@ -184,6 +186,25 @@ export function LibraryGamePage() {
     }
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [isRunning]);
+
+  useEffect(() => {
+    if (!readyGame) {
+      setShowSaveEditor(false);
+      return;
+    }
+    let cancelled = false;
+    shouldShowSaveEditor(readyGame).then((v) => {
+      if (!cancelled) setShowSaveEditor(v);
+    });
+    return () => {
+      cancelled = true;
+    };
+  }, [
+    readyGame?.threadId,
+    readyGame?.installStatus,
+    readyGame?.installPath,
+    readyGame?.storeTags,
+  ]);
 
   if (state.kind === 'loading') {
     return (
@@ -809,6 +830,11 @@ export function LibraryGamePage() {
               <GameDetailActionItem onClick={() => openUrl(g.threadUrl)}>
                 {t('libdetail.action.openThread')}
               </GameDetailActionItem>
+              {showSaveEditor && (
+                <GameDetailActionItem to={`/library/game/${g.threadId}/saves`}>
+                  {t('libdetail.action.saveEditor')}
+                </GameDetailActionItem>
+              )}
               {g.installPath && (
                 <GameDetailActionItem
                   disabled={isRunning}

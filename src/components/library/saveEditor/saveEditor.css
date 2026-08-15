@@ -94,8 +94,8 @@
 
 .save-editor-body {
   display: grid;
-  grid-template-columns: minmax(180px, 240px) minmax(0, 1fr) minmax(220px, 300px);
-  gap: 10px;
+  grid-template-columns: minmax(200px, 260px) minmax(0, 1fr) minmax(240px, 320px);
+  gap: 12px;
   flex: 1;
   min-height: 0;
 }
@@ -130,7 +130,7 @@
   flex: 1;
   min-height: 0;
   overflow: auto;
-  padding: 6px;
+  padding: 8px;
 }
 
 .save-editor-empty {
@@ -161,11 +161,11 @@
   display: flex;
   flex-direction: column;
   align-items: flex-start;
-  gap: 2px;
+  gap: 3px;
   width: 100%;
   text-align: left;
-  padding: 8px 10px;
-  margin: 0 0 2px;
+  padding: 10px 12px;
+  margin: 0 0 4px;
   border: none;
   border-radius: 4px;
   background: transparent;
@@ -249,17 +249,18 @@
 .save-editor-tree-row {
   display: flex;
   align-items: center;
-  gap: 4px;
+  gap: 6px;
   width: 100%;
   text-align: left;
-  padding: 4px 6px;
-  margin: 0;
+  padding: 6px 8px;
+  margin: 0 0 1px;
   border: none;
   border-radius: 3px;
   background: transparent;
   color: var(--text-secondary);
   font: inherit;
   font-size: 12px;
+  line-height: 1.35;
   cursor: default;
 }
 
@@ -335,7 +336,7 @@
 .save-editor-tree-children {
   list-style: none;
   margin: 0;
-  padding: 0 0 0 14px;
+  padding: 0 0 0 18px;
 }
 
 .save-editor-panel {

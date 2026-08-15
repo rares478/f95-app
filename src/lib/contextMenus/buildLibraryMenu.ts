@@ -15,6 +15,7 @@ import {
 } from '../libraryGameActions';
 import type { LibraryGame } from '../../types/library';
 import { openManageCollections } from '../collections';
+import { isRenPyEngine } from '../storeEngine';
 import { item, offlineTitle, sep } from './helpers';
 
 function primaryLabel(
@@ -97,6 +98,14 @@ export function buildLibraryMenu(
     if (game.category !== 'games') {
       items.push(
         item('viewer', t('contextMenu.openMediaViewer'), () => openMediaViewer(game, navigate)),
+      );
+    }
+    // Sync fast-path of shouldShowSaveEditor (tag gate); probe path is async-only on detail page.
+    if (game.installStatus === 'installed' && isRenPyEngine(game.storeTags)) {
+      items.push(
+        item('saveEditor', t('libdetail.action.saveEditor'), () =>
+          navigate(`/library/game/${game.threadId}/saves`),
+        ),
       );
     }
   }
