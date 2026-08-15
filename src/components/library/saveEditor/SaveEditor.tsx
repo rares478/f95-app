@@ -148,6 +148,8 @@ export function SaveEditor({ game, onClose }: Props) {
       setSlotsError(null);
       return;
     }
+    // Capture gen bumped by engine re-resolve so a stale list cannot overwrite.
+    const generation = treeLoadGenRef.current;
     setSlotsLoading(true);
     setSlotsError(null);
     try {
@@ -155,12 +157,16 @@ export function SaveEditor({ game, onClose }: Props) {
         engine === 'rpgm'
           ? await ipc.rpgmSavesList(installPath)
           : await ipc.renpySavesList(installPath);
+      if (generation !== treeLoadGenRef.current) return;
       setSlots(list);
     } catch (err) {
+      if (generation !== treeLoadGenRef.current) return;
       setSlots([]);
       setSlotsError(formatIpcError(err));
     } finally {
-      setSlotsLoading(false);
+      if (generation === treeLoadGenRef.current) {
+        setSlotsLoading(false);
+      }
     }
   }, [installPath, engine, engineReady]);
 
