@@ -138,13 +138,36 @@ describe('shouldShowSaveEditor / resolveSaveEditorEngine', () => {
     const rpgmProbe = vi.fn().mockResolvedValue(
       rpgmProbeResult({ isRpgmLayout: true, savesDir: 'D:/a/save', variant: 'mv' }),
     );
+    const renpyList = vi.fn().mockResolvedValue([{ key: '1' }, { key: '2' }]);
+    const rpgmList = vi.fn().mockResolvedValue([{ key: 'file1' }]);
     expect(
       await resolveSaveEditorEngine(game({ storeTags: ["Ren'Py", 'RPGM'] }), {
         renpyProbe,
         rpgmProbe,
+        renpyList,
+        rpgmList,
       }),
     ).toBe('renpy');
     expect(renpyProbe).toHaveBeenCalledOnce();
     expect(rpgmProbe).toHaveBeenCalledOnce();
+    expect(renpyList).toHaveBeenCalledOnce();
+    expect(rpgmList).toHaveBeenCalledOnce();
+  });
+
+  it('prefers engine with non-empty save list when both have savesDir', async () => {
+    const renpyProbe = vi.fn().mockResolvedValue(
+      renpyProbeResult({ isRenpyLayout: true, savesDir: 'D:/a/saves' }),
+    );
+    const rpgmProbe = vi.fn().mockResolvedValue(
+      rpgmProbeResult({ isRpgmLayout: true, savesDir: 'D:/a/save', variant: 'mz' }),
+    );
+    expect(
+      await resolveSaveEditorEngine(game({ storeTags: [] }), {
+        renpyProbe,
+        rpgmProbe,
+        renpyList: vi.fn().mockResolvedValue([]),
+        rpgmList: vi.fn().mockResolvedValue([{ key: 'file1' }]),
+      }),
+    ).toBe('rpgm');
   });
 });

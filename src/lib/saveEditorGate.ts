@@ -28,18 +28,17 @@ async function pickWhenBothHaveSaves(
   installPath: string,
   deps: Required<SaveEditorGateDeps>,
 ): Promise<SaveEditorEngine> {
-  try {
-    const [renpySlots, rpgmSlots] = await Promise.all([
-      deps.renpyList(installPath),
-      deps.rpgmList(installPath),
-    ]);
-    const renpyHas = renpySlots.length > 0;
-    const rpgmHas = rpgmSlots.length > 0;
-    if (renpyHas && !rpgmHas) return 'renpy';
-    if (rpgmHas && !renpyHas) return 'rpgm';
-  } catch {
-    // List is optional tie-break; fall through to Ren'Py-first.
-  }
+  const [renpySettled, rpgmSettled] = await Promise.allSettled([
+    deps.renpyList(installPath),
+    deps.rpgmList(installPath),
+  ]);
+  const renpyHas =
+    renpySettled.status === 'fulfilled' && renpySettled.value.length > 0;
+  const rpgmHas =
+    rpgmSettled.status === 'fulfilled' && rpgmSettled.value.length > 0;
+  if (renpyHas && !rpgmHas) return 'renpy';
+  if (rpgmHas && !renpyHas) return 'rpgm';
+  // Tie / list failed: Ren'Py first per spec.
   return 'renpy';
 }
 
@@ -53,14 +52,18 @@ async function resolveFromProbes(
     deps.rpgmProbe(installPath),
   ]);
 
-  const renpyDir = Boolean(renpy.savesDir) || renpy.isRenpyLayout;
-  const rpgmDir = Boolean(rpgm.savesDir) || rpgm.isRpgmLayout;
+  const renpyDir = renpy.savesDir != null;
+  const rpgmDir = rpgm.savesDir != null;
 
   if (renpyDir && !rpgmDir) return 'renpy';
   if (rpgmDir && !renpyDir) return 'rpgm';
   if (renpyDir && rpgmDir) {
     return pickWhenBothHaveSaves(installPath, deps);
   }
+
+  // No savesDir: layout flag, Ren'Py before RPGM.
+  if (renpy.isRenpyLayout) return 'renpy';
+  if (rpgm.isRpgmLayout) return 'rpgm';
 
   // No layout: tag fallback (both tags → Ren'Py first per spec).
   if (tags.renpy) return 'renpy';
