@@ -1,0 +1,218 @@
+.rpgm-panel {
+  display: flex;
+  flex-direction: column;
+  gap: 12px;
+  min-height: 0;
+  height: 100%;
+}
+
+.rpgm-section {
+  display: flex;
+  flex-direction: column;
+  gap: 8px;
+  min-width: 0;
+}
+
+.rpgm-section-title {
+  margin: 0;
+  font-size: 11px;
+  font-weight: 700;
+  color: var(--text-faint);
+  text-transform: uppercase;
+  letter-spacing: 0.04em;
+}
+
+.rpgm-fields {
+  display: grid;
+  grid-template-columns: repeat(auto-fill, minmax(140px, 1fr));
+  gap: 10px;
+}
+
+.rpgm-field {
+  display: flex;
+  flex-direction: column;
+  gap: 4px;
+  min-width: 0;
+}
+
+.rpgm-field--dirty .save-editor-label {
+  color: var(--status-warning);
+}
+
+.rpgm-actor-list {
+  list-style: none;
+  margin: 0;
+  padding: 0;
+  display: flex;
+  flex-direction: column;
+  gap: 4px;
+}
+
+.rpgm-actor-item {
+  display: flex;
+  align-items: baseline;
+  gap: 8px;
+  padding: 6px 8px;
+  border-radius: 3px;
+  background: var(--bg-sunken);
+  border: 1px solid var(--border-faint);
+  font-size: 13px;
+  color: var(--text-secondary);
+}
+
+.rpgm-actor-id {
+  flex-shrink: 0;
+  font-family: ui-monospace, monospace;
+  font-size: 11px;
+  color: var(--text-faint);
+}
+
+.rpgm-actor-name {
+  min-width: 0;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+  font-weight: 600;
+  color: var(--text-primary);
+}
+
+.rpgm-toolbar {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  gap: 8px;
+  flex-shrink: 0;
+}
+
+.rpgm-kind-tabs {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 4px;
+}
+
+.rpgm-kind-tab {
+  border: 1px solid var(--border);
+  background: var(--bg-sunken);
+  color: var(--text-secondary);
+  border-radius: 4px;
+  padding: 6px 10px;
+  font: inherit;
+  font-size: 12px;
+  font-weight: 600;
+  cursor: pointer;
+}
+
+.rpgm-kind-tab:hover:not(:disabled) {
+  background: var(--bg-hover);
+  color: var(--text-primary);
+}
+
+.rpgm-kind-tab--active {
+  background: color-mix(in srgb, var(--accent) 18%, var(--bg-hover));
+  border-color: color-mix(in srgb, var(--accent) 40%, var(--border));
+  color: var(--text-primary);
+}
+
+.rpgm-kind-tab:disabled {
+  opacity: 0.45;
+  cursor: not-allowed;
+}
+
+.rpgm-search {
+  flex: 1;
+  min-width: 140px;
+}
+
+.rpgm-table-wrap {
+  flex: 1;
+  min-height: 0;
+  overflow: auto;
+}
+
+.rpgm-table {
+  width: 100%;
+  border-collapse: collapse;
+  font-size: 12px;
+}
+
+.rpgm-table th {
+  position: sticky;
+  top: 0;
+  z-index: 1;
+  text-align: left;
+  padding: 6px 8px;
+  font-size: 11px;
+  font-weight: 700;
+  color: var(--text-faint);
+  text-transform: uppercase;
+  letter-spacing: 0.04em;
+  background: var(--bg-elevated);
+  border-bottom: 1px solid var(--border);
+}
+
+.rpgm-table td {
+  padding: 6px 8px;
+  border-bottom: 1px solid var(--border-faint);
+  color: var(--text-secondary);
+  vertical-align: middle;
+}
+
+.rpgm-table tr.rpgm-row--dirty td {
+  background: color-mix(in srgb, var(--status-warning) 10%, transparent);
+}
+
+.rpgm-table tr.rpgm-row--dirty .rpgm-row-name {
+  color: var(--status-warning);
+  font-weight: 600;
+}
+
+.rpgm-row-name {
+  font-weight: 600;
+  color: var(--text-primary);
+  max-width: 220px;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+.rpgm-row-id {
+  font-family: ui-monospace, monospace;
+  font-size: 11px;
+  color: var(--text-faint);
+  width: 56px;
+}
+
+.rpgm-row-count {
+  width: 96px;
+}
+
+.rpgm-count-input {
+  width: 100%;
+  max-width: 88px;
+  box-sizing: border-box;
+  padding: 5px 8px;
+  border: 1px solid var(--border);
+  border-radius: 4px;
+  background: var(--bg-sunken);
+  color: var(--text-primary);
+  font: inherit;
+  font-size: 13px;
+}
+
+.rpgm-count-input:focus {
+  outline: 1px solid var(--accent);
+  border-color: var(--accent);
+}
+
+.rpgm-count-input:disabled {
+  opacity: 0.55;
+  cursor: not-allowed;
+}
+
+.rpgm-empty {
+  padding: 16px 8px;
+  text-align: center;
+  color: var(--text-muted);
+  font-size: 13px;
+  line-height: 1.45;
+}
