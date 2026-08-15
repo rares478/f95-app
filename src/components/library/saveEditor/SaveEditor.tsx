@@ -92,6 +92,7 @@ export function SaveEditor({ game, onClose }: Props) {
 
   useEffect(() => {
     let cancelled = false;
+    treeLoadGenRef.current += 1;
     setEngineReady(false);
     setEngine(null);
     setSlots([]);
@@ -101,6 +102,7 @@ export function SaveEditor({ game, onClose }: Props) {
     selectedKeyRef.current = null;
     setTree(null);
     setTreeSlotKey(null);
+    setTreeLoading(false);
     setTreeError(null);
     setSelectedPath(null);
     setPatches(new Map());
@@ -108,16 +110,21 @@ export function SaveEditor({ game, onClose }: Props) {
     setActionError(null);
     setSearch('');
 
-    void (async () => {
-      const resolved = await resolveSaveEditorEngine({
-        installStatus,
-        installPath,
-        storeTags,
-      });
+    if (!installPath) {
+      setEngineReady(true);
+      setSlotsLoading(false);
+      return;
+    }
+
+    void resolveSaveEditorEngine({
+      installStatus,
+      installPath,
+      storeTags,
+    }).then((resolved) => {
       if (cancelled) return;
       setEngine(resolved);
       setEngineReady(true);
-    })();
+    });
 
     return () => {
       cancelled = true;
