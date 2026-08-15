@@ -2,11 +2,15 @@ import { describe, expect, it, vi } from 'vitest';
 import type { RenpyVarNode } from '../../../../types/renpySave';
 import {
   extractActorCards,
+  extractIndexedRows,
   extractInventoryRows,
   extractPartyView,
+  filterNonDefaultSwitches,
+  filterNonDefaultVariables,
 } from '../../../../lib/rpgmSaveView';
 import { filterInventoryRows } from './RpgmInventoryPanel';
 import { fieldLabel } from './RpgmActorsPanel';
+import { displayIndexedLabel } from './RpgmSwitchesPanel';
 
 function leaf(
   path: string,
@@ -60,6 +64,20 @@ function sampleTree(): RenpyVarNode {
         ]),
       ]),
     ]),
+    group('switches', 'switches', [
+      group('switches._data', '_data', [
+        leaf('switches._data.1', 'Name (1)', 'bool', true),
+        leaf('switches._data.2', '2', 'bool', false),
+      ]),
+    ]),
+    group('variables', 'variables', [
+      group('variables._data', '_data', [
+        leaf('variables._data.1', 'Score (1)', 'int', 10),
+        leaf('variables._data.2', '2', 'int', 0),
+        leaf('variables._data.3', 'Flag (3)', 'bool', true),
+        leaf('variables._data.4', 'Note (4)', 'string', 'hi'),
+      ]),
+    ]),
   ]);
 }
 
@@ -100,5 +118,27 @@ describe('RPGM panel data wiring', () => {
     expect(onPatch).toHaveBeenCalledWith('actors._data[1]._hp', 999);
     expect(fieldLabel('_hp')).toBe('HP');
     expect(fieldLabel('_name')).toBe('Name');
+  });
+
+  it('passes through Name (1) switch labels and patches toggles', () => {
+    const rows = extractIndexedRows(sampleTree(), 'switches._data');
+    expect(rows[0].label).toBe('Name (1)');
+    expect(displayIndexedLabel(rows[0])).toBe('Name (1)');
+    expect(displayIndexedLabel(rows[1])).toBe('#2');
+    expect(filterNonDefaultSwitches(rows).map((r) => r.index)).toEqual(['1']);
+    const onPatch = vi.fn();
+    onPatch(rows[0].path, false);
+    expect(onPatch).toHaveBeenCalledWith('switches._data.1', false);
+  });
+
+  it('variable rows expose typed patch paths and hide defaults', () => {
+    const rows = extractIndexedRows(sampleTree(), 'variables._data');
+    expect(filterNonDefaultVariables(rows).map((r) => r.index)).toEqual(['1', '3', '4']);
+    expect(displayIndexedLabel(rows[0])).toBe('Score (1)');
+    const onPatch = vi.fn();
+    onPatch(rows[0].path, 99);
+    onPatch(rows[3].path, 'bye');
+    expect(onPatch).toHaveBeenCalledWith('variables._data.1', 99);
+    expect(onPatch).toHaveBeenCalledWith('variables._data.4', 'bye');
   });
 });

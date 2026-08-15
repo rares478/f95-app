@@ -263,3 +263,37 @@
   opacity: 0.55;
   cursor: not-allowed;
 }
+
+.rpgm-filter-toggle {
+  display: inline-flex;
+  align-items: center;
+  gap: 6px;
+  font-size: 12px;
+  font-weight: 600;
+  color: var(--text-secondary);
+  cursor: pointer;
+  user-select: none;
+}
+
+.rpgm-filter-toggle input {
+  width: 14px;
+  height: 14px;
+  accent-color: var(--accent);
+  cursor: pointer;
+}
+
+.rpgm-filter-toggle:has(input:disabled) {
+  opacity: 0.45;
+  cursor: not-allowed;
+}
+
+.rpgm-row-toggle,
+.rpgm-row-value {
+  width: 120px;
+}
+
+.rpgm-var-input {
+  width: 100%;
+  max-width: 220px;
+  box-sizing: border-box;
+}
