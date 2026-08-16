@@ -15,7 +15,16 @@ const MAX_DEPTH: u32 = 4;
 const MAX_FILES_SCANNED_PER_ROOT: usize = 200;
 
 /// Install roots: `.` is files-only at install root; named dirs recurse to MAX_DEPTH.
-const INSTALL_NAMED_SUBDIRS: &[&str] = &["Save", "Saves", "save"];
+const INSTALL_NAMED_SUBDIRS: &[&str] = &[
+    "Save",
+    "Saves",
+    "save",
+    "saves",
+    "savegames",
+    "SaveGames",
+    "savegame",
+    "SaveGame",
+];
 
 /// Opaque slot key: `localLow:rel` / `install:rel` (forward slashes).
 pub fn slot_key(source: &str, rel: &str) -> String {
@@ -30,7 +39,7 @@ pub fn parse_slot_key(key: &str) -> Result<(&str, &str), AppError> {
     if source.is_empty() || rel.is_empty() || rel.contains('\\') {
         return Err(AppError::keyed("error.saveEditor.unity.badSlotKey"));
     }
-    if source != "localLow" && source != "install" {
+    if source != "localLow" && source != "install" && source != "registry" {
         return Err(AppError::keyed("error.saveEditor.unity.badSlotKey"));
     }
     Ok((source, rel))
@@ -212,6 +221,14 @@ fn classify_file(
         ("es3", is_encrypted_es3(&bytes))
     } else if is_json_object_or_array(&bytes) {
         ("json", false)
+    } else if crate::save_editor::unity::nrbf::looks_like_nrbf(&bytes) {
+        ("nrbf", false)
+    } else if crate::save_editor::unity::odin::looks_like_odin_binary(&bytes) {
+        ("odin", false)
+    } else if crate::save_editor::unity::ac_save::looks_like_ac_binary_save(&bytes) {
+        ("ac", false)
+    } else if crate::save_editor::unity::xml_save::looks_like_xml_save(&bytes) {
+        ("xml", false)
     } else if should_consider_save_file(path, name, &ext) {
         // Extensionless / custom ES3 or XOR payloads (Kendo Save0, Lyla save_1.json, …).
         if looks_like_encrypted_es3_blob(&bytes) {
@@ -240,8 +257,11 @@ fn classify_file(
 }
 
 fn should_consider_save_file(path: &Path, name: &str, ext: &str) -> bool {
-    if ext == "json" || ext == "txt" || ext == "sav" {
-        return name_suggests_save(name) || under_save_folder(path);
+    if ext == "json" || ext == "txt" || ext == "sav" || ext == "save" || ext == "mss" {
+        return name_suggests_save(name) || under_save_folder(path) || ext == "save" || ext == "mss";
+    }
+    if ext == "dat" {
+        return name_suggests_save(name) || common_save_basename(name) || under_save_folder(path);
     }
     if name_suggests_save(name) || common_save_basename(name) {
         return true;
@@ -255,7 +275,10 @@ fn under_save_folder(path: &Path) -> bool {
         .and_then(|n| n.to_str())
         .map(|n| {
             let lower = n.to_ascii_lowercase();
-            lower == "save" || lower == "saves"
+            matches!(
+                lower.as_str(),
+                "save" | "saves" | "savegame" | "savegames"
+            )
         })
         .unwrap_or(false)
 }
@@ -268,7 +291,16 @@ fn common_save_basename(name: &str) -> bool {
         .to_ascii_lowercase();
     matches!(
         stem.as_str(),
-        "user" | "config" | "global" | "settings" | "system" | "prefs" | "player"
+        "user"
+            | "config"
+            | "global"
+            | "settings"
+            | "system"
+            | "prefs"
+            | "player"
+            | "playerinfo"
+            | "playerdata"
+            | "gamedata"
     )
 }
 
@@ -302,6 +334,15 @@ fn is_junk_name(name: &str) -> bool {
         return true;
     }
     if lower.ends_with(".dmp") || lower.ends_with(".dump") {
+        return true;
+    }
+    if lower.ends_with(".jpg")
+        || lower.ends_with(".jpeg")
+        || lower.ends_with(".png")
+        || lower.ends_with(".gif")
+        || lower.ends_with(".webp")
+        || lower.ends_with(".bmp")
+    {
         return true;
     }
     if lower.contains("crash") || lower.contains("stacktrace") {
@@ -428,6 +469,54 @@ mod tests {
     }
 
     #[test]
+    fn lists_nrbf_playerinfo_dat_in_local_low() {
+        let root = tempfile_root("nrbf-ll");
+        let install = root.join("install");
+        fs::create_dir_all(install.join("TheTwist_Data")).unwrap();
+        fs::write(
+            install.join("TheTwist_Data").join("app.info"),
+            "KsTgames\nThe Twist\n",
+        )
+        .unwrap();
+
+        let local_low_base = root.join("LocalLow");
+        let ll = local_low_base.join("KsTgames").join("The Twist");
+        fs::create_dir_all(&ll).unwrap();
+
+        let profile = std::env::var_os("USERPROFILE").map(PathBuf::from);
+        let live = profile.map(|p| {
+            p.join("AppData")
+                .join("LocalLow")
+                .join("KsTgames")
+                .join("The Twist")
+                .join("playerInfo.dat")
+        });
+        let Some(path) = live else {
+            return;
+        };
+        if !path.is_file() {
+            return;
+        }
+        let bytes = fs::read(&path).unwrap();
+        fs::write(ll.join("playerInfo.dat"), &bytes).unwrap();
+        fs::write(ll.join("output_log.txt"), b"noise").unwrap();
+
+        let meta = UnityMeta {
+            developer: Some("Wrong".to_string()),
+            title: Some("The Twist".to_string()),
+        };
+
+        assert!(dir_has_candidates(&ll));
+        let slots = list_slots(&install, &meta, &local_low_base).unwrap();
+        let slot = slots
+            .iter()
+            .find(|s| s.key == "localLow:playerInfo.dat")
+            .expect("playerInfo.dat slot");
+        assert_eq!(slot.kind, "nrbf");
+        assert_eq!(slot.source, "localLow");
+    }
+
+    #[test]
     fn includes_encrypted_save_named_json() {
         let root = tempfile_root("xor-json");
         let install = root.join("install");
@@ -524,6 +613,50 @@ mod tests {
         assert_eq!(sav.kind, "json");
         assert!(!sav.encrypted);
         assert!(slots.iter().all(|s| s.key != "install:game.sav.bin"));
+    }
+
+    #[test]
+    fn lists_xml_sav_under_install_savegames() {
+        let root = tempfile_root("savegames");
+        let install = root.join("install");
+        fs::create_dir_all(install.join("Game_Data")).unwrap();
+        let sg = install.join("savegames");
+        fs::create_dir_all(&sg).unwrap();
+        fs::write(
+            sg.join("Gusti (1).sav"),
+            concat!(
+                "\u{feff}",
+                r#"<?xml version="1.0" encoding="utf-8"?>"#,
+                "\n<PlayerData><Name>Gusti</Name><Money>10</Money></PlayerData>\n"
+            )
+            .as_bytes(),
+        )
+        .unwrap();
+        fs::write(sg.join("Gusti (1).jpg"), b"\xff\xd8\xff").unwrap();
+
+        let local_low_base = root.join("LocalLow");
+        fs::create_dir_all(&local_low_base).unwrap();
+        let meta = UnityMeta {
+            developer: Some("Acme".to_string()),
+            title: Some("Game".to_string()),
+        };
+
+        let slots = list_slots(&install, &meta, &local_low_base).unwrap();
+        let keys: Vec<_> = slots.iter().map(|s| s.key.as_str()).collect();
+        assert!(
+            keys.iter().any(|k| k.contains("savegames/") && k.ends_with(".sav")),
+            "missing savegames/*.sav in {keys:?}"
+        );
+        let slot = slots
+            .iter()
+            .find(|s| s.key.contains("savegames/") && s.key.ends_with(".sav"))
+            .unwrap();
+        assert_eq!(slot.kind, "xml");
+        assert!(!slot.encrypted);
+        assert!(
+            slots.iter().all(|s| !s.key.ends_with(".jpg")),
+            "screenshots under savegames must be skipped"
+        );
     }
 
     #[test]

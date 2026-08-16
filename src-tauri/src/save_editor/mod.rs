@@ -9,8 +9,8 @@ pub mod unity;
 mod zip_save;
 
 pub use backup::{
-    backup_before_write, ensure_under_root, list_backups, resolve_backup_path, restore_backup,
-    RenpySaveBackup,
+    backup_before_write, backup_bytes_before_write, ensure_under_root, list_backups,
+    resolve_backup_path, restore_backup, RenpySaveBackup,
 };
 pub use discover::{list_slots, probe_renpy_install, resolve_saves_dir};
 pub use pickle_tree::{read_save_tree, write_save_patches};

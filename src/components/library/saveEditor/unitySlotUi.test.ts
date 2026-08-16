@@ -39,6 +39,7 @@ describe('unitySourceLocaleKey', () => {
   it('maps known sources', () => {
     expect(unitySourceLocaleKey('localLow')).toBe('saveEditor.unity.source.localLow');
     expect(unitySourceLocaleKey('install')).toBe('saveEditor.unity.source.install');
+    expect(unitySourceLocaleKey('registry')).toBe('saveEditor.unity.source.registry');
   });
 
   it('falls back for unknown sources', () => {
@@ -50,6 +51,10 @@ describe('slotKindLocaleKey', () => {
   it('includes Unity kinds', () => {
     expect(slotKindLocaleKey('es3')).toBe('saveEditor.kind.es3');
     expect(slotKindLocaleKey('json')).toBe('saveEditor.kind.json');
+    expect(slotKindLocaleKey('odin')).toBe('saveEditor.kind.odin');
+    expect(slotKindLocaleKey('ac')).toBe('saveEditor.kind.ac');
+    expect(slotKindLocaleKey('xml')).toBe('saveEditor.kind.xml');
+    expect(slotKindLocaleKey('nrbf')).toBe('saveEditor.kind.nrbf');
   });
 
   it('keeps RenPy kinds', () => {

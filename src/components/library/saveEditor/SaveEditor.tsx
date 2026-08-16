@@ -11,10 +11,16 @@ import { dialog } from '../../../lib/dialog';
 import { useT } from '../../../lib/i18n';
 import { formatIpcError } from '../../../lib/ipcError';
 import * as ipc from '../../../lib/ipc';
+import * as library from '../../../lib/library';
 import {
   resolveSaveEditorEngine,
   type SaveEditorEngine,
 } from '../../../lib/saveEditorGate';
+import {
+  collectSaveEditorInstallRoots,
+  defaultSaveEditorInstallRoot,
+  type SaveEditorInstallRoot,
+} from '../../../lib/saveEditorInstallRoots';
 import type { LibraryGame } from '../../../types/library';
 import type {
   RenpySaveBackup,
@@ -48,7 +54,12 @@ export function SaveEditor({ game, onClose, developer: developerProp }: Props) {
   const { t } = useT();
   const { running } = useRunningGames();
   const isRunning = running.has(game.threadId);
-  const installPath = game.installPath;
+
+  const [installRoots, setInstallRoots] = useState<SaveEditorInstallRoot[]>(() =>
+    collectSaveEditorInstallRoots([], game.installPath),
+  );
+  const [installPath, setInstallPath] = useState<string | null>(game.installPath);
+  const [rootsReady, setRootsReady] = useState(false);
 
   const [engine, setEngine] = useState<SaveEditorEngine | null>(null);
   const [engineReady, setEngineReady] = useState(false);
@@ -56,6 +67,8 @@ export function SaveEditor({ game, onClose, developer: developerProp }: Props) {
   const [developer, setDeveloper] = useState<string | null>(developerProp ?? null);
   const [unityMetaReady, setUnityMetaReady] = useState(developerProp !== undefined);
   const [localLowDir, setLocalLowDir] = useState<string | null>(null);
+  const [unityCompany, setUnityCompany] = useState<string | null>(null);
+  const [unityProduct, setUnityProduct] = useState<string | null>(null);
 
   const [slots, setSlots] = useState<SaveEditorSlot[]>([]);
   const [slotsLoading, setSlotsLoading] = useState(true);
@@ -120,6 +133,34 @@ export function SaveEditor({ game, onClose, developer: developerProp }: Props) {
 
   useEffect(() => {
     let cancelled = false;
+    setRootsReady(false);
+    void library
+      .listExes(game.threadId)
+      .then((exes) => {
+        if (cancelled) return;
+        const roots = collectSaveEditorInstallRoots(exes, game.installPath);
+        setInstallRoots(roots);
+        const preferred = defaultSaveEditorInstallRoot(roots, game.installPath);
+        setInstallPath(preferred?.path ?? game.installPath);
+      })
+      .catch(() => {
+        if (cancelled) return;
+        const roots = collectSaveEditorInstallRoots([], game.installPath);
+        setInstallRoots(roots);
+        setInstallPath(game.installPath);
+      })
+      .finally(() => {
+        if (!cancelled) setRootsReady(true);
+      });
+    return () => {
+      cancelled = true;
+    };
+  }, [game.threadId, game.installPath]);
+
+  useEffect(() => {
+    if (!rootsReady) return;
+
+    let cancelled = false;
     treeLoadGenRef.current += 1;
     setEngineReady(false);
     setEngine(null);
@@ -140,6 +181,8 @@ export function SaveEditor({ game, onClose, developer: developerProp }: Props) {
     setActionError(null);
     setSearch('');
     setLocalLowDir(null);
+    setUnityCompany(null);
+    setUnityProduct(null);
     setUnityMetaReady(false);
     setDeveloper(developerProp !== undefined ? developerProp : null);
     sessionPasswordsRef.current.clear();
@@ -176,13 +219,15 @@ export function SaveEditor({ game, onClose, developer: developerProp }: Props) {
     // Seed developer from prop when the install identity changes; late prefetch
     // updates via the sync effect + Unity meta effect without remounting the engine.
     // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [installPath, installStatus, storeTags]);
+  }, [rootsReady, installPath, installStatus, storeTags]);
 
   useEffect(() => {
     if (!engineReady || engine !== 'unity' || !installPath) {
       if (engineReady && engine !== 'unity') {
         setUnityMetaReady(true);
         setLocalLowDir(null);
+        setUnityCompany(null);
+        setUnityProduct(null);
       }
       return;
     }
@@ -209,9 +254,13 @@ export function SaveEditor({ game, onClose, developer: developerProp }: Props) {
         });
         if (cancelled) return;
         setLocalLowDir(probe.localLowDir);
+        setUnityCompany(probe.company);
+        setUnityProduct(probe.product);
       } catch {
         if (cancelled) return;
         setLocalLowDir(null);
+        setUnityCompany(null);
+        setUnityProduct(null);
       } finally {
         if (!cancelled) setUnityMetaReady(true);
       }
@@ -221,6 +270,23 @@ export function SaveEditor({ game, onClose, developer: developerProp }: Props) {
       cancelled = true;
     };
   }, [engine, engineReady, installPath, game.threadId, game.title, developerProp]);
+
+  const switchInstallPath = useCallback(
+    async (nextPath: string) => {
+      if (nextPath === installPath) return;
+      if (dirtyCount > 0) {
+        const ok = await dialog.confirm(t('saveEditor.discardConfirm'), {
+          title: t('saveEditor.discardTitle'),
+          kind: 'warning',
+          confirmLabel: t('common.confirm'),
+          cancelLabel: t('common.cancel'),
+        });
+        if (!ok) return;
+      }
+      setInstallPath(nextPath);
+    },
+    [installPath, dirtyCount, t],
+  );
 
   const loadSlots = useCallback(async () => {
     if (!installPath || !engineReady) {
@@ -616,6 +682,9 @@ export function SaveEditor({ game, onClose, developer: developerProp }: Props) {
   }
 
   const waitingUnityMeta = engine === 'unity' && !unityMetaReady;
+  const waitingRoots = !rootsReady;
+  const unityIdentity =
+    unityCompany && unityProduct ? `${unityCompany}/${unityProduct}` : null;
 
   return (
     <div className="save-editor">
@@ -628,6 +697,31 @@ export function SaveEditor({ game, onClose, developer: developerProp }: Props) {
           <span className="save-editor-subtitle" title={game.title}>
             {game.title}
           </span>
+          {installRoots.length > 1 && (
+            <label className="save-editor-install-picker">
+              <span className="save-editor-install-picker-label">
+                {t('saveEditor.installRoot')}
+              </span>
+              <select
+                className="save-editor-install-select"
+                value={installPath}
+                disabled={isRunning || applying || restoring != null}
+                onChange={(e) => void switchInstallPath(e.target.value)}
+                title={installPath}
+              >
+                {installRoots.map((root) => (
+                  <option key={root.key} value={root.path} title={root.path}>
+                    {root.label}
+                  </option>
+                ))}
+              </select>
+            </label>
+          )}
+          {engine === 'unity' && unityIdentity && (
+            <span className="save-editor-roots-hint" title={unityIdentity}>
+              {t('saveEditor.unity.productHint', { identity: unityIdentity })}
+            </span>
+          )}
           {engine === 'unity' && localLowDir && (
             <span className="save-editor-roots-hint" title={localLowDir}>
               {t('saveEditor.unity.rootsHint', { path: localLowDir })}
@@ -641,7 +735,7 @@ export function SaveEditor({ game, onClose, developer: developerProp }: Props) {
         <div className="save-editor-error">{slotsError || treeError || actionError}</div>
       )}
 
-      {!engineReady || waitingUnityMeta || slotsLoading ? (
+      {waitingRoots || !engineReady || waitingUnityMeta || slotsLoading ? (
         <div className="save-editor-status">
           <LoadingState label={t('saveEditor.loadingSlots')} variant="compact" />
         </div>

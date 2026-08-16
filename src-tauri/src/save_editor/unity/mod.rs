@@ -1,10 +1,15 @@
 //! Unity ES3 / JSON save discovery and editing.
 
+pub mod ac_save;
 pub mod discover;
 pub mod es3;
 pub mod es3_defaults;
 pub mod files;
 pub mod json_save;
+pub mod nrbf;
+pub mod odin;
+pub mod registry;
+pub mod xml_save;
 pub mod xor_json;
 
 use crate::error::AppError;
@@ -13,11 +18,15 @@ use crate::save_editor::types::{
     RenpySavePatch, RenpyVarNode, UnityMeta, UnitySaveReadResult, UnitySaveSlot,
 };
 use crate::save_editor::{
-    backup_before_write, ensure_under_root, reject_path_component, resolve_backup_path,
-    restore_backup,
+    backup_before_write, backup_bytes_before_write, ensure_under_root, reject_path_component,
+    resolve_backup_path, restore_backup,
 };
 use crate::save_editor::unity::es3_defaults::extract_es3_password_from_install;
+use ac_save::{apply_ac_patches, looks_like_ac_binary_save, parse_ac_to_json};
 use json_save::{parse_json_value, write_bytes_atomic, write_json_file_atomic};
+use nrbf::{looks_like_nrbf, parse_nrbf_to_json, write_nrbf_with_json};
+use odin::{apply_odin_patches, looks_like_odin_binary, parse_odin_to_json};
+use xml_save::{apply_xml_patches, looks_like_xml_save, parse_xml_to_json};
 use xor_json::{
     collect_xor_key_candidates, decrypt_xor_json_with_keys, xor_encrypt_json,
 };
@@ -42,7 +51,16 @@ pub fn list_for_install(
     install: &Path,
     meta: &UnityMeta,
 ) -> Result<Vec<UnitySaveSlot>, AppError> {
-    files::list_slots(install, meta, &local_low_root())
+    let mut slots = files::list_slots(install, meta, &local_low_root())?;
+    let mut seen: std::collections::HashSet<String> =
+        slots.iter().map(|s| s.key.clone()).collect();
+    for slot in registry::list_slots(install, meta)? {
+        if seen.insert(slot.key.clone()) {
+            slots.push(slot);
+        }
+    }
+    slots.sort_by(|a, b| a.key.cmp(&b.key));
+    Ok(slots)
 }
 
 /// Read a slot into a tree; encrypted slots need a password to unlock.
@@ -52,6 +70,11 @@ pub fn read(
     slot_key: &str,
     password: Option<&str>,
 ) -> Result<UnitySaveReadResult, AppError> {
+    let (source, rel) = files::parse_slot_key(slot_key)?;
+    if source == "registry" {
+        return registry::read_slot(install, meta, rel);
+    }
+
     let (live, _) = resolve_live_save(install, meta, slot_key)?;
     let bytes = fs::read(&live).map_err(|e| {
         AppError::Io(format!(
@@ -95,6 +118,38 @@ pub fn read(
             needs_password: true,
             encrypted: true,
         }),
+        SaveKind::OdinBinary => {
+            let value = parse_odin_to_json(&bytes)?;
+            Ok(UnitySaveReadResult {
+                tree: Some(json_to_tree(&value)),
+                needs_password: false,
+                encrypted: false,
+            })
+        }
+        SaveKind::AcBinary => {
+            let value = parse_ac_to_json(&bytes)?;
+            Ok(UnitySaveReadResult {
+                tree: Some(json_to_tree(&value)),
+                needs_password: false,
+                encrypted: false,
+            })
+        }
+        SaveKind::XmlSave => {
+            let value = parse_xml_to_json(&bytes)?;
+            Ok(UnitySaveReadResult {
+                tree: Some(json_to_tree(&value)),
+                needs_password: false,
+                encrypted: false,
+            })
+        }
+        SaveKind::Nrbf => {
+            let value = parse_nrbf_to_json(&bytes)?;
+            Ok(UnitySaveReadResult {
+                tree: Some(json_to_tree(&value)),
+                needs_password: false,
+                encrypted: false,
+            })
+        }
     }
 }
 
@@ -109,6 +164,14 @@ pub fn write(
     password: Option<&str>,
 ) -> Result<RenpyVarNode, AppError> {
     reject_path_component(thread_id)?;
+    let (source, rel) = files::parse_slot_key(slot_key)?;
+    if source == "registry" {
+        let raw = registry::read_raw_bytes(install, meta, rel)?;
+        backup_bytes_before_write(backups_root, thread_id, slot_key, &raw, "original.bin")?;
+        let (tree, _) = registry::write_slot(install, meta, rel, patches)?;
+        return Ok(tree);
+    }
+
     let (live, _) = resolve_live_save(install, meta, slot_key)?;
     backup_before_write(backups_root, thread_id, slot_key, &live)?;
 
@@ -176,6 +239,28 @@ pub fn write(
         SaveKind::XorNeedsPassword => {
             return Err(AppError::keyed(BAD_PASSWORD));
         }
+        SaveKind::OdinBinary => {
+            let (out, value) = apply_odin_patches(&bytes, patches)?;
+            write_bytes_atomic(&live, &out)?;
+            value
+        }
+        SaveKind::AcBinary => {
+            let (out, value) = apply_ac_patches(&bytes, patches)?;
+            write_bytes_atomic(&live, &out)?;
+            value
+        }
+        SaveKind::XmlSave => {
+            let (out, value) = apply_xml_patches(&bytes, patches)?;
+            write_bytes_atomic(&live, &out)?;
+            value
+        }
+        SaveKind::Nrbf => {
+            let mut value = parse_nrbf_to_json(&bytes)?;
+            apply_patches_json(&mut value, patches)?;
+            let encoded = write_nrbf_with_json(&bytes, &value)?;
+            write_bytes_atomic(&live, &encoded)?;
+            value
+        }
     };
 
     Ok(json_to_tree(&value))
@@ -192,6 +277,21 @@ pub fn restore(
 ) -> Result<(), AppError> {
     reject_path_component(thread_id)?;
     reject_path_component(backup_file_name)?;
+    let (source, rel) = files::parse_slot_key(slot_key)?;
+    if source == "registry" {
+        let backup = resolve_backup_path(backups_root, thread_id, slot_key, backup_file_name)?;
+        let thread_root = backups_root.join(thread_id);
+        ensure_under_root(&thread_root, backups_root)?;
+        ensure_under_root(&backup, &thread_root)?;
+        let bytes = fs::read(&backup).map_err(|e| {
+            AppError::Io(format!(
+                "failed to read registry backup {}: {e}",
+                backup.display()
+            ))
+        })?;
+        return registry::write_raw_bytes(install, meta, rel, &bytes);
+    }
+
     let (live, sandbox_root) = resolve_live_save(install, meta, slot_key)?;
     let backup = resolve_backup_path(backups_root, thread_id, slot_key, backup_file_name)?;
     let thread_root = backups_root.join(thread_id);
@@ -269,6 +369,14 @@ enum SaveKind {
     /// XOR-cycled JSON; `key` is the key that successfully decrypted.
     XorJson { text: String, key: Vec<u8> },
     XorNeedsPassword,
+    /// Sirenix Odin Serializer binary (e.g. `.mss`).
+    OdinBinary,
+    /// Adventure Creator `Binary` + Base64 NRBF (`.save`).
+    AcBinary,
+    /// UTF-8 XML document (e.g. Man of the House `PlayerData` `.sav`).
+    XmlSave,
+    /// .NET BinaryFormatter / MS-NRBF flat class (e.g. The Twist `playerInfo.dat`).
+    Nrbf,
 }
 
 fn classify_save(
@@ -297,6 +405,23 @@ fn classify_save(
         }
     }
 
+    // Adventure Creator Binary+Base64 (Our Father's Sins `.save`, etc.).
+    if looks_like_ac_binary_save(bytes) || ext == "save" {
+        if looks_like_ac_binary_save(bytes) {
+            return Ok(SaveKind::AcBinary);
+        }
+    }
+
+    // XML PlayerData / similar (Man of the House `.sav` in savegames/).
+    if looks_like_xml_save(bytes) {
+        return Ok(SaveKind::XmlSave);
+    }
+
+    // .NET BinaryFormatter (The Twist playerInfo.dat, etc.).
+    if looks_like_nrbf(bytes) {
+        return Ok(SaveKind::Nrbf);
+    }
+
     // Easy Save 3 AES (extension .es3 or AES-sized blob).
     let es3_candidate = ext == "es3" || looks_like_es3_blob(bytes);
     if es3_candidate {
@@ -317,6 +442,14 @@ fn classify_save(
         }
     }
 
+    // Sirenix Odin binary (MILF Plaza `.mss`, etc.) — not encrypted.
+    if looks_like_odin_binary(bytes) || ext == "mss" {
+        // Confirm parseable; `.mss` without a valid header still errors below.
+        if looks_like_odin_binary(bytes) {
+            return Ok(SaveKind::OdinBinary);
+        }
+    }
+
     // Custom repeating-XOR JSON (e.g. Lyla / hard-coded SecretKey in Assembly-CSharp).
     let key_bufs = collect_xor_key_candidates(install, password);
     let key_refs: Vec<&[u8]> = key_bufs.iter().map(|k| k.as_slice()).collect();
@@ -331,11 +464,13 @@ fn classify_save(
         return Ok(SaveKind::EncryptedEs3NeedsPassword);
     }
 
+    // Only JSON-shaped names ask for an XOR password — unknown binaries are unsupported.
     let name = path
         .file_name()
         .and_then(|n| n.to_str())
         .unwrap_or("");
-    if files::name_suggests_save(name) || password.is_some() {
+    let maybe_xor = ext == "json" || ext == "txt" || name.to_ascii_lowercase().ends_with(".json");
+    if maybe_xor && (files::name_suggests_save(name) || password.is_some()) {
         if password.is_some() {
             return Err(AppError::keyed(BAD_PASSWORD));
         }
@@ -663,5 +798,36 @@ mod tests {
         let gold = find(unlocked.tree.as_ref().unwrap(), "save_data.gold")
             .or_else(|| find(unlocked.tree.as_ref().unwrap(), "gold"));
         assert_eq!(gold.and_then(|n| n.value.clone()), Some(serde_json::json!(7)));
+    }
+
+    /// Live check: Redux (LocalLow files) vs Season 1-4 (registry) when env paths are set.
+    #[test]
+    fn taffy_redux_vs_s14_sources_when_env_set() {
+        let Ok(redux) = std::env::var("TAFFY_REDUX") else {
+            return;
+        };
+        let Ok(s14) = std::env::var("TAFFY_S14") else {
+            return;
+        };
+        let meta = UnityMeta {
+            developer: Some("UberPie".into()),
+            title: Some("Taffy Tales".into()),
+        };
+        let redux_slots = list_for_install(Path::new(&redux), &meta).unwrap();
+        assert!(
+            redux_slots.iter().any(|s| s.source == "localLow"),
+            "Redux should list LocalLow file saves, got: {:?}",
+            redux_slots.iter().map(|s| (&s.source, &s.display_name)).collect::<Vec<_>>()
+        );
+
+        let s14_slots = list_for_install(Path::new(&s14), &meta).unwrap();
+        assert!(
+            s14_slots.iter().any(|s| s.source == "registry"
+                && (s.display_name.contains("wholeGameState")
+                    || s.display_name.contains("galleryState")
+                    || s.display_name.contains("Settings"))),
+            "Season 1-4 should list registry prefs, got: {:?}",
+            s14_slots.iter().map(|s| (&s.source, &s.display_name)).collect::<Vec<_>>()
+        );
     }
 }

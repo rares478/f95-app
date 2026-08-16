@@ -38,6 +38,43 @@ pub struct RenpySaveBackup {
     pub size_bytes: u64,
 }
 
+/// Copy `bytes` to `original.<ext>` if that file does not exist yet (registry / in-memory sources).
+pub fn backup_bytes_before_write(
+    backups_root: &Path,
+    thread_id: &str,
+    slot_key: &str,
+    bytes: &[u8],
+    original_file_name: &str,
+) -> Result<PathBuf, AppError> {
+    reject_path_component(thread_id)?;
+    reject_path_component(original_file_name)?;
+    if !is_original_backup_name(original_file_name) {
+        return Err(AppError::keyed("error.saveEditor.pathEscape"));
+    }
+    let dir = slot_backup_dir(backups_root, thread_id, slot_key)?;
+    fs::create_dir_all(&dir).map_err(|e| {
+        AppError::Io(format!(
+            "failed to create backup dir {}: {e}",
+            dir.display()
+        ))
+    })?;
+    let thread_root = backups_root.join(thread_id);
+    ensure_under_root(&thread_root, backups_root)?;
+    ensure_under_root(&dir, backups_root)?;
+
+    let dest = dir.join(original_file_name);
+    if !dest.exists() {
+        fs::write(&dest, bytes).map_err(|e| {
+            AppError::Io(format!(
+                "failed to backup bytes -> {}: {e}",
+                dest.display()
+            ))
+        })?;
+    }
+    prune_slot_backups(&dir)?;
+    Ok(dest)
+}
+
 /// Copy live save to `original.<ext>` if that file does not exist yet.
 ///
 /// Subsequent edits keep the existing original. Still prunes leftover

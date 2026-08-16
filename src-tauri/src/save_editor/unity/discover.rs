@@ -48,17 +48,11 @@ pub fn local_low_root() -> PathBuf {
     profile.join("AppData").join("LocalLow")
 }
 
-/// Resolve LocalLow `{Company}/{Product}` under `local_low_base` (injectable for tests).
-/// Requires the matched directory to contain at least one save candidate.
-pub fn resolve_local_low_dir(
+/// Company / Product name candidates used for LocalLow and PlayerPrefs discovery.
+pub fn company_product_candidates(
     install: &Path,
     meta: &UnityMeta,
-    local_low_base: &Path,
-) -> Option<PathBuf> {
-    if !local_low_base.is_dir() {
-        return None;
-    }
-
+) -> (Vec<String>, Vec<String>) {
     let data_dir = find_data_dir(install);
     let app_info = data_dir.as_ref().and_then(|d| read_app_info(d));
 
@@ -81,7 +75,22 @@ pub fn resolve_local_low_dir(
         push_unique(&mut products, title.clone());
     }
 
-    if companies.is_empty() || products.is_empty() {
+    (companies, products)
+}
+
+/// Resolve LocalLow `{Company}/{Product}` under `local_low_base` (injectable for tests).
+/// Requires the matched directory to contain at least one save candidate.
+pub fn resolve_local_low_dir(
+    install: &Path,
+    meta: &UnityMeta,
+    local_low_base: &Path,
+) -> Option<PathBuf> {
+    if !local_low_base.is_dir() {
+        return None;
+    }
+
+    let (companies, products) = company_product_candidates(install, meta);
+    if products.is_empty() {
         return None;
     }
 
@@ -98,7 +107,10 @@ pub fn resolve_local_low_dir(
             }
         }
     }
-    None
+
+    // CompanyName often differs from the F95 developer (e.g. Someguy vs Something Something Studios).
+    // Fall back to matching Product under any LocalLow company folder.
+    fuzzy_product_any_company(local_low_base, &products)
 }
 
 /// Probe Unity layout and resolve LocalLow using the real LocalLow root.
@@ -188,6 +200,32 @@ fn fuzzy_company_product(local_low_base: &Path, company: &str, product: &str) ->
 
     let company_dir = find_fuzzy_child(local_low_base, &company_key)?;
     find_fuzzy_child(&company_dir, &product_key)
+}
+
+fn fuzzy_product_any_company(local_low_base: &Path, products: &[String]) -> Option<PathBuf> {
+    let product_keys: Vec<String> = products
+        .iter()
+        .map(|p| normalize_folder_key(p))
+        .filter(|k| !k.is_empty())
+        .collect();
+    if product_keys.is_empty() {
+        return None;
+    }
+    let entries = fs::read_dir(local_low_base).ok()?;
+    for entry in entries.filter_map(|e| e.ok()) {
+        let company_dir = entry.path();
+        if !company_dir.is_dir() {
+            continue;
+        }
+        for key in &product_keys {
+            if let Some(product_dir) = find_fuzzy_child(&company_dir, key) {
+                if super::files::dir_has_candidates(&product_dir) {
+                    return Some(product_dir);
+                }
+            }
+        }
+    }
+    None
 }
 
 fn find_fuzzy_child(parent: &Path, key: &str) -> Option<PathBuf> {
@@ -284,6 +322,28 @@ mod tests {
         let meta = UnityMeta {
             developer: None,
             title: None,
+        };
+
+        assert_eq!(
+            resolve_local_low_dir(&install, &meta, &local_low_base),
+            Some(expected)
+        );
+    }
+
+    #[test]
+    fn resolves_local_low_via_product_when_company_mismatches() {
+        let root = tempfile_root("ll-product-only");
+        let install = root.join("install");
+        fs::create_dir_all(install.join("Widget_Data")).unwrap();
+
+        let local_low_base = root.join("LocalLow");
+        let expected = local_low_base.join("Someguy").join("Something Unlimited");
+        fs::create_dir_all(&expected).unwrap();
+        fs::write(expected.join("save.json"), br#"{"ok":true}"#).unwrap();
+
+        let meta = UnityMeta {
+            developer: Some("Something Something Studios".to_string()),
+            title: Some("Something Unlimited".to_string()),
         };
 
         assert_eq!(

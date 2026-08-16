@@ -78,6 +78,38 @@
   white-space: nowrap;
 }
 
+.save-editor-install-picker {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  min-width: 0;
+  margin-top: 2px;
+}
+
+.save-editor-install-picker-label {
+  flex-shrink: 0;
+  font-size: 11px;
+  font-weight: 600;
+  color: var(--text-tertiary);
+}
+
+.save-editor-install-select {
+  min-width: 0;
+  max-width: min(420px, 100%);
+  border: 1px solid var(--border);
+  background: var(--bg-elevated);
+  color: var(--text-primary);
+  border-radius: 4px;
+  padding: 4px 8px;
+  font: inherit;
+  font-size: 12px;
+}
+
+.save-editor-install-select:disabled {
+  opacity: 0.6;
+  cursor: not-allowed;
+}
+
 .save-editor-badge--locked {
   border-color: color-mix(in srgb, var(--status-warning) 40%, var(--border-faint));
   background: color-mix(in srgb, var(--status-warning) 12%, var(--bg-sunken));
