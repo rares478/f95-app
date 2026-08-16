@@ -79,8 +79,9 @@
 }
 
 .save-editor-badge--locked {
-  color: color-mix(in srgb, var(--status-warning) 70%, var(--text-muted));
-  border-color: color-mix(in srgb, var(--status-warning) 35%, var(--border-faint));
+  border-color: color-mix(in srgb, var(--status-warning) 40%, var(--border-faint));
+  background: color-mix(in srgb, var(--status-warning) 12%, var(--bg-sunken));
+  color: var(--text-secondary);
 }
 
 .save-editor-unlock {
