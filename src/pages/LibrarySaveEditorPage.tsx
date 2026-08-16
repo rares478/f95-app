@@ -57,7 +57,7 @@ export function LibrarySaveEditorPage() {
     );
   }
 
-  if (!game || developer === undefined) {
+  if (!game) {
     return (
       <div style={{ padding: 24 }}>
         <LoadingState label={t('common.loading')} variant="page" />
