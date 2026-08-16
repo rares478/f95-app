@@ -6,9 +6,9 @@ use super::super::util::{
 use crate::error::AppError;
 
 /// MediaFire serves a landing page that contains a direct CDN URL inside an
-/// `<a id="downloadButton">`. The href is sometimes scrambled (base64-encoded);
-/// `scrambled_url_duplicate` or `data-scrambled-url` is the same value, useful
-/// if the page layout shifts.
+/// `<a id="downloadButton">` (href may appear before or after `id` on that tag).
+/// The href is sometimes scrambled (base64-encoded); `scrambled_url_duplicate`
+/// or `data-scrambled-url` is the same value, useful if the page layout shifts.
 pub(crate) async fn resolve_mediafire(
     http: &reqwest::Client,
     url: &str,
