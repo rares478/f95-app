@@ -162,14 +162,29 @@ pub fn ensure_under_root(path: &Path, root: &Path) -> Result<(), AppError> {
     }
 }
 
+/// True when `slot_key` is already a single safe path component (Ren'Py / RPGM).
+fn is_simple_slot_key(slot_key: &str) -> bool {
+    !slot_key.is_empty()
+        && !slot_key.contains('/')
+        && !slot_key.contains('\\')
+        && !slot_key.contains(':')
+        && !slot_key.contains('\0')
+        && slot_key != "."
+        && slot_key != ".."
+        && !Path::new(slot_key).is_absolute()
+}
+
+/// Map slot keys to a single backup directory name without collisions.
+///
+/// Simple filenames (`1-1.save`, `file1.rpgsave`) are kept as-is. Unity keys
+/// like `install:Save/a.json` embed `/` and `:`; a naive `_` substitution would
+/// collide with `install:Save_a.json`. Those keys use a stable hex encoding of
+/// the raw UTF-8 key (unique, single path component).
 fn sanitize_slot_key(slot_key: &str) -> String {
-    slot_key
-        .chars()
-        .map(|c| match c {
-            '\\' | '/' | ':' => '_',
-            other => other,
-        })
-        .collect()
+    if is_simple_slot_key(slot_key) {
+        return slot_key.to_string();
+    }
+    format!("k_{}", hex::encode(slot_key.as_bytes()))
 }
 
 fn slot_backup_dir(
@@ -455,15 +470,94 @@ mod tests {
     }
 
     #[test]
-    fn list_backups_rejects_slot_key_path_escape() {
+    fn list_backups_hashes_path_like_slot_keys_instead_of_escaping() {
         let root = tempfile_root("list-slot");
         let backups_root = root.join("save_backups");
         fs::create_dir_all(&backups_root).unwrap();
 
-        let err = list_backups(&backups_root, "thread1", "..").unwrap_err();
-        assert_eq!(err.to_string(), "error.saveEditor.pathEscape");
+        // Raw `..` / `../x.save` must not be joined as path components.
+        let listed_dotdot = list_backups(&backups_root, "thread1", "..").unwrap();
+        assert!(listed_dotdot.is_empty());
+        let listed_slash = list_backups(&backups_root, "thread1", "../x.save").unwrap();
+        assert!(listed_slash.is_empty());
 
-        let err = list_backups(&backups_root, "thread1", "../x.save").unwrap_err();
-        assert_eq!(err.to_string(), "error.saveEditor.pathEscape");
+        let dir = slot_backup_dir(&backups_root, "thread1", "..").unwrap();
+        assert_eq!(
+            dir,
+            backups_root
+                .join("thread1")
+                .join(sanitize_slot_key(".."))
+        );
+        assert!(
+            !sanitize_slot_key("..").contains('.'),
+            "sanitized name must not retain path-escape dots"
+        );
+        assert!(sanitize_slot_key("../x.save").starts_with("k_"));
+    }
+
+    #[test]
+    fn unity_slot_keys_that_collide_under_underscore_get_distinct_backup_dirs() {
+        // Old sanitize mapped both `/` and `:` to `_`, colliding:
+        //   install:Save/a.json  -> install_Save_a.json
+        //   install:Save_a.json  -> install_Save_a.json
+        let key_slash = "install:Save/a.json";
+        let key_underscore = "install:Save_a.json";
+        let old_sanitize = |k: &str| {
+            k.chars()
+                .map(|c| match c {
+                    '\\' | '/' | ':' => '_',
+                    other => other,
+                })
+                .collect::<String>()
+        };
+        assert_eq!(
+            old_sanitize(key_slash),
+            old_sanitize(key_underscore),
+            "precondition: keys must collide under the old sanitizer"
+        );
+        assert_ne!(
+            sanitize_slot_key(key_slash),
+            sanitize_slot_key(key_underscore),
+            "sanitized names must not collide"
+        );
+
+        let root = tempfile_root("unity-slot-collision");
+        let backups_root = root.join("save_backups");
+        let install = root.join("game");
+        let live_slash = install.join("Save").join("a.json");
+        let live_underscore = install.join("Save_a.json");
+        write_file(&live_slash, b"slash-bytes");
+        write_file(&live_underscore, b"underscore-bytes");
+
+        let dest_slash =
+            backup_before_write(&backups_root, "thread1", key_slash, &live_slash).unwrap();
+        let dest_underscore =
+            backup_before_write(&backups_root, "thread1", key_underscore, &live_underscore)
+                .unwrap();
+
+        assert_ne!(
+            dest_slash.parent(),
+            dest_underscore.parent(),
+            "distinct slot keys must use distinct backup directories"
+        );
+        assert_eq!(fs::read(&dest_slash).unwrap(), b"slash-bytes");
+        assert_eq!(fs::read(&dest_underscore).unwrap(), b"underscore-bytes");
+        assert!(dest_slash
+            .file_name()
+            .and_then(|n| n.to_str())
+            .unwrap()
+            .starts_with("original."));
+        assert!(dest_underscore
+            .file_name()
+            .and_then(|n| n.to_str())
+            .unwrap()
+            .starts_with("original."));
+        assert!(
+            dest_slash.exists() && dest_underscore.exists(),
+            "both slots must get their own original.* backup"
+        );
+
+        // Simple Ren'Py keys remain readable directory names.
+        assert_eq!(sanitize_slot_key("1-1.save"), "1-1.save");
     }
 }

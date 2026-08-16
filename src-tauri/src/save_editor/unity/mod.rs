@@ -308,16 +308,20 @@ mod tests {
             Some(serde_json::json!(999))
         );
 
-        let original = backups
-            .join("thread1")
-            .join("install_Save_slot.json")
-            .join("original.json");
-        assert!(
-            original.is_file(),
-            "expected original.json at {}",
-            original.display()
+        let listed = crate::save_editor::list_backups(&backups, "thread1", slot).unwrap();
+        assert_eq!(listed.len(), 1);
+        assert_eq!(listed[0].file_name, "original.json");
+        assert_eq!(
+            fs::read_to_string(&listed[0].path).unwrap(),
+            r#"{"gold":50}"#
         );
-        assert_eq!(fs::read_to_string(&original).unwrap(), r#"{"gold":50}"#);
+        // Must not land under the old colliding sanitize name.
+        assert!(
+            !Path::new(&listed[0].path)
+                .components()
+                .any(|c| c.as_os_str() == "install_Save_slot.json"),
+            "Unity slot keys must not use underscore-collapsed backup dirs"
+        );
 
         let reread = read(&install, &meta(), slot, None).unwrap();
         assert!(!reread.needs_password);
