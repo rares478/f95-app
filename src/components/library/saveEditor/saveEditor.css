@@ -70,6 +70,45 @@
   white-space: nowrap;
 }
 
+.save-editor-roots-hint {
+  font-size: 11px;
+  color: var(--text-faint);
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+.save-editor-badge--locked {
+  color: color-mix(in srgb, var(--status-warning) 70%, var(--text-muted));
+  border-color: color-mix(in srgb, var(--status-warning) 35%, var(--border-faint));
+}
+
+.save-editor-unlock {
+  display: flex;
+  flex-direction: column;
+  align-items: stretch;
+  gap: 10px;
+  max-width: 320px;
+  padding: 8px 4px;
+}
+
+.save-editor-unlock-label {
+  font-size: 12px;
+  font-weight: 600;
+  color: var(--text-tertiary);
+}
+
+.save-editor-unlock-error {
+  margin: 0;
+  font-size: 12px;
+  color: color-mix(in srgb, var(--accent) 80%, var(--text-secondary));
+  line-height: 1.4;
+}
+
+.save-editor-unlock .save-editor-apply {
+  align-self: flex-start;
+}
+
 .save-editor-banner {
   flex-shrink: 0;
   margin-bottom: 10px;

@@ -1,0 +1,42 @@
+import type { RenpySaveSlot } from '../../../types/renpySave';
+import type { UnitySaveSlot } from '../../../types/unitySave';
+
+export type SaveEditorSlot = RenpySaveSlot | UnitySaveSlot;
+
+/** True when the slot carries Unity-specific fields (source / encrypted / displayName). */
+export function isUnitySaveSlot(slot: SaveEditorSlot): slot is UnitySaveSlot {
+  return (
+    typeof (slot as UnitySaveSlot).source === 'string' &&
+    typeof (slot as UnitySaveSlot).encrypted === 'boolean' &&
+    typeof (slot as UnitySaveSlot).displayName === 'string'
+  );
+}
+
+export function unitySourceLocaleKey(source: string): string {
+  switch (source) {
+    case 'localLow':
+      return 'saveEditor.unity.source.localLow';
+    case 'install':
+      return 'saveEditor.unity.source.install';
+    default:
+      return 'saveEditor.kind.other';
+  }
+}
+
+export function slotKindLocaleKey(kind: string): string {
+  switch (kind) {
+    case 'slot':
+    case 'auto':
+    case 'quick':
+    case 'persistent':
+    case 'file':
+    case 'global':
+    case 'config':
+    case 'other':
+    case 'es3':
+    case 'json':
+      return `saveEditor.kind.${kind}`;
+    default:
+      return 'saveEditor.kind.other';
+  }
+}

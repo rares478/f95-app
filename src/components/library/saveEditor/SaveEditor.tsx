@@ -2,7 +2,9 @@ import { useCallback, useEffect, useMemo, useRef, useState } from 'react';
 import { SaveSlotList } from './SaveSlotList';
 import { SaveVarTree } from './SaveVarTree';
 import { SaveEditPanel } from './SaveEditPanel';
+import { UnityUnlockPanel } from './UnityUnlockPanel';
 import { RpgmEditorTabs } from './rpgm/RpgmEditorTabs';
+import type { SaveEditorSlot } from './unitySlotUi';
 import { LoadingState } from '../../ui/LoadingState';
 import { useRunningGames } from '../../../contexts/RunningGames';
 import { dialog } from '../../../lib/dialog';
@@ -17,7 +19,6 @@ import type { LibraryGame } from '../../../types/library';
 import type {
   RenpySaveBackup,
   RenpySavePatch,
-  RenpySaveSlot,
   RenpyVarNode,
 } from '../../../types/renpySave';
 import './saveEditor.css';
@@ -25,6 +26,8 @@ import './saveEditor.css';
 interface Props {
   game: LibraryGame;
   onClose: () => void;
+  /** Optional prefetched F95 developer (otherwise fetched via gameDetail). */
+  developer?: string | null;
 }
 
 function findNode(root: RenpyVarNode | null, path: string): RenpyVarNode | null {
@@ -41,7 +44,7 @@ function valuesEqual(a: unknown, b: unknown): boolean {
   return Object.is(a, b);
 }
 
-export function SaveEditor({ game, onClose }: Props) {
+export function SaveEditor({ game, onClose, developer: developerProp }: Props) {
   const { t } = useT();
   const { running } = useRunningGames();
   const isRunning = running.has(game.threadId);
@@ -50,7 +53,11 @@ export function SaveEditor({ game, onClose }: Props) {
   const [engine, setEngine] = useState<SaveEditorEngine | null>(null);
   const [engineReady, setEngineReady] = useState(false);
 
-  const [slots, setSlots] = useState<RenpySaveSlot[]>([]);
+  const [developer, setDeveloper] = useState<string | null>(developerProp ?? null);
+  const [unityMetaReady, setUnityMetaReady] = useState(developerProp !== undefined);
+  const [localLowDir, setLocalLowDir] = useState<string | null>(null);
+
+  const [slots, setSlots] = useState<SaveEditorSlot[]>([]);
   const [slotsLoading, setSlotsLoading] = useState(true);
   const [slotsError, setSlotsError] = useState<string | null>(null);
 
@@ -60,9 +67,13 @@ export function SaveEditor({ game, onClose }: Props) {
   const [tree, setTree] = useState<RenpyVarNode | null>(null);
   const [treeLoading, setTreeLoading] = useState(false);
   const [treeError, setTreeError] = useState<string | null>(null);
+  const [needsUnlock, setNeedsUnlock] = useState(false);
+  const [unlocking, setUnlocking] = useState(false);
+  const [unlockError, setUnlockError] = useState<string | null>(null);
   const treeLoadGenRef = useRef(0);
   const selectedKeyRef = useRef<string | null>(null);
   selectedKeyRef.current = selectedKey;
+  const sessionPasswordsRef = useRef(new Map<string, string>());
 
   const [search, setSearch] = useState('');
   const [selectedPath, setSelectedPath] = useState<string | null>(null);
@@ -90,6 +101,22 @@ export function SaveEditor({ game, onClose }: Props) {
 
   const installStatus = game.installStatus;
   const storeTags = game.storeTags;
+  const unityOpts = useMemo(
+    () => ({ developer, title: game.title }),
+    [developer, game.title],
+  );
+
+  useEffect(() => {
+    return () => {
+      sessionPasswordsRef.current.clear();
+    };
+  }, []);
+
+  useEffect(() => {
+    if (developerProp !== undefined) {
+      setDeveloper(developerProp);
+    }
+  }, [developerProp]);
 
   useEffect(() => {
     let cancelled = false;
@@ -105,11 +132,17 @@ export function SaveEditor({ game, onClose }: Props) {
     setTreeSlotKey(null);
     setTreeLoading(false);
     setTreeError(null);
+    setNeedsUnlock(false);
+    setUnlockError(null);
     setSelectedPath(null);
     setPatches(new Map());
     setBackups([]);
     setActionError(null);
     setSearch('');
+    setLocalLowDir(null);
+    setUnityMetaReady(false);
+    setDeveloper(developerProp !== undefined ? developerProp : null);
+    sessionPasswordsRef.current.clear();
 
     if (!installPath) {
       setEngineReady(true);
@@ -140,7 +173,54 @@ export function SaveEditor({ game, onClose }: Props) {
     return () => {
       cancelled = true;
     };
+    // Seed developer from prop when the install identity changes; late prefetch
+    // updates via the sync effect + Unity meta effect without remounting the engine.
+    // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [installPath, installStatus, storeTags]);
+
+  useEffect(() => {
+    if (!engineReady || engine !== 'unity' || !installPath) {
+      if (engineReady && engine !== 'unity') {
+        setUnityMetaReady(true);
+        setLocalLowDir(null);
+      }
+      return;
+    }
+
+    let cancelled = false;
+    setUnityMetaReady(developerProp !== undefined);
+
+    const loadDeveloper =
+      developerProp !== undefined
+        ? Promise.resolve(developerProp)
+        : ipc
+            .gameDetail(game.threadId)
+            .then((detail) => detail.developer ?? null)
+            .catch(() => null);
+
+    void (async () => {
+      const dev = await loadDeveloper;
+      if (cancelled) return;
+      setDeveloper(dev);
+      try {
+        const probe = await ipc.unitySavesProbe(installPath, {
+          developer: dev,
+          title: game.title,
+        });
+        if (cancelled) return;
+        setLocalLowDir(probe.localLowDir);
+      } catch {
+        if (cancelled) return;
+        setLocalLowDir(null);
+      } finally {
+        if (!cancelled) setUnityMetaReady(true);
+      }
+    })();
+
+    return () => {
+      cancelled = true;
+    };
+  }, [engine, engineReady, installPath, game.threadId, game.title, developerProp]);
 
   const loadSlots = useCallback(async () => {
     if (!installPath || !engineReady) {
@@ -157,6 +237,10 @@ export function SaveEditor({ game, onClose }: Props) {
       setSlotsError(null);
       return;
     }
+    if (engine === 'unity' && !unityMetaReady) {
+      setSlotsLoading(true);
+      return;
+    }
     // Capture gen bumped by engine re-resolve so a stale list cannot overwrite.
     const generation = treeLoadGenRef.current;
     setSlotsLoading(true);
@@ -165,7 +249,9 @@ export function SaveEditor({ game, onClose }: Props) {
       const list =
         engine === 'rpgm'
           ? await ipc.rpgmSavesList(installPath)
-          : await ipc.renpySavesList(installPath);
+          : engine === 'unity'
+            ? await ipc.unitySavesList(installPath, unityOpts)
+            : await ipc.renpySavesList(installPath);
       if (generation !== treeLoadGenRef.current) return;
       setSlots(list);
     } catch (err) {
@@ -177,7 +263,7 @@ export function SaveEditor({ game, onClose }: Props) {
         setSlotsLoading(false);
       }
     }
-  }, [installPath, engine, engineReady]);
+  }, [installPath, engine, engineReady, unityMetaReady, unityOpts]);
 
   const loadBackups = useCallback(
     async (slotKey: string, generation: number) => {
@@ -189,10 +275,15 @@ export function SaveEditor({ game, onClose }: Props) {
                 threadId: game.threadId,
                 slotKey,
               })
-            : await ipc.renpySaveBackupsList({
-                threadId: game.threadId,
-                slotKey,
-              });
+            : engine === 'unity'
+              ? await ipc.unitySaveBackupsList({
+                  threadId: game.threadId,
+                  slotKey,
+                })
+              : await ipc.renpySaveBackupsList({
+                  threadId: game.threadId,
+                  slotKey,
+                });
         if (generation !== treeLoadGenRef.current) return;
         setBackups(list);
       } catch {
@@ -213,7 +304,34 @@ export function SaveEditor({ game, onClose }: Props) {
       setTreeSlotKey(null);
       setSelectedPath(null);
       setBackups([]);
+      setNeedsUnlock(false);
+      setUnlockError(null);
       try {
+        if (engine === 'unity') {
+          const password = sessionPasswordsRef.current.get(slotKey) ?? null;
+          const result = await ipc.unitySaveRead({
+            installPath,
+            slotKey,
+            ...unityOpts,
+            password,
+          });
+          if (generation !== treeLoadGenRef.current || selectedKeyRef.current !== slotKey) {
+            return;
+          }
+          if (result.needsPassword || !result.tree) {
+            setTree(null);
+            setTreeSlotKey(null);
+            setNeedsUnlock(true);
+            setBackups([]);
+            return;
+          }
+          setTree(result.tree);
+          setTreeSlotKey(slotKey);
+          setNeedsUnlock(false);
+          await loadBackups(slotKey, generation);
+          return;
+        }
+
         const root =
           engine === 'rpgm'
             ? await ipc.rpgmSaveRead({ installPath, slotKey })
@@ -226,6 +344,7 @@ export function SaveEditor({ game, onClose }: Props) {
         if (generation !== treeLoadGenRef.current || selectedKeyRef.current !== slotKey) return;
         setTree(null);
         setTreeSlotKey(null);
+        setNeedsUnlock(false);
         setTreeError(formatIpcError(err));
         setBackups([]);
       } finally {
@@ -234,7 +353,7 @@ export function SaveEditor({ game, onClose }: Props) {
         }
       }
     },
-    [installPath, engine, loadBackups],
+    [installPath, engine, loadBackups, unityOpts],
   );
 
   useEffect(() => {
@@ -252,18 +371,58 @@ export function SaveEditor({ game, onClose }: Props) {
   }, [patches.size, t]);
 
   const selectSlot = useCallback(
-    async (slot: RenpySaveSlot) => {
+    async (slot: SaveEditorSlot) => {
       if (slot.key === selectedKey) return;
       const ok = await confirmDiscardIfDirty();
       if (!ok) return;
       setPatches(new Map());
       setSearch('');
       setActionError(null);
+      setUnlockError(null);
       selectedKeyRef.current = slot.key;
       setSelectedKey(slot.key);
       await loadTree(slot.key);
     },
     [selectedKey, confirmDiscardIfDirty, loadTree],
+  );
+
+  const handleUnlock = useCallback(
+    async (password: string) => {
+      if (!installPath || engine !== 'unity' || !selectedKey) return;
+      const slotKey = selectedKey;
+      const generation = treeLoadGenRef.current;
+      setUnlocking(true);
+      setUnlockError(null);
+      setActionError(null);
+      try {
+        const result = await ipc.unitySaveRead({
+          installPath,
+          slotKey,
+          ...unityOpts,
+          password,
+        });
+        if (selectedKeyRef.current !== slotKey || generation !== treeLoadGenRef.current) {
+          return;
+        }
+        if (result.needsPassword || !result.tree) {
+          setUnlockError(t('error.saveEditor.unity.badPassword'));
+          return;
+        }
+        sessionPasswordsRef.current.set(slotKey, password);
+        setTree(result.tree);
+        setTreeSlotKey(slotKey);
+        setNeedsUnlock(false);
+        setUnlockError(null);
+        await loadBackups(slotKey, generation);
+      } catch (err) {
+        if (selectedKeyRef.current === slotKey) {
+          setUnlockError(formatIpcError(err));
+        }
+      } finally {
+        setUnlocking(false);
+      }
+    },
+    [installPath, engine, selectedKey, unityOpts, loadBackups, t],
   );
 
   const handleClose = useCallback(async () => {
@@ -345,7 +504,13 @@ export function SaveEditor({ game, onClose }: Props) {
       const root =
         engine === 'rpgm'
           ? await ipc.rpgmSaveWrite(writeArgs)
-          : await ipc.renpySaveWrite(writeArgs);
+          : engine === 'unity'
+            ? await ipc.unitySaveWrite({
+                ...writeArgs,
+                ...unityOpts,
+                password: sessionPasswordsRef.current.get(slotKey) ?? null,
+              })
+            : await ipc.renpySaveWrite(writeArgs);
       if (selectedKeyRef.current !== slotKey || generation !== treeLoadGenRef.current) return;
       setTree(root);
       setTreeSlotKey(slotKey);
@@ -367,6 +532,7 @@ export function SaveEditor({ game, onClose }: Props) {
     isRunning,
     game.threadId,
     loadBackups,
+    unityOpts,
   ]);
 
   const handleRestore = useCallback(
@@ -400,6 +566,11 @@ export function SaveEditor({ game, onClose }: Props) {
       try {
         if (engine === 'rpgm') {
           await ipc.rpgmSaveBackupRestore(restoreArgs);
+        } else if (engine === 'unity') {
+          await ipc.unitySaveBackupRestore({
+            ...restoreArgs,
+            ...unityOpts,
+          });
         } else {
           await ipc.renpySaveBackupRestore(restoreArgs);
         }
@@ -424,6 +595,7 @@ export function SaveEditor({ game, onClose }: Props) {
       confirmDiscardIfDirty,
       game.threadId,
       loadTree,
+      unityOpts,
     ],
   );
 
@@ -443,6 +615,8 @@ export function SaveEditor({ game, onClose }: Props) {
     );
   }
 
+  const waitingUnityMeta = engine === 'unity' && !unityMetaReady;
+
   return (
     <div className="save-editor">
       <header className="save-editor-head">
@@ -454,6 +628,11 @@ export function SaveEditor({ game, onClose }: Props) {
           <span className="save-editor-subtitle" title={game.title}>
             {game.title}
           </span>
+          {engine === 'unity' && localLowDir && (
+            <span className="save-editor-roots-hint" title={localLowDir}>
+              {t('saveEditor.unity.rootsHint', { path: localLowDir })}
+            </span>
+          )}
         </div>
       </header>
 
@@ -462,14 +641,16 @@ export function SaveEditor({ game, onClose }: Props) {
         <div className="save-editor-error">{slotsError || treeError || actionError}</div>
       )}
 
-      {!engineReady || slotsLoading ? (
+      {!engineReady || waitingUnityMeta || slotsLoading ? (
         <div className="save-editor-status">
           <LoadingState label={t('saveEditor.loadingSlots')} variant="compact" />
         </div>
       ) : slots.length === 0 && !slotsError ? (
         <div className="save-editor-empty">
           <p>{t('saveEditor.empty')}</p>
-          <p className="save-editor-empty-hint">{t('saveEditor.emptyHint')}</p>
+          <p className="save-editor-empty-hint">
+            {engine === 'unity' ? t('saveEditor.unity.emptyHint') : t('saveEditor.emptyHint')}
+          </p>
         </div>
       ) : (
         <div className="save-editor-body">
@@ -485,6 +666,14 @@ export function SaveEditor({ game, onClose }: Props) {
                 <LoadingState label={t('saveEditor.loadingTree')} variant="compact" />
               </div>
             </div>
+          ) : needsUnlock && selectedKey ? (
+            <UnityUnlockPanel
+              key={selectedKey}
+              unlocking={unlocking}
+              error={unlockError}
+              disabled={isRunning}
+              onUnlock={(password) => void handleUnlock(password)}
+            />
           ) : engine === 'rpgm' && tree && treeMatchesSelection ? (
             <RpgmEditorTabs
               key={treeSlotKey}
