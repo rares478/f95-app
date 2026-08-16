@@ -1,18 +1,44 @@
 pub(crate) fn find_mediafire_button_href(html: &str) -> Option<String> {
-    let needle = "id=\"downloadButton\"";
-    let idx = html.find(needle)?;
-    let window_start = idx.saturating_sub(800);
-    let window_end = (idx + needle.len() + 800).min(html.len());
-    let window = &html[window_start..window_end];
-    let href_idx = window.find("href=\"")?;
-    let after = &window[href_idx + 6..];
-    let end = after.find('"')?;
-    let val = &after[..end];
-    if val.starts_with("http") {
-        Some(val.to_string())
+    let id_idx = html
+        .find("id=\"downloadButton\"")
+        .or_else(|| html.find("id='downloadButton'"))?;
+
+    let before = &html[..id_idx];
+    let mut open = None;
+    let lower = before.to_ascii_lowercase();
+    let mut search_from = 0;
+    while let Some(rel) = lower[search_from..].find("<a") {
+        let abs = search_from + rel;
+        // Ensure it's a tag open: `<a` followed by whitespace, `>`, or `/`
+        let next = lower.as_bytes().get(abs + 2).copied().unwrap_or(b'>');
+        if matches!(next, b' ' | b'\n' | b'\r' | b'\t' | b'>' | b'/') {
+            open = Some(abs);
+        }
+        search_from = abs + 2;
+    }
+    let tag_start = open?;
+    let after_open = &html[tag_start..];
+    let tag_end_rel = after_open.find('>')?;
+    let tag = &after_open[..=tag_end_rel];
+
+    let href = attr_value(tag, "href")?;
+    if href.starts_with("http") {
+        Some(href)
     } else {
         None
     }
+}
+
+fn attr_value(tag: &str, name: &str) -> Option<String> {
+    for quote in ['"', '\''] {
+        let pat = format!("{name}={quote}");
+        if let Some(i) = tag.find(&pat) {
+            let after = &tag[i + pat.len()..];
+            let end = after.find(quote)?;
+            return Some(after[..end].to_string());
+        }
+    }
+    None
 }
 
 pub(crate) fn base64_decode(s: &str) -> Result<Vec<u8>, &'static str> {
