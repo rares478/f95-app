@@ -268,6 +268,31 @@ mod tests {
     }
 
     #[test]
+    fn resolves_local_low_via_fuzzy_folder_names() {
+        let root = tempfile_root("ll-fuzzy");
+        let install = root.join("install");
+        let data_dir = install.join("Widget_Data");
+        fs::create_dir_all(&data_dir).unwrap();
+        fs::write(data_dir.join("app.info"), "Acme Studios\nCool Widget\n").unwrap();
+
+        let local_low_base = root.join("LocalLow");
+        // Punctuation / spacing differ from app.info; alphanumeric fold must match.
+        let expected = local_low_base.join("AcmeStudios").join("CoolWidget");
+        fs::create_dir_all(&expected).unwrap();
+        fs::write(expected.join("slot.json"), br#"{"ok":true}"#).unwrap();
+
+        let meta = UnityMeta {
+            developer: None,
+            title: None,
+        };
+
+        assert_eq!(
+            resolve_local_low_dir(&install, &meta, &local_low_base),
+            Some(expected)
+        );
+    }
+
+    #[test]
     fn probe_sets_is_unity_layout() {
         let root = tempfile_root("probe-layout");
         let install = root.join("install");

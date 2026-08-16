@@ -119,4 +119,13 @@ mod tests {
         assert_eq!(read_json_file(&path).unwrap()["a"], 2);
         assert!(!root.join("slot.json.new").exists());
     }
+
+    #[test]
+    fn fixture_sample_json_parses() {
+        let path = PathBuf::from(env!("CARGO_MANIFEST_DIR"))
+            .join("tests/fixtures/unity/sample.json");
+        let v = read_json_file(&path).expect("sample.json");
+        assert_eq!(v["gold"]["value"], 100);
+        assert_eq!(v["name"], "fixture");
+    }
 }
