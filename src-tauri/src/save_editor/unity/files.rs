@@ -204,33 +204,20 @@ fn classify_file(
         .unwrap_or("")
         .to_ascii_lowercase();
 
+    let bytes = fs::read(path).map_err(|e| {
+        AppError::Io(format!("failed to read {}: {e}", path.display()))
+    })?;
+
     let (kind, encrypted) = if ext == "es3" {
-        let bytes = fs::read(path).map_err(|e| {
-            AppError::Io(format!("failed to read {}: {e}", path.display()))
-        })?;
         ("es3", is_encrypted_es3(&bytes))
-    } else if ext == "json" || ext == "txt" {
-        let bytes = fs::read(path).map_err(|e| {
-            AppError::Io(format!("failed to read {}: {e}", path.display()))
-        })?;
-        if is_json_object_or_array(&bytes) {
-            ("json", false)
-        } else if name_suggests_save(name) {
-            // Custom XOR / binary payloads often keep a .json extension (e.g. Utage).
-            ("json", true)
+    } else if is_json_object_or_array(&bytes) {
+        ("json", false)
+    } else if should_consider_save_file(path, name, &ext) {
+        // Extensionless / custom ES3 or XOR payloads (Kendo Save0, Lyla save_1.json, …).
+        if looks_like_encrypted_es3_blob(&bytes) {
+            ("es3", true)
         } else {
-            return Ok(None);
-        }
-    } else if ext == "sav" || name_suggests_save(name) {
-        let bytes = fs::read(path).map_err(|e| {
-            AppError::Io(format!("failed to read {}: {e}", path.display()))
-        })?;
-        if is_json_object_or_array(&bytes) {
-            ("json", false)
-        } else if name_suggests_save(name) {
             ("json", true)
-        } else {
-            return Ok(None);
         }
     } else {
         return Ok(None);
@@ -250,6 +237,44 @@ fn classify_file(
         mtime_ms: system_time_to_ms(meta.modified().ok()),
         size_bytes: meta.len(),
     }))
+}
+
+fn should_consider_save_file(path: &Path, name: &str, ext: &str) -> bool {
+    if ext == "json" || ext == "txt" || ext == "sav" {
+        return name_suggests_save(name) || under_save_folder(path);
+    }
+    if name_suggests_save(name) || common_save_basename(name) {
+        return true;
+    }
+    under_save_folder(path)
+}
+
+fn under_save_folder(path: &Path) -> bool {
+    path.parent()
+        .and_then(|p| p.file_name())
+        .and_then(|n| n.to_str())
+        .map(|n| {
+            let lower = n.to_ascii_lowercase();
+            lower == "save" || lower == "saves"
+        })
+        .unwrap_or(false)
+}
+
+fn common_save_basename(name: &str) -> bool {
+    let stem = name
+        .rsplit_once('.')
+        .map(|(s, _)| s)
+        .unwrap_or(name)
+        .to_ascii_lowercase();
+    matches!(
+        stem.as_str(),
+        "user" | "config" | "global" | "settings" | "system" | "prefs" | "player"
+    )
+}
+
+/// AES-CBC ES3 stream: IV(16) + ciphertext, total length multiple of 16, not UTF-8 JSON.
+fn looks_like_encrypted_es3_blob(bytes: &[u8]) -> bool {
+    bytes.len() >= 32 && bytes.len() % 16 == 0 && !is_json_object_or_array(bytes)
 }
 
 fn is_json_object_or_array(bytes: &[u8]) -> bool {
@@ -412,6 +437,7 @@ mod tests {
         let ll = local_low_base.join("Acme").join("Widget");
         fs::create_dir_all(&ll).unwrap();
         // Binary payload with save_*.json name — must still count as a LocalLow candidate.
+        // Length not AES-aligned → classified as encrypted json (XOR-style).
         fs::write(ll.join("save_1.json"), &[0x37u8, 0x73, 0x4c, 0x41, 0x00, 0x01]).unwrap();
         fs::write(ll.join("random.json"), &[0x01u8, 0x02, 0x03]).unwrap();
 
@@ -431,6 +457,47 @@ mod tests {
             slots.iter().all(|s| s.key != "localLow:random.json"),
             "non-save-named binary .json must stay excluded"
         );
+    }
+
+    #[test]
+    fn lists_extensionless_es3_under_save_folder() {
+        let root = tempfile_root("kendo-style");
+        let install = root.join("install");
+        fs::create_dir_all(install.join("Kendo_Data")).unwrap();
+
+        let local_low_base = root.join("LocalLow");
+        let save_dir = local_low_base.join("Onigiri-ShiBa").join("Kendo").join("Save");
+        fs::create_dir_all(&save_dir).unwrap();
+        // AES-aligned encrypted blob (IV + one block).
+        let mut blob = vec![0u8; 32];
+        blob[0] = 0x6b;
+        fs::write(save_dir.join("Save0"), &blob).unwrap();
+        fs::write(save_dir.join("User"), &blob).unwrap();
+
+        let meta = UnityMeta {
+            developer: Some("Onigiri-ShiBa".to_string()),
+            title: Some("Kendo".to_string()),
+        };
+        // app.info so product/company resolve
+        fs::write(
+            install.join("Kendo_Data").join("app.info"),
+            "Onigiri-ShiBa\nKendo\n",
+        )
+        .unwrap();
+
+        let slots = list_slots(&install, &meta, &local_low_base).unwrap();
+        let keys: Vec<_> = slots.iter().map(|s| s.key.as_str()).collect();
+        assert!(
+            keys.contains(&"localLow:Save/Save0"),
+            "missing Save0 in {keys:?}"
+        );
+        assert!(
+            keys.contains(&"localLow:Save/User"),
+            "missing User in {keys:?}"
+        );
+        let save0 = slots.iter().find(|s| s.key == "localLow:Save/Save0").unwrap();
+        assert_eq!(save0.kind, "es3");
+        assert!(save0.encrypted);
     }
 
     #[test]

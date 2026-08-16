@@ -2,6 +2,7 @@
 
 pub mod discover;
 pub mod es3;
+pub mod es3_defaults;
 pub mod files;
 pub mod json_save;
 pub mod xor_json;
@@ -15,6 +16,7 @@ use crate::save_editor::{
     backup_before_write, ensure_under_root, reject_path_component, resolve_backup_path,
     restore_backup,
 };
+use crate::save_editor::unity::es3_defaults::extract_es3_password_from_install;
 use json_save::{parse_json_value, write_bytes_atomic, write_json_file_atomic};
 use xor_json::{
     collect_xor_key_candidates, decrypt_xor_json_with_keys, xor_encrypt_json,
@@ -67,23 +69,19 @@ pub fn read(
                 encrypted: false,
             })
         }
-        SaveKind::EncryptedEs3 => match password {
-            None => Ok(UnitySaveReadResult {
-                tree: None,
-                needs_password: true,
-                encrypted: true,
-            }),
-            Some(pw) => {
-                let text =
-                    decrypt_es3(&bytes, pw).map_err(|_| AppError::keyed(BAD_PASSWORD))?;
-                let value = parse_json_value(&text)?;
-                Ok(UnitySaveReadResult {
-                    tree: Some(json_to_tree(&value)),
-                    needs_password: false,
-                    encrypted: true,
-                })
-            }
-        },
+        SaveKind::Es3Json { text, password: _, was_encrypted } => {
+            let value = parse_json_value(&text)?;
+            Ok(UnitySaveReadResult {
+                tree: Some(json_to_tree(&value)),
+                needs_password: false,
+                encrypted: was_encrypted,
+            })
+        }
+        SaveKind::EncryptedEs3NeedsPassword => Ok(UnitySaveReadResult {
+            tree: None,
+            needs_password: true,
+            encrypted: true,
+        }),
         SaveKind::XorJson { text, .. } => {
             let value = parse_json_value(&text)?;
             Ok(UnitySaveReadResult {
@@ -128,20 +126,34 @@ pub fn write(
             write_json_file_atomic(&live, &value)?;
             value
         }
-        SaveKind::EncryptedEs3 => {
-            let pw = password.ok_or_else(|| AppError::keyed(BAD_PASSWORD))?;
-            let text = decrypt_es3(&bytes, pw).map_err(|_| AppError::keyed(BAD_PASSWORD))?;
+        SaveKind::Es3Json {
+            text,
+            password: pw,
+            was_encrypted,
+        } => {
             let mut value = parse_json_value(&text)?;
             apply_patches_json(&mut value, patches)?;
-            let json = serde_json::to_string(&value).map_err(|e| {
+            let json = if text.contains('\n') {
+                serde_json::to_string_pretty(&value)
+            } else {
+                serde_json::to_string(&value)
+            }
+            .map_err(|e| {
                 AppError::Io(format!(
                     "failed to serialize unity save {}: {e}",
                     live.display()
                 ))
             })?;
-            let enc = encrypt_es3(&json, pw)?;
-            write_bytes_atomic(&live, &enc)?;
+            if was_encrypted {
+                let enc = encrypt_es3(&json, &pw)?;
+                write_bytes_atomic(&live, &enc)?;
+            } else {
+                write_bytes_atomic(&live, json.as_bytes())?;
+            }
             value
+        }
+        SaveKind::EncryptedEs3NeedsPassword => {
+            return Err(AppError::keyed(BAD_PASSWORD));
         }
         SaveKind::XorJson { text, key } => {
             let mut value = parse_json_value(&text)?;
@@ -247,7 +259,13 @@ fn join_rel(root: &Path, rel: &str) -> PathBuf {
 
 enum SaveKind {
     PlainJson(String),
-    EncryptedEs3,
+    /// ES3 JSON (plaintext or decrypted). `password` is used to re-encrypt when `was_encrypted`.
+    Es3Json {
+        text: String,
+        password: String,
+        was_encrypted: bool,
+    },
+    EncryptedEs3NeedsPassword,
     /// XOR-cycled JSON; `key` is the key that successfully decrypted.
     XorJson { text: String, key: Vec<u8> },
     XorNeedsPassword,
@@ -264,17 +282,38 @@ fn classify_save(
         .and_then(|e| e.to_str())
         .unwrap_or("")
         .to_ascii_lowercase();
-    if ext == "es3" {
-        return Ok(match detect_es3(bytes) {
-            Es3Payload::Json(text) => SaveKind::PlainJson(text),
-            Es3Payload::Encrypted => SaveKind::EncryptedEs3,
-        });
-    }
 
     // Plain UTF-8 JSON?
     if let Ok(text) = std::str::from_utf8(bytes) {
         if parse_json_value(text).is_ok() {
+            if ext == "es3" {
+                return Ok(SaveKind::Es3Json {
+                    text: text.to_string(),
+                    password: String::new(),
+                    was_encrypted: false,
+                });
+            }
             return Ok(SaveKind::PlainJson(text.to_string()));
+        }
+    }
+
+    // Easy Save 3 AES (extension .es3 or AES-sized blob).
+    let es3_candidate = ext == "es3" || looks_like_es3_blob(bytes);
+    if es3_candidate {
+        match try_decrypt_es3_with_candidates(install, bytes, password) {
+            Ok((text, pw)) => {
+                return Ok(SaveKind::Es3Json {
+                    text,
+                    password: pw,
+                    was_encrypted: true,
+                });
+            }
+            Err(Es3UnlockErr::BadPassword) => {
+                return Err(AppError::keyed(BAD_PASSWORD));
+            }
+            Err(Es3UnlockErr::NeedsPassword) => {
+                // Fall through to XOR before giving up — some games share shapes.
+            }
         }
     }
 
@@ -285,13 +324,18 @@ fn classify_save(
         return Ok(SaveKind::XorJson { text, key });
     }
 
-    // Looks like a save name / non-JSON payload → ask for password (or fail later).
+    if es3_candidate {
+        if password.is_some() {
+            return Err(AppError::keyed(BAD_PASSWORD));
+        }
+        return Ok(SaveKind::EncryptedEs3NeedsPassword);
+    }
+
     let name = path
         .file_name()
         .and_then(|n| n.to_str())
         .unwrap_or("");
     if files::name_suggests_save(name) || password.is_some() {
-        // Password was tried (included in candidates) and failed.
         if password.is_some() {
             return Err(AppError::keyed(BAD_PASSWORD));
         }
@@ -299,6 +343,49 @@ fn classify_save(
     }
 
     Err(AppError::keyed("error.saveEditor.parse"))
+}
+
+fn looks_like_es3_blob(bytes: &[u8]) -> bool {
+    bytes.len() >= 32 && bytes.len() % 16 == 0
+}
+
+enum Es3UnlockErr {
+    NeedsPassword,
+    BadPassword,
+}
+
+fn try_decrypt_es3_with_candidates(
+    install: &Path,
+    bytes: &[u8],
+    password: Option<&str>,
+) -> Result<(String, String), Es3UnlockErr> {
+    let mut tried_user = false;
+    if let Some(pw) = password {
+        tried_user = true;
+        if let Ok(text) = decrypt_es3(bytes, pw) {
+            if parse_json_value(&text).is_ok() {
+                return Ok((text, pw.to_string()));
+            }
+        }
+    }
+    if let Some(pw) = extract_es3_password_from_install(install) {
+        if let Ok(text) = decrypt_es3(bytes, &pw) {
+            if parse_json_value(&text).is_ok() {
+                return Ok((text, pw));
+            }
+        }
+    }
+    // Empty password is a common ES3 default.
+    if let Ok(text) = decrypt_es3(bytes, "") {
+        if parse_json_value(&text).is_ok() {
+            return Ok((text, String::new()));
+        }
+    }
+    if tried_user {
+        Err(Es3UnlockErr::BadPassword)
+    } else {
+        Err(Es3UnlockErr::NeedsPassword)
+    }
 }
 
 #[cfg(test)]
@@ -547,5 +634,34 @@ mod tests {
                 .value,
             Some(serde_json::json!(123))
         );
+    }
+
+    #[test]
+    fn es3_auto_unlocks_via_defaults_password_in_resources() {
+        let root = tempfile_root("es3-defaults");
+        let install = unity_install(&root);
+        let data = install.join("Widget_Data");
+        let mut assets = Vec::new();
+        assets.extend_from_slice(b"pad");
+        assets.extend_from_slice(b"ES3Defaults");
+        assets.push(0);
+        assets.extend_from_slice(b"SaveFile.es3");
+        assets.push(0);
+        assets.extend_from_slice(b"Fj13952099464");
+        assets.push(0);
+        assets.extend_from_slice(b"DOTweenPro.Scripts");
+        fs::write(data.join("resources.assets"), &assets).unwrap();
+
+        let password = "Fj13952099464";
+        let enc = encrypt_es3(r#"{"save_data":{"gold":7}}"#, password).unwrap();
+        fs::write(install.join("Save").join("Save0"), &enc).unwrap();
+
+        let slot = "install:Save/Save0";
+        let unlocked = read(&install, &meta(), slot, None).unwrap();
+        assert!(unlocked.encrypted);
+        assert!(!unlocked.needs_password);
+        let gold = find(unlocked.tree.as_ref().unwrap(), "save_data.gold")
+            .or_else(|| find(unlocked.tree.as_ref().unwrap(), "gold"));
+        assert_eq!(gold.and_then(|n| n.value.clone()), Some(serde_json::json!(7)));
     }
 }
