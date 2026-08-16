@@ -1,0 +1,8 @@
+# libsodium (via tauri-plugin-stronghold) ships MSVC objects without PDBs and
+# pulls in the static debug CRT, which floods link.exe with LNK4099 / LNK4098.
+# Harmless at runtime; ignore so `cargo`/`tauri` builds stay readable.
+[target.x86_64-pc-windows-msvc]
+rustflags = [
+  "-Clink-arg=/IGNORE:4099",
+  "-Clink-arg=/IGNORE:4098",
+]

@@ -6,9 +6,7 @@ use flate2::Compression;
 use std::fs::{self, File};
 use std::io::{Read, Write};
 use std::path::{Path, PathBuf};
-use zip::{ZipArchive, ZipWriter};
-use zip::write::SimpleFileOptions;
-use zip::CompressionMethod;
+use zip::ZipArchive;
 
 /// Open a Ren'Py save zip and return the raw bytes of the `log` member.
 pub fn read_log_bytes(save_path: &Path) -> Result<Vec<u8>, AppError> {

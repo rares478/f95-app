@@ -10,5 +10,4 @@ mod stream;
 mod types;
 mod util;
 
-pub use manager::{GoFileCreds, Manager};
-pub(crate) use types::ResolveResult;
+pub use manager::Manager;

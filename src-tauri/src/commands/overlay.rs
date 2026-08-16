@@ -745,38 +745,6 @@ async fn try_reveal_cached_hint(
         .is_ok()
 }
 
-#[cfg(windows)]
-async fn wait_for_game_hwnd(pid: u32, max_secs: u64) -> Result<crate::game_window::GameWindowMatch, AppError> {
-    let deadline =
-        std::time::Instant::now() + Duration::from_secs(max_secs.max(1));
-    let mut last_key: Option<(isize, i32, i32, i32, i32)> = None;
-    let mut stable_reads = 0u8;
-
-    loop {
-        if let Some(game_match) = crate::game_window::find_game_window_with_hwnd(pid) {
-            if let Some(hwnd) = game_match.hwnd.map(|h| windows::Win32::Foundation::HWND(h as _)) {
-                if !crate::game_window::is_minimized(hwnd) {
-                    let r = game_match.rect;
-                    let key = (hwnd.0 as isize, r.x, r.y, r.width, r.height);
-                    if last_key == Some(key) {
-                        stable_reads = stable_reads.saturating_add(1);
-                        if stable_reads >= 2 {
-                            return Ok(game_match);
-                        }
-                    } else {
-                        last_key = Some(key);
-                        stable_reads = 0;
-                    }
-                }
-            }
-        }
-        if std::time::Instant::now() >= deadline {
-            return Err(AppError::keyed("error.overlay.gameWindowPending"));
-        }
-        tokio::time::sleep(Duration::from_millis(300)).await;
-    }
-}
-
 async fn resolve_overlay_pid(state: &AppState) -> Result<u32, AppError> {
 
     let running = state.launcher.running().await;
@@ -1453,7 +1421,7 @@ pub async fn show_game_hint_inner(
 }
 
 #[cfg(windows)]
-pub fn schedule_launch_hint(app: AppHandle, thread_id: String, game_title: String, pid: u32) {
+pub fn schedule_launch_hint(app: AppHandle, thread_id: String, _game_title: String, pid: u32) {
     tauri::async_runtime::spawn(async move {
         tokio::time::sleep(Duration::from_millis(1400)).await;
         if let Some(win) = webview_by_label(&app, OVERLAY_HINT_WINDOW_LABEL) {

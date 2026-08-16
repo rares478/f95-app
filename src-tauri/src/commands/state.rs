@@ -8,7 +8,7 @@ use std::sync::{Arc, Mutex};
 use tauri::{AppHandle, Manager};
 use tokio::sync::{oneshot, Mutex as AsyncMutex};
 
-pub use crate::sidecar::{ActivityItem, ProfileDto};
+pub use crate::sidecar::ProfileDto;
 
 pub struct AppState {
     pub sidecar: AsyncMutex<Option<Arc<SidecarClient>>>,

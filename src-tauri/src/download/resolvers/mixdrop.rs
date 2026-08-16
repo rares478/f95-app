@@ -163,6 +163,7 @@ pub(crate) async fn resolve_mixdrop_with_cookies(
     }
 }
 
+#[allow(dead_code)]
 fn host_resolve_to_direct(res: crate::sidecar::HostResolveResult) -> ResolveResult {
     let extra_headers: Vec<(String, String)> = res
         .extra_headers
@@ -179,6 +180,7 @@ fn host_resolve_to_direct(res: crate::sidecar::HostResolveResult) -> ResolveResu
 }
 
 /// MixDrop — headed Playwright window; blocks ad popups, waits for real reCAPTCHA.
+#[allow(dead_code)] // interactive fallback; primary path is API/cookie resolve
 pub(crate) async fn resolve_mixdrop_interactive(
     sidecar: &SidecarClient,
     app: &AppHandle,

@@ -12,7 +12,6 @@ use tokio::sync::{oneshot, Mutex};
 use tokio::time::timeout;
 
 const RPC_TIMEOUT: Duration = Duration::from_secs(180);
-const RPC_TIMEOUT_INTERACTIVE: Duration = Duration::from_secs(360);
 
 #[derive(Debug, Deserialize)]
 struct RpcResponse {

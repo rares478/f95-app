@@ -9,7 +9,6 @@ use std::time::Duration;
 #[derive(Debug, Deserialize)]
 pub struct UnmaskResult {
     pub url: String,
-    pub status: u16,
 }
 
 #[derive(Debug, Deserialize)]
@@ -27,8 +26,6 @@ pub struct GofileFileRpc {
     pub file_name: String,
     #[serde(rename = "fileSize", default)]
     pub file_size: Option<u64>,
-    #[serde(rename = "platformLabel", default)]
-    pub platform_label: Option<String>,
 }
 
 #[derive(Debug, Deserialize)]
@@ -64,10 +61,6 @@ pub struct SidecarClient {
 impl SidecarClient {
     pub fn new(inner: Arc<Sidecar>) -> Self {
         Self { inner }
-    }
-
-    pub fn inner(&self) -> &Arc<Sidecar> {
-        &self.inner
     }
 
     pub async fn init(&self, session_dir: &str, session_id: &str) -> Result<(), AppError> {
@@ -324,6 +317,7 @@ impl SidecarClient {
         Ok(serde_json::from_value(value)?)
     }
 
+    #[allow(dead_code)] // interactive fallback; see resolve_mixdrop_with_cookies
     pub async fn resolve_mixdrop_interactive(
         &self,
         url: &str,

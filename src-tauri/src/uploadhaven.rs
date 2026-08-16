@@ -639,15 +639,18 @@ pub fn page_timer_seconds(html: &str) -> u64 {
 }
 
 /// Preferred POST `type` field for the current download page layout.
+#[allow(dead_code)]
 pub fn preferred_download_type(_html: &str) -> Option<&'static str> {
     // UploadHaven uses `type=free` for all tiers; Pro only sets seconds=0.
     Some("free")
 }
 
+#[allow(dead_code)]
 fn probe_premium_post_succeeded(html: &str) -> bool {
     extract_cdn_url_from_html(html).is_some()
 }
 
+#[allow(dead_code)]
 fn html_contains_cdn_link(html: &str) -> bool {
     extract_cdn_url_from_html(html).is_some()
 }
@@ -817,6 +820,7 @@ fn extract_class_form_fields(html: &str, class_name: &str) -> Option<Vec<(String
     }
 }
 
+#[allow(dead_code)]
 pub fn download_type_for_page(
     html: &str,
     session: Option<&UploadHavenSession>,
@@ -837,6 +841,7 @@ pub fn xsrf_from_cookie_header(cookie_header: &str) -> Option<String> {
 }
 
 impl UploadHavenSession {
+    #[allow(dead_code)]
     pub fn xsrf_header(&self) -> Option<String> {
         xsrf_from_cookie_header(&self.cookie_header)
     }

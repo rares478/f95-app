@@ -1,12 +1,12 @@
 use super::super::types::ResolveResult;
 use crate::error::AppError;
 use crate::uploadhaven::html::{
-    find_alert_danger_text, find_attr_value, find_cdn_href, find_meta_csrf, find_text_in_class,
+    find_alert_danger_text, find_cdn_href, find_meta_csrf, find_text_in_class,
     html_entity_amp, parse_hidden_inputs, parse_human_byte_size, parse_post_form_inputs,
     percent_decode_lossy,
 };
 use crate::uploadhaven::UploadHavenSession;
-use reqwest::header::{HeaderMap, LOCATION, SET_COOKIE};
+use reqwest::header::LOCATION;
 use serde_json::json;
 use std::time::Duration;
 use tauri::AppHandle;
@@ -373,6 +373,7 @@ fn uploadhaven_no_form_error(
     })
 }
 
+#[allow(dead_code)] // form POST fallback; primary path uses CDN/API resolve
 async fn uploadhaven_submit_form(
     page_url: &str,
     page_html: &str,
@@ -576,6 +577,7 @@ fn uploadhaven_page_error(html: &str) -> Option<String> {
     None
 }
 
+#[allow(dead_code)]
 fn ensure_uploadhaven_form_tokens(
     html: &str,
     form: &mut Vec<(String, String)>,

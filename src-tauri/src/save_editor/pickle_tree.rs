@@ -4,7 +4,7 @@ use crate::error::AppError;
 use crate::save_editor::types::{RenpySavePatch, RenpyVarNode};
 use crate::save_editor::zip_save::{read_log_bytes, write_log_bytes};
 use serde_json::json;
-use serde_pickle::{value_from_slice, value_to_vec, DeOptions, HashableValue, SerOptions, Value};
+use serde_pickle::{value_from_slice, DeOptions, HashableValue, Value};
 use std::path::Path;
 
 fn de_options() -> DeOptions {

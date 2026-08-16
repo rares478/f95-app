@@ -1,6 +1,9 @@
 //! Resolve and track the game window for overlay anchoring (Windows).
 //! Supports windowed, borderless, foreground capture, and exclusive-fullscreen fallbacks.
 
+// Win32 helpers for alternate attach/hint paths; not every strategy is live.
+#![allow(dead_code)]
+
 #[cfg(not(windows))]
 use crate::error::AppError;
 use serde::Serialize;
@@ -59,7 +62,7 @@ mod win {
     use windows::Win32::UI::WindowsAndMessaging::{
         EnumChildWindows, EnumWindows, GetAncestor, GetClassNameW, GetCursorPos, GetForegroundWindow,
         GetWindowLongPtrW, GetWindowRect, GetWindowThreadProcessId, IsIconic, IsWindowVisible,
-        SetWindowLongPtrW, SetWindowPos, ShowWindow, GA_ROOT, GWL_EXSTYLE, GWLP_HWNDPARENT, HWND_TOP,
+        SetWindowLongPtrW, SetWindowPos, ShowWindow, GA_ROOT, GWL_EXSTYLE, GWLP_HWNDPARENT,
         HWND_TOPMOST, SW_HIDE, SW_SHOWNA, SWP_NOACTIVATE, SWP_NOMOVE, SWP_NOSIZE, SWP_SHOWWINDOW,
         WS_EX_TOPMOST, WS_EX_TOOLWINDOW,
     };
@@ -1106,9 +1109,8 @@ mod win {
 
 #[cfg(windows)]
 pub use win::{
-    compact_screen_rect, find_game_window_with_hwnd, hint_rect_for_pid, hint_rect_on_game,
-    hint_rects_close, place_hint, place_hint_at_rect, place_hint_for_pid, smooth_hint_rect_toward,
-    step_hint_rect_toward, surface_rects_changed, *,
+    compact_screen_rect, find_game_window_with_hwnd, hint_rect_on_game,
+    hint_rects_close, place_hint, place_hint_at_rect, smooth_hint_rect_toward, *,
 };
 
 #[cfg(not(windows))]

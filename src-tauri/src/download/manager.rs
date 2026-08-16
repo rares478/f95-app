@@ -258,6 +258,7 @@ impl Manager {
     }
 
     /// Resume MixDrop via headed Playwright verification (blocks ad popups).
+    #[allow(dead_code)] // kept as interactive fallback when API-only resolve fails
     pub async fn start_with_mixdrop_interactive(
         self: &Arc<Self>,
         app: AppHandle,
@@ -311,6 +312,7 @@ impl Manager {
         Ok(())
     }
 
+    #[allow(dead_code)]
     async fn run_with_mixdrop_interactive(
         &self,
         app: AppHandle,

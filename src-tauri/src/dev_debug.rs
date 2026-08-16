@@ -6,7 +6,6 @@ use tauri::{AppHandle, Emitter};
 
 #[derive(Clone, Copy)]
 pub enum Level {
-    Debug,
     Info,
     Warn,
     Error,
@@ -15,7 +14,6 @@ pub enum Level {
 impl Level {
     fn as_str(self) -> &'static str {
         match self {
-            Level::Debug => "debug",
             Level::Info => "info",
             Level::Warn => "warn",
             Level::Error => "error",
@@ -37,10 +35,6 @@ fn timestamp() -> String {
 
 pub fn log(app: Option<&AppHandle>, tag: &str, message: impl AsRef<str>) {
     log_level(app, Level::Info, tag, message);
-}
-
-pub fn log_debug(app: Option<&AppHandle>, tag: &str, message: impl AsRef<str>) {
-    log_level(app, Level::Debug, tag, message);
 }
 
 pub fn log_warn(app: Option<&AppHandle>, tag: &str, message: impl AsRef<str>) {

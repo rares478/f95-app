@@ -139,10 +139,6 @@ pub fn warn(tag: &str, message: impl AsRef<str>) {
     log(Level::Warn, tag, message);
 }
 
-pub fn error(tag: &str, message: impl AsRef<str>) {
-    log(Level::Error, tag, message);
-}
-
 #[cfg(test)]
 mod tests {
     use super::*;

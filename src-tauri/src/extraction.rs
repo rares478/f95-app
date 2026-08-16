@@ -530,17 +530,14 @@ fn extract_rar(archive: &Path, dest: &Path) -> Result<(), AppError> {
         let is_file = header.entry().is_file();
         let entry_name = header.entry().filename.display().to_string();
         open = if is_file {
-            header.extract_with_base(dest).map_err(|e| {
-                AppError::keyed_vars(
-                    "error.extract.failed",
-                    json!({ "detail": format!("rar extract: {e}") }),
-                )
-            })?
+            header
+                .extract_with_base(dest)
+                .map_err(|e| rar_extract_error(e, &entry_name, dest))?
         } else {
             header.skip().map_err(|e| {
                 AppError::keyed_vars(
                     "error.extract.failed",
-                    json!({ "detail": format!("rar skip: {e}") }),
+                    json!({ "detail": format!("rar skip ({entry_name}): {e}") }),
                 )
             })?
         };
