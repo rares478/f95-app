@@ -49,6 +49,7 @@ pub fn local_low_root() -> PathBuf {
 }
 
 /// Resolve LocalLow `{Company}/{Product}` under `local_low_base` (injectable for tests).
+/// Requires the matched directory to contain at least one save candidate.
 pub fn resolve_local_low_dir(
     install: &Path,
     meta: &UnityMeta,
@@ -87,11 +88,13 @@ pub fn resolve_local_low_dir(
     for company in &companies {
         for product in &products {
             let exact = local_low_base.join(company).join(product);
-            if exact.is_dir() {
+            if exact.is_dir() && super::files::dir_has_candidates(&exact) {
                 return Some(exact);
             }
             if let Some(fuzzy) = fuzzy_company_product(local_low_base, company, product) {
-                return Some(fuzzy);
+                if super::files::dir_has_candidates(&fuzzy) {
+                    return Some(fuzzy);
+                }
             }
         }
     }
