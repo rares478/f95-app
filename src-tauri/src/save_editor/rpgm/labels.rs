@@ -187,7 +187,7 @@ fn parse_leaf_id(id_str: &str) -> Option<i64> {
 #[cfg(test)]
 mod tests {
     use super::*;
-    use crate::save_editor::rpgm::tree::json_to_tree;
+    use crate::save_editor::json_tree::json_to_tree;
     use crate::save_editor::types::RenpyVarNode;
     use std::fs;
     use std::path::PathBuf;

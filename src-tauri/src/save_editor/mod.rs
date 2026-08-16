@@ -1,9 +1,11 @@
 mod backup;
 mod discover;
+mod json_tree;
 mod pickle_splice;
 mod pickle_tree;
 pub mod rpgm;
 mod types;
+pub mod unity;
 mod zip_save;
 
 pub use backup::{
@@ -12,7 +14,10 @@ pub use backup::{
 };
 pub use discover::{list_slots, probe_renpy_install, resolve_saves_dir};
 pub use pickle_tree::{read_save_tree, write_save_patches};
-pub use types::{RpgmProbeResult, RenpyProbeResult, RenpySavePatch, RenpySaveSlot, RenpyVarNode};
+pub use types::{
+    RpgmProbeResult, RenpyProbeResult, RenpySavePatch, RenpySaveSlot, RenpyVarNode, UnityMeta,
+    UnityProbeResult, UnitySaveReadResult, UnitySaveSlot,
+};
 pub use zip_save::zip_has_screenshot;
 
 use crate::error::AppError;

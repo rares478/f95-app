@@ -47,3 +47,39 @@ pub struct RenpySavePatch {
     pub path: String,
     pub value: serde_json::Value,
 }
+
+#[derive(Debug, Clone, Serialize, PartialEq, Eq)]
+#[serde(rename_all = "camelCase")]
+pub struct UnityProbeResult {
+    pub is_unity_layout: bool,
+    pub local_low_dir: Option<String>,
+    pub company: Option<String>,
+    pub product: Option<String>,
+}
+
+#[derive(Debug, Clone, Serialize, PartialEq, Eq)]
+#[serde(rename_all = "camelCase")]
+pub struct UnitySaveSlot {
+    pub key: String,
+    pub display_name: String,
+    pub kind: String,
+    pub source: String,
+    pub encrypted: bool,
+    pub mtime_ms: u64,
+    pub size_bytes: u64,
+}
+
+#[derive(Debug, Clone, Serialize, PartialEq)]
+#[serde(rename_all = "camelCase")]
+pub struct UnitySaveReadResult {
+    pub tree: Option<RenpyVarNode>,
+    pub needs_password: bool,
+    pub encrypted: bool,
+}
+
+#[derive(Debug, Clone, Serialize, Deserialize, PartialEq, Eq)]
+#[serde(rename_all = "camelCase")]
+pub struct UnityMeta {
+    pub developer: Option<String>,
+    pub title: Option<String>,
+}
