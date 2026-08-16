@@ -25,6 +25,18 @@ pub struct RenpySaveSlot {
     pub mtime_ms: u64,
     pub size_bytes: u64,
     pub has_screenshot: bool,
+    /// Present for user-attached extra folder slots (`extra`).
+    #[serde(default, skip_serializing_if = "Option::is_none")]
+    pub source: Option<String>,
+    #[serde(default, skip_serializing_if = "Option::is_none")]
+    pub display_name: Option<String>,
+}
+
+#[derive(Debug, Clone, Serialize, Deserialize, PartialEq, Eq)]
+#[serde(rename_all = "camelCase")]
+pub struct ExtraSaveRoot {
+    pub id: String,
+    pub path: String,
 }
 
 #[derive(Debug, Clone, Serialize, PartialEq)]

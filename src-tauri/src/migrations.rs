@@ -301,3 +301,16 @@ CREATE INDEX idx_collection_games_thread ON library_collection_games(thread_id);
 pub const V15_LIBRARY_STORE_TAGS: &str = r#"
 ALTER TABLE library_games ADD COLUMN store_tags_json TEXT;
 "#;
+
+/// v16: user-attached extra save folders for the save editor.
+pub const V16_LIBRARY_SAVE_EXTRA_ROOTS: &str = r#"
+CREATE TABLE library_save_extra_roots (
+  id         TEXT PRIMARY KEY NOT NULL,
+  thread_id  TEXT NOT NULL,
+  path       TEXT NOT NULL,
+  created_at TEXT NOT NULL DEFAULT (datetime('now')),
+  UNIQUE (thread_id, path)
+);
+CREATE INDEX idx_library_save_extra_roots_thread
+  ON library_save_extra_roots(thread_id);
+"#;

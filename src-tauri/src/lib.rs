@@ -148,6 +148,12 @@ pub fn run() {
             sql: migrations::V15_LIBRARY_STORE_TAGS,
             kind: MigrationKind::Up,
         },
+        Migration {
+            version: 16,
+            description: "library_save_extra_roots",
+            sql: migrations::V16_LIBRARY_SAVE_EXTRA_ROOTS,
+            kind: MigrationKind::Up,
+        },
     ];
 
     tauri::Builder::default()

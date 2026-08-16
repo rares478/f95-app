@@ -85,6 +85,8 @@ pub fn list_slots(saves_dir: &Path) -> Result<Vec<RenpySaveSlot>, AppError> {
             mtime_ms: system_time_to_ms(meta.modified().ok()),
             size_bytes: meta.len(),
             has_screenshot: false,
+            source: None,
+            display_name: None,
         });
     }
 

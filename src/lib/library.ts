@@ -8,6 +8,10 @@ import {
   type LibraryGameExe,
 } from './libraryExes';
 import { markThreadInLibrary, markThreadNotInLibrary } from './libraryMembership';
+import {
+  normalizeSaveExtraRootPath,
+  saveExtraRootPathKey,
+} from './saveExtraRoots';
 import type {
   InstallStatus,
   LibraryFilter,
@@ -253,6 +257,7 @@ export async function applyVersion(
 }
 
 export async function remove(threadId: string): Promise<void> {
+  await execute(`DELETE FROM library_save_extra_roots WHERE thread_id = ?`, [threadId]);
   await execute(`DELETE FROM library_games WHERE thread_id = ?`, [threadId]);
   markThreadNotInLibrary(threadId);
 }
@@ -672,4 +677,80 @@ export async function markInstalled(threadId: string, installPath: string): Prom
         WHERE thread_id = ?`,
     [installPath, threadId],
   );
+}
+
+export type LibrarySaveExtraRoot = {
+  id: string;
+  threadId: string;
+  path: string;
+  createdAt: string;
+};
+
+type ExtraRootDbRow = {
+  id: string;
+  thread_id: string;
+  path: string;
+  created_at: string;
+};
+
+function rowToExtraRoot(r: ExtraRootDbRow): LibrarySaveExtraRoot {
+  return {
+    id: r.id,
+    threadId: r.thread_id,
+    path: r.path,
+    createdAt: r.created_at,
+  };
+}
+
+export async function listSaveExtraRoots(
+  threadId: string,
+): Promise<LibrarySaveExtraRoot[]> {
+  const rows = await query<ExtraRootDbRow>(
+    `SELECT * FROM library_save_extra_roots
+      WHERE thread_id = ?
+      ORDER BY created_at ASC, id ASC`,
+    [threadId],
+  );
+  return rows.map(rowToExtraRoot);
+}
+
+export async function addSaveExtraRoot(
+  threadId: string,
+  path: string,
+): Promise<LibrarySaveExtraRoot> {
+  const normalized = normalizeSaveExtraRootPath(path);
+  if (!normalized) {
+    throw new Error('EMPTY_EXTRA_ROOT_PATH');
+  }
+  const key = saveExtraRootPathKey(normalized);
+  const existing = await listSaveExtraRoots(threadId);
+  if (existing.some((r) => saveExtraRootPathKey(r.path) === key)) {
+    throw new Error('DUPLICATE_EXTRA_ROOT_PATH');
+  }
+
+  const id = crypto.randomUUID();
+  try {
+    await execute(
+      `INSERT INTO library_save_extra_roots (id, thread_id, path, created_at)
+       VALUES (?, ?, ?, datetime('now'))`,
+      [id, threadId, normalized],
+    );
+  } catch (err) {
+    const msg = err instanceof Error ? err.message : String(err);
+    if (/UNIQUE|unique/i.test(msg)) {
+      throw new Error('DUPLICATE_EXTRA_ROOT_PATH');
+    }
+    throw err;
+  }
+
+  const rows = await listSaveExtraRoots(threadId);
+  const added = rows.find((r) => r.id === id);
+  if (!added) {
+    throw new Error('Failed to add save extra root');
+  }
+  return added;
+}
+
+export async function removeSaveExtraRoot(id: string): Promise<void> {
+  await execute(`DELETE FROM library_save_extra_roots WHERE id = ?`, [id]);
 }
