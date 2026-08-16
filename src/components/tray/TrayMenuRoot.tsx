@@ -207,7 +207,11 @@ function TrayMenuPanel() {
           type="button"
           role="menuitem"
           className="tray-menu-item tray-menu-item--danger"
-          onClick={() => void emitTrayMenuAction('quit')}
+          // pointerdown beats Windows focus-loss dismiss so Quit is not dropped.
+          onPointerDown={(e) => {
+            e.preventDefault();
+            void emitTrayMenuAction('quit');
+          }}
         >
           {t('tray.quit')}
         </button>

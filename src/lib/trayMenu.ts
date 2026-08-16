@@ -6,7 +6,7 @@ import { emit, listen, type UnlistenFn } from '@tauri-apps/api/event';
 import { PhysicalPosition, LogicalSize } from '@tauri-apps/api/dpi';
 import { WebviewWindow } from '@tauri-apps/api/webviewWindow';
 import { currentMonitor, getCurrentWindow } from '@tauri-apps/api/window';
-import { exit } from '@tauri-apps/plugin-process';
+import { isAppQuitting, quitApp } from './appQuit';
 
 export const TRAY_MENU_LABEL = 'tray-menu';
 export const TRAY_MENU_ACTION_EVENT = 'tray-menu:action';
@@ -80,7 +80,7 @@ function startFocusPoll(win: WebviewWindow): void {
       return;
     }
     void win.isFocused().then((focused) => {
-      if (!focused && menuOpen) void hideTrayMenu();
+      if (!focused && menuOpen && !isAppQuitting()) void hideTrayMenu();
     });
   }, 120);
 }
@@ -143,7 +143,7 @@ async function bindDismissOnBlur(win: WebviewWindow): Promise<void> {
     focusUnlisten = null;
   }
   focusUnlisten = await win.onFocusChanged(({ payload: focused }) => {
-    if (!focused && menuOpen) {
+    if (!focused && menuOpen && !isAppQuitting()) {
       void hideTrayMenu();
     }
   });
@@ -236,6 +236,7 @@ async function clampTrayMenuOnScreen(
 }
 
 export async function hideTrayMenu(): Promise<void> {
+  if (isAppQuitting()) return;
   menuOpen = false;
   stopFocusPoll();
   onTooltipVisible?.(true);
@@ -253,20 +254,35 @@ export async function hideTrayMenu(): Promise<void> {
   }
 }
 
+/** Fully destroy the tray-menu webview so it cannot keep the app alive. */
+export async function destroyTrayMenuWindow(): Promise<void> {
+  menuOpen = false;
+  stopFocusPoll();
+  if (focusUnlisten) {
+    focusUnlisten();
+    focusUnlisten = null;
+  }
+  onTooltipVisible?.(true);
+  try {
+    const win = await WebviewWindow.getByLabel(TRAY_MENU_LABEL);
+    if (win) await win.close();
+  } catch (err) {
+    console.warn('[tray-menu] destroy failed', err);
+  }
+}
+
 export async function emitTrayMenuAction(
   action: TrayMenuAction,
   extras?: { threadId?: string },
 ): Promise<void> {
   // Quit must not depend on the main webview receiving an event — when the
   // app is tray-hidden, that listener can miss the click (or be briefly
-  // unsubscribed while AppShell remounts the bridge). Exit from this window.
+  // unsubscribed while AppShell remounts the bridge). Exit immediately;
+  // do not await hide first (blur-dismiss / hide can race and drop exit).
   if (action === 'quit') {
-    try {
-      await hideTrayMenu();
-    } catch {
-      /* best-effort */
-    }
-    await exit(0);
+    menuOpen = false;
+    stopFocusPoll();
+    await quitApp();
     return;
   }
 

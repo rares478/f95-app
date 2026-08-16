@@ -23,6 +23,7 @@
     "core:window:allow-unminimize",
     "core:webview:allow-internal-toggle-devtools",
     "updater:default",
+    "process:allow-exit",
     "process:allow-restart"
   ]
 }

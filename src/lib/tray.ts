@@ -6,13 +6,14 @@ import { Image } from '@tauri-apps/api/image';
 import { TrayIcon, type TrayIconEvent } from '@tauri-apps/api/tray';
 import { getCurrentWindow } from '@tauri-apps/api/window';
 import {
-  getAppRuntimeSettings,
   loadAppRuntimeSettings,
   subscribeAppRuntimeSettings,
 } from './appRuntimeSettings';
 import type { TFunction } from './i18n';
+import { quitApp } from './appQuit';
 import {
   bindMainWindowClosesTrayMenu,
+  destroyTrayMenuWindow,
   hideTrayMenu,
   isTrayMenuOpen,
   openTrayMenuAt,
@@ -137,17 +138,29 @@ async function destroyTray(): Promise<void> {
   tray = null;
 }
 
-async function bindCloseToTray(enabled: boolean): Promise<void> {
+/**
+ * Title-bar / Alt+F4 close:
+ * - tray on  → hide to tray
+ * - tray off → force process exit (orphan hidden windows otherwise keep us alive)
+ */
+async function bindCloseBehavior(): Promise<void> {
   if (closeUnlisten) {
     closeUnlisten();
     closeUnlisten = null;
   }
-  if (!enabled) return;
   const win = getCurrentWindow();
   closeUnlisten = await win.onCloseRequested(async (event) => {
-    if (!getAppRuntimeSettings().trayIconEnabled) return;
     event.preventDefault();
-    await hideMainWindow();
+    try {
+      const s = await loadRuntimeSettingsWithRetry();
+      if (s.trayIconEnabled) {
+        await hideMainWindow();
+        return;
+      }
+    } catch (err) {
+      console.warn('[tray] close settings lookup failed; quitting', err);
+    }
+    await quitApp();
   });
 }
 
@@ -174,12 +187,13 @@ export async function syncTrayIcon(_t?: TFunction): Promise<void> {
     if (s.trayIconEnabled) {
       await createTray();
       if (gen !== syncGeneration) return;
-      await bindCloseToTray(true);
     } else {
       await destroyTray();
       if (gen !== syncGeneration) return;
-      await bindCloseToTray(false);
+      await destroyTrayMenuWindow();
+      if (gen !== syncGeneration) return;
     }
+    await bindCloseBehavior();
   } catch (err) {
     console.error('[tray] sync failed', err);
   }
@@ -214,7 +228,7 @@ export function startTrayIconSync(t: TFunction): () => void {
       closeUnlisten();
       closeUnlisten = null;
     }
-    void hideTrayMenu();
+    void destroyTrayMenuWindow();
     void destroyTray();
     started = false;
   };
@@ -225,12 +239,12 @@ export async function isTrayIconEnabled(): Promise<boolean> {
   return s.trayIconEnabled;
 }
 
-/** Title-bar close: hide when tray is on, otherwise destroy the window. */
+/** Title-bar close: hide when tray is on, otherwise quit the process. */
 export async function handleTitleBarClose(): Promise<void> {
   const s = await loadRuntimeSettingsWithRetry();
   if (s.trayIconEnabled) {
     await hideMainWindow();
     return;
   }
-  await getCurrentWindow().close();
+  await quitApp();
 }

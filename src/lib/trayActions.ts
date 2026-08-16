@@ -1,8 +1,8 @@
 /**
  * Handle actions emitted by the custom tray menu (runs in the main window).
  */
-import { exit } from '@tauri-apps/plugin-process';
 import { checkForAppUpdateInteractive } from './appUpdater';
+import { quitApp } from './appQuit';
 import { tStandalone } from './i18n';
 import {
   showMainWindow,
@@ -79,9 +79,9 @@ async function handleTrayAction(
       await checkForAppUpdateInteractive(tStandalone);
       break;
     case 'quit':
-      // Prefer tray-window exit (emitTrayMenuAction); keep as fallback if an
+      // Prefer tray-window quit (emitTrayMenuAction); keep as fallback if an
       // older menu build still emits quit to the main window.
-      await exit(0);
+      await quitApp();
       break;
     default:
       break;
