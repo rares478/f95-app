@@ -12,6 +12,10 @@ const RPGM_ENGINE_KEY = KNOWN_PREFIXES.find(
   (p) => p.group === 'engine' && p.name.trim().toLowerCase() === 'rpgm',
 )?.name.trim().toLowerCase() ?? 'rpgm';
 
+const UNITY_ENGINE_KEY = KNOWN_PREFIXES.find(
+  (p) => p.group === 'engine' && p.name.trim().toLowerCase() === 'unity',
+)?.name.trim().toLowerCase() ?? 'unity';
+
 /** True when library store tags include the F95 HTML engine prefix. */
 export function isHtmlEngine(storeTags: string[] | null | undefined): boolean {
   if (!storeTags?.length) return false;
@@ -28,4 +32,10 @@ export function isRenPyEngine(storeTags: string[] | null | undefined): boolean {
 export function isRpgmEngine(storeTags: string[] | null | undefined): boolean {
   if (!storeTags?.length) return false;
   return storeTags.some((t) => t.trim().toLowerCase() === RPGM_ENGINE_KEY);
+}
+
+/** True when library store tags include the F95 Unity engine prefix. */
+export function isUnityEngine(storeTags: string[] | null | undefined): boolean {
+  if (!storeTags?.length) return false;
+  return storeTags.some((t) => t.trim().toLowerCase() === UNITY_ENGINE_KEY);
 }

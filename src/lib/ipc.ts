@@ -30,6 +30,11 @@ import type {
   RenpyVarNode,
 } from '../types/renpySave';
 import type { RpgmProbeResult } from '../types/rpgmSave';
+import type {
+  UnityProbeResult,
+  UnitySaveReadResult,
+  UnitySaveSlot,
+} from '../types/unitySave';
 import * as settings from './settings';
 import {
   rememberDownloadLibrary,
@@ -420,6 +425,73 @@ export async function rpgmSaveBackupRestore(args: {
   backupFileName: string;
 }): Promise<void> {
   return invoke<void>('rpgm_save_backup_restore', args);
+}
+
+export type UnitySaveMetaOpts = {
+  developer?: string | null;
+  title?: string | null;
+};
+
+export async function unitySavesProbe(
+  installPath: string,
+  opts?: UnitySaveMetaOpts,
+): Promise<UnityProbeResult> {
+  return invoke<UnityProbeResult>('unity_saves_probe', {
+    installPath,
+    developer: opts?.developer ?? null,
+    title: opts?.title ?? null,
+  });
+}
+
+export async function unitySavesList(
+  installPath: string,
+  opts?: UnitySaveMetaOpts,
+): Promise<UnitySaveSlot[]> {
+  return invoke<UnitySaveSlot[]>('unity_saves_list', {
+    installPath,
+    developer: opts?.developer ?? null,
+    title: opts?.title ?? null,
+  });
+}
+
+export async function unitySaveRead(args: {
+  installPath: string;
+  slotKey: string;
+  developer?: string | null;
+  title?: string | null;
+  password?: string | null;
+}): Promise<UnitySaveReadResult> {
+  return invoke<UnitySaveReadResult>('unity_save_read', args);
+}
+
+export async function unitySaveWrite(args: {
+  threadId: string;
+  installPath: string;
+  slotKey: string;
+  patches: RenpySavePatch[];
+  developer?: string | null;
+  title?: string | null;
+  password?: string | null;
+}): Promise<RenpyVarNode> {
+  return invoke<RenpyVarNode>('unity_save_write', args);
+}
+
+export async function unitySaveBackupsList(args: {
+  threadId: string;
+  slotKey: string;
+}): Promise<RenpySaveBackup[]> {
+  return invoke<RenpySaveBackup[]>('unity_save_backups_list', args);
+}
+
+export async function unitySaveBackupRestore(args: {
+  threadId: string;
+  installPath: string;
+  slotKey: string;
+  backupFileName: string;
+  developer?: string | null;
+  title?: string | null;
+}): Promise<void> {
+  return invoke<void>('unity_save_backup_restore', args);
 }
 
 export async function deleteInstallDir(args: {
