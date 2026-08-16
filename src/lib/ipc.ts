@@ -23,6 +23,7 @@ import type {
   OverlayLayout,
 } from '../types/overlay';
 import type {
+  ExtraSaveRoot,
   RenpyProbeResult,
   RenpySaveBackup,
   RenpySavePatch,
@@ -351,15 +352,25 @@ export async function renpySavesProbe(installPath: string): Promise<RenpyProbeRe
   return invoke<RenpyProbeResult>('renpy_saves_probe', { installPath });
 }
 
-export async function renpySavesList(installPath: string): Promise<RenpySaveSlot[]> {
-  return invoke<RenpySaveSlot[]>('renpy_saves_list', { installPath });
+export async function renpySavesList(
+  installPath: string,
+  extraRoots?: ExtraSaveRoot[],
+): Promise<RenpySaveSlot[]> {
+  return invoke<RenpySaveSlot[]>('renpy_saves_list', {
+    installPath,
+    extraRoots: extraRoots ?? null,
+  });
 }
 
 export async function renpySaveRead(args: {
   installPath: string;
   slotKey: string;
+  extraRoots?: ExtraSaveRoot[];
 }): Promise<RenpyVarNode> {
-  return invoke<RenpyVarNode>('renpy_save_read', args);
+  return invoke<RenpyVarNode>('renpy_save_read', {
+    ...args,
+    extraRoots: args.extraRoots ?? null,
+  });
 }
 
 export async function renpySaveWrite(args: {
@@ -367,8 +378,12 @@ export async function renpySaveWrite(args: {
   installPath: string;
   slotKey: string;
   patches: RenpySavePatch[];
+  extraRoots?: ExtraSaveRoot[];
 }): Promise<RenpyVarNode> {
-  return invoke<RenpyVarNode>('renpy_save_write', args);
+  return invoke<RenpyVarNode>('renpy_save_write', {
+    ...args,
+    extraRoots: args.extraRoots ?? null,
+  });
 }
 
 export async function renpySaveBackupsList(args: {
@@ -383,23 +398,37 @@ export async function renpySaveBackupRestore(args: {
   installPath: string;
   slotKey: string;
   backupFileName: string;
+  extraRoots?: ExtraSaveRoot[];
 }): Promise<void> {
-  return invoke<void>('renpy_save_backup_restore', args);
+  return invoke<void>('renpy_save_backup_restore', {
+    ...args,
+    extraRoots: args.extraRoots ?? null,
+  });
 }
 
 export async function rpgmSavesProbe(installPath: string): Promise<RpgmProbeResult> {
   return invoke<RpgmProbeResult>('rpgm_saves_probe', { installPath });
 }
 
-export async function rpgmSavesList(installPath: string): Promise<RenpySaveSlot[]> {
-  return invoke<RenpySaveSlot[]>('rpgm_saves_list', { installPath });
+export async function rpgmSavesList(
+  installPath: string,
+  extraRoots?: ExtraSaveRoot[],
+): Promise<RenpySaveSlot[]> {
+  return invoke<RenpySaveSlot[]>('rpgm_saves_list', {
+    installPath,
+    extraRoots: extraRoots ?? null,
+  });
 }
 
 export async function rpgmSaveRead(args: {
   installPath: string;
   slotKey: string;
+  extraRoots?: ExtraSaveRoot[];
 }): Promise<RenpyVarNode> {
-  return invoke<RenpyVarNode>('rpgm_save_read', args);
+  return invoke<RenpyVarNode>('rpgm_save_read', {
+    ...args,
+    extraRoots: args.extraRoots ?? null,
+  });
 }
 
 export async function rpgmSaveWrite(args: {
@@ -407,8 +436,12 @@ export async function rpgmSaveWrite(args: {
   installPath: string;
   slotKey: string;
   patches: RenpySavePatch[];
+  extraRoots?: ExtraSaveRoot[];
 }): Promise<RenpyVarNode> {
-  return invoke<RenpyVarNode>('rpgm_save_write', args);
+  return invoke<RenpyVarNode>('rpgm_save_write', {
+    ...args,
+    extraRoots: args.extraRoots ?? null,
+  });
 }
 
 export async function rpgmSaveBackupsList(args: {
@@ -423,13 +456,18 @@ export async function rpgmSaveBackupRestore(args: {
   installPath: string;
   slotKey: string;
   backupFileName: string;
+  extraRoots?: ExtraSaveRoot[];
 }): Promise<void> {
-  return invoke<void>('rpgm_save_backup_restore', args);
+  return invoke<void>('rpgm_save_backup_restore', {
+    ...args,
+    extraRoots: args.extraRoots ?? null,
+  });
 }
 
 export type UnitySaveMetaOpts = {
   developer?: string | null;
   title?: string | null;
+  extraRoots?: ExtraSaveRoot[];
 };
 
 export async function unitySavesProbe(
@@ -451,6 +489,7 @@ export async function unitySavesList(
     installPath,
     developer: opts?.developer ?? null,
     title: opts?.title ?? null,
+    extraRoots: opts?.extraRoots ?? null,
   });
 }
 
@@ -460,8 +499,12 @@ export async function unitySaveRead(args: {
   developer?: string | null;
   title?: string | null;
   password?: string | null;
+  extraRoots?: ExtraSaveRoot[];
 }): Promise<UnitySaveReadResult> {
-  return invoke<UnitySaveReadResult>('unity_save_read', args);
+  return invoke<UnitySaveReadResult>('unity_save_read', {
+    ...args,
+    extraRoots: args.extraRoots ?? null,
+  });
 }
 
 export async function unitySaveWrite(args: {
@@ -472,8 +515,12 @@ export async function unitySaveWrite(args: {
   developer?: string | null;
   title?: string | null;
   password?: string | null;
+  extraRoots?: ExtraSaveRoot[];
 }): Promise<RenpyVarNode> {
-  return invoke<RenpyVarNode>('unity_save_write', args);
+  return invoke<RenpyVarNode>('unity_save_write', {
+    ...args,
+    extraRoots: args.extraRoots ?? null,
+  });
 }
 
 export async function unitySaveBackupsList(args: {
@@ -490,8 +537,12 @@ export async function unitySaveBackupRestore(args: {
   backupFileName: string;
   developer?: string | null;
   title?: string | null;
+  extraRoots?: ExtraSaveRoot[];
 }): Promise<void> {
-  return invoke<void>('unity_save_backup_restore', args);
+  return invoke<void>('unity_save_backup_restore', {
+    ...args,
+    extraRoots: args.extraRoots ?? null,
+  });
 }
 
 export async function deleteInstallDir(args: {

@@ -1,7 +1,7 @@
 //! Dual-root Unity save file listing (LocalLow + install).
 
 use crate::error::AppError;
-use crate::save_editor::types::{UnityMeta, UnitySaveSlot};
+use crate::save_editor::types::{ExtraSaveRoot, UnityMeta, UnitySaveSlot};
 use crate::save_editor::unity::discover::resolve_local_low_dir;
 use crate::save_editor::unity::es3::is_encrypted_es3;
 use std::collections::HashSet;
@@ -13,6 +13,9 @@ const MAX_DEPTH: u32 = 4;
 /// Per scan root (LocalLow vs install tree), not shared across roots.
 /// Prevents LocalLow junk from exhausting the budget before install saves.
 const MAX_FILES_SCANNED_PER_ROOT: usize = 200;
+/// Never fully read files larger than this while classifying candidates.
+/// Attaching a full Unity install as an extra folder used to hang on multi‑GB `.assets`.
+const MAX_CANDIDATE_BYTES: u64 = 32 * 1024 * 1024;
 
 /// Install roots: `.` is files-only at install root; named dirs recurse to MAX_DEPTH.
 const INSTALL_NAMED_SUBDIRS: &[&str] = &[
@@ -39,7 +42,11 @@ pub fn parse_slot_key(key: &str) -> Result<(&str, &str), AppError> {
     if source.is_empty() || rel.is_empty() || rel.contains('\\') {
         return Err(AppError::keyed("error.saveEditor.unity.badSlotKey"));
     }
-    if source != "localLow" && source != "install" && source != "registry" {
+    if source != "localLow"
+        && source != "install"
+        && source != "registry"
+        && source != "extra"
+    {
         return Err(AppError::keyed("error.saveEditor.unity.badSlotKey"));
     }
     Ok((source, rel))
@@ -53,6 +60,7 @@ pub fn dir_has_candidates(dir: &Path) -> bool {
         dir,
         dir,
         "localLow",
+        None,
         0,
         MAX_DEPTH,
         &mut scanned,
@@ -87,6 +95,7 @@ pub fn list_slots(
             &local_low,
             &local_low,
             "localLow",
+            None,
             0,
             MAX_DEPTH,
             &mut scanned,
@@ -101,6 +110,7 @@ pub fn list_slots(
             install,
             install,
             "install",
+            None,
             0,
             0,
             &mut scanned,
@@ -120,6 +130,41 @@ pub fn list_slots(
             &root,
             install,
             "install",
+            None,
+            0,
+            MAX_DEPTH,
+            &mut scanned,
+            &mut push,
+        )?;
+    }
+
+    slots.sort_by(|a, b| a.key.cmp(&b.key));
+    Ok(slots)
+}
+
+/// List save candidates under user-attached extra folders (`extra:<rootId>/<rel>`).
+pub fn list_extra_slots(roots: &[ExtraSaveRoot]) -> Result<Vec<UnitySaveSlot>, AppError> {
+    let mut slots = Vec::new();
+    let mut seen = HashSet::new();
+
+    let mut push = |slot: UnitySaveSlot| {
+        if seen.insert(slot.key.clone()) {
+            slots.push(slot);
+        }
+        true
+    };
+
+    for root in roots {
+        let root_path = Path::new(&root.path);
+        if !root_path.is_dir() {
+            continue;
+        }
+        let mut scanned = 0usize;
+        walk_collect(
+            root_path,
+            root_path,
+            "extra",
+            Some(root.id.as_str()),
             0,
             MAX_DEPTH,
             &mut scanned,
@@ -136,6 +181,7 @@ fn walk_collect(
     dir: &Path,
     rel_root: &Path,
     source: &str,
+    extra_root_id: Option<&str>,
     depth: u32,
     max_depth: u32,
     scanned: &mut usize,
@@ -164,15 +210,17 @@ fn walk_collect(
             continue;
         }
 
-        *scanned += 1;
         let Some(name) = path.file_name().and_then(|n| n.to_str()) else {
             continue;
         };
-        if is_junk_name(name) {
+        // Skip before counting toward the scan budget so a Unity install tree
+        // full of .dll/.assets does not burn the budget (or hang on huge reads).
+        if should_skip_scan_candidate(&path, name) {
             continue;
         }
 
-        let Some(slot) = classify_file(&path, name, rel_root, source)? else {
+        *scanned += 1;
+        let Some(slot) = classify_file(&path, name, rel_root, source, extra_root_id)? else {
             continue;
         };
         if !on_slot(slot) {
@@ -192,6 +240,7 @@ fn walk_collect(
             &child,
             rel_root,
             source,
+            extra_root_id,
             depth + 1,
             max_depth,
             scanned,
@@ -206,12 +255,20 @@ fn classify_file(
     name: &str,
     rel_root: &Path,
     source: &str,
+    extra_root_id: Option<&str>,
 ) -> Result<Option<UnitySaveSlot>, AppError> {
     let ext = path
         .extension()
         .and_then(|e| e.to_str())
         .unwrap_or("")
         .to_ascii_lowercase();
+
+    let meta = fs::metadata(path).map_err(|e| {
+        AppError::Io(format!("failed to read metadata for {}: {e}", path.display()))
+    })?;
+    if meta.len() > MAX_CANDIDATE_BYTES {
+        return Ok(None);
+    }
 
     let bytes = fs::read(path).map_err(|e| {
         AppError::Io(format!("failed to read {}: {e}", path.display()))
@@ -221,6 +278,8 @@ fn classify_file(
         ("es3", is_encrypted_es3(&bytes))
     } else if is_json_object_or_array(&bytes) {
         ("json", false)
+    } else if crate::save_editor::unity::vngine::looks_like_vngine_save(&bytes) {
+        ("vngine", true)
     } else if crate::save_editor::unity::nrbf::looks_like_nrbf(&bytes) {
         ("nrbf", false)
     } else if crate::save_editor::unity::odin::looks_like_odin_binary(&bytes) {
@@ -241,13 +300,15 @@ fn classify_file(
     };
 
     let rel = rel_path_forward_slashes(path, rel_root);
-    let meta = fs::metadata(path).map_err(|e| {
-        AppError::Io(format!("failed to read metadata for {}: {e}", path.display()))
-    })?;
+
+    let (key, display_name) = match extra_root_id {
+        Some(id) => (format!("extra:{id}/{rel}"), rel.clone()),
+        None => (slot_key(source, &rel), rel),
+    };
 
     Ok(Some(UnitySaveSlot {
-        key: slot_key(source, &rel),
-        display_name: rel,
+        key,
+        display_name,
         kind: kind.to_string(),
         source: source.to_string(),
         encrypted,
@@ -349,6 +410,73 @@ fn is_junk_name(name: &str) -> bool {
         return true;
     }
     false
+}
+
+/// True when a file must not be opened during save discovery (engine binaries, media, etc.).
+fn should_skip_scan_candidate(path: &Path, name: &str) -> bool {
+    if is_junk_name(name) {
+        return true;
+    }
+    let ext = path
+        .extension()
+        .and_then(|e| e.to_str())
+        .unwrap_or("")
+        .to_ascii_lowercase();
+    if is_non_save_extension(&ext) {
+        return true;
+    }
+    match fs::metadata(path) {
+        Ok(meta) if meta.len() > MAX_CANDIDATE_BYTES => true,
+        Err(_) => true,
+        Ok(_) => false,
+    }
+}
+
+fn is_non_save_extension(ext: &str) -> bool {
+    matches!(
+        ext,
+        "exe"
+            | "dll"
+            | "pdb"
+            | "so"
+            | "dylib"
+            | "bundle"
+            | "assets"
+            | "resource"
+            | "ress"
+            | "assetbundle"
+            | "unity3d"
+            | "pak"
+            | "wad"
+            | "bank"
+            | "fsb"
+            | "wem"
+            | "mp4"
+            | "webm"
+            | "avi"
+            | "mov"
+            | "mkv"
+            | "mp3"
+            | "ogg"
+            | "wav"
+            | "flac"
+            | "ttf"
+            | "otf"
+            | "woff"
+            | "woff2"
+            | "zip"
+            | "7z"
+            | "rar"
+            | "gz"
+            | "htm"
+            | "html"
+            | "css"
+            | "js"
+            | "map"
+            | "apk"
+            | "aab"
+            | "jar"
+    )
 }
 
 fn rel_path_forward_slashes(path: &Path, root: &Path) -> String {
@@ -665,6 +793,46 @@ mod tests {
         assert_eq!(key, "localLow:Save/a.es3");
         assert_eq!(parse_slot_key(&key).unwrap(), ("localLow", "Save/a.es3"));
         assert!(parse_slot_key("nope").is_err());
+    }
+
+    #[test]
+    fn extra_root_skips_unity_assets_and_oversized_files() {
+        use crate::save_editor::types::ExtraSaveRoot;
+        use std::time::{Duration, Instant};
+
+        let root = tempfile_root("huge-extra");
+        let extra = root.join("game");
+        fs::create_dir_all(extra.join("Foo_Data")).unwrap();
+        // Multi-GB class of Unity data — must not be fully read.
+        let assets = extra.join("Foo_Data").join("sharedassets0.assets");
+        let f = fs::File::create(&assets).unwrap();
+        f.set_len(MAX_CANDIDATE_BYTES + 1).unwrap();
+        // Oversized extensionless blob under a Save folder (would previously be read).
+        fs::create_dir_all(extra.join("Save")).unwrap();
+        let huge = extra.join("Save").join("Save0");
+        let f = fs::File::create(&huge).unwrap();
+        f.set_len(MAX_CANDIDATE_BYTES + 1).unwrap();
+        fs::write(extra.join("Save").join("slot.json"), br#"{"gold":1}"#).unwrap();
+
+        let start = Instant::now();
+        let slots = list_extra_slots(&[ExtraSaveRoot {
+            id: "x".into(),
+            path: extra.to_string_lossy().into_owned(),
+        }])
+        .unwrap();
+        assert!(
+            start.elapsed() < Duration::from_secs(2),
+            "extra-root scan too slow: {:?}",
+            start.elapsed()
+        );
+        assert!(
+            slots.iter().any(|s| s.display_name == "Save/slot.json"),
+            "expected slot.json, got {slots:?}"
+        );
+        assert!(
+            slots.iter().all(|s| !s.key.contains(".assets") && !s.key.ends_with("/Save0")),
+            "huge/engine files must be skipped: {slots:?}"
+        );
     }
 
     #[test]

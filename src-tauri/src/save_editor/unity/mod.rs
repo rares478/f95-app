@@ -9,23 +9,25 @@ pub mod json_save;
 pub mod nrbf;
 pub mod odin;
 pub mod registry;
+pub mod vngine;
 pub mod xml_save;
 pub mod xor_json;
 
 use crate::error::AppError;
 use crate::save_editor::json_tree::{apply_patches_json, json_to_tree};
 use crate::save_editor::types::{
-    RenpySavePatch, RenpyVarNode, UnityMeta, UnitySaveReadResult, UnitySaveSlot,
+    ExtraSaveRoot, RenpySavePatch, RenpyVarNode, UnityMeta, UnitySaveReadResult, UnitySaveSlot,
 };
 use crate::save_editor::{
     backup_before_write, backup_bytes_before_write, ensure_under_root, reject_path_component,
-    resolve_backup_path, restore_backup,
+    resolve_backup_path, resolve_extra_live, restore_backup,
 };
 use crate::save_editor::unity::es3_defaults::extract_es3_password_from_install;
 use ac_save::{apply_ac_patches, looks_like_ac_binary_save, parse_ac_to_json};
 use json_save::{parse_json_value, write_bytes_atomic, write_json_file_atomic};
 use nrbf::{looks_like_nrbf, parse_nrbf_to_json, write_nrbf_with_json};
 use odin::{apply_odin_patches, looks_like_odin_binary, parse_odin_to_json};
+use vngine::{apply_vngine_patches, looks_like_vngine_save, parse_vngine_to_json};
 use xml_save::{apply_xml_patches, looks_like_xml_save, parse_xml_to_json};
 use xor_json::{
     collect_xor_key_candidates, decrypt_xor_json_with_keys, xor_encrypt_json,
@@ -38,7 +40,7 @@ pub use discover::{
     resolve_local_low_dir,
 };
 pub use es3::{decrypt_es3, detect_es3, encrypt_es3, is_encrypted_es3, Es3Payload};
-pub use files::{dir_has_candidates, list_slots, parse_slot_key, slot_key};
+pub use files::{dir_has_candidates, list_extra_slots, list_slots, parse_slot_key, slot_key};
 
 const BAD_PASSWORD: &str = "error.saveEditor.unity.badPassword";
 
@@ -46,15 +48,21 @@ pub fn ping() -> &'static str {
     "unity"
 }
 
-/// List ES3/JSON slots under LocalLow (if resolved) and the install tree.
+/// List ES3/JSON slots under LocalLow (if resolved), the install tree, and extra roots.
 pub fn list_for_install(
     install: &Path,
     meta: &UnityMeta,
+    extra_roots: &[ExtraSaveRoot],
 ) -> Result<Vec<UnitySaveSlot>, AppError> {
     let mut slots = files::list_slots(install, meta, &local_low_root())?;
     let mut seen: std::collections::HashSet<String> =
         slots.iter().map(|s| s.key.clone()).collect();
     for slot in registry::list_slots(install, meta)? {
+        if seen.insert(slot.key.clone()) {
+            slots.push(slot);
+        }
+    }
+    for slot in files::list_extra_slots(extra_roots)? {
         if seen.insert(slot.key.clone()) {
             slots.push(slot);
         }
@@ -69,13 +77,14 @@ pub fn read(
     meta: &UnityMeta,
     slot_key: &str,
     password: Option<&str>,
+    extra_roots: &[ExtraSaveRoot],
 ) -> Result<UnitySaveReadResult, AppError> {
     let (source, rel) = files::parse_slot_key(slot_key)?;
     if source == "registry" {
         return registry::read_slot(install, meta, rel);
     }
 
-    let (live, _) = resolve_live_save(install, meta, slot_key)?;
+    let (live, _) = resolve_live_save(install, meta, slot_key, extra_roots)?;
     let bytes = fs::read(&live).map_err(|e| {
         AppError::Io(format!(
             "failed to read unity save {}: {e}",
@@ -150,6 +159,14 @@ pub fn read(
                 encrypted: false,
             })
         }
+        SaveKind::Vngine => {
+            let value = parse_vngine_to_json(&bytes)?;
+            Ok(UnitySaveReadResult {
+                tree: Some(json_to_tree(&value)),
+                needs_password: false,
+                encrypted: true,
+            })
+        }
     }
 }
 
@@ -162,6 +179,7 @@ pub fn write(
     slot_key: &str,
     patches: &[RenpySavePatch],
     password: Option<&str>,
+    extra_roots: &[ExtraSaveRoot],
 ) -> Result<RenpyVarNode, AppError> {
     reject_path_component(thread_id)?;
     let (source, rel) = files::parse_slot_key(slot_key)?;
@@ -172,7 +190,7 @@ pub fn write(
         return Ok(tree);
     }
 
-    let (live, _) = resolve_live_save(install, meta, slot_key)?;
+    let (live, _) = resolve_live_save(install, meta, slot_key, extra_roots)?;
     backup_before_write(backups_root, thread_id, slot_key, &live)?;
 
     let bytes = fs::read(&live).map_err(|e| {
@@ -261,6 +279,11 @@ pub fn write(
             write_bytes_atomic(&live, &encoded)?;
             value
         }
+        SaveKind::Vngine => {
+            let (out, value) = apply_vngine_patches(&bytes, patches)?;
+            write_bytes_atomic(&live, &out)?;
+            value
+        }
     };
 
     Ok(json_to_tree(&value))
@@ -274,6 +297,7 @@ pub fn restore(
     meta: &UnityMeta,
     slot_key: &str,
     backup_file_name: &str,
+    extra_roots: &[ExtraSaveRoot],
 ) -> Result<(), AppError> {
     reject_path_component(thread_id)?;
     reject_path_component(backup_file_name)?;
@@ -292,7 +316,7 @@ pub fn restore(
         return registry::write_raw_bytes(install, meta, rel, &bytes);
     }
 
-    let (live, sandbox_root) = resolve_live_save(install, meta, slot_key)?;
+    let (live, sandbox_root) = resolve_live_save(install, meta, slot_key, extra_roots)?;
     let backup = resolve_backup_path(backups_root, thread_id, slot_key, backup_file_name)?;
     let thread_root = backups_root.join(thread_id);
     ensure_under_root(&thread_root, backups_root)?;
@@ -307,11 +331,12 @@ pub fn restore(
     )
 }
 
-/// Resolve live path and its sandbox root (install or LocalLow dir).
+/// Resolve live path and its sandbox root (install, LocalLow, or extra folder).
 fn resolve_live_save(
     install: &Path,
     meta: &UnityMeta,
     slot_key: &str,
+    extra_roots: &[ExtraSaveRoot],
 ) -> Result<(PathBuf, PathBuf), AppError> {
     let (source, rel) = files::parse_slot_key(slot_key)?;
     validate_rel_segments(rel)?;
@@ -335,6 +360,7 @@ fn resolve_live_save(
             ensure_under_root(&live, &local_low)?;
             Ok((live, local_low))
         }
+        "extra" => resolve_extra_live(extra_roots, rel),
         _ => Err(AppError::keyed("error.saveEditor.unity.badSlotKey")),
     }
 }
@@ -377,6 +403,8 @@ enum SaveKind {
     XmlSave,
     /// .NET BinaryFormatter / MS-NRBF flat class (e.g. The Twist `playerInfo.dat`).
     Nrbf,
+    /// Motkeyz VNGINE Base64+XOR pipe saves (`%LocalAppData%/VNGINE/.../*.save`).
+    Vngine,
 }
 
 fn classify_save(
@@ -403,6 +431,11 @@ fn classify_save(
             }
             return Ok(SaveKind::PlainJson(text.to_string()));
         }
+    }
+
+    // Motkeyz VNGINE (Timestamps, etc.) — before AC `.save` heuristics.
+    if looks_like_vngine_save(bytes) {
+        return Ok(SaveKind::Vngine);
     }
 
     // Adventure Creator Binary+Base64 (Our Father's Sins `.save`, etc.).
@@ -592,7 +625,7 @@ mod tests {
                 value: serde_json::json!(999),
             }],
             None,
-        )
+        &[])
         .unwrap();
 
         assert_eq!(
@@ -615,7 +648,7 @@ mod tests {
             "Unity slot keys must not use underscore-collapsed backup dirs"
         );
 
-        let reread = read(&install, &meta(), slot, None).unwrap();
+        let reread = read(&install, &meta(), slot, None, &[]).unwrap();
         assert!(!reread.needs_password);
         assert!(!reread.encrypted);
         assert_eq!(
@@ -635,15 +668,15 @@ mod tests {
         let enc = encrypt_es3(r#"{"hp":7}"#, password).unwrap();
         fs::write(install.join("Save").join("data.es3"), &enc).unwrap();
 
-        let locked = read(&install, &meta(), slot, None).unwrap();
+        let locked = read(&install, &meta(), slot, None, &[]).unwrap();
         assert!(locked.encrypted);
         assert!(locked.needs_password);
         assert!(locked.tree.is_none());
 
-        let err = read(&install, &meta(), slot, Some("wrong")).unwrap_err();
+        let err = read(&install, &meta(), slot, Some("wrong"), &[]).unwrap_err();
         assert_eq!(err.to_string(), "error.saveEditor.unity.badPassword");
 
-        let unlocked = read(&install, &meta(), slot, Some(password)).unwrap();
+        let unlocked = read(&install, &meta(), slot, Some(password), &[]).unwrap();
         assert!(unlocked.encrypted);
         assert!(!unlocked.needs_password);
         assert_eq!(
@@ -675,7 +708,7 @@ mod tests {
                 value: serde_json::json!(99),
             }],
             Some(password),
-        )
+        &[])
         .unwrap();
         assert_eq!(
             find(&tree, "hp").unwrap().value,
@@ -694,9 +727,9 @@ mod tests {
             &meta(),
             slot,
             "original.es3",
-        )
+        &[])
         .unwrap();
-        let restored = read(&install, &meta(), slot, Some(password)).unwrap();
+        let restored = read(&install, &meta(), slot, Some(password), &[]).unwrap();
         assert_eq!(
             find(restored.tree.as_ref().unwrap(), "hp")
                 .unwrap()
@@ -731,7 +764,7 @@ mod tests {
         fs::write(install.join("Save").join("save_1.json"), &enc).unwrap();
 
         let slot = "install:Save/save_1.json";
-        let unlocked = read(&install, &meta(), slot, None).unwrap();
+        let unlocked = read(&install, &meta(), slot, None, &[]).unwrap();
         assert!(unlocked.encrypted);
         assert!(!unlocked.needs_password);
         assert_eq!(
@@ -753,7 +786,7 @@ mod tests {
                 value: serde_json::json!(123),
             }],
             None,
-        )
+        &[])
         .unwrap();
         assert_eq!(
             find(&tree, "gold").unwrap().value,
@@ -762,7 +795,7 @@ mod tests {
 
         let on_disk = fs::read(install.join("Save").join("save_1.json")).unwrap();
         assert!(!on_disk.starts_with(b"{"));
-        let again = read(&install, &meta(), slot, None).unwrap();
+        let again = read(&install, &meta(), slot, None, &[]).unwrap();
         assert_eq!(
             find(again.tree.as_ref().unwrap(), "gold")
                 .unwrap()
@@ -792,12 +825,64 @@ mod tests {
         fs::write(install.join("Save").join("Save0"), &enc).unwrap();
 
         let slot = "install:Save/Save0";
-        let unlocked = read(&install, &meta(), slot, None).unwrap();
+        let unlocked = read(&install, &meta(), slot, None, &[]).unwrap();
         assert!(unlocked.encrypted);
         assert!(!unlocked.needs_password);
         let gold = find(unlocked.tree.as_ref().unwrap(), "save_data.gold")
             .or_else(|| find(unlocked.tree.as_ref().unwrap(), "gold"));
         assert_eq!(gold.and_then(|n| n.value.clone()), Some(serde_json::json!(7)));
+    }
+
+    #[test]
+    fn extra_root_list_read_write_round_trip() {
+        let root = tempfile_root("extra-root");
+        let install = unity_install(&root);
+        let extra_dir = root.join("custom_saves");
+        fs::create_dir_all(&extra_dir).unwrap();
+        fs::write(extra_dir.join("slot.json"), br#"{"gold":10}"#).unwrap();
+
+        let extra = ExtraSaveRoot {
+            id: "root-a".into(),
+            path: extra_dir.to_string_lossy().into_owned(),
+        };
+        let listed = list_for_install(&install, &meta(), &[extra.clone()]).unwrap();
+        let slot = listed
+            .iter()
+            .find(|s| s.source == "extra" && s.display_name == "slot.json")
+            .expect("extra slot");
+        assert_eq!(slot.key, "extra:root-a/slot.json");
+
+        let backups = root.join("save_backups");
+        let tree = write(
+            &backups,
+            "thread1",
+            &install,
+            &meta(),
+            &slot.key,
+            &[RenpySavePatch {
+                path: "gold".into(),
+                value: serde_json::json!(42),
+            }],
+            None,
+            &[extra.clone()],
+        )
+        .unwrap();
+        assert_eq!(
+            find(&tree, "gold").unwrap().value,
+            Some(serde_json::json!(42))
+        );
+
+        let reread = read(&install, &meta(), &slot.key, None, &[extra]).unwrap();
+        assert_eq!(
+            find(reread.tree.as_ref().unwrap(), "gold")
+                .unwrap()
+                .value,
+            Some(serde_json::json!(42))
+        );
+        assert_eq!(
+            fs::read_to_string(extra_dir.join("slot.json")).unwrap(),
+            r#"{"gold":42}"#
+        );
     }
 
     /// Live check: Redux (LocalLow files) vs Season 1-4 (registry) when env paths are set.
@@ -813,14 +898,14 @@ mod tests {
             developer: Some("UberPie".into()),
             title: Some("Taffy Tales".into()),
         };
-        let redux_slots = list_for_install(Path::new(&redux), &meta).unwrap();
+        let redux_slots = list_for_install(Path::new(&redux), &meta, &[]).unwrap();
         assert!(
             redux_slots.iter().any(|s| s.source == "localLow"),
             "Redux should list LocalLow file saves, got: {:?}",
             redux_slots.iter().map(|s| (&s.source, &s.display_name)).collect::<Vec<_>>()
         );
 
-        let s14_slots = list_for_install(Path::new(&s14), &meta).unwrap();
+        let s14_slots = list_for_install(Path::new(&s14), &meta, &[]).unwrap();
         assert!(
             s14_slots.iter().any(|s| s.source == "registry"
                 && (s.display_name.contains("wholeGameState")

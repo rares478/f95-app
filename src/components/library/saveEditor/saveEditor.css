@@ -198,6 +198,91 @@
   letter-spacing: 0.04em;
 }
 
+.save-editor-add-folder {
+  border: 1px solid var(--border);
+  background: var(--bg);
+  color: var(--text-secondary);
+  font-size: 11px;
+  font-weight: 600;
+  text-transform: none;
+  letter-spacing: 0;
+  border-radius: 4px;
+  padding: 3px 8px;
+  cursor: pointer;
+}
+
+.save-editor-add-folder:hover:not(:disabled) {
+  color: var(--text);
+  border-color: var(--text-tertiary);
+}
+
+.save-editor-add-folder:disabled {
+  opacity: 0.5;
+  cursor: default;
+}
+
+.save-editor-extra-roots {
+  flex-shrink: 0;
+  display: flex;
+  flex-wrap: wrap;
+  gap: 6px;
+  padding: 8px 10px;
+  border-bottom: 1px solid var(--border);
+}
+
+.save-editor-extra-chip {
+  display: inline-flex;
+  align-items: center;
+  gap: 4px;
+  max-width: 100%;
+  padding: 2px 4px 2px 8px;
+  border-radius: 999px;
+  background: var(--bg);
+  border: 1px solid var(--border);
+  font-size: 11px;
+  color: var(--text-secondary);
+}
+
+.save-editor-extra-chip-label {
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+  max-width: 140px;
+}
+
+.save-editor-extra-chip-remove {
+  border: 0;
+  background: transparent;
+  color: var(--text-tertiary);
+  cursor: pointer;
+  font-size: 14px;
+  line-height: 1;
+  padding: 0 4px;
+}
+
+.save-editor-extra-chip-remove:hover:not(:disabled) {
+  color: var(--text);
+}
+
+.save-editor-extra-chip-remove:disabled {
+  opacity: 0.5;
+  cursor: default;
+}
+
+.save-editor-empty--slots {
+  padding: 16px 8px;
+}
+
+.save-editor-slots-loading {
+  margin: 0 0 8px;
+  padding: 6px 8px;
+  border-radius: 4px;
+  background: var(--bg);
+  border: 1px solid var(--border);
+  color: var(--text-tertiary);
+  font-size: 12px;
+}
+
 .save-editor-col-body {
   flex: 1;
   min-height: 0;

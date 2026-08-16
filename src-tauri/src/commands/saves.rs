@@ -1,8 +1,8 @@
 use crate::error::AppError;
 use crate::save_editor::{
-    list_backups, list_for_install, probe_renpy_install, read, restore, write, RpgmProbeResult,
-    RenpyProbeResult, RenpySaveBackup, RenpySavePatch, RenpySaveSlot, RenpyVarNode, UnityMeta,
-    UnityProbeResult, UnitySaveReadResult, UnitySaveSlot,
+    list_backups, list_for_install, probe_renpy_install, read, restore, write, ExtraSaveRoot,
+    RpgmProbeResult, RenpyProbeResult, RenpySaveBackup, RenpySavePatch, RenpySaveSlot, RenpyVarNode,
+    UnityMeta, UnityProbeResult, UnitySaveReadResult, UnitySaveSlot,
 };
 use crate::save_editor::rpgm::{
     list_for_install as rpgm_list_for_install, probe_rpgm_install, read as rpgm_read,
@@ -23,6 +23,10 @@ fn backups_root(app: &AppHandle) -> Result<PathBuf, AppError> {
         .join("save_backups"))
 }
 
+fn extra_roots_or_empty(extra_roots: Option<Vec<ExtraSaveRoot>>) -> Vec<ExtraSaveRoot> {
+    extra_roots.unwrap_or_default()
+}
+
 #[tauri::command]
 pub async fn renpy_saves_probe(install_path: String) -> Result<RenpyProbeResult, AppError> {
     let install = PathBuf::from(install_path);
@@ -32,9 +36,13 @@ pub async fn renpy_saves_probe(install_path: String) -> Result<RenpyProbeResult,
 }
 
 #[tauri::command]
-pub async fn renpy_saves_list(install_path: String) -> Result<Vec<RenpySaveSlot>, AppError> {
+pub async fn renpy_saves_list(
+    install_path: String,
+    extra_roots: Option<Vec<ExtraSaveRoot>>,
+) -> Result<Vec<RenpySaveSlot>, AppError> {
     let install = PathBuf::from(install_path);
-    tokio::task::spawn_blocking(move || list_for_install(&install))
+    let roots = extra_roots_or_empty(extra_roots);
+    tokio::task::spawn_blocking(move || list_for_install(&install, &roots))
         .await
         .map_err(|e| AppError::Other(format!("renpy_saves_list join: {e}")))?
 }
@@ -43,9 +51,11 @@ pub async fn renpy_saves_list(install_path: String) -> Result<Vec<RenpySaveSlot>
 pub async fn renpy_save_read(
     install_path: String,
     slot_key: String,
+    extra_roots: Option<Vec<ExtraSaveRoot>>,
 ) -> Result<RenpyVarNode, AppError> {
     let install = PathBuf::from(install_path);
-    tokio::task::spawn_blocking(move || read(&install, &slot_key))
+    let roots = extra_roots_or_empty(extra_roots);
+    tokio::task::spawn_blocking(move || read(&install, &slot_key, &roots))
         .await
         .map_err(|e| AppError::Other(format!("renpy_save_read join: {e}")))?
 }
@@ -57,12 +67,23 @@ pub async fn renpy_save_write(
     install_path: String,
     slot_key: String,
     patches: Vec<RenpySavePatch>,
+    extra_roots: Option<Vec<ExtraSaveRoot>>,
 ) -> Result<RenpyVarNode, AppError> {
     let backups = backups_root(&app)?;
     let install = PathBuf::from(install_path);
-    tokio::task::spawn_blocking(move || write(&backups, &thread_id, &install, &slot_key, &patches))
-        .await
-        .map_err(|e| AppError::Other(format!("renpy_save_write join: {e}")))?
+    let roots = extra_roots_or_empty(extra_roots);
+    tokio::task::spawn_blocking(move || {
+        write(
+            &backups,
+            &thread_id,
+            &install,
+            &slot_key,
+            &patches,
+            &roots,
+        )
+    })
+    .await
+    .map_err(|e| AppError::Other(format!("renpy_save_write join: {e}")))?
 }
 
 #[tauri::command]
@@ -84,9 +105,11 @@ pub async fn renpy_save_backup_restore(
     install_path: String,
     slot_key: String,
     backup_file_name: String,
+    extra_roots: Option<Vec<ExtraSaveRoot>>,
 ) -> Result<(), AppError> {
     let backups = backups_root(&app)?;
     let install = PathBuf::from(install_path);
+    let roots = extra_roots_or_empty(extra_roots);
     tokio::task::spawn_blocking(move || {
         restore(
             &backups,
@@ -94,6 +117,7 @@ pub async fn renpy_save_backup_restore(
             &install,
             &slot_key,
             &backup_file_name,
+            &roots,
         )
     })
     .await
@@ -109,9 +133,13 @@ pub async fn rpgm_saves_probe(install_path: String) -> Result<RpgmProbeResult, A
 }
 
 #[tauri::command]
-pub async fn rpgm_saves_list(install_path: String) -> Result<Vec<RenpySaveSlot>, AppError> {
+pub async fn rpgm_saves_list(
+    install_path: String,
+    extra_roots: Option<Vec<ExtraSaveRoot>>,
+) -> Result<Vec<RenpySaveSlot>, AppError> {
     let install = PathBuf::from(install_path);
-    tokio::task::spawn_blocking(move || rpgm_list_for_install(&install))
+    let roots = extra_roots_or_empty(extra_roots);
+    tokio::task::spawn_blocking(move || rpgm_list_for_install(&install, &roots))
         .await
         .map_err(|e| AppError::Other(format!("rpgm_saves_list join: {e}")))?
 }
@@ -120,9 +148,11 @@ pub async fn rpgm_saves_list(install_path: String) -> Result<Vec<RenpySaveSlot>,
 pub async fn rpgm_save_read(
     install_path: String,
     slot_key: String,
+    extra_roots: Option<Vec<ExtraSaveRoot>>,
 ) -> Result<RenpyVarNode, AppError> {
     let install = PathBuf::from(install_path);
-    tokio::task::spawn_blocking(move || rpgm_read(&install, &slot_key))
+    let roots = extra_roots_or_empty(extra_roots);
+    tokio::task::spawn_blocking(move || rpgm_read(&install, &slot_key, &roots))
         .await
         .map_err(|e| AppError::Other(format!("rpgm_save_read join: {e}")))?
 }
@@ -134,11 +164,20 @@ pub async fn rpgm_save_write(
     install_path: String,
     slot_key: String,
     patches: Vec<RenpySavePatch>,
+    extra_roots: Option<Vec<ExtraSaveRoot>>,
 ) -> Result<RenpyVarNode, AppError> {
     let backups = backups_root(&app)?;
     let install = PathBuf::from(install_path);
+    let roots = extra_roots_or_empty(extra_roots);
     tokio::task::spawn_blocking(move || {
-        rpgm_write(&backups, &thread_id, &install, &slot_key, &patches)
+        rpgm_write(
+            &backups,
+            &thread_id,
+            &install,
+            &slot_key,
+            &patches,
+            &roots,
+        )
     })
     .await
     .map_err(|e| AppError::Other(format!("rpgm_save_write join: {e}")))?
@@ -163,9 +202,11 @@ pub async fn rpgm_save_backup_restore(
     install_path: String,
     slot_key: String,
     backup_file_name: String,
+    extra_roots: Option<Vec<ExtraSaveRoot>>,
 ) -> Result<(), AppError> {
     let backups = backups_root(&app)?;
     let install = PathBuf::from(install_path);
+    let roots = extra_roots_or_empty(extra_roots);
     tokio::task::spawn_blocking(move || {
         rpgm_restore(
             &backups,
@@ -173,6 +214,7 @@ pub async fn rpgm_save_backup_restore(
             &install,
             &slot_key,
             &backup_file_name,
+            &roots,
         )
     })
     .await
@@ -197,10 +239,12 @@ pub async fn unity_saves_list(
     install_path: String,
     developer: Option<String>,
     title: Option<String>,
+    extra_roots: Option<Vec<ExtraSaveRoot>>,
 ) -> Result<Vec<UnitySaveSlot>, AppError> {
     let install = PathBuf::from(install_path);
     let meta = unity_meta(developer, title);
-    tokio::task::spawn_blocking(move || unity_list_for_install(&install, &meta))
+    let roots = extra_roots_or_empty(extra_roots);
+    tokio::task::spawn_blocking(move || unity_list_for_install(&install, &meta, &roots))
         .await
         .map_err(|e| AppError::Other(format!("unity_saves_list join: {e}")))?
 }
@@ -212,15 +256,18 @@ pub async fn unity_save_read(
     developer: Option<String>,
     title: Option<String>,
     password: Option<String>,
+    extra_roots: Option<Vec<ExtraSaveRoot>>,
 ) -> Result<UnitySaveReadResult, AppError> {
     let install = PathBuf::from(install_path);
     let meta = unity_meta(developer, title);
+    let roots = extra_roots_or_empty(extra_roots);
     tokio::task::spawn_blocking(move || {
         unity_read(
             &install,
             &meta,
             &slot_key,
             password.as_deref(),
+            &roots,
         )
     })
     .await
@@ -237,10 +284,12 @@ pub async fn unity_save_write(
     developer: Option<String>,
     title: Option<String>,
     password: Option<String>,
+    extra_roots: Option<Vec<ExtraSaveRoot>>,
 ) -> Result<RenpyVarNode, AppError> {
     let backups = backups_root(&app)?;
     let install = PathBuf::from(install_path);
     let meta = unity_meta(developer, title);
+    let roots = extra_roots_or_empty(extra_roots);
     tokio::task::spawn_blocking(move || {
         unity_write(
             &backups,
@@ -250,6 +299,7 @@ pub async fn unity_save_write(
             &slot_key,
             &patches,
             password.as_deref(),
+            &roots,
         )
     })
     .await
@@ -277,10 +327,12 @@ pub async fn unity_save_backup_restore(
     backup_file_name: String,
     developer: Option<String>,
     title: Option<String>,
+    extra_roots: Option<Vec<ExtraSaveRoot>>,
 ) -> Result<(), AppError> {
     let backups = backups_root(&app)?;
     let install = PathBuf::from(install_path);
     let meta = unity_meta(developer, title);
+    let roots = extra_roots_or_empty(extra_roots);
     tokio::task::spawn_blocking(move || {
         unity_restore(
             &backups,
@@ -289,6 +341,7 @@ pub async fn unity_save_backup_restore(
             &meta,
             &slot_key,
             &backup_file_name,
+            &roots,
         )
     })
     .await

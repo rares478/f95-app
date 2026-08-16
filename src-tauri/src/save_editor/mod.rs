@@ -23,24 +23,63 @@ pub use types::{
 pub use zip_save::zip_has_screenshot;
 
 use crate::error::AppError;
+use std::collections::HashSet;
 use std::path::{Path, PathBuf};
 
 /// List slots under an install, filling `has_screenshot` best-effort via zip peek.
-pub fn list_for_install(install_path: &Path) -> Result<Vec<RenpySaveSlot>, AppError> {
-    let Some(saves_dir) = resolve_saves_dir(install_path) else {
-        return Ok(Vec::new());
+pub fn list_for_install(
+    install_path: &Path,
+    extra_roots: &[ExtraSaveRoot],
+) -> Result<Vec<RenpySaveSlot>, AppError> {
+    let mut slots = if let Some(saves_dir) = resolve_saves_dir(install_path) {
+        let mut slots = list_slots(&saves_dir)?;
+        for slot in &mut slots {
+            let path = saves_dir.join(&slot.key);
+            slot.has_screenshot = zip_has_screenshot(&path);
+        }
+        slots
+    } else {
+        Vec::new()
     };
-    let mut slots = list_slots(&saves_dir)?;
-    for slot in &mut slots {
-        let path = saves_dir.join(&slot.key);
-        slot.has_screenshot = zip_has_screenshot(&path);
-    }
+    append_extra_slots(&mut slots, extra_roots, |dir, file_key| {
+        zip_has_screenshot(&dir.join(file_key))
+    })?;
+    slots.sort_by(|a, b| a.key.cmp(&b.key));
     Ok(slots)
 }
 
+fn append_extra_slots(
+    slots: &mut Vec<RenpySaveSlot>,
+    extra_roots: &[ExtraSaveRoot],
+    screenshot: impl Fn(&Path, &str) -> bool,
+) -> Result<(), AppError> {
+    let mut seen: HashSet<String> = slots.iter().map(|s| s.key.clone()).collect();
+    for root in extra_roots {
+        let dir = Path::new(&root.path);
+        if !dir.is_dir() {
+            continue;
+        }
+        for mut slot in list_slots(dir)? {
+            let file_key = slot.key.clone();
+            slot.key = format!("extra:{}/{}", root.id, file_key);
+            slot.source = Some("extra".into());
+            slot.display_name = Some(file_key.clone());
+            slot.has_screenshot = screenshot(dir, &file_key);
+            if seen.insert(slot.key.clone()) {
+                slots.push(slot);
+            }
+        }
+    }
+    Ok(())
+}
+
 /// Read the variable tree for one slot under the install.
-pub fn read(install_path: &Path, slot_key: &str) -> Result<RenpyVarNode, AppError> {
-    let live = resolve_live_save(install_path, slot_key)?;
+pub fn read(
+    install_path: &Path,
+    slot_key: &str,
+    extra_roots: &[ExtraSaveRoot],
+) -> Result<RenpyVarNode, AppError> {
+    let (live, _) = resolve_live_save(install_path, slot_key, extra_roots)?;
     read_save_tree(&live)
 }
 
@@ -51,9 +90,10 @@ pub fn write(
     install_path: &Path,
     slot_key: &str,
     patches: &[RenpySavePatch],
+    extra_roots: &[ExtraSaveRoot],
 ) -> Result<RenpyVarNode, AppError> {
     reject_path_component(thread_id)?;
-    let live = resolve_live_save(install_path, slot_key)?;
+    let (live, _) = resolve_live_save(install_path, slot_key, extra_roots)?;
     backup_before_write(backups_root, thread_id, slot_key, &live)?;
     write_save_patches(&live, patches)
 }
@@ -65,11 +105,11 @@ pub fn restore(
     install_path: &Path,
     slot_key: &str,
     backup_file_name: &str,
+    extra_roots: &[ExtraSaveRoot],
 ) -> Result<(), AppError> {
     reject_path_component(thread_id)?;
-    reject_path_component(slot_key)?;
     reject_path_component(backup_file_name)?;
-    let live = resolve_live_save(install_path, slot_key)?;
+    let (live, sandbox_root) = resolve_live_save(install_path, slot_key, extra_roots)?;
     let backup = resolve_backup_path(backups_root, thread_id, slot_key, backup_file_name)?;
     let thread_root = backups_root.join(thread_id);
     ensure_under_root(&thread_root, backups_root)?;
@@ -80,11 +120,18 @@ pub fn restore(
         slot_key,
         &backup,
         &live,
-        install_path,
+        &sandbox_root,
     )
 }
 
-fn resolve_live_save(install_path: &Path, slot_key: &str) -> Result<PathBuf, AppError> {
+fn resolve_live_save(
+    install_path: &Path,
+    slot_key: &str,
+    extra_roots: &[ExtraSaveRoot],
+) -> Result<(PathBuf, PathBuf), AppError> {
+    if let Some(rel) = slot_key.strip_prefix("extra:") {
+        return resolve_extra_live(extra_roots, rel);
+    }
     reject_path_component(slot_key)?;
     let saves_dir = resolve_saves_dir(install_path).ok_or_else(|| {
         AppError::Io(format!(
@@ -94,7 +141,7 @@ fn resolve_live_save(install_path: &Path, slot_key: &str) -> Result<PathBuf, App
     })?;
     let live = saves_dir.join(slot_key);
     ensure_under_root(&live, install_path)?;
-    Ok(live)
+    Ok((live, install_path.to_path_buf()))
 }
 
 /// Reject names that could escape via `Path::join` (separators, `..`, absolute).
@@ -150,7 +197,7 @@ mod tests {
         let backups = root.join("save_backups");
         fs::create_dir_all(&backups).unwrap();
 
-        let err = write(&backups, "..", &install, "1-1.save", &[]).unwrap_err();
+        let err = write(&backups, "..", &install, "1-1.save", &[], &[]).unwrap_err();
         assert_eq!(err.to_string(), "error.saveEditor.pathEscape");
     }
 
@@ -168,6 +215,7 @@ mod tests {
             &install,
             "1-1.save",
             &[],
+            &[],
         )
         .unwrap_err();
         assert_eq!(err.to_string(), "error.saveEditor.pathEscape");
@@ -178,10 +226,10 @@ mod tests {
         let root = tempfile_root("slot-escape");
         let install = install_with_save(&root, "1-1.save", b"x");
 
-        let err = read(&install, "../outside.save").unwrap_err();
+        let err = read(&install, "../outside.save", &[]).unwrap_err();
         assert_eq!(err.to_string(), "error.saveEditor.pathEscape");
 
-        let err = read(&install, "..").unwrap_err();
+        let err = read(&install, "..", &[]).unwrap_err();
         assert_eq!(err.to_string(), "error.saveEditor.pathEscape");
     }
 }

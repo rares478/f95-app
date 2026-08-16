@@ -20,6 +20,8 @@ export function unitySourceLocaleKey(source: string): string {
       return 'saveEditor.unity.source.install';
     case 'registry':
       return 'saveEditor.unity.source.registry';
+    case 'extra':
+      return 'saveEditor.unity.source.extra';
     default:
       return 'saveEditor.kind.other';
   }
@@ -41,6 +43,7 @@ export function slotKindLocaleKey(kind: string): string {
     case 'ac':
     case 'xml':
     case 'nrbf':
+    case 'vngine':
       return `saveEditor.kind.${kind}`;
     default:
       return 'saveEditor.kind.other';

@@ -1,4 +1,5 @@
 import { useCallback, useEffect, useMemo, useRef, useState } from 'react';
+import { open as openFileDialog } from '@tauri-apps/plugin-dialog';
 import { SaveSlotList } from './SaveSlotList';
 import { SaveVarTree } from './SaveVarTree';
 import { SaveEditPanel } from './SaveEditPanel';
@@ -22,6 +23,7 @@ import {
   type SaveEditorInstallRoot,
 } from '../../../lib/saveEditorInstallRoots';
 import type { LibraryGame } from '../../../types/library';
+import type { ExtraSaveRoot } from '../../../types/renpySave';
 import type {
   RenpySaveBackup,
   RenpySavePatch,
@@ -73,6 +75,8 @@ export function SaveEditor({ game, onClose, developer: developerProp }: Props) {
   const [slots, setSlots] = useState<SaveEditorSlot[]>([]);
   const [slotsLoading, setSlotsLoading] = useState(true);
   const [slotsError, setSlotsError] = useState<string | null>(null);
+  const [extraRoots, setExtraRoots] = useState<library.LibrarySaveExtraRoot[]>([]);
+  const [extraRootsReady, setExtraRootsReady] = useState(false);
 
   const [selectedKey, setSelectedKey] = useState<string | null>(null);
   /** Slot key the currently displayed tree/backups belong to (null while loading or idle). */
@@ -84,6 +88,7 @@ export function SaveEditor({ game, onClose, developer: developerProp }: Props) {
   const [unlocking, setUnlocking] = useState(false);
   const [unlockError, setUnlockError] = useState<string | null>(null);
   const treeLoadGenRef = useRef(0);
+  const slotsLoadGenRef = useRef(0);
   const selectedKeyRef = useRef<string | null>(null);
   selectedKeyRef.current = selectedKey;
   const sessionPasswordsRef = useRef(new Map<string, string>());
@@ -113,10 +118,15 @@ export function SaveEditor({ game, onClose, developer: developerProp }: Props) {
   const dirtyPaths = useMemo(() => new Set(patches.keys()), [patches]);
 
   const installStatus = game.installStatus;
-  const storeTags = game.storeTags;
+  /** Stable key so parent re-renders with a new `storeTags` array don't remount the engine. */
+  const storeTagsKey = (game.storeTags ?? []).join('\0');
+  const extraRootsArg = useMemo<ExtraSaveRoot[]>(
+    () => extraRoots.map((r) => ({ id: r.id, path: r.path })),
+    [extraRoots],
+  );
   const unityOpts = useMemo(
-    () => ({ developer, title: game.title }),
-    [developer, game.title],
+    () => ({ developer, title: game.title, extraRoots: extraRootsArg }),
+    [developer, game.title, extraRootsArg],
   );
 
   useEffect(() => {
@@ -158,10 +168,30 @@ export function SaveEditor({ game, onClose, developer: developerProp }: Props) {
   }, [game.threadId, game.installPath]);
 
   useEffect(() => {
+    let cancelled = false;
+    setExtraRootsReady(false);
+    void library
+      .listSaveExtraRoots(game.threadId)
+      .then((roots) => {
+        if (!cancelled) setExtraRoots(roots);
+      })
+      .catch(() => {
+        if (!cancelled) setExtraRoots([]);
+      })
+      .finally(() => {
+        if (!cancelled) setExtraRootsReady(true);
+      });
+    return () => {
+      cancelled = true;
+    };
+  }, [game.threadId]);
+
+  useEffect(() => {
     if (!rootsReady) return;
 
     let cancelled = false;
     treeLoadGenRef.current += 1;
+    slotsLoadGenRef.current += 1;
     setEngineReady(false);
     setEngine(null);
     setSlots([]);
@@ -198,7 +228,7 @@ export function SaveEditor({ game, onClose, developer: developerProp }: Props) {
     void resolveSaveEditorEngine({
       installStatus,
       installPath,
-      storeTags,
+      storeTags: game.storeTags,
     })
       .then((resolved) => {
         if (cancelled) return;
@@ -218,8 +248,10 @@ export function SaveEditor({ game, onClose, developer: developerProp }: Props) {
     };
     // Seed developer from prop when the install identity changes; late prefetch
     // updates via the sync effect + Unity meta effect without remounting the engine.
+    // storeTagsKey: content-stable so new array identities from parent refreshes
+    // do not re-probe and leave the UI stuck on "Loading saves…".
     // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [rootsReady, installPath, installStatus, storeTags]);
+  }, [rootsReady, installPath, installStatus, storeTagsKey]);
 
   useEffect(() => {
     if (!engineReady || engine !== 'unity' || !installPath) {
@@ -289,12 +321,7 @@ export function SaveEditor({ game, onClose, developer: developerProp }: Props) {
   );
 
   const loadSlots = useCallback(async () => {
-    if (!installPath || !engineReady) {
-      if (!installPath) {
-        setSlots([]);
-        setSlotsLoading(false);
-        setSlotsError(null);
-      }
+    if (!installPath || !engineReady || !extraRootsReady) {
       return;
     }
     if (!engine) {
@@ -304,32 +331,40 @@ export function SaveEditor({ game, onClose, developer: developerProp }: Props) {
       return;
     }
     if (engine === 'unity' && !unityMetaReady) {
-      setSlotsLoading(true);
       return;
     }
-    // Capture gen bumped by engine re-resolve so a stale list cannot overwrite.
-    const generation = treeLoadGenRef.current;
+    // Separate from treeLoadGenRef so selecting/reading a slot cannot leave
+    // the slot list stuck on "Loading saves…".
+    const generation = ++slotsLoadGenRef.current;
     setSlotsLoading(true);
     setSlotsError(null);
     try {
       const list =
         engine === 'rpgm'
-          ? await ipc.rpgmSavesList(installPath)
+          ? await ipc.rpgmSavesList(installPath, extraRootsArg)
           : engine === 'unity'
             ? await ipc.unitySavesList(installPath, unityOpts)
-            : await ipc.renpySavesList(installPath);
-      if (generation !== treeLoadGenRef.current) return;
+            : await ipc.renpySavesList(installPath, extraRootsArg);
+      if (generation !== slotsLoadGenRef.current) return;
       setSlots(list);
     } catch (err) {
-      if (generation !== treeLoadGenRef.current) return;
+      if (generation !== slotsLoadGenRef.current) return;
       setSlots([]);
       setSlotsError(formatIpcError(err));
     } finally {
-      if (generation === treeLoadGenRef.current) {
+      if (generation === slotsLoadGenRef.current) {
         setSlotsLoading(false);
       }
     }
-  }, [installPath, engine, engineReady, unityMetaReady, unityOpts]);
+  }, [
+    installPath,
+    engine,
+    engineReady,
+    extraRootsReady,
+    unityMetaReady,
+    unityOpts,
+    extraRootsArg,
+  ]);
 
   const loadBackups = useCallback(
     async (slotKey: string, generation: number) => {
@@ -400,8 +435,8 @@ export function SaveEditor({ game, onClose, developer: developerProp }: Props) {
 
         const root =
           engine === 'rpgm'
-            ? await ipc.rpgmSaveRead({ installPath, slotKey })
-            : await ipc.renpySaveRead({ installPath, slotKey });
+            ? await ipc.rpgmSaveRead({ installPath, slotKey, extraRoots: extraRootsArg })
+            : await ipc.renpySaveRead({ installPath, slotKey, extraRoots: extraRootsArg });
         if (generation !== treeLoadGenRef.current || selectedKeyRef.current !== slotKey) return;
         setTree(root);
         setTreeSlotKey(slotKey);
@@ -419,7 +454,7 @@ export function SaveEditor({ game, onClose, developer: developerProp }: Props) {
         }
       }
     },
-    [installPath, engine, loadBackups, unityOpts],
+    [installPath, engine, loadBackups, unityOpts, extraRootsArg],
   );
 
   useEffect(() => {
@@ -565,6 +600,7 @@ export function SaveEditor({ game, onClose, developer: developerProp }: Props) {
       installPath,
       slotKey,
       patches: patchList,
+      extraRoots: extraRootsArg,
     };
     try {
       const root =
@@ -599,6 +635,7 @@ export function SaveEditor({ game, onClose, developer: developerProp }: Props) {
     game.threadId,
     loadBackups,
     unityOpts,
+    extraRootsArg,
   ]);
 
   const handleRestore = useCallback(
@@ -628,6 +665,7 @@ export function SaveEditor({ game, onClose, developer: developerProp }: Props) {
         installPath,
         slotKey,
         backupFileName: backup.fileName,
+        extraRoots: extraRootsArg,
       };
       try {
         if (engine === 'rpgm') {
@@ -662,7 +700,49 @@ export function SaveEditor({ game, onClose, developer: developerProp }: Props) {
       game.threadId,
       loadTree,
       unityOpts,
+      extraRootsArg,
     ],
+  );
+
+  const handleAddFolder = useCallback(async () => {
+    const selected = await openFileDialog({
+      multiple: false,
+      directory: true,
+      title: t('saveEditor.extraFolder.pickTitle'),
+    });
+    if (!selected || typeof selected !== 'string') return;
+    try {
+      const added = await library.addSaveExtraRoot(game.threadId, selected);
+      setExtraRoots((prev) => [...prev, added]);
+    } catch (err) {
+      const msg = err instanceof Error ? err.message : String(err);
+      if (msg === 'DUPLICATE_EXTRA_ROOT_PATH') {
+        setActionError(t('saveEditor.extraFolder.duplicate'));
+        return;
+      }
+      setActionError(formatIpcError(err));
+    }
+  }, [game.threadId, t]);
+
+  const handleRemoveFolder = useCallback(
+    async (id: string) => {
+      try {
+        await library.removeSaveExtraRoot(id);
+        setExtraRoots((prev) => prev.filter((r) => r.id !== id));
+        if (selectedKey?.startsWith(`extra:${id}/`)) {
+          setSelectedKey(null);
+          selectedKeyRef.current = null;
+          setTree(null);
+          setTreeSlotKey(null);
+          setPatches(new Map());
+          setBackups([]);
+          setNeedsUnlock(false);
+        }
+      } catch (err) {
+        setActionError(formatIpcError(err));
+      }
+    },
+    [selectedKey],
   );
 
   if (!installPath) {
@@ -735,16 +815,9 @@ export function SaveEditor({ game, onClose, developer: developerProp }: Props) {
         <div className="save-editor-error">{slotsError || treeError || actionError}</div>
       )}
 
-      {waitingRoots || !engineReady || waitingUnityMeta || slotsLoading ? (
+      {waitingRoots || !engineReady || !extraRootsReady || waitingUnityMeta ? (
         <div className="save-editor-status">
           <LoadingState label={t('saveEditor.loadingSlots')} variant="compact" />
-        </div>
-      ) : slots.length === 0 && !slotsError ? (
-        <div className="save-editor-empty">
-          <p>{t('saveEditor.empty')}</p>
-          <p className="save-editor-empty-hint">
-            {engine === 'unity' ? t('saveEditor.unity.emptyHint') : t('saveEditor.emptyHint')}
-          </p>
         </div>
       ) : (
         <div className="save-editor-body">
@@ -752,8 +825,20 @@ export function SaveEditor({ game, onClose, developer: developerProp }: Props) {
             slots={slots}
             selectedKey={selectedKey}
             onSelect={(slot) => void selectSlot(slot)}
+            extraRoots={extraRoots}
+            onAddFolder={() => void handleAddFolder()}
+            onRemoveFolder={(id) => void handleRemoveFolder(id)}
+            busy={isRunning || applying || restoring != null || slotsLoading}
+            loading={slotsLoading}
+            emptyHint={
+              slots.length === 0 && !slotsError && !slotsLoading
+                ? engine === 'unity'
+                  ? t('saveEditor.unity.emptyHint')
+                  : t('saveEditor.emptyHint')
+                : null
+            }
           />
-          {treeLoading ? (
+          {slotsLoading && slots.length === 0 ? null : treeLoading ? (
             <div className="save-editor-col">
               <div className="save-editor-col-head">{t('saveEditor.search')}</div>
               <div className="save-editor-status">

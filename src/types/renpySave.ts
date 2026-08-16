@@ -11,7 +11,16 @@ export interface RenpySaveSlot {
   mtimeMs: number;
   sizeBytes: number;
   hasScreenshot: boolean;
+  /** Present for user-attached extra folder slots. */
+  source?: string | null;
+  displayName?: string | null;
 }
+
+/** Passed into list/read/write so Rust can resolve `extra:<id>/…` slot keys. */
+export type ExtraSaveRoot = {
+  id: string;
+  path: string;
+};
 
 export interface RenpyVarNode {
   path: string;

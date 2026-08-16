@@ -238,7 +238,7 @@ mod tests {
         let root = tempfile_or_std_temp("orch-missing-save");
         // MV layout marker without www/save directory yet.
         write_file(&root.join("www/js/rpg_core.js"), b"");
-        let slots = super::super::list_for_install(&root).unwrap();
+        let slots = super::super::list_for_install(&root, &[]).unwrap();
         assert!(slots.is_empty());
     }
 }
