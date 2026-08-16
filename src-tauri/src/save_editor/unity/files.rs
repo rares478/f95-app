@@ -10,7 +10,9 @@ use std::path::Path;
 use std::time::SystemTime;
 
 const MAX_DEPTH: u32 = 4;
-const MAX_FILES_SCANNED: usize = 200;
+/// Per scan root (LocalLow vs install tree), not shared across roots.
+/// Prevents LocalLow junk from exhausting the budget before install saves.
+const MAX_FILES_SCANNED_PER_ROOT: usize = 200;
 
 /// Install roots: `.` is files-only at install root; named dirs recurse to MAX_DEPTH.
 const INSTALL_NAMED_SUBDIRS: &[&str] = &["Save", "Saves", "save"];
@@ -61,7 +63,6 @@ pub fn list_slots(
 ) -> Result<Vec<UnitySaveSlot>, AppError> {
     let mut slots = Vec::new();
     let mut seen = HashSet::new();
-    let mut scanned = 0usize;
 
     let mut push = |slot: UnitySaveSlot| {
         if seen.insert(slot.key.clone()) {
@@ -70,7 +71,9 @@ pub fn list_slots(
         true
     };
 
+    // Separate file budgets so LocalLow noise cannot starve install saves.
     if let Some(local_low) = resolve_local_low_dir(install, meta, local_low_base) {
+        let mut scanned = 0usize;
         walk_collect(
             &local_low,
             &local_low,
@@ -82,8 +85,9 @@ pub fn list_slots(
         )?;
     }
 
+    let mut scanned = 0usize;
     // Install root: shallow (files only) so named Save* dirs are not double-scanned.
-    if install.is_dir() && scanned < MAX_FILES_SCANNED {
+    if install.is_dir() {
         walk_collect(
             install,
             install,
@@ -96,7 +100,7 @@ pub fn list_slots(
     }
 
     for sub in INSTALL_NAMED_SUBDIRS {
-        if scanned >= MAX_FILES_SCANNED {
+        if scanned >= MAX_FILES_SCANNED_PER_ROOT {
             break;
         }
         let root = install.join(sub);
@@ -128,7 +132,7 @@ fn walk_collect(
     scanned: &mut usize,
     on_slot: &mut dyn FnMut(UnitySaveSlot) -> bool,
 ) -> Result<(), AppError> {
-    if depth > max_depth || *scanned >= MAX_FILES_SCANNED {
+    if depth > max_depth || *scanned >= MAX_FILES_SCANNED_PER_ROOT {
         return Ok(());
     }
 
@@ -139,7 +143,7 @@ fn walk_collect(
 
     let mut dirs = Vec::new();
     for entry in entries.filter_map(|e| e.ok()) {
-        if *scanned >= MAX_FILES_SCANNED {
+        if *scanned >= MAX_FILES_SCANNED_PER_ROOT {
             break;
         }
         let path = entry.path();
@@ -172,7 +176,7 @@ fn walk_collect(
     }
 
     for child in dirs {
-        if *scanned >= MAX_FILES_SCANNED {
+        if *scanned >= MAX_FILES_SCANNED_PER_ROOT {
             break;
         }
         walk_collect(
@@ -423,5 +427,34 @@ mod tests {
         assert_eq!(key, "localLow:Save/a.es3");
         assert_eq!(parse_slot_key(&key).unwrap(), ("localLow", "Save/a.es3"));
         assert!(parse_slot_key("nope").is_err());
+    }
+
+    #[test]
+    fn local_low_file_budget_does_not_starve_install_saves() {
+        let root = tempfile_root("budget");
+        let install = root.join("install");
+        fs::create_dir_all(install.join("Widget_Data")).unwrap();
+        fs::create_dir_all(install.join("Save")).unwrap();
+        fs::write(install.join("Save").join("slot.json"), br#"{"hp":1}"#).unwrap();
+
+        let local_low_base = root.join("LocalLow");
+        let ll = local_low_base.join("Acme").join("Widget");
+        fs::create_dir_all(&ll).unwrap();
+        // More than the per-root scan cap of non-candidate files in LocalLow.
+        for i in 0..(MAX_FILES_SCANNED_PER_ROOT + 50) {
+            fs::write(ll.join(format!("noise-{i}.bin")), b"x").unwrap();
+        }
+        fs::write(ll.join("keep.es3"), br#"{"k":1}"#).unwrap();
+
+        let meta = UnityMeta {
+            developer: Some("Acme".to_string()),
+            title: Some("Widget".to_string()),
+        };
+
+        let slots = list_slots(&install, &meta, &local_low_base).unwrap();
+        assert!(
+            slots.iter().any(|s| s.key == "install:Save/slot.json"),
+            "install save must still be listed when LocalLow exceeds scan budget; got {slots:?}"
+        );
     }
 }
