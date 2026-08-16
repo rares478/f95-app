@@ -36,8 +36,13 @@ zip = { version = "2", default-features = false, features = ["deflate", "deflate
 sevenz-rust2 = "0.13"
 unrar = "0.5"
 sha2 = "0.10"
+sha1 = "0.10"
 hex = "0.4"
 flate2 = "1"
+aes = "0.8"
+cbc = "0.1"
+pbkdf2 = { version = "0.12", default-features = false, features = ["hmac"] }
+getrandom = { version = "0.2", features = ["std"] }
 image = { version = "0.25", default-features = false, features = ["jpeg", "png", "gif", "webp", "bmp"] }
 walkdir = "2"
 fs4 = "0.13"

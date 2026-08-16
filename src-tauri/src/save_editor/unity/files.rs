@@ -3,6 +3,7 @@
 use crate::error::AppError;
 use crate::save_editor::types::{UnityMeta, UnitySaveSlot};
 use crate::save_editor::unity::discover::resolve_local_low_dir;
+use crate::save_editor::unity::es3::is_encrypted_es3;
 use std::collections::HashSet;
 use std::fs;
 use std::path::Path;
@@ -203,7 +204,7 @@ fn classify_file(
         let bytes = fs::read(path).map_err(|e| {
             AppError::Io(format!("failed to read {}: {e}", path.display()))
         })?;
-        ("es3", is_encrypted_es3_peek(&bytes))
+        ("es3", is_encrypted_es3(&bytes))
     } else if ext == "json" || ext == "txt" {
         let bytes = fs::read(path).map_err(|e| {
             AppError::Io(format!("failed to read {}: {e}", path.display()))
@@ -238,11 +239,6 @@ fn classify_file(
         mtime_ms: system_time_to_ms(meta.modified().ok()),
         size_bytes: meta.len(),
     }))
-}
-
-/// Until Task 4's `is_encrypted_es3` exists: non-JSON-looking bytes ⇒ encrypted.
-fn is_encrypted_es3_peek(bytes: &[u8]) -> bool {
-    !is_json_object_or_array(bytes)
 }
 
 fn is_json_object_or_array(bytes: &[u8]) -> bool {
