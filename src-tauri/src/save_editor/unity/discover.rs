@@ -24,7 +24,6 @@ pub fn read_app_info(data_dir: &Path) -> Option<(String, String)> {
 /// First `*_Data` directory directly under the install root.
 pub fn find_data_dir(install: &Path) -> Option<PathBuf> {
     let entries = fs::read_dir(install).ok()?;
-    let mut found: Option<PathBuf> = None;
     for entry in entries.filter_map(|e| e.ok()) {
         let path = entry.path();
         if !path.is_dir() {
@@ -35,13 +34,10 @@ pub fn find_data_dir(install: &Path) -> Option<PathBuf> {
             continue;
         };
         if name.ends_with("_Data") && name.len() > "_Data".len() {
-            // Prefer a single match; if several, keep the first in directory order.
-            if found.is_none() {
-                found = Some(path);
-            }
+            return Some(path);
         }
     }
-    found
+    None
 }
 
 /// `%USERPROFILE%\AppData\LocalLow` on Windows.
@@ -110,28 +106,27 @@ pub fn probe_unity_install(install: &Path, meta: &UnityMeta) -> UnityProbeResult
 
     let local_low = resolve_local_low_dir(install, meta, &local_low_root());
 
-    let (company, product) = match (&app_info, &local_low) {
-        (Some((c, p)), _) => (Some(c.clone()), Some(p.clone())),
-        (None, Some(path)) => {
-            let product = path
-                .file_name()
-                .and_then(|n| n.to_str())
-                .map(str::to_string);
-            let company = path
-                .parent()
-                .and_then(|p| p.file_name())
-                .and_then(|n| n.to_str())
-                .map(str::to_string);
-            (company, product)
-        }
-        (None, None) => {
-            let company = meta.developer.clone();
-            let product = data_dir
-                .as_ref()
-                .and_then(|d| data_dir_stem(d))
-                .or_else(|| meta.title.clone());
-            (company, product)
-        }
+    // Prefer the matched LocalLow folder names so company/product agree with local_low_dir.
+    let (company, product) = if let Some(path) = &local_low {
+        let product = path
+            .file_name()
+            .and_then(|n| n.to_str())
+            .map(str::to_string);
+        let company = path
+            .parent()
+            .and_then(|p| p.file_name())
+            .and_then(|n| n.to_str())
+            .map(str::to_string);
+        (company, product)
+    } else if let Some((c, p)) = app_info {
+        (Some(c), Some(p))
+    } else {
+        let company = meta.developer.clone();
+        let product = data_dir
+            .as_ref()
+            .and_then(|d| data_dir_stem(d))
+            .or_else(|| meta.title.clone());
+        (company, product)
     };
 
     UnityProbeResult {
