@@ -115,7 +115,8 @@ pub fn restore_backup(
     install_root: &Path,
 ) -> Result<(), AppError> {
     reject_path_component(thread_id)?;
-    reject_path_component(slot_key)?;
+    // Sanitize first so Unity `source:rel/path` keys are accepted.
+    reject_path_component(&sanitize_slot_key(slot_key))?;
     ensure_under_root(live_path, install_root)?;
     let thread_root = backups_root.join(thread_id);
     ensure_under_root(&thread_root, backups_root)?;
@@ -177,10 +178,9 @@ fn slot_backup_dir(
     slot_key: &str,
 ) -> Result<PathBuf, AppError> {
     reject_path_component(thread_id)?;
-    reject_path_component(slot_key)?;
-    Ok(backups_root
-        .join(thread_id)
-        .join(sanitize_slot_key(slot_key)))
+    let safe = sanitize_slot_key(slot_key);
+    reject_path_component(&safe)?;
+    Ok(backups_root.join(thread_id).join(safe))
 }
 
 fn system_time_to_ms(modified: Option<SystemTime>) -> u64 {

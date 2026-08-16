@@ -1,11 +1,16 @@
 use crate::error::AppError;
 use crate::save_editor::{
     list_backups, list_for_install, probe_renpy_install, read, restore, write, RpgmProbeResult,
-    RenpyProbeResult, RenpySaveBackup, RenpySavePatch, RenpySaveSlot, RenpyVarNode,
+    RenpyProbeResult, RenpySaveBackup, RenpySavePatch, RenpySaveSlot, RenpyVarNode, UnityMeta,
+    UnityProbeResult, UnitySaveReadResult, UnitySaveSlot,
 };
 use crate::save_editor::rpgm::{
     list_for_install as rpgm_list_for_install, probe_rpgm_install, read as rpgm_read,
     restore as rpgm_restore, write as rpgm_write,
+};
+use crate::save_editor::unity::{
+    list_for_install as unity_list_for_install, probe_unity_install, read as unity_read,
+    restore as unity_restore, write as unity_write,
 };
 use std::path::PathBuf;
 use tauri::{AppHandle, Manager};
@@ -172,4 +177,124 @@ pub async fn rpgm_save_backup_restore(
     })
     .await
     .map_err(|e| AppError::Other(format!("rpgm_save_backup_restore join: {e}")))?
+}
+
+#[tauri::command]
+pub async fn unity_saves_probe(
+    install_path: String,
+    developer: Option<String>,
+    title: Option<String>,
+) -> Result<UnityProbeResult, AppError> {
+    let install = PathBuf::from(install_path);
+    let meta = unity_meta(developer, title);
+    tokio::task::spawn_blocking(move || probe_unity_install(&install, &meta))
+        .await
+        .map_err(|e| AppError::Other(format!("unity_saves_probe join: {e}")))
+}
+
+#[tauri::command]
+pub async fn unity_saves_list(
+    install_path: String,
+    developer: Option<String>,
+    title: Option<String>,
+) -> Result<Vec<UnitySaveSlot>, AppError> {
+    let install = PathBuf::from(install_path);
+    let meta = unity_meta(developer, title);
+    tokio::task::spawn_blocking(move || unity_list_for_install(&install, &meta))
+        .await
+        .map_err(|e| AppError::Other(format!("unity_saves_list join: {e}")))?
+}
+
+#[tauri::command]
+pub async fn unity_save_read(
+    install_path: String,
+    slot_key: String,
+    developer: Option<String>,
+    title: Option<String>,
+    password: Option<String>,
+) -> Result<UnitySaveReadResult, AppError> {
+    let install = PathBuf::from(install_path);
+    let meta = unity_meta(developer, title);
+    tokio::task::spawn_blocking(move || {
+        unity_read(
+            &install,
+            &meta,
+            &slot_key,
+            password.as_deref(),
+        )
+    })
+    .await
+    .map_err(|e| AppError::Other(format!("unity_save_read join: {e}")))?
+}
+
+#[tauri::command]
+pub async fn unity_save_write(
+    app: AppHandle,
+    thread_id: String,
+    install_path: String,
+    slot_key: String,
+    patches: Vec<RenpySavePatch>,
+    developer: Option<String>,
+    title: Option<String>,
+    password: Option<String>,
+) -> Result<RenpyVarNode, AppError> {
+    let backups = backups_root(&app)?;
+    let install = PathBuf::from(install_path);
+    let meta = unity_meta(developer, title);
+    tokio::task::spawn_blocking(move || {
+        unity_write(
+            &backups,
+            &thread_id,
+            &install,
+            &meta,
+            &slot_key,
+            &patches,
+            password.as_deref(),
+        )
+    })
+    .await
+    .map_err(|e| AppError::Other(format!("unity_save_write join: {e}")))?
+}
+
+#[tauri::command]
+pub async fn unity_save_backups_list(
+    app: AppHandle,
+    thread_id: String,
+    slot_key: String,
+) -> Result<Vec<RenpySaveBackup>, AppError> {
+    let backups = backups_root(&app)?;
+    tokio::task::spawn_blocking(move || list_backups(&backups, &thread_id, &slot_key))
+        .await
+        .map_err(|e| AppError::Other(format!("unity_save_backups_list join: {e}")))?
+}
+
+#[tauri::command]
+pub async fn unity_save_backup_restore(
+    app: AppHandle,
+    thread_id: String,
+    install_path: String,
+    slot_key: String,
+    backup_file_name: String,
+    developer: Option<String>,
+    title: Option<String>,
+) -> Result<(), AppError> {
+    let backups = backups_root(&app)?;
+    let install = PathBuf::from(install_path);
+    let meta = unity_meta(developer, title);
+    tokio::task::spawn_blocking(move || {
+        unity_restore(
+            &backups,
+            &thread_id,
+            &install,
+            &meta,
+            &slot_key,
+            &backup_file_name,
+        )
+    })
+    .await
+    .map_err(|e| AppError::Other(format!("unity_save_backup_restore join: {e}")))?
+}
+
+fn unity_meta(developer: Option<String>, title: Option<String>) -> UnityMeta {
+    UnityMeta { developer, title }
 }
