@@ -6,6 +6,7 @@ mod mediafire;
 mod mixdrop;
 mod pixeldrain;
 mod uploadhaven;
+mod vikingfile;
 mod workupload;
 
 pub(crate) use buzzheavier::resolve_buzzheavier;
@@ -18,4 +19,5 @@ pub(crate) use mixdrop::{
 };
 pub(crate) use pixeldrain::resolve_pixeldrain;
 pub(crate) use uploadhaven::{normalize_uploadhaven_url, resolve_uploadhaven};
+pub(crate) use vikingfile::resolve_vikingfile;
 pub(crate) use workupload::resolve_workupload;

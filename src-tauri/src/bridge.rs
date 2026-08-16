@@ -36,6 +36,9 @@ pub struct Sidecar {
     pending: Arc<Mutex<HashMap<u64, oneshot::Sender<Result<Value, RpcErrorPayload>>>>>,
     next_id: AtomicU64,
     _child: Mutex<Child>,
+    /// Windows: keeps a job handle so Ctrl+C / hard exit still kills Node + Playwright.
+    #[cfg(windows)]
+    _kill_job: Option<crate::win_job::KillOnCloseJob>,
 }
 
 impl Sidecar {
@@ -89,6 +92,11 @@ impl Sidecar {
             cmd.creation_flags(CREATE_NO_WINDOW);
         }
 
+        // Drop leftover Node processes from previous Ctrl+C sessions before
+        // spawning a new sidecar (they also hold Playwright browsers open).
+        #[cfg(windows)]
+        kill_orphaned_sidecar_processes(&sidecar_path);
+
         let mut child = cmd.spawn()?;
         let stdin = child
             .stdin
@@ -102,6 +110,11 @@ impl Sidecar {
             .stderr
             .take()
             .ok_or_else(|| AppError::Other("could not capture sidecar stderr".into()))?;
+
+        #[cfg(windows)]
+        let kill_job = child
+            .id()
+            .and_then(crate::win_job::KillOnCloseJob::attach_pid);
 
         let pending: Arc<Mutex<HashMap<u64, oneshot::Sender<Result<Value, RpcErrorPayload>>>>> =
             Arc::new(Mutex::new(HashMap::new()));
@@ -160,6 +173,8 @@ impl Sidecar {
             pending,
             next_id: AtomicU64::new(1),
             _child: Mutex::new(child),
+            #[cfg(windows)]
+            _kill_job: kill_job,
         })
     }
 
@@ -215,13 +230,58 @@ impl Sidecar {
     /// `Command::kill_on_drop(true)` was already set during spawn, but that
     /// path is unreliable in practice: when Tauri's main thread returns, the
     /// tokio runtime tears down before our `AppState` drops, so the
-    /// destructor-driven kill never fires. Hooking `RunEvent::Exit` and
-    /// calling this method explicitly is the bulletproof fix.
+    /// destructor-driven kill never fires. Hooking `RunEvent::Exit` /
+    /// `ExitRequested` and calling this method explicitly is required for a
+    /// clean path; on Windows the kill-on-close job also covers hard Ctrl+C.
     pub fn kill_now(&self) {
+        #[cfg(windows)]
+        if let Some(job) = &self._kill_job {
+            job.terminate();
+        }
         if let Ok(mut child) = self._child.try_lock() {
             let _ = child.start_kill();
         }
     }
+}
+
+/// Best-effort cleanup of sidecar Node processes left behind by prior Ctrl+C.
+#[cfg(windows)]
+fn kill_orphaned_sidecar_processes(sidecar_path: &std::path::Path) {
+    use std::os::windows::process::CommandExt;
+
+    let needle = sidecar_path
+        .to_string_lossy()
+        .replace('/', "\\")
+        .to_lowercase();
+    if needle.is_empty() {
+        return;
+    }
+
+    // Pass the path via env to avoid PowerShell quoting issues.
+    const CREATE_NO_WINDOW: u32 = 0x0800_0000;
+    let script = r#"
+$ErrorActionPreference='SilentlyContinue'
+$needle = $env:F95_SIDECAR_NEEDLE
+if (-not $needle) { exit 0 }
+Get-CimInstance Win32_Process | ForEach-Object {
+  if ($_.Name -ne 'node.exe' -or -not $_.CommandLine) { return }
+  $cmd = $_.CommandLine.ToLowerInvariant().Replace('/','\')
+  if (-not $cmd.Contains($needle)) { return }
+  & taskkill.exe /F /T /PID $_.ProcessId | Out-Null
+}
+"#;
+
+    let _ = std::process::Command::new("powershell.exe")
+        .args([
+            "-NoProfile",
+            "-ExecutionPolicy",
+            "Bypass",
+            "-Command",
+            script,
+        ])
+        .env("F95_SIDECAR_NEEDLE", &needle)
+        .creation_flags(CREATE_NO_WINDOW)
+        .status();
 }
 
 /// Point Playwright at bundled Chromium and set cwd so `require('playwright')`
@@ -230,10 +290,31 @@ fn configure_sidecar_env(cmd: &mut Command, sidecar_path: &std::path::Path) {
     if let Some(sidecar_dir) = sidecar_path.parent() {
         cmd.current_dir(sidecar_dir);
         let browsers = playwright_browsers_path(sidecar_dir);
-        if browsers.exists() {
+        // Only set when Chromium is actually present — an empty `ms-playwright/`
+        // dir (failed SEA install / prune) would otherwise override Playwright's
+        // default cache and break DataNodes/Vikingfile/MixDrop resolvers.
+        if playwright_browsers_ready(&browsers) {
             cmd.env("PLAYWRIGHT_BROWSERS_PATH", browsers);
         }
     }
+}
+
+/// True when `dir` contains a Playwright Chromium build (not just an empty folder).
+fn playwright_browsers_ready(dir: &std::path::Path) -> bool {
+    if !dir.is_dir() {
+        return false;
+    }
+    let Ok(entries) = std::fs::read_dir(dir) else {
+        return false;
+    };
+    for entry in entries.flatten() {
+        let name = entry.file_name();
+        let name = name.to_string_lossy();
+        if name.starts_with("chromium-") && entry.path().is_dir() {
+            return true;
+        }
+    }
+    false
 }
 
 /// In dev, keep Chromium cache outside `src-tauri` so runtime logs don't
@@ -243,13 +324,17 @@ fn playwright_browsers_path(sidecar_dir: &std::path::Path) -> std::path::PathBuf
     {
         if let Some(local) = std::env::var_os("LOCALAPPDATA").map(std::path::PathBuf::from) {
             let dev_cache = local.join("f95-app").join("ms-playwright");
+            let default_cache = local.join("ms-playwright");
             let bundled = sidecar_dir.join("ms-playwright");
-            // Prefer dev cache when populated; fall back to bundled install from postinstall.
-            if dev_cache.exists() {
+            // Prefer a populated cache — empty dirs must not win.
+            if playwright_browsers_ready(&dev_cache) {
                 return dev_cache;
             }
-            if bundled.exists() {
+            if playwright_browsers_ready(&bundled) {
                 return bundled;
+            }
+            if playwright_browsers_ready(&default_cache) {
+                return default_cache;
             }
             return dev_cache;
         }

@@ -106,10 +106,6 @@ export const RPC_METHODS = {
     params: { url: 'string', accountId: 'string?' },
     result: { directUrl: 'string', fileName: 'string', fileSize: 'number?' },
   },
-  resolveDatanodes: {
-    params: { url: 'string' },
-    result: { directUrl: 'string', fileName: 'string', fileSize: 'number?' },
-  },
   resolveGdrive: {
     params: { url: 'string' },
     result: { directUrl: 'string', fileName: 'string', fileSize: 'number?' },

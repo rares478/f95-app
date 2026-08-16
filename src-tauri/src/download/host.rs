@@ -111,6 +111,9 @@ pub(crate) fn host_label(host: &str) -> String {
     if host.contains("datanodes") {
         return "datanodes".into();
     }
+    if host.contains("vikingfile") || host.contains("vik1ngfile") {
+        return "vikingfile".into();
+    }
     if host.contains("buzzheavier") || host.contains("bzzhr") || host.contains("fuckingfast") {
         return "buzzheavier".into();
     }
@@ -135,5 +138,12 @@ mod tests {
         );
         assert_eq!(clean_download_filename("game.zip (1.2 GB)"), "game.zip");
         assert_eq!(clean_download_filename("plain.7z"), "plain.7z");
+    }
+
+    #[test]
+    fn host_label_recognizes_vikingfile_mirrors() {
+        assert_eq!(host_label("vikingfile.com"), "vikingfile");
+        assert_eq!(host_label("www.vikingfile.com"), "vikingfile");
+        assert_eq!(host_label("vik1ngfile.site"), "vikingfile");
     }
 }

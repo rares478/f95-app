@@ -265,14 +265,6 @@ impl SidecarClient {
         Ok(serde_json::from_value(value)?)
     }
 
-    pub async fn resolve_datanodes(&self, url: &str) -> Result<HostResolveResult, AppError> {
-        let value = self
-            .inner
-            .call("resolveDatanodes", json!({ "url": url }))
-            .await?;
-        Ok(serde_json::from_value(value)?)
-    }
-
     pub async fn resolve_workupload(&self, url: &str) -> Result<HostResolveResult, AppError> {
         let value = self
             .inner

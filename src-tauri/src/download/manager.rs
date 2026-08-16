@@ -8,7 +8,8 @@ use super::platform::recommended_file_id;
 use super::resolvers::{
     normalize_uploadhaven_url, resolve_buzzheavier, resolve_datanodes, resolve_gdrive,
     resolve_gofile, resolve_mediafire, resolve_mixdrop, resolve_mixdrop_interactive,
-    resolve_mixdrop_with_cookies, resolve_pixeldrain, resolve_uploadhaven, resolve_workupload,
+    resolve_mixdrop_with_cookies, resolve_pixeldrain, resolve_uploadhaven, resolve_vikingfile,
+    resolve_workupload,
 };
 use super::stream::{hash_existing, hash_file, parse_content_range_total, with_part_ext};
 use super::types::{ResolveResult, ResolvedFileOption};
@@ -164,8 +165,8 @@ impl Manager {
         self.buzzheavier_account.read().await.clone()
     }
 
-    /// Replace the cached DataNodes API key. Pass `None` or empty to forget it
-    /// - datanodes links then fall back to opening in the browser.
+    /// Replace the cached DataNodes API key. Pass `None` or empty to forget it —
+    /// DataNodes links then fall back to opening in the browser (API required for in-app).
     pub async fn set_datanodes_key(&self, key: Option<String>) {
         let key = key.map(|s| s.trim().to_string()).filter(|s| !s.is_empty());
         *self.datanodes_key.write().await = key;
@@ -1161,7 +1162,7 @@ impl Manager {
             }
             "datanodes" => {
                 let key = self.datanodes_key.read().await.clone();
-                resolve_datanodes(sidecar, &self.http, app, url, &label, key.as_deref()).await
+                resolve_datanodes(&self.http, app, url, &label, key.as_deref()).await
             }
             "uploadhaven" => {
                 let mut session = self.uploadhaven_session.read().await.clone();
@@ -1203,6 +1204,7 @@ impl Manager {
             }
             "gdrive" => resolve_gdrive(sidecar, &self.http, app, url, &label).await,
             "workupload" => resolve_workupload(sidecar, app, url, &label).await,
+            "vikingfile" => resolve_vikingfile(app, url, &label).await,
             "mixdrop" => {
                 let creds = self.mixdrop_creds.read().await.clone();
                 resolve_mixdrop(

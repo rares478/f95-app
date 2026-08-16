@@ -10,7 +10,6 @@ export const STREAMABLE_HOSTS = new Set([
   'workupload',
   'mixdrop',
   'akirabox',
-  'vikingfile',
 ]);
 
 export const HOST_COLORS: Record<string, string> = {

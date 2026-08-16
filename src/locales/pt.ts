@@ -371,6 +371,9 @@ const pt: Record<string, string> = {
   'downloads.captcha.hint': 'Uma janela pequena abrirá. Ignore popups de anúncio — resolva só o reCAPTCHA do Google se aparecer.',
   'downloads.hint.noApiKey': 'Sem chave API',
   'downloads.hint.noApiKey.title': 'Este host precisa de uma chave API em Configurações → Hosts, ou escolha outro provedor',
+  'downloads.hint.unsupported': 'Não suportado',
+  'downloads.hint.unsupported.title':
+    'Download in-app não é suportado para este host (Cloudflare Turnstile). Abra no navegador ou escolha outro provedor',
   'downloads.action.changeProvider': 'Trocar provedor',
   'downloads.action.changeProvider.title': 'Cancelar este download e escolher outro host',
   'downloads.changeProvider.notInLibrary': 'Adicione este jogo à biblioteca primeiro para trocar de provedor.',
@@ -525,7 +528,8 @@ const pt: Record<string, string> = {
   'settings.hosts.datanodesKey': 'API key',
   'settings.hosts.datanodesKeyPlaceholder': 'Sua API key do DataNodes',
   'settings.hosts.datanodesHelp': 'Como conectar o DataNodes?',
-  'settings.hosts.datanodesHelp.intro': 'Sem a key, o app tenta o download gratuito via navegador headless. Se falhar (ads), configure uma API key.',
+  'settings.hosts.datanodesHelp.intro':
+    'Downloads in-app do DataNodes precisam de uma API key pessoal. Downloads gratuitos com Cloudflare Turnstile não são automatizados — sem key, use o botão Navegador.',
   'settings.hosts.datanodesHelp.key': 'Gere uma API key pessoal em',
   'settings.hosts.datanodesHelp.note': 'A key resolve os links pela API do DataNodes. Use Verificar para confirmar que funciona.',
   'settings.hosts.configured': 'CONFIGURADO',
@@ -1108,8 +1112,9 @@ const pt: Record<string, string> = {
   'error.datanodes.invalidUrl': 'URL do DataNodes inválida',
   'error.datanodes.notFound': 'DataNodes: arquivo não encontrado ou expirado',
   'error.datanodes.noButton': 'DataNodes: botão de download não encontrado',
-  'error.datanodes.needsAds': 'DataNodes: o download gratuito exige anúncios no navegador. Defina uma chave de API em Configurações → Hosts → DataNodes (datanodes.to/account).',
-  'error.datanodes.timeout': 'DataNodes: tempo esgotado ao preparar o download — tente de novo ou defina uma chave de API',
+  'error.datanodes.needsAds':
+    'DataNodes: downloads gratuitos com Turnstile não são suportados no app. Defina uma chave de API em Configurações → Hosts → DataNodes (datanodes.to/account), ou use o botão Navegador.',
+  'error.datanodes.timeout': 'DataNodes: tempo esgotado — defina uma chave de API em Configurações → Hosts → DataNodes, ou use o botão Navegador',
   'error.datanodes.generic': 'DataNodes: {detail}',
   'error.datanodes.multiFile': 'DataNodes: pastas com vários arquivos não são suportadas',
   'error.datanodes.badKey': 'DataNodes: chave de API rejeitada ({detail}). Verifique em Configurações → Hosts → DataNodes → Verificar.',
@@ -1207,6 +1212,19 @@ const pt: Record<string, string> = {
   'error.mega.invalidUrl':
     'MEGA: formato de URL inválido — o link deve ser https://mega.nz/file/... ou /folder/...',
   'error.mega.noFiles': 'MEGA: nenhum arquivo encontrado neste link',
+  'error.mega.bandwidth':
+    'MEGA: limite de banda excedido — aguarde e tente de novo, ou entre em Configurações → Hosts → MEGA. Prefira Pixeldrain ou DataNodes (com API key) quando disponíveis.',
+
+  'error.vikingfile.invalidUrl': 'URL do VikingFile inválida',
+  'error.vikingfile.missingHash': 'URL do VikingFile sem hash do arquivo',
+  'error.vikingfile.notFound': 'VikingFile: arquivo não encontrado ou expirado',
+  'error.vikingfile.needsCaptcha':
+    'VikingFile: não suportado no app (Cloudflare Turnstile) — use o botão Navegador',
+  'error.vikingfile.captchaTimeout':
+    'VikingFile: não suportado no app (Cloudflare Turnstile) — use o botão Navegador',
+  'error.vikingfile.generic': 'VikingFile: {detail}',
+  'error.vikingfile.unsupported':
+    'VikingFile: não suportado no app (Cloudflare Turnstile) — use o botão Navegador',
 
   // Library install move
   'error.mover.oldMissing': 'Install antigo não existe: {path}',

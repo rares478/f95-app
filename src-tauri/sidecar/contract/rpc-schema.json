@@ -26,7 +26,6 @@
             "getFollowing",
             "unmaskUrl",
             "resolveBuzzheavier",
-            "resolveDatanodes",
             "resolveGdrive",
             "resolveWorkupload",
             "close"

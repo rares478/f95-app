@@ -218,6 +218,60 @@ async fn download_single_file(
     total_size: u64,
     file_size: u64,
 ) -> Result<u64, AppError> {
+    const MAX_ATTEMPTS: u32 = 4;
+    let mut last_err: Option<AppError> = None;
+
+    for attempt in 1..=MAX_ATTEMPTS {
+        match download_single_file_once(
+            client, node, dest_path, app, id, base_bytes, total_size, file_size,
+        )
+        .await
+        {
+            Ok(n) => return Ok(n),
+            Err(e) => {
+                let detail = e.to_string();
+                let bandwidth = detail.contains("error.mega.bandwidth")
+                    || is_mega_bandwidth_error(&detail);
+                last_err = Some(e);
+                if !bandwidth || attempt == MAX_ATTEMPTS {
+                    break;
+                }
+                let wait_secs = 15u64 * u64::from(attempt);
+                let _ = app.emit(
+                    "download:progress",
+                    json!({
+                        "id": id,
+                        "bytes": base_bytes,
+                        "total": total_size,
+                        "speedBps": 0,
+                    }),
+                );
+                crate::dev_debug::log(
+                    Some(app),
+                    "mega",
+                    format!(
+                        "bandwidth exceeded on {} — retry {attempt}/{MAX_ATTEMPTS} in {wait_secs}s",
+                        node.name()
+                    ),
+                );
+                tokio::time::sleep(Duration::from_secs(wait_secs)).await;
+            }
+        }
+    }
+
+    Err(last_err.unwrap_or_else(|| AppError::keyed("error.mega.generic")))
+}
+
+async fn download_single_file_once(
+    client: &Client,
+    node: &Node,
+    dest_path: &Path,
+    app: &AppHandle,
+    id: i64,
+    base_bytes: u64,
+    total_size: u64,
+    file_size: u64,
+) -> Result<u64, AppError> {
     let part_path = with_part_ext(dest_path);
     if part_path.exists() {
         let _ = fs::remove_file(&part_path).await;
@@ -235,6 +289,7 @@ async fn download_single_file(
     let progress_bytes = current_file_bytes.clone();
     let app_progress = app.clone();
     let dest = dest_path.to_path_buf();
+    let part_for_copy = part_path.clone();
 
     let copy_handle = tokio::spawn(async move {
         let mut reader = reader;
@@ -242,7 +297,7 @@ async fn download_single_file(
             .create(true)
             .write(true)
             .truncate(true)
-            .open(&part_path)
+            .open(&part_for_copy)
             .await
             .map_err(|e| AppError::Other(format!("mega open part: {e}")))?;
 
@@ -291,17 +346,19 @@ async fn download_single_file(
         if dest.exists() {
             let _ = fs::remove_file(&dest).await;
         }
-        fs::rename(&part_path, &dest)
+        fs::rename(&part_for_copy, &dest)
             .await
             .map_err(|e| AppError::Other(format!("mega rename part: {e}")))?;
 
         Ok::<u64, AppError>(written)
     });
 
-    client
-        .download_node(node, writer)
-        .await
-        .map_err(map_mega_err)?;
+    let download_result = client.download_node(node, writer).await.map_err(map_mega_err);
+    if let Err(e) = download_result {
+        copy_handle.abort();
+        let _ = fs::remove_file(&part_path).await;
+        return Err(e);
+    }
 
     copy_handle
         .await
@@ -332,6 +389,13 @@ fn sanitize_segment(s: &str) -> String {
 }
 
 fn map_mega_err(e: mega::Error) -> AppError {
+    let detail = e.to_string();
+    if is_mega_bandwidth_error(&detail) {
+        return AppError::keyed_vars(
+            "error.mega.bandwidth",
+            json!({ "detail": detail }),
+        );
+    }
     match e {
         mega::Error::InvalidPublicUrlFormat => AppError::keyed("error.mega.invalidUrl"),
         other => AppError::keyed_vars(
@@ -339,6 +403,15 @@ fn map_mega_err(e: mega::Error) -> AppError {
             json!({ "detail": other.to_string() }),
         ),
     }
+}
+
+fn is_mega_bandwidth_error(detail: &str) -> bool {
+    let d = detail.to_ascii_lowercase();
+    d.contains("509")
+        || d.contains("bandwidth")
+        || d.contains("quota")
+        || d.contains("eoverquota")
+        || d.contains("etemptaken")
 }
 
 fn map_mega_login_err(e: mega::Error) -> AppError {

@@ -1,7 +1,6 @@
 import type { AppContext } from '../../domain/context';
 import { unmaskUrl } from '../../domain/f95/unmask';
 import { resolveBuzzheavier } from '../../domain/resolvers/buzzheavier';
-import { resolveDatanodes } from '../../domain/resolvers/datanodes';
 import { resolveGdrive } from '../../domain/resolvers/gdrive';
 import { resolveMixdrop, resolveMixdropInteractive, resolveMixdropWithCookies } from '../../domain/resolvers/mixdrop';
 import { resolveGofile } from '../../domain/resolvers/gofile';
@@ -19,13 +18,6 @@ export function createResolverHandlers(ctx: AppContext): Record<string, RpcHandl
       const accountId =
         typeof p?.accountId === 'string' && p.accountId.trim() ? p.accountId.trim() : null;
       return resolveBuzzheavier(client.http, url, accountId);
-    },
-    resolveDatanodes: async (p) => {
-      const url = p?.url as string | undefined;
-      if (typeof url !== 'string' || url.length === 0) {
-        throw new RpcError(RPC_ERROR.INVALID_PARAMS, 'url required');
-      }
-      return resolveDatanodes(url);
     },
     resolveGdrive: async (p) => {
       const url = p?.url as string | undefined;

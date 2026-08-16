@@ -369,6 +369,9 @@ const ru: Record<string, string> = {
   'downloads.captcha.failed': 'Не удалось продолжить: {error}',
   'downloads.hint.noApiKey': 'Нет API-ключа',
   'downloads.hint.noApiKey.title': 'Этому хосту нужен API-ключ в Настройки → Хосты, или выберите другой провайдер',
+  'downloads.hint.unsupported': 'Не поддерживается',
+  'downloads.hint.unsupported.title':
+    'Загрузка в приложении не поддерживается для этого хоста (Cloudflare Turnstile). Откройте ссылку в браузере или выберите другого провайдера',
   'downloads.action.changeProvider': 'Сменить провайдер',
   'downloads.action.changeProvider.title': 'Отменить загрузку и выбрать другой хост',
   'downloads.changeProvider.notInLibrary': 'Сначала добавьте игру в библиотеку, чтобы сменить провайдер.',
@@ -523,7 +526,8 @@ const ru: Record<string, string> = {
   'settings.hosts.datanodesKey': 'API-ключ',
   'settings.hosts.datanodesKeyPlaceholder': 'Ваш API-ключ DataNodes',
   'settings.hosts.datanodesHelp': 'Как подключить DataNodes?',
-  'settings.hosts.datanodesHelp.intro': 'Без ключа приложение пробует бесплатную загрузку через headless-браузер. Если не получится (реклама), настройте API-ключ.',
+  'settings.hosts.datanodesHelp.intro':
+    'Загрузка DataNodes в приложении требует личного API-ключа. Бесплатные Cloudflare Turnstile не автоматизируются — без ключа используйте кнопку «Браузер».',
   'settings.hosts.datanodesHelp.key': 'Создайте личный API-ключ на',
   'settings.hosts.datanodesHelp.note': 'Ключ разрешает ссылки через API DataNodes. Используйте «Проверить», чтобы убедиться.',
   'settings.hosts.configured': 'НАСТРОЕНО',
@@ -1103,8 +1107,9 @@ const ru: Record<string, string> = {
   'error.datanodes.invalidUrl': 'Неверный URL DataNodes',
   'error.datanodes.notFound': 'DataNodes: файл не найден или истёк',
   'error.datanodes.noButton': 'DataNodes: кнопка скачивания не найдена',
-  'error.datanodes.needsAds': 'DataNodes: бесплатная загрузка требует рекламу в браузере. Укажите API-ключ в Настройки → Хосты → DataNodes (datanodes.to/account).',
-  'error.datanodes.timeout': 'DataNodes: истекло время подготовки загрузки — попробуйте снова или укажите API-ключ',
+  'error.datanodes.needsAds':
+    'DataNodes: бесплатные Turnstile-загрузки в приложении не поддерживаются. Укажите API-ключ в Настройки → Хосты → DataNodes (datanodes.to/account) или используйте кнопку «Браузер».',
+  'error.datanodes.timeout': 'DataNodes: истекло время — укажите API-ключ в Настройки → Хосты → DataNodes или используйте кнопку «Браузер»',
   'error.datanodes.generic': 'DataNodes: {detail}',
   'error.datanodes.multiFile': 'DataNodes: папки с несколькими файлами не поддерживаются',
   'error.datanodes.badKey': 'DataNodes: API-ключ отклонён ({detail}). Проверьте в Настройки → Хосты → DataNodes → Проверить.',
@@ -1202,6 +1207,19 @@ const ru: Record<string, string> = {
   'error.mega.invalidUrl':
     'MEGA: неверный формат URL — ссылка должна быть https://mega.nz/file/... или /folder/...',
   'error.mega.noFiles': 'MEGA: по этой ссылке файлы не найдены',
+  'error.mega.bandwidth':
+    'MEGA: превышен лимит трафика — подождите и повторите, или войдите в Настройки → Хосты → MEGA. Предпочитайте Pixeldrain или DataNodes (с API-ключом), если есть.',
+
+  'error.vikingfile.invalidUrl': 'Неверный URL VikingFile',
+  'error.vikingfile.missingHash': 'В URL VikingFile отсутствует хеш файла',
+  'error.vikingfile.notFound': 'VikingFile: файл не найден или истёк',
+  'error.vikingfile.needsCaptcha':
+    'VikingFile: не поддерживается в приложении (Cloudflare Turnstile) — используйте кнопку «Браузер»',
+  'error.vikingfile.captchaTimeout':
+    'VikingFile: не поддерживается в приложении (Cloudflare Turnstile) — используйте кнопку «Браузер»',
+  'error.vikingfile.generic': 'VikingFile: {detail}',
+  'error.vikingfile.unsupported':
+    'VikingFile: не поддерживается в приложении (Cloudflare Turnstile) — используйте кнопку «Браузер»',
 
   // Library install move
   'error.mover.oldMissing': 'Старая установка не существует: {path}',

@@ -1,12 +1,11 @@
 use super::super::types::ResolveResult;
 use super::super::util::{percent_decode_lossy, urlencode};
 use crate::error::AppError;
-use crate::sidecar::SidecarClient;
 use serde_json::json;
 use tauri::AppHandle;
 
+/// DataNodes — API key only. Free tier is Cloudflare Turnstile and is not automated.
 pub(crate) async fn resolve_datanodes(
-    sidecar: &SidecarClient,
     http: &reqwest::Client,
     app: &AppHandle,
     url: &str,
@@ -21,75 +20,19 @@ pub(crate) async fn resolve_datanodes(
         });
     };
 
-    if let Some(key) = api_key.map(str::trim).filter(|k| !k.is_empty()) {
-        match resolve_datanodes_api(http, app, url, &code, key, label).await {
-            Ok(res @ ResolveResult::Direct { .. }) => return Ok(res),
-            Err(e) => return Err(e),
-            Ok(ResolveResult::NeedsBrowser { .. }) => {
-                crate::dev_debug::log(
-                    Some(app),
-                    "datanodes",
-                    format!("API miss for {code}, trying playwright guest"),
-                );
-            }
-            Ok(ResolveResult::ChooseFile { .. }) => {
-                return Err(AppError::keyed("error.datanodes.multiFile"));
-            }
-        }
-        return resolve_datanodes_playwright(sidecar, app, url, label).await;
-    }
+    let Some(key) = api_key.map(str::trim).filter(|k| !k.is_empty()) else {
+        crate::dev_debug::log(
+            Some(app),
+            "datanodes",
+            format!("no API key for {code} → needs_browser"),
+        );
+        return Ok(ResolveResult::NeedsBrowser {
+            url: url.to_string(),
+            host: label.into(),
+        });
+    };
 
-    // Free tier needs ad pop-ups that headless Chromium cannot complete. Skip
-    // the multi-minute guest wait and open the interactive browser flow instead.
-    crate::dev_debug::log(
-        Some(app),
-        "datanodes",
-        format!("no API key for {code} → needs_browser (guest ads unsupported)"),
-    );
-    Ok(ResolveResult::NeedsBrowser {
-        url: url.to_string(),
-        host: label.into(),
-    })
-}
-
-async fn resolve_datanodes_playwright(
-    sidecar: &SidecarClient,
-    app: &AppHandle,
-    url: &str,
-    label: &str,
-) -> Result<ResolveResult, AppError> {
-    match sidecar.resolve_datanodes(url).await {
-        Ok(res) => {
-            let direct_url = res.direct_url;
-            let file_name = res.file_name;
-            let file_size = res.file_size;
-            crate::dev_debug::log(
-                Some(app),
-                "datanodes",
-                format!("ok (playwright) â†’ {file_name} ({direct_url})"),
-            );
-            Ok(ResolveResult::Direct {
-                url: direct_url,
-                file_name,
-                file_size,
-                expected_sha256: None,
-                extra_headers: Vec::new(),
-            })
-        }
-        Err(e) => {
-            // Guest Playwright cannot finish ad-gated free downloads; fall back
-            // to the interactive browser window instead of failing the row.
-            crate::dev_debug::log_warn(
-                Some(app),
-                "datanodes",
-                format!("playwright failed → needs_browser: {e}"),
-            );
-            Ok(ResolveResult::NeedsBrowser {
-                url: url.to_string(),
-                host: label.into(),
-            })
-        }
-    }
+    resolve_datanodes_api(http, app, url, &code, key, label).await
 }
 
 async fn resolve_datanodes_api(
@@ -105,16 +48,12 @@ async fn resolve_datanodes_api(
         urlencode(code),
         urlencode(key)
     );
-    let raw = http
-        .get(&dl_url)
-        .send()
-        .await
-        .map_err(|e| {
-            AppError::keyed_vars(
-                "error.datanodes.generic",
-                json!({ "detail": format!("direct_link http: {e}") }),
-            )
-        })?;
+    let raw = http.get(&dl_url).send().await.map_err(|e| {
+        AppError::keyed_vars(
+            "error.datanodes.generic",
+            json!({ "detail": format!("direct_link http: {e}") }),
+        )
+    })?;
     let http_status = raw.status();
     let resp: serde_json::Value = raw.json().await.map_err(|e| {
         AppError::keyed_vars(
@@ -139,7 +78,8 @@ async fn resolve_datanodes_api(
         let key_problem = http_status.as_u16() == 401
             || http_status.as_u16() == 403
             || api_msg.to_ascii_lowercase().contains("key")
-            || api_msg.to_ascii_lowercase().contains("auth");
+            || api_msg.to_ascii_lowercase().contains("auth")
+            || api_msg.to_ascii_lowercase().contains("not allowed");
         if key_problem {
             return Err(AppError::keyed_vars(
                 "error.datanodes.badKey",
@@ -188,7 +128,7 @@ async fn resolve_datanodes_api(
     crate::dev_debug::log(
         Some(app),
         "datanodes",
-        format!("ok (API) â†’ {file_name} ({direct_url})"),
+        format!("ok (API) → {file_name} ({direct_url})"),
     );
     Ok(ResolveResult::Direct {
         url: direct_url.to_string(),
@@ -199,8 +139,6 @@ async fn resolve_datanodes_api(
     })
 }
 
-/// Best-effort lookup of a DataNodes file's display name via `/api/file/info`.
-/// Returns `None` on any error so the caller can fall back to the URL segment.
 async fn datanodes_file_name(http: &reqwest::Client, code: &str, key: &str) -> Option<String> {
     let info_url = format!(
         "https://datanodes.to/api/file/info?file_code={}&key={}",
@@ -220,7 +158,6 @@ async fn datanodes_file_name(http: &reqwest::Client, code: &str, key: &str) -> O
         .filter(|s| !s.is_empty())
 }
 
-/// Pull a human-readable file name from the URL path, if present.
 fn datanodes_file_name_from_url(url: &str) -> Option<String> {
     let path = url.split(['?', '#']).next()?;
     let name = path.rsplit('/').next()?;
@@ -230,10 +167,6 @@ fn datanodes_file_name_from_url(url: &str) -> Option<String> {
     percent_decode_lossy(name).filter(|s| !s.is_empty())
 }
 
-/// Pull the DataNodes file code out of a link. Handles the canonical
-/// `datanodes.to/<code>`, the download/`d` variants and any trailing filename
-/// segment: the code is the first path segment that looks like an XFileSharing
-/// short code (alphanumeric, ~10-15 chars).
 fn datanodes_file_code(url: &str) -> Option<String> {
     let path = url
         .splitn(4, '/')
@@ -249,7 +182,6 @@ fn datanodes_file_code(url: &str) -> Option<String> {
             && s.chars().all(|c| c.is_ascii_alphanumeric())
             && s.chars().any(|c| c.is_ascii_digit())
     };
-    // Skip routing prefixes, then take the first code-shaped segment.
     segs.iter()
         .filter(|s| !matches!(**s, "d" | "download" | "f" | "file" | "embed"))
         .find(|s| is_code(s))

@@ -1,14 +1,39 @@
 import type { Browser } from 'playwright';
+import fs from 'node:fs';
 import os from 'node:os';
 import path from 'node:path';
 
 let sharedBrowser: Browser | null = null;
 
-/** Dev: cache browsers under %LOCALAPPDATA%/f95-app so Chromium logs don't touch src-tauri. */
+/** Prefer an existing Chromium cache; avoid empty dirs that break launches. */
 function ensurePlaywrightBrowsersPath(): void {
-  if (process.env.PLAYWRIGHT_BROWSERS_PATH) return;
+  if (process.env.PLAYWRIGHT_BROWSERS_PATH) {
+    if (playwrightBrowsersReady(process.env.PLAYWRIGHT_BROWSERS_PATH)) return;
+    // Env pointed at an empty/stale folder — fall through to a real cache.
+    delete process.env.PLAYWRIGHT_BROWSERS_PATH;
+  }
   const base = process.env.LOCALAPPDATA || path.join(os.homedir(), 'AppData', 'Local');
-  process.env.PLAYWRIGHT_BROWSERS_PATH = path.join(base, 'f95-app', 'ms-playwright');
+  const candidates = [
+    path.join(base, 'f95-app', 'ms-playwright'),
+    path.join(base, 'ms-playwright'),
+  ];
+  for (const dir of candidates) {
+    if (playwrightBrowsersReady(dir)) {
+      process.env.PLAYWRIGHT_BROWSERS_PATH = dir;
+      return;
+    }
+  }
+  // Default install target for `npx playwright install` in this app.
+  process.env.PLAYWRIGHT_BROWSERS_PATH = candidates[0];
+}
+
+function playwrightBrowsersReady(dir: string): boolean {
+  try {
+    if (!fs.existsSync(dir)) return false;
+    return fs.readdirSync(dir).some((name) => name.startsWith('chromium-'));
+  } catch {
+    return false;
+  }
 }
 
 export async function getPlaywrightBrowser(): Promise<Browser> {

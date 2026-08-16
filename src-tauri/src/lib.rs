@@ -22,6 +22,8 @@ mod save_migration;
 mod shortcuts;
 mod sidecar;
 mod uploadhaven;
+#[cfg(windows)]
+mod win_job;
 
 use commands::{
     append_app_log, build_state, check_network, close_captcha_window, complete_login,
@@ -289,21 +291,22 @@ pub fn run() {
         .build(tauri::generate_context!())
         .expect("error while running tauri application")
         .run(|app_handle, event| {
-            if let RunEvent::Exit = event {
-                // Tauri's main loop has returned and the tokio runtime is
-                // about to be torn down. `kill_on_drop(true)` set during
-                // spawn is unreliable here — the runtime dies before our
-                // AppState's destructors run, leaving the sidecar process
-                // orphaned. Explicitly call TerminateProcess now while we
-                // still own the Child handle.
-                if let Some(state) = app_handle.try_state::<AppState>() {
-                    // We can't await across the FFI boundary here. The
-                    // sidecar's `take()` is best-effort: if the lock is
-                    // already held (mid-RPC), kill_on_drop catches it.
-                    if let Ok(mut guard) = state.sidecar.try_lock() {
-                        if let Some(sidecar) = guard.take() {
-                            sidecar.kill_now();
-                        }
+            // ExitRequested fires before Ctrl+C fully tears us down; Exit is
+            // the last chance. On Windows the sidecar also sits in a
+            // kill-on-close job so hard STATUS_CONTROL_C_EXIT still reaps Node.
+            let should_kill = matches!(
+                event,
+                RunEvent::ExitRequested { .. } | RunEvent::Exit
+            );
+            if !should_kill {
+                return;
+            }
+            if let Some(state) = app_handle.try_state::<AppState>() {
+                // Can't await here. take() is best-effort; job/kill_on_drop
+                // covers the mid-RPC lock case.
+                if let Ok(mut guard) = state.sidecar.try_lock() {
+                    if let Some(sidecar) = guard.take() {
+                        sidecar.kill_now();
                     }
                 }
             }

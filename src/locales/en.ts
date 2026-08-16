@@ -402,6 +402,9 @@ const en: Record<string, string> = {
   'downloads.captcha.hint': 'A small window will open. Ignore ad popups — only complete Google reCAPTCHA if shown.',
   'downloads.hint.noApiKey': 'No API key',
   'downloads.hint.noApiKey.title': 'This host needs an API key in Settings → Hosts, or pick another provider',
+  'downloads.hint.unsupported': 'Unsupported',
+  'downloads.hint.unsupported.title':
+    'In-app download is not supported for this host (Cloudflare Turnstile). Open the link in your browser, or pick another provider',
   'downloads.action.changeProvider': 'Change provider',
   'downloads.action.changeProvider.title': 'Cancel this download and choose another host',
   'downloads.changeProvider.notInLibrary': 'Add this game to your library first to change provider.',
@@ -531,7 +534,7 @@ const en: Record<string, string> = {
   'settings.hosts.megaHelp': 'How to connect MEGA?',
   'settings.hosts.megaHelp.intro': 'Public mega.nz/file and mega.nz/folder links download without an account.',
   'settings.hosts.megaHelp.login': 'Enter your MEGA email and password, then click Sign in.',
-  'settings.hosts.megaHelp.optional': 'The session is stored locally for higher download limits. Use Verify to check storage usage.',
+  'settings.hosts.megaHelp.optional': 'The session is stored locally for higher download limits (helps avoid 509 bandwidth errors). Use Verify to check storage usage.',
   'settings.hosts.uhDesc': 'UploadHaven Pro account to skip the 15s wait and download faster.',
   'settings.hosts.uhEmail': 'Email',
   'settings.hosts.uhEmailPlaceholder': 'you@email.com',
@@ -556,7 +559,8 @@ const en: Record<string, string> = {
   'settings.hosts.datanodesKey': 'API key',
   'settings.hosts.datanodesKeyPlaceholder': 'Your DataNodes API key',
   'settings.hosts.datanodesHelp': 'How to connect DataNodes?',
-  'settings.hosts.datanodesHelp.intro': 'Without a key, the app tries the free download via headless browser. If that fails (ads), configure an API key.',
+  'settings.hosts.datanodesHelp.intro':
+    'In-app DataNodes downloads need a personal API key. Free Cloudflare Turnstile downloads are not automated — without a key, use the Browser button.',
   'settings.hosts.datanodesHelp.key': 'Generate a personal API key from',
   'settings.hosts.datanodesHelp.note': 'The key resolves links via the DataNodes API. Use Verify to confirm it works.',
   'settings.hosts.configured': 'CONFIGURED',
@@ -1139,8 +1143,11 @@ const en: Record<string, string> = {
   'error.datanodes.invalidUrl': 'Invalid DataNodes URL',
   'error.datanodes.notFound': 'DataNodes: file not found or expired',
   'error.datanodes.noButton': 'DataNodes: download button not found',
-  'error.datanodes.needsAds': 'DataNodes: free download requires ads in the browser. Set an API key in Settings → Hosts → DataNodes (datanodes.to/account).',
-  'error.datanodes.timeout': 'DataNodes: timed out preparing download — try again or set an API key',
+  'error.datanodes.needsAds':
+    'DataNodes: free Turnstile downloads are unsupported in-app. Set an API key in Settings → Hosts → DataNodes (datanodes.to/account), or use the Browser button.',
+  'error.datanodes.needsCaptcha':
+    'DataNodes: free Turnstile downloads are unsupported in-app. Set an API key in Settings → Hosts → DataNodes, or use the Browser button.',
+  'error.datanodes.timeout': 'DataNodes: timed out — set an API key in Settings → Hosts → DataNodes, or use the Browser button',
   'error.datanodes.generic': 'DataNodes: {detail}',
   'error.datanodes.multiFile': 'DataNodes: multi-file folders are not supported',
   'error.datanodes.badKey': 'DataNodes: API key rejected ({detail}). Check Settings → Hosts → DataNodes → Verify.',
@@ -1238,6 +1245,20 @@ const en: Record<string, string> = {
   'error.mega.invalidUrl':
     'MEGA: invalid URL format — link must be https://mega.nz/file/... or /folder/...',
   'error.mega.noFiles': 'MEGA: no files found at this link',
+  'error.mega.bandwidth':
+    'MEGA: bandwidth limit exceeded — wait and retry, or sign in under Settings → Hosts → MEGA for higher limits. Prefer Pixeldrain or DataNodes (with API key) when available.',
+
+  // VikingFile
+  'error.vikingfile.invalidUrl': 'Invalid VikingFile URL',
+  'error.vikingfile.missingHash': 'VikingFile URL missing file hash',
+  'error.vikingfile.notFound': 'VikingFile: file not found or expired',
+  'error.vikingfile.needsCaptcha':
+    'VikingFile: unsupported in-app (Cloudflare Turnstile) — use the Browser button',
+  'error.vikingfile.captchaTimeout':
+    'VikingFile: unsupported in-app (Cloudflare Turnstile) — use the Browser button',
+  'error.vikingfile.generic': 'VikingFile: {detail}',
+  'error.vikingfile.unsupported':
+    'VikingFile: unsupported in-app (Cloudflare Turnstile) — use the Browser button',
 
   // Library install move
   'error.mover.oldMissing': 'Old install does not exist: {path}',

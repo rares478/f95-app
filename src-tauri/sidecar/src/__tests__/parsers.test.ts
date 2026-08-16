@@ -37,6 +37,10 @@ describe('classifyHost', () => {
       host: 'vikingfile',
       category: 'direct',
     });
+    expect(classifyHost('https://vik1ngfile.site/f/abc123')).toEqual({
+      host: 'vikingfile',
+      category: 'direct',
+    });
   });
 
   it('classifies F95 masked URLs by embedded host', () => {
@@ -113,6 +117,14 @@ describe('datanodes', () => {
     const parsed = parseDatanodesUrl('https://datanodes.to/abc1234567/MyFile.zip');
     expect(parsed.code).toBe('abc1234567');
     expect(parsed.fileName).toBe('MyFile.zip');
+  });
+});
+
+describe('vikingfile', () => {
+  it('parses hash from vikingfile and mirror URLs', async () => {
+    const { parseVikingfileUrl } = await import('../domain/resolvers/vikingfile');
+    expect(parseVikingfileUrl('https://vikingfile.com/f/A0N4oHXRDy').hash).toBe('A0N4oHXRDy');
+    expect(parseVikingfileUrl('https://vik1ngfile.site/f/A0N4oHXRDy').hash).toBe('A0N4oHXRDy');
   });
 });
 

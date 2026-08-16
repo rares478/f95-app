@@ -10,6 +10,7 @@ import {
   canChangeDownloadProvider,
   hostNeedsApiKeyHint,
 } from '../../lib/downloadLibrarySync';
+import { STREAMABLE_HOSTS } from '../../lib/downloadHosts';
 import type { DownloadProgress, DownloadRow } from '../../types/download';
 import {
   formatBytes,
@@ -173,6 +174,11 @@ export function DownloadHistoryRow({
   const captchaHost = supportsCaptchaWindow(row.host);
   const showApiKeyHint =
     row.state === 'needs_browser' && hostNeedsApiKeyHint(row.host);
+  const showUnsupportedHint =
+    row.state === 'needs_browser' &&
+    !captchaHost &&
+    !showApiKeyHint &&
+    !STREAMABLE_HOSTS.has(row.host.trim().toLowerCase());
   const showChangeProvider =
     !!onChangeProvider && canChangeDownloadProvider(row);
   const date = row.finishedAt
@@ -223,6 +229,14 @@ export function DownloadHistoryRow({
             title={t('downloads.hint.noApiKey.title')}
           >
             {t('downloads.hint.noApiKey')}
+          </span>
+        )}
+        {showUnsupportedHint && (
+          <span
+            className="dl-pill dl-pill-unsupported"
+            title={t('downloads.hint.unsupported.title')}
+          >
+            {t('downloads.hint.unsupported')}
           </span>
         )}
       </span>

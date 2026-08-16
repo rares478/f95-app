@@ -369,6 +369,9 @@ const de: Record<string, string> = {
   'downloads.captcha.failed': 'Fortsetzen fehlgeschlagen: {error}',
   'downloads.hint.noApiKey': 'Kein API-Schlüssel',
   'downloads.hint.noApiKey.title': 'Dieser Host braucht einen API-Schlüssel unter Einstellungen → Hosts, oder wähle einen anderen Anbieter',
+  'downloads.hint.unsupported': 'Nicht unterstützt',
+  'downloads.hint.unsupported.title':
+    'In-App-Download für diesen Host nicht möglich (Cloudflare Turnstile). Link im Browser öffnen oder anderen Anbieter wählen',
   'downloads.action.changeProvider': 'Anbieter wechseln',
   'downloads.action.changeProvider.title': 'Diesen Download abbrechen und einen anderen Host wählen',
   'downloads.changeProvider.notInLibrary': 'Füge dieses Spiel zuerst zur Bibliothek hinzu, um den Anbieter zu wechseln.',
@@ -523,7 +526,8 @@ const de: Record<string, string> = {
   'settings.hosts.datanodesKey': 'API-Schlüssel',
   'settings.hosts.datanodesKeyPlaceholder': 'Dein DataNodes-API-Schlüssel',
   'settings.hosts.datanodesHelp': 'DataNodes verbinden?',
-  'settings.hosts.datanodesHelp.intro': 'Ohne Schlüssel versucht die App den Gratis-Download per Headless-Browser. Wenn das fehlschlägt (Werbung), API-Schlüssel einrichten.',
+  'settings.hosts.datanodesHelp.intro':
+    'In-App-Downloads von DataNodes brauchen einen persönlichen API-Schlüssel. Kostenlose Cloudflare-Turnstile-Downloads werden nicht automatisiert — ohne Schlüssel den Browser-Button nutzen.',
   'settings.hosts.datanodesHelp.key': 'Erstelle einen persönlichen API-Schlüssel unter',
   'settings.hosts.datanodesHelp.note': 'Der Schlüssel löst Links über die DataNodes-API auf. Nutze Prüfen, um ihn zu testen.',
   'settings.hosts.configured': 'KONFIGURIERT',
@@ -1103,8 +1107,9 @@ const de: Record<string, string> = {
   'error.datanodes.invalidUrl': 'Ungültige DataNodes-URL',
   'error.datanodes.notFound': 'DataNodes: Datei nicht gefunden oder abgelaufen',
   'error.datanodes.noButton': 'DataNodes: Download-Button nicht gefunden',
-  'error.datanodes.needsAds': 'DataNodes: kostenloser Download erfordert Werbung im Browser. Lege einen API-Schlüssel unter Einstellungen → Hosts → DataNodes fest (datanodes.to/account).',
-  'error.datanodes.timeout': 'DataNodes: Zeitüberschreitung bei der Download-Vorbereitung — erneut versuchen oder API-Schlüssel setzen',
+  'error.datanodes.needsAds':
+    'DataNodes: kostenlose Turnstile-Downloads werden in der App nicht unterstützt. API-Schlüssel unter Einstellungen → Hosts → DataNodes setzen (datanodes.to/account) oder Browser-Button nutzen.',
+  'error.datanodes.timeout': 'DataNodes: Zeitüberschreitung — API-Schlüssel unter Einstellungen → Hosts → DataNodes setzen oder Browser-Button nutzen',
   'error.datanodes.generic': 'DataNodes: {detail}',
   'error.datanodes.multiFile': 'DataNodes: Ordner mit mehreren Dateien werden nicht unterstützt',
   'error.datanodes.badKey': 'DataNodes: API-Schlüssel abgelehnt ({detail}). Prüfe unter Einstellungen → Hosts → DataNodes → Prüfen.',
@@ -1202,6 +1207,19 @@ const de: Record<string, string> = {
   'error.mega.invalidUrl':
     'MEGA: ungültiges URL-Format — Link muss https://mega.nz/file/... oder /folder/... sein',
   'error.mega.noFiles': 'MEGA: keine Dateien unter diesem Link gefunden',
+  'error.mega.bandwidth':
+    'MEGA: Bandbreitenlimit erreicht — später erneut versuchen oder unter Einstellungen → Hosts → MEGA anmelden. Pixeldrain oder DataNodes (mit API-Schlüssel) bevorzugen.',
+
+  'error.vikingfile.invalidUrl': 'Ungültige VikingFile-URL',
+  'error.vikingfile.missingHash': 'VikingFile-URL ohne Datei-Hash',
+  'error.vikingfile.notFound': 'VikingFile: Datei nicht gefunden oder abgelaufen',
+  'error.vikingfile.needsCaptcha':
+    'VikingFile: in der App nicht unterstützt (Cloudflare Turnstile) — Browser-Button nutzen',
+  'error.vikingfile.captchaTimeout':
+    'VikingFile: in der App nicht unterstützt (Cloudflare Turnstile) — Browser-Button nutzen',
+  'error.vikingfile.generic': 'VikingFile: {detail}',
+  'error.vikingfile.unsupported':
+    'VikingFile: in der App nicht unterstützt (Cloudflare Turnstile) — Browser-Button nutzen',
 
   // Library install move
   'error.mover.oldMissing': 'Alte Installation existiert nicht: {path}',
