@@ -213,18 +213,25 @@ fn classify_file(
         let bytes = fs::read(path).map_err(|e| {
             AppError::Io(format!("failed to read {}: {e}", path.display()))
         })?;
-        if !is_json_object_or_array(&bytes) {
+        if is_json_object_or_array(&bytes) {
+            ("json", false)
+        } else if name_suggests_save(name) {
+            // Custom XOR / binary payloads often keep a .json extension (e.g. Utage).
+            ("json", true)
+        } else {
             return Ok(None);
         }
-        ("json", false)
     } else if ext == "sav" || name_suggests_save(name) {
         let bytes = fs::read(path).map_err(|e| {
             AppError::Io(format!("failed to read {}: {e}", path.display()))
         })?;
-        if !is_json_object_or_array(&bytes) {
+        if is_json_object_or_array(&bytes) {
+            ("json", false)
+        } else if name_suggests_save(name) {
+            ("json", true)
+        } else {
             return Ok(None);
         }
-        ("json", false)
     } else {
         return Ok(None);
     };
@@ -259,7 +266,7 @@ fn is_json_object_or_array(bytes: &[u8]) -> bool {
     }
 }
 
-fn name_suggests_save(name: &str) -> bool {
+pub(crate) fn name_suggests_save(name: &str) -> bool {
     let lower = name.to_ascii_lowercase();
     lower.starts_with("save") || lower.contains("save") || lower.starts_with("savefile")
 }
@@ -393,6 +400,37 @@ mod tests {
         assert!(slots.iter().any(|s| s.key == "localLow:keep.json"));
         assert!(slots.iter().all(|s| !s.key.contains("Player")));
         assert!(slots.iter().all(|s| !s.display_name.ends_with(".log")));
+    }
+
+    #[test]
+    fn includes_encrypted_save_named_json() {
+        let root = tempfile_root("xor-json");
+        let install = root.join("install");
+        fs::create_dir_all(install.join("Widget_Data")).unwrap();
+
+        let local_low_base = root.join("LocalLow");
+        let ll = local_low_base.join("Acme").join("Widget");
+        fs::create_dir_all(&ll).unwrap();
+        // Binary payload with save_*.json name — must still count as a LocalLow candidate.
+        fs::write(ll.join("save_1.json"), &[0x37u8, 0x73, 0x4c, 0x41, 0x00, 0x01]).unwrap();
+        fs::write(ll.join("random.json"), &[0x01u8, 0x02, 0x03]).unwrap();
+
+        let meta = UnityMeta {
+            developer: Some("Acme".to_string()),
+            title: Some("Widget".to_string()),
+        };
+
+        let slots = list_slots(&install, &meta, &local_low_base).unwrap();
+        let slot = slots
+            .iter()
+            .find(|s| s.key == "localLow:save_1.json")
+            .expect("encrypted save_1.json should be listed");
+        assert_eq!(slot.kind, "json");
+        assert!(slot.encrypted);
+        assert!(
+            slots.iter().all(|s| s.key != "localLow:random.json"),
+            "non-save-named binary .json must stay excluded"
+        );
     }
 
     #[test]

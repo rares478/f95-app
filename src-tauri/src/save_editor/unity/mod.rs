@@ -4,6 +4,7 @@ pub mod discover;
 pub mod es3;
 pub mod files;
 pub mod json_save;
+pub mod xor_json;
 
 use crate::error::AppError;
 use crate::save_editor::json_tree::{apply_patches_json, json_to_tree};
@@ -15,6 +16,9 @@ use crate::save_editor::{
     restore_backup,
 };
 use json_save::{parse_json_value, write_bytes_atomic, write_json_file_atomic};
+use xor_json::{
+    collect_xor_key_candidates, decrypt_xor_json_with_keys, xor_encrypt_json,
+};
 use std::fs;
 use std::path::{Path, PathBuf};
 
@@ -54,7 +58,7 @@ pub fn read(
         ))
     })?;
 
-    match classify_save(&live, &bytes)? {
+    match classify_save(install, &live, &bytes, password)? {
         SaveKind::PlainJson(text) => {
             let value = parse_json_value(&text)?;
             Ok(UnitySaveReadResult {
@@ -80,6 +84,19 @@ pub fn read(
                 })
             }
         },
+        SaveKind::XorJson { text, .. } => {
+            let value = parse_json_value(&text)?;
+            Ok(UnitySaveReadResult {
+                tree: Some(json_to_tree(&value)),
+                needs_password: false,
+                encrypted: true,
+            })
+        }
+        SaveKind::XorNeedsPassword => Ok(UnitySaveReadResult {
+            tree: None,
+            needs_password: true,
+            encrypted: true,
+        }),
     }
 }
 
@@ -104,7 +121,7 @@ pub fn write(
         ))
     })?;
 
-    let value = match classify_save(&live, &bytes)? {
+    let value = match classify_save(install, &live, &bytes, password)? {
         SaveKind::PlainJson(text) => {
             let mut value = parse_json_value(&text)?;
             apply_patches_json(&mut value, patches)?;
@@ -125,6 +142,27 @@ pub fn write(
             let enc = encrypt_es3(&json, pw)?;
             write_bytes_atomic(&live, &enc)?;
             value
+        }
+        SaveKind::XorJson { text, key } => {
+            let mut value = parse_json_value(&text)?;
+            apply_patches_json(&mut value, patches)?;
+            let json = if text.contains('\n') {
+                serde_json::to_string_pretty(&value)
+            } else {
+                serde_json::to_string(&value)
+            }
+            .map_err(|e| {
+                AppError::Io(format!(
+                    "failed to serialize unity save {}: {e}",
+                    live.display()
+                ))
+            })?;
+            let enc = xor_encrypt_json(&json, &key)?;
+            write_bytes_atomic(&live, &enc)?;
+            value
+        }
+        SaveKind::XorNeedsPassword => {
+            return Err(AppError::keyed(BAD_PASSWORD));
         }
     };
 
@@ -210,9 +248,17 @@ fn join_rel(root: &Path, rel: &str) -> PathBuf {
 enum SaveKind {
     PlainJson(String),
     EncryptedEs3,
+    /// XOR-cycled JSON; `key` is the key that successfully decrypted.
+    XorJson { text: String, key: Vec<u8> },
+    XorNeedsPassword,
 }
 
-fn classify_save(path: &Path, bytes: &[u8]) -> Result<SaveKind, AppError> {
+fn classify_save(
+    install: &Path,
+    path: &Path,
+    bytes: &[u8],
+    password: Option<&str>,
+) -> Result<SaveKind, AppError> {
     let ext = path
         .extension()
         .and_then(|e| e.to_str())
@@ -224,11 +270,35 @@ fn classify_save(path: &Path, bytes: &[u8]) -> Result<SaveKind, AppError> {
             Es3Payload::Encrypted => SaveKind::EncryptedEs3,
         });
     }
-    let text = std::str::from_utf8(bytes)
-        .map_err(|_| AppError::keyed("error.saveEditor.parse"))?
-        .to_string();
-    let _ = parse_json_value(&text)?;
-    Ok(SaveKind::PlainJson(text))
+
+    // Plain UTF-8 JSON?
+    if let Ok(text) = std::str::from_utf8(bytes) {
+        if parse_json_value(text).is_ok() {
+            return Ok(SaveKind::PlainJson(text.to_string()));
+        }
+    }
+
+    // Custom repeating-XOR JSON (e.g. Lyla / hard-coded SecretKey in Assembly-CSharp).
+    let key_bufs = collect_xor_key_candidates(install, password);
+    let key_refs: Vec<&[u8]> = key_bufs.iter().map(|k| k.as_slice()).collect();
+    if let Some((text, key)) = decrypt_xor_json_with_keys(bytes, key_refs) {
+        return Ok(SaveKind::XorJson { text, key });
+    }
+
+    // Looks like a save name / non-JSON payload → ask for password (or fail later).
+    let name = path
+        .file_name()
+        .and_then(|n| n.to_str())
+        .unwrap_or("");
+    if files::name_suggests_save(name) || password.is_some() {
+        // Password was tried (included in candidates) and failed.
+        if password.is_some() {
+            return Err(AppError::keyed(BAD_PASSWORD));
+        }
+        return Ok(SaveKind::XorNeedsPassword);
+    }
+
+    Err(AppError::keyed("error.saveEditor.parse"))
 }
 
 #[cfg(test)]
@@ -414,5 +484,68 @@ mod tests {
 
         let listed = list_backups(&backups, "thread1", slot).unwrap();
         assert_eq!(listed.len(), 1, "restore must not create another backup");
+    }
+
+    #[test]
+    fn xor_json_auto_unlocks_via_assembly_secret_key() {
+        use crate::save_editor::unity::xor_json::xor_encrypt_json;
+
+        let root = tempfile_root("xor-auto");
+        let install = unity_install(&root);
+        let managed = install.join("Widget_Data").join("Managed");
+        fs::create_dir_all(&managed).unwrap();
+
+        // Minimal UTF-16LE blob containing the secret (as in Assembly-CSharp.dll).
+        let mut dll = vec![0u8; 8];
+        for c in b"LylaSecretKey2025" {
+            dll.push(*c);
+            dll.push(0);
+        }
+        dll.extend_from_slice(&[0, 0, 0, 0]);
+        fs::write(managed.join("Assembly-CSharp.dll"), &dll).unwrap();
+
+        let json = "{\n    \"gold\": 50\n}";
+        let enc = xor_encrypt_json(json, b"LylaSecretKey2025").unwrap();
+        fs::write(install.join("Save").join("save_1.json"), &enc).unwrap();
+
+        let slot = "install:Save/save_1.json";
+        let unlocked = read(&install, &meta(), slot, None).unwrap();
+        assert!(unlocked.encrypted);
+        assert!(!unlocked.needs_password);
+        assert_eq!(
+            find(unlocked.tree.as_ref().unwrap(), "gold")
+                .unwrap()
+                .value,
+            Some(serde_json::json!(50))
+        );
+
+        let backups = root.join("save_backups");
+        let tree = write(
+            &backups,
+            "thread1",
+            &install,
+            &meta(),
+            slot,
+            &[RenpySavePatch {
+                path: "gold".into(),
+                value: serde_json::json!(123),
+            }],
+            None,
+        )
+        .unwrap();
+        assert_eq!(
+            find(&tree, "gold").unwrap().value,
+            Some(serde_json::json!(123))
+        );
+
+        let on_disk = fs::read(install.join("Save").join("save_1.json")).unwrap();
+        assert!(!on_disk.starts_with(b"{"));
+        let again = read(&install, &meta(), slot, None).unwrap();
+        assert_eq!(
+            find(again.tree.as_ref().unwrap(), "gold")
+                .unwrap()
+                .value,
+            Some(serde_json::json!(123))
+        );
     }
 }
