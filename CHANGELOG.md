@@ -15,6 +15,25 @@ together when cutting a release:
 
 ## [Unreleased]
 
+## [1.7.5] - 2026-08-17
+
+### Added
+- Unity Save Editor: discover saves under `%LocalLow%` and the game install, edit values in a tree with automatic backups.
+- Unity format support: Easy Save 3 (AES), plain and XOR-encrypted JSON, XML, Odin binary, Adventure Creator, .NET NRBF (BinaryFormatter), VNGINE, and Mystwood Manor encrypted profile saves.
+- Attach extra save folders manually when saves live outside the usual paths (Ren'Py, RPG Maker, and Unity).
+- Unity multi-install picker when several copies of the same game are on disk.
+- Encrypted Unity saves: password unlock in the editor; Easy Save 3 can auto-unlock from `ES3Defaults` when the game ships it.
+
+### Fixed
+- Ren'Py: Depths Revival-style labeled slots (`1-1-LT1.save`) and pickle parsing for complex dict/globals.
+- Ren'Py: only list zip-shaped `.save` files; skip zlib `persistent` blobs the editor cannot open yet.
+- Unity: list and unlock XOR-encrypted `save_*.json` files.
+- Unity: separate LocalLow vs install scan budgets so install-folder saves are not dropped on busy machines.
+- Save Editor no longer blocks while game detail metadata is prefetching.
+- MediaFire download links parse correctly regardless of HTML attribute order on the button tag.
+- Turnstile-protected hosts use API-only or in-browser flow as appropriate; clearer MEGA HTTP 509 errors.
+- App exits cleanly when choosing tray Quit or when the system tray is disabled.
+
 ## [1.7.4] - 2026-08-15
 
 ### Added
