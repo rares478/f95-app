@@ -21,6 +21,8 @@ export function normalizeBuzzheavierUrl(raw: string): string {
     host === 'www.buzzheavier.com' ||
     host === 'bzzhr.co' ||
     host === 'www.bzzhr.co' ||
+    host === 'bzzhr.to' ||
+    host === 'www.bzzhr.to' ||
     host === 'fuckingfast.net' ||
     host === 'www.fuckingfast.net' ||
     host === 'fuckingfast.co' ||

@@ -41,6 +41,10 @@ describe('classifyHost', () => {
       host: 'vikingfile',
       category: 'direct',
     });
+    expect(classifyHost('https://bzzhr.to/os0b8uzvpd47')).toEqual({
+      host: 'buzzheavier',
+      category: 'direct',
+    });
   });
 
   it('classifies F95 masked URLs by embedded host', () => {
@@ -108,6 +112,9 @@ describe('buzzheavier', () => {
   it('normalizes mirror URLs', () => {
     expect(normalizeBuzzheavierUrl('https://bzzhr.co/abc12345')).toBe(
       'https://buzzheavier.com/abc12345',
+    );
+    expect(normalizeBuzzheavierUrl('https://bzzhr.to/os0b8uzvpd47')).toBe(
+      'https://buzzheavier.com/os0b8uzvpd47',
     );
   });
 });

@@ -21,7 +21,7 @@ const PATTERNS: Pattern[] = [
   { host: 'workupload',    regex: /^(www\.)?workupload\.com$/i,                             category: 'direct' },
   { host: 'anonfiles',     regex: /^(www\.)?anonfiles\.com$/i,                              category: 'direct' },
   { host: 'datanodes',     regex: /^(www\.)?datanodes\.to$/i,                               category: 'direct' },
-  { host: 'buzzheavier',   regex: /^(www\.)?(buzzheavier\.com|bzzhr\.co|fuckingfast\.(net|co))$/i, category: 'direct' },
+  { host: 'buzzheavier',   regex: /^(www\.)?(buzzheavier\.com|bzzhr\.(co|to)|fuckingfast\.(net|co))$/i, category: 'direct' },
   { host: 'racaty',        regex: /^(www\.)?racaty\.(net|io)$/i,                            category: 'direct' },
   { host: 'uploadhaven',   regex: /^(www\.)?uploadhaven\.com$/i,                            category: 'direct' },
   { host: 'zippyshare',    regex: /^(www\.)?zippyshare\.com$/i,                             category: 'direct' },
