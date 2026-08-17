@@ -55,6 +55,17 @@ use commands::{
 use tauri::{Manager, RunEvent};
 use tauri_plugin_sql::{Builder as SqlBuilder, Migration, MigrationKind};
 
+/// SQLite file under `app_local_data_dir`. Dev builds use a separate DB so
+/// experimental migrations do not break the installed release database.
+/// Keep in sync with `DB_FILE` in `src/lib/db.ts`.
+fn sqlite_db_url() -> &'static str {
+    if cfg!(debug_assertions) {
+        "sqlite:f95app-dev.db"
+    } else {
+        "sqlite:f95app.db"
+    }
+}
+
 #[cfg_attr(mobile, tauri::mobile_entry_point)]
 pub fn run() {
     let migrations: Vec<Migration> = vec![
@@ -165,7 +176,7 @@ pub fn run() {
         .plugin(tauri_plugin_process::init())
         .plugin(
             SqlBuilder::default()
-                .add_migrations("sqlite:f95app.db", migrations)
+                .add_migrations(sqlite_db_url(), migrations)
                 .build(),
         )
         .plugin(

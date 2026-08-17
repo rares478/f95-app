@@ -1,6 +1,9 @@
 import Database from '@tauri-apps/plugin-sql';
 
-const DB_URL = 'sqlite:f95app.db';
+// Dev builds use a separate file so migrations from `tauri dev` do not touch
+// the release database. Keep in sync with `sqlite_db_url()` in src-tauri/src/lib.rs.
+const DB_FILE = import.meta.env.DEV ? 'f95app-dev.db' : 'f95app.db';
+const DB_URL = `sqlite:${DB_FILE}`;
 
 let cached: Database | null = null;
 let pending: Promise<Database> | null = null;
