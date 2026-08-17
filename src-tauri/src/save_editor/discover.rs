@@ -1,10 +1,11 @@
 //! Discover local Ren'Py saves under a game install path.
 //!
-//! Never looks at `%APPDATA%/RenPy` — only folders inside the install root.
+//! Never looks at `%APPDATA%/Roaming/RenPy` — only folders inside the install root.
 
 use crate::error::AppError;
 use crate::save_editor::types::{RenpyProbeResult, RenpySaveSlot};
-use std::fs;
+use std::fs::{self, File};
+use std::io::Read;
 use std::path::{Path, PathBuf};
 use std::time::SystemTime;
 
@@ -40,7 +41,6 @@ pub fn probe_renpy_install(install_path: &Path) -> RenpyProbeResult {
         saves_dir: saves_dir_str,
     }
 }
-
 fn has_rpa_in_game(install_path: &Path) -> bool {
     let game = install_path.join("game");
     let Ok(entries) = fs::read_dir(&game) else {
@@ -70,6 +70,9 @@ pub fn list_slots(saves_dir: &Path) -> Result<Vec<RenpySaveSlot>, AppError> {
         if !path.is_file() {
             continue;
         }
+        if !is_listable_save_file(&path) {
+            continue;
+        }
         let Some(name) = path.file_name().and_then(|n| n.to_str()) else {
             continue;
         };
@@ -95,9 +98,36 @@ pub fn list_slots(saves_dir: &Path) -> Result<Vec<RenpySaveSlot>, AppError> {
 }
 
 fn is_save_entry_name(name: &str) -> bool {
-    name == "persistent"
+    name.ends_with(".save")
         || name == "persistent.save"
-        || name.ends_with(".save")
+        || name == "persistent"
+}
+
+/// Skip zlib `persistent` blobs and other non-zip entries the editor cannot read yet.
+fn is_listable_save_file(path: &Path) -> bool {
+    if path
+        .extension()
+        .and_then(|e| e.to_str())
+        .is_some_and(|e| e.eq_ignore_ascii_case("save"))
+    {
+        return looks_like_zip_file(path);
+    }
+    if path
+        .file_name()
+        .and_then(|n| n.to_str())
+        .is_some_and(|n| n == "persistent" || n == "persistent.save")
+    {
+        return looks_like_zip_file(path);
+    }
+    false
+}
+
+fn looks_like_zip_file(path: &Path) -> bool {
+    let Ok(mut f) = File::open(path) else {
+        return false;
+    };
+    let mut buf = [0u8; 4];
+    f.read_exact(&mut buf).is_ok() && buf[0..2] == [0x50, 0x4B]
 }
 
 fn classify_slot_kind(name: &str) -> &'static str {
@@ -110,10 +140,25 @@ fn classify_slot_kind(name: &str) -> &'static str {
     if name.starts_with("quick-") {
         return "quick";
     }
-    if is_numeric_slot(name) {
+    if is_numeric_slot(name) || is_labeled_slot(name) {
         return "slot";
     }
     "other"
+}
+
+/// `1-1-LT1.save`, `2-3-foo.save`, …
+fn is_labeled_slot(name: &str) -> bool {
+    let Some(stem) = name.strip_suffix(".save") else {
+        return false;
+    };
+    let mut parts = stem.split('-');
+    let (Some(a), Some(b), Some(_)) = (parts.next(), parts.next(), parts.next()) else {
+        return false;
+    };
+    !a.is_empty()
+        && !b.is_empty()
+        && a.chars().all(|c| c.is_ascii_digit())
+        && b.chars().all(|c| c.is_ascii_digit())
 }
 
 fn is_numeric_slot(name: &str) -> bool {
@@ -172,13 +217,16 @@ mod tests {
         let root = tempfile_install();
         let dir = root.join("game/saves");
         std::fs::create_dir_all(&dir).unwrap();
-        std::fs::write(dir.join("1-1.save"), b"slot").unwrap();
-        std::fs::write(dir.join("auto-1.save"), b"auto").unwrap();
-        std::fs::write(dir.join("persistent"), b"pers").unwrap();
+        // Only zip-shaped `.save` files are listable (zlib `persistent` blobs are skipped).
+        let mut zip = vec![0x50, 0x4B, 0x03, 0x04];
+        zip.extend_from_slice(b"test");
+        std::fs::write(dir.join("1-1.save"), &zip).unwrap();
+        std::fs::write(dir.join("auto-1.save"), &zip).unwrap();
+        std::fs::write(dir.join("persistent.save"), &zip).unwrap();
         let slots = list_slots(&dir).unwrap();
         assert!(slots
             .iter()
-            .any(|s| s.key == "persistent" && s.kind == "persistent"));
+            .any(|s| s.key == "persistent.save" && s.kind == "persistent"));
         assert!(slots
             .iter()
             .any(|s| s.key == "auto-1.save" && s.kind == "auto"));

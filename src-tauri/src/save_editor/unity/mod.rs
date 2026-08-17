@@ -6,6 +6,7 @@ pub mod es3;
 pub mod es3_defaults;
 pub mod files;
 pub mod json_save;
+pub mod mystwood_xml;
 pub mod nrbf;
 pub mod odin;
 pub mod registry;
@@ -27,6 +28,10 @@ use ac_save::{apply_ac_patches, looks_like_ac_binary_save, parse_ac_to_json};
 use json_save::{parse_json_value, write_bytes_atomic, write_json_file_atomic};
 use nrbf::{looks_like_nrbf, parse_nrbf_to_json, write_nrbf_with_json};
 use odin::{apply_odin_patches, looks_like_odin_binary, parse_odin_to_json};
+use mystwood_xml::{
+    apply_mystwood_patches, looks_like_mystwood_encrypted_xml, mystwood_key_from_install,
+    parse_mystwood_to_json,
+};
 use vngine::{apply_vngine_patches, looks_like_vngine_save, parse_vngine_to_json};
 use xml_save::{apply_xml_patches, looks_like_xml_save, parse_xml_to_json};
 use xor_json::{
@@ -167,6 +172,14 @@ pub fn read(
                 encrypted: true,
             })
         }
+        SaveKind::MystwoodXml { key } => {
+            let value = parse_mystwood_to_json(&bytes, &key)?;
+            Ok(UnitySaveReadResult {
+                tree: Some(json_to_tree(&value)),
+                needs_password: false,
+                encrypted: true,
+            })
+        }
     }
 }
 
@@ -281,6 +294,11 @@ pub fn write(
         }
         SaveKind::Vngine => {
             let (out, value) = apply_vngine_patches(&bytes, patches)?;
+            write_bytes_atomic(&live, &out)?;
+            value
+        }
+        SaveKind::MystwoodXml { key } => {
+            let (out, value) = apply_mystwood_patches(&bytes, &key, patches)?;
             write_bytes_atomic(&live, &out)?;
             value
         }
@@ -405,6 +423,8 @@ enum SaveKind {
     Nrbf,
     /// Motkeyz VNGINE Base64+XOR pipe saves (`%LocalAppData%/VNGINE/.../*.save`).
     Vngine,
+    /// Mystwood Manor AES+Base64 XML (`profile/<name>/data_*.sav`).
+    MystwoodXml { key: String },
 }
 
 fn classify_save(
@@ -448,6 +468,13 @@ fn classify_save(
     // XML PlayerData / similar (Man of the House `.sav` in savegames/).
     if looks_like_xml_save(bytes) {
         return Ok(SaveKind::XmlSave);
+    }
+
+    // Mystwood Manor encrypted XML (`profile/.../data_*.sav`).
+    if looks_like_mystwood_encrypted_xml(bytes) {
+        return Ok(SaveKind::MystwoodXml {
+            key: mystwood_key_from_install(install),
+        });
     }
 
     // .NET BinaryFormatter (The Twist playerInfo.dat, etc.).

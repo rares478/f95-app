@@ -298,6 +298,7 @@ const ru: Record<string, string> = {
   'saveEditor.kind.xml': 'XML',
   'saveEditor.kind.nrbf': 'NRBF',
   'saveEditor.kind.vngine': 'VNGINE',
+  'saveEditor.kind.mystwood': 'Mystwood XML',
   'saveEditor.hasScreenshot': 'Есть скриншот',
   'saveEditor.unity.source.localLow': 'LocalLow',
   'saveEditor.unity.source.install': 'Установка',

@@ -679,6 +679,19 @@ mod tests {
     }
 
     #[test]
+    fn reads_depths_revival_roaming_save_if_present() {
+        let path = std::path::PathBuf::from(
+            r"C:\Users\Administrator\AppData\Roaming\RenPy\Depthsrevival-1599223329\1-1-LT1.save",
+        );
+        if !path.is_file() {
+            return;
+        }
+        let tree = read_save_tree(&path).expect("Depths revival zip+log parse");
+        let n = tree.children.as_ref().map(|c| c.len()).unwrap_or(0);
+        assert!(n > 10, "expected many store vars, got {n}");
+    }
+
+    #[test]
     fn flat_store_dotted_key_patches() {
         use serde_pickle::{HashableValue, Value};
         let mut map = std::collections::BTreeMap::new();

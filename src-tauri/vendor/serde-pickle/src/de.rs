@@ -38,6 +38,7 @@ enum Global {
     Frozenset, // builtins/__builtin__.frozenset
     Bytearray, // builtins/__builtin__.bytearray
     List,      // builtins/__builtin__.list
+    Dict,      // builtins/__builtin__.dict, collections.defaultdict, RevertableDict, …
     Int,       // builtins/__builtin__.int
     Encode,    // _codecs.encode
     Reconst,   // copy_reg._reconstructor
@@ -524,6 +525,10 @@ impl<R: Read> Deserializer<R> {
                             let _ = args;
                             self.stack.push(Value::Set(Vec::new()));
                         }
+                        Value::Global(Global::Dict) => {
+                            let _ = args;
+                            self.stack.push(Value::Dict(Vec::new()));
+                        }
                         _ => {
                             if self.options.keep_restore_state {
                                 self.stack.push(args);
@@ -1009,6 +1014,8 @@ impl<R: Read> Deserializer<R> {
             (b"__builtin__", b"set") | (b"builtins", b"set") => Value::Global(Global::Set),
             (b"__builtin__", b"frozenset") | (b"builtins", b"frozenset") => Value::Global(Global::Frozenset),
             (b"__builtin__", b"list") | (b"builtins", b"list") => Value::Global(Global::List),
+            (b"__builtin__", b"dict") | (b"builtins", b"dict") => Value::Global(Global::Dict),
+            (b"collections", b"defaultdict") => Value::Global(Global::Dict),
             (b"__builtin__", b"bytearray") | (b"builtins", b"bytearray") => Value::Global(Global::Bytearray),
             (b"__builtin__", b"int") | (b"builtins", b"int") => Value::Global(Global::Int),
             // Ren'Py rollback containers — treat like builtins so NEWOBJ+APPEND works.
@@ -1017,7 +1024,8 @@ impl<R: Read> Deserializer<R> {
             (b"renpy.python", b"RevertableSet")
             | (b"renpy.revertable", b"RevertableSet") => Value::Global(Global::Set),
             (b"renpy.python", b"RevertableDict")
-            | (b"renpy.revertable", b"RevertableDict") => Value::Global(Global::Other),
+            | (b"renpy.revertable", b"RevertableDict") => Value::Global(Global::Dict),
+            (b"renpy.revertable", b"CompressedList") => Value::Global(Global::List),
             _ => Value::Global(Global::Other),
         };
         Ok(value)
@@ -1072,6 +1080,12 @@ impl<R: Read> Deserializer<R> {
                 }
                 _ => self.error(ErrorCode::InvalidValue("int() arg".into())),
             },
+            Value::Global(Global::Dict) => {
+                // dict(), defaultdict(...), etc. — recover as an empty mapping stand-in.
+                let _ = argtuple;
+                self.stack.push(Value::Dict(Vec::new()));
+                Ok(())
+            }
             Value::Global(Global::Encode) => {
                 // Byte object encoded as _codecs.encode(x, 'latin1')
                 match argtuple.pop().map(|v| self.resolve(v)).transpose()? {
@@ -1106,14 +1120,13 @@ impl<R: Read> Deserializer<R> {
                 Ok(())
             }
             Value::Global(Global::Other) => {
-                // Anything else; just keep it on the stack as an opaque object.
-                // If it is a class object, it will get replaced later when the
-                // class is instantiated.
+                // Callable/class globals we do not model (ADVCharacter, Movie, PyExpr, …).
+                // Push an empty dict stand-in so BUILD/SETITEM can continue.
                 if self.options.keep_restore_state {
                     let result: Result<_> = argtuple.into_iter().map(|v| self.resolve(v)).collect();
                     self.stack.push(Value::Tuple(result?));
                 } else {
-                    self.stack.push(Value::Global(Global::Other));
+                    self.stack.push(Value::Dict(Vec::new()));
                 }
                 Ok(())
             }

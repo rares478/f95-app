@@ -44,6 +44,7 @@ export function slotKindLocaleKey(kind: string): string {
     case 'xml':
     case 'nrbf':
     case 'vngine':
+    case 'mystwood':
       return `saveEditor.kind.${kind}`;
     default:
       return 'saveEditor.kind.other';

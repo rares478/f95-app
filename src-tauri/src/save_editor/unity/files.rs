@@ -27,6 +27,8 @@ const INSTALL_NAMED_SUBDIRS: &[&str] = &[
     "SaveGames",
     "savegame",
     "SaveGame",
+    "profile",
+    "Profile",
 ];
 
 /// Opaque slot key: `localLow:rel` / `install:rel` (forward slashes).
@@ -288,6 +290,8 @@ fn classify_file(
         ("ac", false)
     } else if crate::save_editor::unity::xml_save::looks_like_xml_save(&bytes) {
         ("xml", false)
+    } else if crate::save_editor::unity::mystwood_xml::looks_like_mystwood_encrypted_xml(&bytes) {
+        ("mystwood", true)
     } else if should_consider_save_file(path, name, &ext) {
         // Extensionless / custom ES3 or XOR payloads (Kendo Save0, Lyla save_1.json, …).
         if looks_like_encrypted_es3_blob(&bytes) {
@@ -319,7 +323,11 @@ fn classify_file(
 
 fn should_consider_save_file(path: &Path, name: &str, ext: &str) -> bool {
     if ext == "json" || ext == "txt" || ext == "sav" || ext == "save" || ext == "mss" {
-        return name_suggests_save(name) || under_save_folder(path) || ext == "save" || ext == "mss";
+        return name_suggests_save(name)
+            || under_save_folder(path)
+            || ext == "save"
+            || ext == "sav"
+            || ext == "mss";
     }
     if ext == "dat" {
         return name_suggests_save(name) || common_save_basename(name) || under_save_folder(path);
@@ -338,7 +346,7 @@ fn under_save_folder(path: &Path) -> bool {
             let lower = n.to_ascii_lowercase();
             matches!(
                 lower.as_str(),
-                "save" | "saves" | "savegame" | "savegames"
+                "save" | "saves" | "savegame" | "savegames" | "profile"
             )
         })
         .unwrap_or(false)
@@ -832,6 +840,50 @@ mod tests {
         assert!(
             slots.iter().all(|s| !s.key.contains(".assets") && !s.key.ends_with("/Save0")),
             "huge/engine files must be skipped: {slots:?}"
+        );
+    }
+
+    #[test]
+    fn lists_mystwood_profile_sav_from_extra_root_if_present() {
+        let live = PathBuf::from(
+            r"E:\Downloads\New Folder\Other\42940\Mystwood_Manor_v1.1.2_Windows\Mystwood Manor v1.1.2 (Windows)\profile",
+        );
+        if !live.is_dir() {
+            return;
+        }
+        let slots = list_extra_slots(&[ExtraSaveRoot {
+            id: "mwm".into(),
+            path: live.to_string_lossy().into_owned(),
+        }])
+        .unwrap();
+        let slot = slots
+            .iter()
+            .find(|s| s.display_name.ends_with("data_0.sav"))
+            .expect("missing profile/Gusti/data_0.sav");
+        assert_eq!(slot.kind, "mystwood");
+        assert!(slot.encrypted);
+    }
+
+    #[test]
+    fn lists_mystwood_profile_sav_from_install_if_present() {
+        let install = PathBuf::from(
+            r"E:\Downloads\New Folder\Other\42940\Mystwood_Manor_v1.1.2_Windows\Mystwood Manor v1.1.2 (Windows)",
+        );
+        if !install.is_dir() {
+            return;
+        }
+        let meta = UnityMeta {
+            developer: None,
+            title: None,
+        };
+        let local_low_base = tempfile_root("mwm-ll");
+        fs::create_dir_all(&local_low_base).unwrap();
+        let slots = list_slots(&install, &meta, &local_low_base).unwrap();
+        assert!(
+            slots.iter().any(|s| {
+                s.key.contains("profile/") && s.display_name.ends_with("data_0.sav") && s.kind == "mystwood"
+            }),
+            "missing install profile save in {slots:?}"
         );
     }
 
