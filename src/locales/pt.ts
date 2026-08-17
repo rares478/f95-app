@@ -750,6 +750,13 @@ const pt: Record<string, string> = {
   'appUpdate.banner.dismiss': 'Agora não',
   'appUpdate.status.updating': 'Atualizando…',
 
+  'security.malware.title': 'Possível exposição a malware',
+  'security.malware.bodyIntro':
+    'Um ou mais jogos da sua biblioteca foram listados no F95 como tendo links de download infectados em períodos específicos. Se você instalou e jogou durante esses períodos, faça uma varredura com um antivírus atualizado.',
+  'security.malware.gamesHeading': 'Jogos afetados na sua biblioteca:',
+  'security.malware.viewAnnouncement': 'Ver anúncio',
+  'security.malware.dismiss': 'Dispensar',
+
   'settings.about.section': 'Sobre',
   'settings.about.app': 'App',
   'settings.about.tauri': 'Tauri',

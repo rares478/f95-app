@@ -15,6 +15,7 @@ import { StatusBar } from './StatusBar';
 import { useNavLayout } from '../hooks/useNavLayout';
 import { LaunchingOverlay } from './LaunchingOverlay';
 import { AppUpdateBootstrap } from './AppUpdateBootstrap';
+import { MalwareAlertBootstrap } from './MalwareAlertBootstrap';
 import { CatalogBootstrap } from './store/CatalogBootstrap';
 import { PrefixCatalogProvider } from '../contexts/PrefixCatalogContext';
 import { TagCatalogProvider } from '../contexts/TagCatalogContext';
@@ -76,6 +77,7 @@ export function AppShell({ profile, onLoggedOut }: Props) {
               <PrefixCatalogProvider>
                 <CatalogBootstrap />
                 <AppUpdateBootstrap />
+                <MalwareAlertBootstrap />
                 <div style={rootStyle} className="app-shell">
                   <TitleBar />
                   {steamSkin && <SteamTopNav profile={profile} />}

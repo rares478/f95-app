@@ -745,6 +745,13 @@ const de: Record<string, string> = {
   'appUpdate.banner.dismiss': 'Nicht jetzt',
   'appUpdate.status.updating': 'Wird aktualisiert…',
 
+  'security.malware.title': 'Mögliche Malware-Exposition',
+  'security.malware.bodyIntro':
+    'Mindestens ein Spiel in deiner Bibliothek wurde auf F95 als mit infizierten Download-Links in bestimmten Zeiträumen gelistet. Wenn du es in diesen Zeiträumen installiert und gespielt hast, scanne dein System mit einem aktuellen Antivirus.',
+  'security.malware.gamesHeading': 'Betroffene Spiele in deiner Bibliothek:',
+  'security.malware.viewAnnouncement': 'Ankündigung ansehen',
+  'security.malware.dismiss': 'Schließen',
+
   'settings.about.section': 'Über',
   'settings.about.app': 'App',
   'settings.about.tauri': 'Tauri',

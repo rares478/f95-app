@@ -745,6 +745,13 @@ const ru: Record<string, string> = {
   'appUpdate.banner.dismiss': 'Не сейчас',
   'appUpdate.status.updating': 'Обновление…',
 
+  'security.malware.title': 'Возможное заражение вредоносным ПО',
+  'security.malware.bodyIntro':
+    'Одна или несколько игр в вашей библиотеке были указаны на F95 как содержащие заражённые ссылки на скачивание в определённые периоды. Если вы устанавливали и играли в них в эти периоды, просканируйте систему актуальным антивирусом.',
+  'security.malware.gamesHeading': 'Затронутые игры в вашей библиотеке:',
+  'security.malware.viewAnnouncement': 'Открыть объявление',
+  'security.malware.dismiss': 'Закрыть',
+
   'settings.about.section': 'О приложении',
   'settings.about.app': 'Приложение',
   'settings.about.tauri': 'Tauri',
