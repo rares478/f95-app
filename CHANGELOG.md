@@ -15,6 +15,23 @@ together when cutting a release:
 
 ## [Unreleased]
 
+## [1.7.6] - 2026-08-17
+
+### Added
+- Wolf RPG Editor Save Editor: decrypt and edit VariableDatabase in `SaveData*.sav` files, with discovery, backups, extra folders, and engine gating.
+- Library filters for engines, thread status, prefixes, and searchable tags, persisted in the URL.
+- Settings grouped panel navigation with URL deep links.
+- Store tags are saved when installing or adding a game to the library.
+- Per-library folder disk usage in Settings.
+- Warn on startup when installed-and-played library games appear on the F95 community malware list.
+- Downloads cards with a live speed graph.
+
+### Fixed
+- Tauri dev builds use a separate SQLite file so experimental migrations do not break the installed release database.
+- BuzzHeavier downloads work for `bzzhr.to` mirrors, not only `bzzhr.co`.
+- Extract destination uses the archive name; extract jobs no longer hang at 100% from stale list reloads.
+- Store tags on the game details page are vertically centered in their pills.
+
 ## [1.7.5] - 2026-08-17
 
 ### Added
