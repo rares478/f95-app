@@ -361,6 +361,8 @@ export function GameDetailPage() {
                 threadUrl: g.threadUrl,
                 thumbnailUrl: g.bannerUrl,
                 version: g.version,
+                tags: g.tags,
+                prefixes: g.prefixes,
               }}
               downloads={g.downloads}
               onStarted={() => setInLibrary(true)}

@@ -1,4 +1,5 @@
-import { useCallback, useEffect, useMemo, useState } from 'react';
+import { useCallback, useEffect, useMemo, useRef, useState } from 'react';
+import { useSearchParams } from 'react-router-dom';
 import { getVersion, getName, getTauriVersion } from '@tauri-apps/api/app';
 import { appConfigDir } from '@tauri-apps/api/path';
 import { open as openDialog } from '@tauri-apps/plugin-dialog';
@@ -55,7 +56,12 @@ import { syncTrayIcon } from '../lib/tray';
 import { getChangelogEntries } from '../lib/changelog';
 import { checkForAppUpdate, installAppUpdate } from '../lib/appUpdater';
 import { LoadingState } from '../components/ui/LoadingState';
-import { useScrollSpy } from '../hooks/useScrollSpy';
+import {
+  SETTINGS_NAV_GROUPS,
+  parseSettingsSection,
+  settingsSectionLabelKey,
+  type SettingsSectionId,
+} from '../lib/settingsNav';
 
 interface AppInfo {
   name: string;
@@ -70,24 +76,6 @@ interface CacheCounts {
   sessions: number;
 }
 
-type SettingsSectionId =
-  | 'appearance'
-  | 'storage'
-  | 'downloads'
-  | 'hosts'
-  | 'system'
-  | 'experimental'
-  | 'account';
-
-const SETTINGS_SECTION_IDS: SettingsSectionId[] = [
-  'appearance',
-  'storage',
-  'downloads',
-  'hosts',
-  'system',
-  'experimental',
-  'account',
-];
 
 interface Props {
   onLoggedOut: () => void;
@@ -95,6 +83,8 @@ interface Props {
 
 export function SettingsPage({ onLoggedOut: _onLoggedOut }: Props) {
   const { t, locale, setLocale } = useT();
+  const [searchParams, setSearchParams] = useSearchParams();
+  const initialSection = parseSettingsSection(searchParams.get('section'));
   const {
     isOffline,
     offlineReason,
@@ -172,7 +162,8 @@ export function SettingsPage({ onLoggedOut: _onLoggedOut }: Props) {
   const [installing, setInstalling] = useState(false);
   const [libs, setLibs] = useState<InstallLibraryWithDisk[]>([]);
   const [libsLoading, setLibsLoading] = useState(true);
-  const [activeSection, setActiveSection] = useState<SettingsSectionId>('appearance');
+  const libraryUsageCancelRef = useRef<(() => void) | null>(null);
+  const [activeSection, setActiveSection] = useState<SettingsSectionId>(initialSection);
   const [activeTheme, setActiveTheme] = useState<ThemeId>(theme.currentTheme());
   const [activeSkin, setActiveSkin] = useState<SkinId>(theme.currentSkin());
   const [activeNavLayout, setActiveNavLayout] = useState<NavLayoutId>(navLayout.currentNavLayout());
@@ -229,27 +220,18 @@ export function SettingsPage({ onLoggedOut: _onLoggedOut }: Props) {
     result?: { valid: boolean; message: string; email?: string | null };
   }>({ state: 'idle' });
 
-  const navItems = useMemo(
-    (): { id: SettingsSectionId; label: string }[] => [
-      { id: 'appearance', label: t('settings.nav.appearance') },
-      { id: 'storage', label: t('settings.nav.storage') },
-      { id: 'downloads', label: t('settings.nav.downloads') },
-      { id: 'hosts', label: t('settings.nav.hosts') },
-      { id: 'system', label: t('settings.nav.system') },
-      { id: 'experimental', label: t('settings.nav.experimental') },
-      { id: 'account', label: t('settings.nav.account') },
-    ],
-    [t],
+  const selectSection = useCallback(
+    (id: SettingsSectionId) => {
+      setActiveSection(id);
+      setSearchParams({ section: id }, { replace: true });
+    },
+    [setSearchParams],
   );
 
-  const onSpySection = useCallback((id: SettingsSectionId) => {
-    setActiveSection((prev) => (prev === id ? prev : id));
-  }, []);
-
-  const { pauseScrollSpy } = useScrollSpy(SETTINGS_SECTION_IDS, onSpySection, {
-    idPrefix: 'settings-',
-    anchorOffset: 100,
-  });
+  useEffect(() => {
+    const fromUrl = parseSettingsSection(searchParams.get('section'));
+    setActiveSection((prev) => (prev === fromUrl ? prev : fromUrl));
+  }, [searchParams]);
 
   useEffect(() => {
     (async () => {
@@ -674,15 +656,28 @@ export function SettingsPage({ onLoggedOut: _onLoggedOut }: Props) {
   }
 
   const refreshLibs = useCallback(async () => {
+    libraryUsageCancelRef.current?.();
+    libraryUsageCancelRef.current = null;
     setLibsLoading(true);
     try {
       const rows = await libraries.listWithDisk();
       setLibs(rows);
+      libraryUsageCancelRef.current = libraries.refreshLibraryUsage(rows, (id, usedBytes) => {
+        setLibs((prev) =>
+          prev.map((lib) => (lib.id === id ? { ...lib, usedBytes } : lib)),
+        );
+      });
     } catch (err) {
       console.warn('[settings] failed to load install libraries', err);
     } finally {
       setLibsLoading(false);
     }
+  }, []);
+
+  useEffect(() => {
+    return () => {
+      libraryUsageCancelRef.current?.();
+    };
   }, []);
 
   async function refreshCounts() {
@@ -881,10 +876,9 @@ export function SettingsPage({ onLoggedOut: _onLoggedOut }: Props) {
     }
   }
 
-  function scrollToSection(id: SettingsSectionId) {
-    setActiveSection(id);
-    pauseScrollSpy();
-    document.getElementById(`settings-${id}`)?.scrollIntoView({ behavior: 'smooth', block: 'start' });
+  function selectSectionAndScroll(id: SettingsSectionId) {
+    selectSection(id);
+    document.querySelector('.settings-content-panel')?.scrollTo({ top: 0, behavior: 'smooth' });
   }
 
   const gofileDirty =
@@ -911,21 +905,27 @@ export function SettingsPage({ onLoggedOut: _onLoggedOut }: Props) {
 
       <div className="settings-layout">
         <nav className="settings-nav" aria-label={t('settings.title')}>
-          {navItems.map((item) => (
-            <button
-              key={item.id}
-              type="button"
-              className={`settings-nav-item${activeSection === item.id ? ' settings-nav-item-active' : ''}`}
-              onClick={() => scrollToSection(item.id)}
-            >
-              {item.label}
-            </button>
+          {SETTINGS_NAV_GROUPS.map((group) => (
+            <div key={group.labelKey} className="settings-nav-group">
+              <span className="settings-nav-group-label">{t(group.labelKey)}</span>
+              {group.items.map((id) => (
+                <button
+                  key={id}
+                  type="button"
+                  className={`settings-nav-item${activeSection === id ? ' settings-nav-item-active' : ''}`}
+                  onClick={() => selectSectionAndScroll(id)}
+                >
+                  {t(settingsSectionLabelKey(id))}
+                </button>
+              ))}
+            </div>
           ))}
         </nav>
 
-        <div className="settings-content">
-          <section id="settings-appearance" className="settings-section">
-            <SectionHeader title={t('settings.nav.appearance')} />
+        <div className="settings-content settings-content-panel">
+          {activeSection === 'general' && (
+          <section className="settings-section settings-section-panel">
+            <SectionHeader title={t('settings.nav.general')} />
 
             <div className="settings-card">
               <h3 className="settings-card-title">{t('settings.language.section')}</h3>
@@ -951,6 +951,51 @@ export function SettingsPage({ onLoggedOut: _onLoggedOut }: Props) {
                 })}
               </div>
             </div>
+
+            <div id="settings-offline" className="settings-card">
+              <h3 className="settings-card-title">{t('settings.offline.section')}</h3>
+              <p className="settings-card-hint">{t('settings.offline.hint')}</p>
+              <label className="settings-check-row">
+                <input
+                  type="checkbox"
+                  checked={manualOffline}
+                  onChange={(e) => void setManualOffline(e.target.checked)}
+                />
+                <span>{t('settings.offline.manual')}</span>
+              </label>
+              {isOffline && offlineReason && offlineReason !== 'manual' && (
+                <p className="settings-card-hint settings-offline-reason">
+                  {t(
+                    offlineReason === 'f95'
+                      ? 'settings.offline.reasonF95'
+                      : 'settings.offline.reasonNetwork',
+                  )}
+                </p>
+              )}
+              <div className="settings-offline-actions">
+                <button
+                  type="button"
+                  className="settings-btn"
+                  disabled={probing}
+                  onClick={() => void refreshConnectivity()}
+                >
+                  {probing ? t('offline.retrying') : t('settings.offline.test')}
+                </button>
+                {lastCheckedAt != null && (
+                  <span className="settings-offline-last">
+                    {t('settings.offline.lastCheck', {
+                      time: new Date(lastCheckedAt).toLocaleString(),
+                    })}
+                  </span>
+                )}
+              </div>
+            </div>
+          </section>
+          )}
+
+          {activeSection === 'appearance' && (
+          <section className="settings-section settings-section-panel">
+            <SectionHeader title={t('settings.nav.appearance')} />
 
             <div className="settings-card">
               <h3 className="settings-card-title">{t('settings.theme.section')}</h3>
@@ -1094,6 +1139,13 @@ export function SettingsPage({ onLoggedOut: _onLoggedOut }: Props) {
             </div>
             )}
 
+          </section>
+          )}
+
+          {activeSection === 'store' && (
+          <section className="settings-section settings-section-panel">
+            <SectionHeader title={t('settings.nav.store')} />
+
             <div className="settings-card">
               <h3 className="settings-card-title">{t('settings.store.section')}</h3>
               <p className="settings-card-hint">{t('settings.store.hint')}</p>
@@ -1146,10 +1198,12 @@ export function SettingsPage({ onLoggedOut: _onLoggedOut }: Props) {
               </div>
             </div>
           </section>
+          )}
 
-          <section id="settings-storage" className="settings-section">
+          {activeSection === 'library' && (
+          <section className="settings-section settings-section-panel">
             <SectionHeader
-              title={t('settings.libraries.section')}
+              title={t('settings.nav.library')}
               hint={t('settings.libraries.hint')}
               action={
                 <button
@@ -1187,8 +1241,10 @@ export function SettingsPage({ onLoggedOut: _onLoggedOut }: Props) {
                 ))}
             </div>
           </section>
+          )}
 
-          <section id="settings-downloads" className="settings-section">
+          {activeSection === 'downloads' && (
+          <section className="settings-section settings-section-panel">
             <SectionHeader
               title={t('settings.downloads.section')}
               hint={t('settings.downloads.hint')}
@@ -1232,8 +1288,10 @@ export function SettingsPage({ onLoggedOut: _onLoggedOut }: Props) {
               </div>
             </div>
           </section>
+          )}
 
-          <section id="settings-hosts" className="settings-section">
+          {activeSection === 'hosts' && (
+          <section className="settings-section settings-section-panel">
             <SectionHeader title={t('settings.hosts.section')} hint={t('settings.hosts.hint')} />
 
             <div className="settings-host-panel">
@@ -1940,48 +1998,11 @@ export function SettingsPage({ onLoggedOut: _onLoggedOut }: Props) {
               </div>
             </div>
           </section>
+          )}
 
-          <section id="settings-system" className="settings-section">
-            <SectionHeader title={t('settings.nav.system')} />
-
-            <div id="settings-offline" className="settings-card">
-              <h3 className="settings-card-title">{t('settings.offline.section')}</h3>
-              <p className="settings-card-hint">{t('settings.offline.hint')}</p>
-              <label className="settings-check-row">
-                <input
-                  type="checkbox"
-                  checked={manualOffline}
-                  onChange={(e) => void setManualOffline(e.target.checked)}
-                />
-                <span>{t('settings.offline.manual')}</span>
-              </label>
-              {isOffline && offlineReason && offlineReason !== 'manual' && (
-                <p className="settings-card-hint settings-offline-reason">
-                  {t(
-                    offlineReason === 'f95'
-                      ? 'settings.offline.reasonF95'
-                      : 'settings.offline.reasonNetwork',
-                  )}
-                </p>
-              )}
-              <div className="settings-offline-actions">
-                <button
-                  type="button"
-                  className="settings-btn"
-                  disabled={probing}
-                  onClick={() => void refreshConnectivity()}
-                >
-                  {probing ? t('offline.retrying') : t('settings.offline.test')}
-                </button>
-                {lastCheckedAt != null && (
-                  <span className="settings-offline-last">
-                    {t('settings.offline.lastCheck', {
-                      time: new Date(lastCheckedAt).toLocaleString(),
-                    })}
-                  </span>
-                )}
-              </div>
-            </div>
+          {activeSection === 'data' && (
+          <section className="settings-section settings-section-panel">
+            <SectionHeader title={t('settings.nav.data')} />
 
             <div className="settings-card">
               <h3 className="settings-card-title">{t('settings.database.section')}</h3>
@@ -2068,6 +2089,12 @@ export function SettingsPage({ onLoggedOut: _onLoggedOut }: Props) {
                 hint={t('settings.maintenance.sessionsHint')}
               />
             </div>
+          </section>
+          )}
+
+          {activeSection === 'app' && (
+          <section className="settings-section settings-section-panel">
+            <SectionHeader title={t('settings.nav.app')} />
 
             <div className="settings-card">
               <h3 className="settings-card-title">{t('settings.updates.section')}</h3>
@@ -2191,8 +2218,10 @@ export function SettingsPage({ onLoggedOut: _onLoggedOut }: Props) {
               </dl>
             </div>
           </section>
+          )}
 
-          <section id="settings-experimental" className="settings-section">
+          {activeSection === 'experimental' && (
+          <section className="settings-section settings-section-panel">
             <SectionHeader
               title={t('settings.experimental.section')}
               hint={t('settings.experimental.banner')}
@@ -2523,8 +2552,10 @@ export function SettingsPage({ onLoggedOut: _onLoggedOut }: Props) {
               </>
             )}
           </section>
+          )}
 
-          <section id="settings-account" className="settings-section settings-section-danger">
+          {activeSection === 'account' && (
+          <section className="settings-section settings-section-panel settings-section-danger">
             <SectionHeader title={t('settings.account.section')} />
             <div className="settings-card settings-account-card">
               <p className="settings-card-hint">{t('settings.account.confirmLogout')}</p>
@@ -2538,6 +2569,7 @@ export function SettingsPage({ onLoggedOut: _onLoggedOut }: Props) {
               </button>
             </div>
           </section>
+          )}
         </div>
       </div>
     </div>
@@ -2646,14 +2678,27 @@ function LibraryRow({
           <code className="settings-lib-path" title={lib.path}>
             {lib.path}
           </code>
-          <div className={`settings-lib-space settings-lib-space-${spaceLevel}`}>
-            <span className="settings-lib-space-dot" aria-hidden />
-            <span>
-              {diskOk
-                ? t('settings.libraries.free', {
-                    amount: libraries.formatFreeSpace(lib.disk.freeBytes),
-                  })
-                : t('settings.libraries.unavailable')}
+          <div className="settings-lib-stats">
+            <span
+              className={`settings-lib-stat settings-lib-stat-used${
+                lib.usedBytes == null ? ' settings-lib-stat-pending' : ''
+              }`}
+            >
+              {lib.usedBytes == null
+                ? t('settings.libraries.usedCalculating')
+                : t('settings.libraries.used', {
+                    amount: libraries.formatStorageSize(lib.usedBytes),
+                  })}
+            </span>
+            <span className={`settings-lib-stat settings-lib-space settings-lib-space-${spaceLevel}`}>
+              <span className="settings-lib-space-dot" aria-hidden />
+              <span>
+                {diskOk
+                  ? t('settings.libraries.free', {
+                      amount: libraries.formatStorageSize(lib.disk.freeBytes),
+                    })
+                  : t('settings.libraries.unavailable')}
+              </span>
             </span>
           </div>
         </div>

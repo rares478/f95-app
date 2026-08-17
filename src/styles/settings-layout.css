@@ -1,0 +1,93 @@
+.settings-nav-group + .settings-nav-group {
+  margin-top: 16px;
+  padding-top: 12px;
+  border-top: 1px solid var(--border-faint);
+}
+
+.settings-nav-group-label {
+  display: block;
+  padding: 0 12px 6px;
+  font-size: 10px;
+  font-weight: 700;
+  letter-spacing: 0.06em;
+  text-transform: uppercase;
+  color: var(--text-muted);
+}
+
+.settings-layout {
+  grid-template-columns: minmax(200px, 220px) minmax(0, 1fr);
+}
+
+.settings-nav {
+  position: sticky;
+  top: 0;
+  max-height: calc(100vh - 120px);
+  overflow-y: auto;
+}
+
+.settings-content-panel {
+  min-height: 320px;
+}
+
+.settings-lib-stats {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  gap: 10px 18px;
+  margin-top: 10px;
+}
+
+.settings-lib-stat {
+  display: inline-flex;
+  align-items: center;
+  gap: 6px;
+  font-size: 12px;
+  line-height: 1.35;
+  color: var(--text-tertiary);
+}
+
+.settings-lib-stat-used {
+  font-weight: 500;
+  color: var(--text-secondary);
+}
+
+.settings-lib-stat-pending {
+  font-style: italic;
+  color: var(--text-muted);
+}
+
+.settings-lib-stats .settings-lib-space {
+  margin-top: 0;
+}
+
+.settings-lib-stats .settings-lib-space-dot {
+  margin-top: 0;
+}
+
+.settings-lib-item .settings-lib-toolbar {
+  margin-top: 4px;
+  padding-top: 10px;
+  border-top: 1px solid var(--border-faint);
+}
+
+.settings-section-panel {
+  animation: settings-panel-in 0.14s ease;
+}
+
+@keyframes settings-panel-in {
+  from {
+    opacity: 0;
+    transform: translateY(4px);
+  }
+  to {
+    opacity: 1;
+    transform: translateY(0);
+  }
+}
+
+@media (max-width: 900px) {
+  .settings-nav-group + .settings-nav-group {
+    margin-top: 8px;
+    padding-top: 8px;
+  }
+}

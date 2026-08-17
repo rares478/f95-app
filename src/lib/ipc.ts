@@ -620,8 +620,17 @@ export interface DiskInfo {
   available: boolean;
 }
 
+export interface DirectorySize {
+  usedBytes: number;
+  available: boolean;
+}
+
 export async function diskInfo(path: string): Promise<DiskInfo> {
   return invoke<DiskInfo>('disk_info', { path });
+}
+
+export async function directorySize(path: string): Promise<DirectorySize> {
+  return invoke<DirectorySize>('directory_size', { path });
 }
 
 export interface MoveStartResult {

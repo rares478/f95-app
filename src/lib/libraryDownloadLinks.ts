@@ -1,4 +1,4 @@
-import type { GameDownload, GameDetail } from '../types/game';
+import type { GameDownload, GameDetail, GamePrefix, GameTag } from '../types/game';
 import type { LibraryGame } from '../types/library';
 import { buildInstallCatalog } from './installCatalog';
 import * as library from './library';
@@ -59,13 +59,29 @@ export function linksAreStale(game: LibraryGame, intent: LinkIntent): boolean {
   return !versionsEqual(stamped, target);
 }
 
+export type StoreTagSource = Pick<GameDetail, 'tags' | 'prefixes'>;
+
+export async function saveLinksAndStoreTags(
+  threadId: string,
+  links: GameDownload[],
+  version: string | null,
+  tagSource: StoreTagSource,
+): Promise<void> {
+  await saveLinksSnapshot(threadId, links, version);
+  await library.setStoreTags(threadId, buildStoreTagsFromDetail(tagSource));
+}
+
 export async function saveLinksFromDetail(
   threadId: string,
   detail: GameDetail,
 ): Promise<void> {
   const version = (detail.version ?? '').trim() || null;
-  await saveLinksSnapshot(threadId, detail.downloads ?? [], version);
-  await library.setStoreTags(threadId, buildStoreTagsFromDetail(detail));
+  await saveLinksAndStoreTags(
+    threadId,
+    detail.downloads ?? [],
+    version,
+    detail,
+  );
 }
 
 export async function saveLinksSnapshot(

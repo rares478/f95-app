@@ -1,11 +1,11 @@
 import { useState, type ReactNode } from 'react';
 import { createPortal } from 'react-dom';
-import type { GameDownload } from '../../types/game';
+import type { GameDownload, GamePrefix, GameTag } from '../types/game';
 import * as downloads from '../../lib/downloads';
 import * as library from '../../lib/library';
 import * as libraries from '../../lib/libraries';
 import * as ipc from '../../lib/ipc';
-import { saveLinksSnapshot } from '../../lib/libraryDownloadLinks';
+import { saveLinksAndStoreTags } from '../../lib/libraryDownloadLinks';
 import { groupDownloads } from '../../lib/groupDownloads';
 import {
   HOST_COLORS,
@@ -29,6 +29,8 @@ export interface DownloadLinksGameInfo {
   threadUrl: string;
   thumbnailUrl: string | null;
   version: string | null;
+  tags?: GameTag[];
+  prefixes?: GamePrefix[];
 }
 
 interface Props {
@@ -55,6 +57,15 @@ export function DownloadLinks({
 
   const groups = groupDownloads(items);
 
+  async function cacheLinksAndTags() {
+    await saveLinksAndStoreTags(
+      game.threadId,
+      items,
+      game.version,
+      { tags: game.tags ?? [], prefixes: game.prefixes ?? [] },
+    );
+  }
+
   async function prepareWizardStart() {
     await library.add({
       threadId: game.threadId,
@@ -65,7 +76,7 @@ export function DownloadLinks({
       currentVersion: game.version,
     });
     try {
-      await saveLinksSnapshot(game.threadId, items, game.version);
+      await cacheLinksAndTags();
     } catch (err) {
       console.warn('[library] failed to cache download links on install start', err);
     }
@@ -88,7 +99,7 @@ export function DownloadLinks({
       });
       await library.setStatus(game.threadId, 'downloading');
       try {
-        await saveLinksSnapshot(game.threadId, items, game.version);
+        await cacheLinksAndTags();
       } catch (err) {
         console.warn('[library] failed to cache download links on download start', err);
       }

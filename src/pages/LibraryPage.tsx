@@ -1,6 +1,7 @@
 import { useCallback, useEffect, useMemo, useState } from 'react';
 import { useNavigate, useSearchParams } from 'react-router-dom';
 import { LibraryCategoryBar } from '../components/library/LibraryCategoryBar';
+import { LibraryFilterPanel } from '../components/library/LibraryFilterPanel';
 import { LibraryCard } from '../components/library/LibraryCard';
 import { CollectionFolderCard } from '../components/library/CollectionFolderCard';
 import { ContinuePlayingRow } from '../components/library/ContinuePlayingRow';
@@ -22,6 +23,14 @@ import { formatIpcError } from '../lib/ipcError';
 import { useT } from '../lib/i18n';
 import { dialog } from '../lib/dialog';
 import * as library from '../lib/library';
+import {
+  applyLibraryMetaFilter,
+  applyLibraryMetaFilterToSearchParams,
+  hasActiveLibraryMetaFilter,
+  matchesLibraryMetaFilter,
+  parseLibraryMetaFilter,
+  type LibraryMetaFilter,
+} from '../lib/libraryFilters';
 import { prefetchLibraryThumbnails } from '../lib/libraryThumbnailCache';
 import * as updates from '../lib/updates';
 import type {
@@ -57,7 +66,9 @@ export function LibraryPage() {
   const navigate = useNavigate();
   const [searchParams, setSearchParams] = useSearchParams();
   const category = parseSamCategory(searchParams.get('cat'));
+  const metaFilter = useMemo(() => parseLibraryMetaFilter(searchParams), [searchParams]);
   const [items, setItems] = useState<LibraryGame[]>([]);
+  const [baseItems, setBaseItems] = useState<LibraryGame[]>([]);
   const [loading, setLoading] = useState(true);
   const [status, setStatus] = useState<StatusFilter>('all');
   const [search, setSearch] = useState('');
@@ -87,6 +98,15 @@ export function LibraryPage() {
     [downloadRows],
   );
 
+  const setMetaFilter = useCallback(
+    (next: LibraryMetaFilter) => {
+      setSearchParams(applyLibraryMetaFilterToSearchParams(searchParams, next), {
+        replace: true,
+      });
+    },
+    [searchParams, setSearchParams],
+  );
+
   const reload = useCallback(async () => {
     setLoading(true);
     setError(null);
@@ -97,13 +117,14 @@ export function LibraryPage() {
         search: search.trim() || undefined,
         sort,
       });
-      setItems(games);
+      setBaseItems(games);
+      setItems(applyLibraryMetaFilter(games, metaFilter));
     } catch (err) {
       setError(formatIpcError(err));
     } finally {
       setLoading(false);
     }
-  }, [category, status, search, sort]);
+  }, [category, status, search, sort, metaFilter]);
 
   useEffect(() => {
     const t = setTimeout(reload, search ? 200 : 0);
@@ -163,7 +184,13 @@ export function LibraryPage() {
   // active filter visually.
   const continuePlaying = useMemo(() => {
     if (category !== 'games') return [];
-    if (search.trim() || (status !== 'all' && status !== 'installed')) return [];
+    if (
+      search.trim() ||
+      (status !== 'all' && status !== 'installed') ||
+      hasActiveLibraryMetaFilter(metaFilter)
+    ) {
+      return [];
+    }
     return items
       .filter((g) => g.lastPlayedAt && (g.totalPlaytimeSeconds ?? 0) > 0)
       .sort((a, b) => (b.lastPlayedAt ?? '').localeCompare(a.lastPlayedAt ?? ''))
@@ -179,12 +206,18 @@ export function LibraryPage() {
         games: memberships
           .filter((m) => m.collectionId === collection.id)
           .map((m) => byId.get(m.threadId))
-          .filter((g): g is LibraryGame => g !== undefined && g.category === category),
+          .filter(
+            (g): g is LibraryGame =>
+              g !== undefined &&
+              g.category === category &&
+              matchesLibraryMetaFilter(g, metaFilter),
+          ),
       }))
       .filter((card) => card.games.length > 0);
-  }, [collections, memberships, allGames, category]);
+  }, [collections, memberships, allGames, category, metaFilter]);
 
-  const showCollectionsSection = !search.trim() && status === 'all';
+  const showCollectionsSection =
+    !search.trim() && status === 'all' && !hasActiveLibraryMetaFilter(metaFilter);
 
   async function onNewCollection() {
     const id = await promptCreateCollection(t);
@@ -302,6 +335,8 @@ export function LibraryPage() {
         ))}
       </div>
 
+      <LibraryFilterPanel games={baseItems} filter={metaFilter} onFilterChange={setMetaFilter} />
+
       {error && <div style={errorBox}>{error}</div>}
 
       {showCollectionsSection && (
@@ -327,7 +362,7 @@ export function LibraryPage() {
       {loading && items.length === 0 ? (
         <GameCardGridSkeleton count={8} />
       ) : items.length === 0 ? (
-        <EmptyState status={status} category={category} />
+        <EmptyState status={status} category={category} metaFilter={metaFilter} />
       ) : (
         <>
           {continuePlaying.length > 0 && (
@@ -358,8 +393,25 @@ export function LibraryPage() {
   );
 }
 
-function EmptyState({ status, category }: { status: StatusFilter; category: SamCategory }) {
+function EmptyState({
+  status,
+  category,
+  metaFilter,
+}: {
+  status: StatusFilter;
+  category: SamCategory;
+  metaFilter: LibraryMetaFilter;
+}) {
   const { t } = useT();
+  if (hasActiveLibraryMetaFilter(metaFilter)) {
+    return (
+      <div style={emptyBox}>
+        <p style={{ margin: 0, color: 'var(--text-muted)', fontSize: 13 }}>
+          {t('library.empty.metaFilter')}
+        </p>
+      </div>
+    );
+  }
   if (status === 'all') {
     const catHint = t(`library.empty.${category}`);
     return (
@@ -421,7 +473,7 @@ const updateBtn: React.CSSProperties = {
 const controlsStyle: React.CSSProperties = {
   display: 'flex',
   gap: 10,
-  marginBottom: 12,
+  marginBottom: 8,
 };
 
 const searchInput: React.CSSProperties = {

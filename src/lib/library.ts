@@ -306,10 +306,10 @@ export async function list(filter: LibraryFilter = {}): Promise<LibraryGame[]> {
     const needles = tokens.length > 0 ? tokens : [filter.search.toLowerCase().trim()].filter(Boolean);
     for (const token of needles) {
       where.push(
-        `(LOWER(title) LIKE ? OR LOWER(IFNULL(notes, '')) LIKE ? OR LOWER(IFNULL(custom_tags_json, '')) LIKE ?)`,
+        `(LOWER(title) LIKE ? OR LOWER(IFNULL(notes, '')) LIKE ? OR LOWER(IFNULL(custom_tags_json, '')) LIKE ? OR LOWER(IFNULL(store_tags_json, '')) LIKE ?)`,
       );
       const needle = `%${token}%`;
-      args.push(needle, needle, needle);
+      args.push(needle, needle, needle, needle);
     }
   }
   const orderBy = sortClause(filter.sort ?? 'added');

@@ -8,6 +8,7 @@ use serde_json::json;
 use std::path::PathBuf;
 use std::sync::Arc;
 use tauri::{AppHandle, Emitter, Manager, State};
+use walkdir::WalkDir;
 
 #[derive(Debug, Serialize)]
 pub struct ExtractResult {
@@ -324,6 +325,49 @@ pub fn disk_info(path: String) -> Result<DiskInfo, AppError> {
     }
 }
 
+#[derive(Debug, Serialize)]
+pub struct DirectorySize {
+    #[serde(rename = "usedBytes")]
+    pub used_bytes: u64,
+    /// True when the folder exists and we could walk it.
+    pub available: bool,
+}
+
+fn directory_size_sync(path: &std::path::Path) -> DirectorySize {
+    if !path.exists() {
+        return DirectorySize {
+            used_bytes: 0,
+            available: false,
+        };
+    }
+    let mut total: u64 = 0;
+    for entry in WalkDir::new(path)
+        .follow_links(false)
+        .into_iter()
+        .filter_map(Result::ok)
+    {
+        if entry.file_type().is_file() {
+            if let Ok(meta) = entry.metadata() {
+                total = total.saturating_add(meta.len());
+            }
+        }
+    }
+    DirectorySize {
+        used_bytes: total,
+        available: true,
+    }
+}
+
+/// Total size of all files under `path` (recursive). Used by install-library
+/// settings to show how much space each registered folder consumes.
+#[tauri::command]
+pub async fn directory_size(path: String) -> Result<DirectorySize, AppError> {
+    let p = PathBuf::from(path);
+    tokio::task::spawn_blocking(move || directory_size_sync(&p))
+        .await
+        .map_err(|e| AppError::Other(format!("directory_size join: {e}")))
+}
+
 /// Reveal a file in the OS file manager. On Windows this delegates to
 /// `explorer.exe`. We do this ourselves instead of going through
 /// `tauri-plugin-opener::revealItemInDir` because that path goes through
@@ -424,4 +468,36 @@ fn spawn_explorer_open(path: &std::path::Path) -> Result<(), AppError> {
     }
     #[allow(unreachable_code)]
     Err(AppError::keyed("error.fs.unsupportedPlatform"))
+}
+
+#[cfg(test)]
+mod tests {
+    use super::*;
+    use std::fs;
+
+    #[test]
+    fn directory_size_sums_files_recursively() {
+        let root = std::env::temp_dir().join(format!(
+            "f95app_dir_size_test_{}",
+            std::process::id()
+        ));
+        let _ = fs::remove_dir_all(&root);
+        fs::create_dir_all(root.join("nested")).unwrap();
+        fs::write(root.join("a.bin"), vec![0u8; 100]).unwrap();
+        fs::write(root.join("nested/b.bin"), vec![0u8; 50]).unwrap();
+
+        let size = directory_size_sync(&root);
+        assert!(size.available);
+        assert_eq!(size.used_bytes, 150);
+
+        let _ = fs::remove_dir_all(&root);
+    }
+
+    #[test]
+    fn directory_size_missing_path_is_unavailable() {
+        let missing = std::env::temp_dir().join("f95app_dir_size_missing_never_exists");
+        let size = directory_size_sync(&missing);
+        assert!(!size.available);
+        assert_eq!(size.used_bytes, 0);
+    }
 }

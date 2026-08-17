@@ -18,4 +18,6 @@ export interface DiskInfo {
 /** A library row augmented with live free-space info for UI rendering. */
 export interface InstallLibraryWithDisk extends InstallLibrary {
   disk: DiskInfo;
+  /** Total file size under the library folder; null while calculating or offline. */
+  usedBytes: number | null;
 }

@@ -74,14 +74,38 @@ export async function listWithDisk(): Promise<InstallLibraryWithDisk[]> {
     libs.map(async (lib) => {
       try {
         const disk = await ipc.diskInfo(lib.path);
-        return { ...lib, disk };
+        return { ...lib, disk, usedBytes: null };
       } catch (err) {
         console.warn(`[libraries] disk info failed for ${lib.path}`, err);
-        return { ...lib, disk: { freeBytes: 0, available: false } };
+        return { ...lib, disk: { freeBytes: 0, available: false }, usedBytes: null };
       }
     }),
   );
   return enriched;
+}
+
+/** Walk each library folder and fill in `usedBytes`. Calls `onUpdate` per row. */
+export function refreshLibraryUsage(
+  libs: InstallLibraryWithDisk[],
+  onUpdate: (id: number, usedBytes: number | null) => void,
+): () => void {
+  let cancelled = false;
+  void Promise.all(
+    libs.map(async (lib) => {
+      if (cancelled) return;
+      try {
+        const size = await ipc.directorySize(lib.path);
+        if (cancelled) return;
+        onUpdate(lib.id, size.available ? size.usedBytes : null);
+      } catch (err) {
+        console.warn(`[libraries] directory size failed for ${lib.path}`, err);
+        if (!cancelled) onUpdate(lib.id, null);
+      }
+    }),
+  );
+  return () => {
+    cancelled = true;
+  };
 }
 
 export async function get(id: number): Promise<InstallLibrary | null> {
@@ -197,13 +221,20 @@ function deriveLabelFromPath(p: string): string {
   return tail || trimmed;
 }
 
-/** Pretty-printer for disk free space ("203.4 GB free"). */
-export function formatFreeSpace(bytes: number): string {
+/** Pretty-printer for byte sizes ("203.4 GB"). */
+export function formatStorageSize(bytes: number): string {
   if (!bytes || bytes < 0) return '—';
   const gb = bytes / (1024 * 1024 * 1024);
   if (gb >= 100) return `${gb.toFixed(0)} GB`;
   if (gb >= 10) return `${gb.toFixed(1)} GB`;
   if (gb >= 1) return `${gb.toFixed(2)} GB`;
   const mb = bytes / (1024 * 1024);
-  return `${mb.toFixed(0)} MB`;
+  if (mb >= 1) return `${mb.toFixed(1)} MB`;
+  const kb = bytes / 1024;
+  return kb >= 1 ? `${kb.toFixed(0)} KB` : `${bytes} B`;
+}
+
+/** @deprecated Use {@link formatStorageSize}. */
+export function formatFreeSpace(bytes: number): string {
+  return formatStorageSize(bytes);
 }

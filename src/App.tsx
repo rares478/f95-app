@@ -40,10 +40,12 @@ import './styles/forum-search.css';
 import './styles/thread-detail.css';
 import './styles/settings-store.css';
 import './styles/settings-changelog.css';
+import './styles/settings-layout.css';
 import './styles/version-info-modal.css';
 import './styles/nav-accent.css';
 import './styles/custom-video-fullscreen.css';
 import './styles/collections.css';
+import './styles/library-filters.css';
 
 type AppWindowKind = 'login' | 'main' | 'overlay' | 'overlay-hint' | 'tray-menu';
 

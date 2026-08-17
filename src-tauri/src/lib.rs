@@ -28,7 +28,7 @@ mod win_job;
 use commands::{
     append_app_log, build_state, check_network, close_captcha_window, complete_login,
     create_game_shortcuts,
-    default_downloads_path, delete_install_dir, delete_path, disk_info, download_cancel,
+    default_downloads_path, delete_install_dir, delete_path, directory_size, disk_info, download_cancel,
     download_continue_captcha, download_continue_choice, download_start, extract_archive,
     extract_cbz_preview, fetch_alerts_list, fetch_alerts_popup, fetch_rss_feed, find_main_exe,
     forum_search, game_detail,
@@ -286,6 +286,7 @@ pub fn run() {
             create_game_shortcuts,
             default_downloads_path,
             disk_info,
+            directory_size,
             move_install_start,
             move_install_cancel,
             set_gofile_credentials,

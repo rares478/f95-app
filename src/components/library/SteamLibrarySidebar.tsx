@@ -7,6 +7,10 @@ import { buildCollectionMenu } from '../../lib/collectionActions';
 import { useT } from '../../lib/i18n';
 import * as library from '../../lib/library';
 import {
+  applyLibraryMetaFilter,
+  parseLibraryMetaFilter,
+} from '../../lib/libraryFilters';
+import {
   COLLECTIONS_CHANGE_EVENT,
   listCollections,
   listMemberships,
@@ -45,6 +49,10 @@ export function SteamLibrarySidebar() {
   // of snapping back to Games.
   const isHome = detailMatch === null;
   const catParam = new URLSearchParams(location.search).get('cat');
+  const metaFilter = useMemo(
+    () => parseLibraryMetaFilter(new URLSearchParams(location.search)),
+    [location.search],
+  );
   const [category, setCategory] = useState<SamCategory>(() => parseSamCategory(catParam));
 
   useEffect(() => {
@@ -93,13 +101,16 @@ export function SteamLibrarySidebar() {
   const { openLibraryContextMenu } = useLibraryGameActions({ onReload: reload });
 
   const visible = useMemo(() => {
-    const sorted = [...games].sort((a, b) =>
-      a.title.localeCompare(b.title, undefined, { sensitivity: 'base' }),
+    const sorted = applyLibraryMetaFilter(
+      [...games].sort((a, b) =>
+        a.title.localeCompare(b.title, undefined, { sensitivity: 'base' }),
+      ),
+      metaFilter,
     );
     const q = search.trim().toLowerCase();
     if (!q) return sorted;
     return sorted.filter((g) => g.title.toLowerCase().includes(q));
-  }, [games, search]);
+  }, [games, search, metaFilter]);
 
   // Collection groups over the visible (category + search filtered) rows.
   // Groups with no member of the current category/search are hidden — a

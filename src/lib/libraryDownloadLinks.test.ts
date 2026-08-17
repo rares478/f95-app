@@ -3,6 +3,7 @@ import {
   ensureLinks,
   linksAreStale,
   saveLinksFromDetail,
+  saveLinksAndStoreTags,
   targetLinksVersion,
 } from './libraryDownloadLinks';
 import * as ipc from './ipc';
@@ -167,6 +168,27 @@ describe('linksAreStale', () => {
 
 vi.mock('./ipc');
 vi.mock('./library');
+
+describe('saveLinksAndStoreTags', () => {
+  beforeEach(() => {
+    vi.spyOn(library, 'setDownloadLinks').mockResolvedValue(undefined);
+    vi.spyOn(library, 'setStoreTags').mockResolvedValue(undefined);
+  });
+
+  it('writes download links and store tags from tag source parts', async () => {
+    await saveLinksAndStoreTags('1', [structuredLink], '2.0', {
+      tags: [{ slug: 'rpg', name: 'RPG' }],
+      prefixes: [{ name: 'RPGM', cssClass: null }],
+    });
+
+    expect(library.setDownloadLinks).toHaveBeenCalledWith(
+      '1',
+      [structuredLink],
+      '2.0',
+    );
+    expect(library.setStoreTags).toHaveBeenCalledWith('1', ['RPG', 'RPGM']);
+  });
+});
 
 describe('saveLinksFromDetail', () => {
   beforeEach(() => {
