@@ -3,7 +3,10 @@ import type { LibraryGame } from '../types/library';
 import {
   applyLibraryMetaFilter,
   buildLibraryEngineOptions,
+  buildLibraryPrefixOptions,
+  buildLibraryStatusOptions,
   buildLibraryTagOptions,
+  libraryTagSuggestions,
   matchesLibraryMetaFilter,
   parseLibraryMetaFilter,
 } from './libraryFilters';
@@ -37,10 +40,53 @@ describe('matchesLibraryMetaFilter', () => {
   it('matches engine filter by store tag name', () => {
     const g = game({ storeTags: ["Ren'Py", 'Adventure'] });
     expect(
-      matchesLibraryMetaFilter(g, { engines: ["Ren'Py"], tags: [], tagMode: 'or' }),
+      matchesLibraryMetaFilter(g, {
+        engines: ["Ren'Py"],
+        statuses: [],
+        prefixes: [],
+        tags: [],
+        tagMode: 'or',
+      }),
     ).toBe(true);
     expect(
-      matchesLibraryMetaFilter(g, { engines: ['Unity'], tags: [], tagMode: 'or' }),
+      matchesLibraryMetaFilter(g, {
+        engines: ['Unity'],
+        statuses: [],
+        prefixes: [],
+        tags: [],
+        tagMode: 'or',
+      }),
+    ).toBe(false);
+  });
+
+  it('matches F95 status and other prefixes separately from tags', () => {
+    const g = game({ storeTags: ['Completed', 'VN', 'Adventure'] });
+    expect(
+      matchesLibraryMetaFilter(g, {
+        engines: [],
+        statuses: ['Completed'],
+        prefixes: [],
+        tags: [],
+        tagMode: 'or',
+      }),
+    ).toBe(true);
+    expect(
+      matchesLibraryMetaFilter(g, {
+        engines: [],
+        statuses: [],
+        prefixes: ['VN'],
+        tags: [],
+        tagMode: 'or',
+      }),
+    ).toBe(true);
+    expect(
+      matchesLibraryMetaFilter(g, {
+        engines: [],
+        statuses: ['Abandoned'],
+        prefixes: [],
+        tags: [],
+        tagMode: 'or',
+      }),
     ).toBe(false);
   });
 
@@ -49,6 +95,8 @@ describe('matchesLibraryMetaFilter', () => {
     expect(
       matchesLibraryMetaFilter(g, {
         engines: [],
+        statuses: [],
+        prefixes: [],
         tags: ['Adventure', 'Horror'],
         tagMode: 'or',
       }),
@@ -56,6 +104,8 @@ describe('matchesLibraryMetaFilter', () => {
     expect(
       matchesLibraryMetaFilter(g, {
         engines: [],
+        statuses: [],
+        prefixes: [],
         tags: ['Adventure', 'Horror'],
         tagMode: 'and',
       }),
@@ -63,6 +113,8 @@ describe('matchesLibraryMetaFilter', () => {
     expect(
       matchesLibraryMetaFilter(g, {
         engines: [],
+        statuses: [],
+        prefixes: [],
         tags: ['Adventure', 'RPG'],
         tagMode: 'and',
       }),
@@ -73,9 +125,15 @@ describe('matchesLibraryMetaFilter', () => {
 describe('applyLibraryMetaFilter', () => {
   it('returns all games when no meta filter is active', () => {
     const games = [game({ threadId: '1' }), game({ threadId: '2' })];
-    expect(applyLibraryMetaFilter(games, { engines: [], tags: [], tagMode: 'or' })).toHaveLength(
-      2,
-    );
+    expect(
+      applyLibraryMetaFilter(games, {
+        engines: [],
+        statuses: [],
+        prefixes: [],
+        tags: [],
+        tagMode: 'or',
+      }),
+    ).toHaveLength(2);
   });
 });
 
@@ -91,6 +149,38 @@ describe('buildLibraryFilterOptions', () => {
     const tags = buildLibraryTagOptions(games);
     expect(tags.map((t) => t.name)).toEqual(['Adventure', 'RPG']);
   });
+
+  it('counts status and other prefixes and keeps them out of tags', () => {
+    const games = [
+      game({ storeTags: ['Completed', 'VN', 'Adventure'] }),
+      game({ storeTags: ['Abandoned', 'Adventure'] }),
+    ];
+    expect(buildLibraryStatusOptions(games).find((o) => o.name === 'Completed')?.count).toBe(1);
+    expect(buildLibraryStatusOptions(games).find((o) => o.name === 'Abandoned')?.count).toBe(1);
+    expect(buildLibraryPrefixOptions(games).find((o) => o.name === 'VN')?.count).toBe(1);
+    expect(buildLibraryTagOptions(games).map((t) => t.name)).toEqual(['Adventure']);
+  });
+});
+
+describe('libraryTagSuggestions', () => {
+  const options = [
+    { name: 'Adventure', count: 5 },
+    { name: 'RPG', count: 4 },
+    { name: 'Horror', count: 2 },
+  ];
+
+  it('returns the top idle slice when query is empty', () => {
+    expect(libraryTagSuggestions(options, '').map((o) => o.name)).toEqual([
+      'Adventure',
+      'RPG',
+      'Horror',
+    ]);
+    expect(libraryTagSuggestions(options, '  ').map((o) => o.name)).toHaveLength(3);
+  });
+
+  it('filters by name when typing', () => {
+    expect(libraryTagSuggestions(options, 'hor').map((o) => o.name)).toEqual(['Horror']);
+  });
 });
 
 describe('parseLibraryMetaFilter', () => {
@@ -98,8 +188,21 @@ describe('parseLibraryMetaFilter', () => {
     const params = new URLSearchParams("engines=Ren'Py,Unity&tags=Adventure,RPG&tagMode=and");
     expect(parseLibraryMetaFilter(params)).toEqual({
       engines: ["Ren'Py", 'Unity'],
+      statuses: [],
+      prefixes: [],
       tags: ['Adventure', 'RPG'],
       tagMode: 'and',
+    });
+  });
+
+  it('reads statuses and prefixes from search params', () => {
+    const params = new URLSearchParams('statuses=Completed&prefixes=VN');
+    expect(parseLibraryMetaFilter(params)).toEqual({
+      engines: [],
+      statuses: ['Completed'],
+      prefixes: ['VN'],
+      tags: [],
+      tagMode: 'or',
     });
   });
 });

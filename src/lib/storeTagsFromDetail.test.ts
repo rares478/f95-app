@@ -43,7 +43,7 @@ describe('buildStoreTagsFromDetail', () => {
     ).toEqual(['Adventure', 'Male protagonist']);
   });
 
-  it('adds known engine prefix names when not already tagged', () => {
+  it('adds known prefix names when not already tagged', () => {
     expect(
       buildStoreTagsFromDetail(
         detail({
@@ -55,7 +55,7 @@ describe('buildStoreTagsFromDetail', () => {
           ],
         }),
       ),
-    ).toEqual(['Adventure', "Ren'Py"]);
+    ).toEqual(['Adventure', "Ren'Py", 'Completed', 'VN']);
   });
 
   it('dedupes engine against existing tags case-insensitively', () => {

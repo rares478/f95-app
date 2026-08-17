@@ -1,5 +1,5 @@
 import type { GameDetail } from '../types/game';
-import { KNOWN_PREFIXES } from '../types/sam';
+import { KNOWN_PREFIXES, type PrefixOption } from '../types/sam';
 
 const ENGINE_NAMES_LOWER = new Set(
   KNOWN_PREFIXES.filter((p) => p.group === 'engine').map((p) =>
@@ -14,8 +14,20 @@ const ENGINE_CANONICAL = new Map(
   ]),
 );
 
+const PREFIX_BY_KEY = new Map(
+  KNOWN_PREFIXES.map((p) => [p.name.trim().toLowerCase(), p] as const),
+);
+
 export function isEngineStoreTag(name: string): boolean {
   return ENGINE_NAMES_LOWER.has(name.trim().toLowerCase());
+}
+
+export function knownPrefixMeta(name: string): PrefixOption | undefined {
+  return PREFIX_BY_KEY.get(name.trim().toLowerCase());
+}
+
+export function isKnownPrefixStoreTag(name: string): boolean {
+  return PREFIX_BY_KEY.has(name.trim().toLowerCase());
 }
 
 export function splitStoreTags(tags: string[]): { engines: string[]; contentTags: string[] } {
@@ -59,10 +71,11 @@ export function buildStoreTagsFromDetail(detail: GameDetail): string[] {
     const raw = (prefix.name ?? '').trim();
     if (!raw) continue;
     const key = raw.toLowerCase();
-    if (!ENGINE_NAMES_LOWER.has(key)) continue;
+    const meta = PREFIX_BY_KEY.get(key);
+    if (!meta) continue;
     if (seen.has(key)) continue;
     seen.add(key);
-    out.push(ENGINE_CANONICAL.get(key) ?? raw);
+    out.push(meta.name);
   }
 
   return out;
