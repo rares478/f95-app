@@ -218,7 +218,7 @@ function DownloadIcon({ active }: { active: boolean }) {
 }
 
 const barStyle: React.CSSProperties = {
-  height: 28,
+  height: 36,
   flexShrink: 0,
   display: 'flex',
   alignItems: 'stretch',
@@ -235,6 +235,7 @@ const downloadLinkStyle: React.CSSProperties = {
   minWidth: 0,
   display: 'flex',
   alignItems: 'center',
+  justifyContent: 'center',
   gap: 8,
   padding: '0 12px',
   textDecoration: 'none',
@@ -251,8 +252,10 @@ const downloadIconWrap: React.CSSProperties = {
 const downloadTextWrap: React.CSSProperties = {
   display: 'flex',
   flexDirection: 'column',
+  alignItems: 'center',
   minWidth: 0,
   gap: 1,
+  textAlign: 'center',
 };
 
 const downloadLabelStyle: React.CSSProperties = {
@@ -283,7 +286,7 @@ const progressTrackStyle: React.CSSProperties = {
   left: 0,
   right: 0,
   bottom: 0,
-  height: 2,
+  height: 3,
   background: 'var(--bg-sunken)',
 };
 

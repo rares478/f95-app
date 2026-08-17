@@ -9,6 +9,7 @@ import {
   sanitizePathSegment,
   shortJobId,
   shouldAutoExtractDownload,
+  shouldRevertExtractFailure,
   withBundleAssignLock,
   withBundleExtractLock,
 } from './installJobExtract';
@@ -16,6 +17,10 @@ import {
 describe('sanitizePathSegment', () => {
   it('replaces illegal path chars', () => {
     expect(sanitizePathSegment('Win/Linux: S1?')).toBe('Win_Linux_ S1_');
+  });
+
+  it('replaces middle-dot section separators', () => {
+    expect(sanitizePathSegment('Current · Win · Full')).toBe('Current - Win - Full');
   });
 
   it('falls back when empty after trim', () => {
@@ -53,7 +58,7 @@ describe('resolveLibraryGameDir', () => {
 });
 
 describe('buildJobExtractDest', () => {
-  it('builds sectionLabel-stem under library game dir', () => {
+  it('uses the archive stem for a single job', () => {
     expect(
       buildJobExtractDest({
         archivePath: 'D:/lib/99/Game.zip',
@@ -61,7 +66,7 @@ describe('buildJobExtractDest', () => {
         jobId: 'abcdef12-3456-7890-abcd-ef1234567890',
         jobCount: 1,
       }),
-    ).toBe('D:/lib/99/Win_Linux-Game');
+    ).toBe('D:/lib/99/Game');
   });
 
   it('appends short job id when plan has multiple jobs', () => {
@@ -82,9 +87,9 @@ describe('buildJobExtractDest', () => {
         sectionLabel: 'Patches',
         jobId: '11111111-2222-3333-4444-555555555555',
         jobCount: 1,
-        takenPaths: ['D:/lib/99/Patches-Game'],
+        takenPaths: ['D:/lib/99/Game'],
       }),
-    ).toBe('D:/lib/99/Patches-Game-11111111');
+    ).toBe('D:/lib/99/Game-11111111');
   });
 });
 
@@ -102,7 +107,7 @@ describe('buildBundleExtractDest', () => {
         sectionLabel: 'Season 1-2 · Win/Linux · Splits',
         jobId: 'abcdef12-3456-7890-abcd-ef1234567890',
       }),
-    ).toBe('D:/lib/99/Season 1-2 · Win_Linux · Splits');
+    ).toBe('D:/lib/99/Season 1-2 - Win_Linux - Splits');
   });
 
   it('reuses an existing sibling extractPath', () => {
@@ -111,9 +116,9 @@ describe('buildBundleExtractDest', () => {
         archivePath: 'D:/lib/99/Game.part2.rar',
         sectionLabel: 'Season 1-2 · Win/Linux · Splits',
         jobId: '11111111-2222-3333-4444-555555555555',
-        siblingExtractPaths: [null, 'D:/lib/99/Season 1-2 · Win_Linux · Splits'],
+        siblingExtractPaths: [null, 'D:/lib/99/Season 1-2 - Win_Linux - Splits'],
       }),
-    ).toBe('D:/lib/99/Season 1-2 · Win_Linux · Splits');
+    ).toBe('D:/lib/99/Season 1-2 - Win_Linux - Splits');
   });
 
   it('uses parent of install path when install is outside archive tree', () => {
@@ -233,6 +238,40 @@ describe('withBundleExtractLock', () => {
     });
     await Promise.all([assignP, extractP]);
     expect(extractStartedWhileAssignHeld).toBe(true);
+  });
+});
+
+describe('shouldRevertExtractFailure', () => {
+  it('reverts when there is no linked job', () => {
+    expect(shouldRevertExtractFailure(null)).toBe(true);
+    expect(shouldRevertExtractFailure(undefined)).toBe(true);
+  });
+
+  it('does not revert when this job already extracted', () => {
+    expect(
+      shouldRevertExtractFailure({
+        extractPath: 'D:/lib/99/Game',
+        assignStatus: 'pending',
+      }),
+    ).toBe(false);
+  });
+
+  it('does not revert when already assigned', () => {
+    expect(
+      shouldRevertExtractFailure({
+        extractPath: null,
+        assignStatus: 'assigned',
+      }),
+    ).toBe(false);
+  });
+
+  it('reverts a first-time pending extract', () => {
+    expect(
+      shouldRevertExtractFailure({
+        extractPath: null,
+        assignStatus: 'pending',
+      }),
+    ).toBe(true);
   });
 });
 

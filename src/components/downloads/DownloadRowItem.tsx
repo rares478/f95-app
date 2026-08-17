@@ -10,7 +10,7 @@ import {
   canChangeDownloadProvider,
   hostNeedsApiKeyHint,
 } from '../../lib/downloadLibrarySync';
-import { STREAMABLE_HOSTS } from '../../lib/downloadHosts';
+import { HOST_COLORS, STREAMABLE_HOSTS } from '../../lib/downloadHosts';
 import type { DownloadProgress, DownloadRow } from '../../types/download';
 import {
   formatBytes,
@@ -21,138 +21,39 @@ import {
 import type { DownloadGameInfo } from './DownloadCard';
 import { LibraryThumbnail } from '../library/LibraryThumbnail';
 
-interface Props {
+export interface DownloadCardProps {
   row: DownloadRow;
-  progress: DownloadProgress | undefined;
+  progress?: DownloadProgress;
   game?: DownloadGameInfo;
-  onCancel: () => void;
-  /** Show Assign… when linked install job is pending. */
   showAssign?: boolean;
   onAssign?: () => void;
-  onContextMenu?: (e: React.MouseEvent) => void;
-}
-
-/** Full-width card for in-progress downloads. */
-export function DownloadActiveCard({
-  row,
-  progress,
-  game,
-  onCancel,
-  showAssign,
-  onAssign,
-  onContextMenu,
-}: Props) {
-  const { t } = useT();
-  const { settings: dlSettings } = useDownloadSettings();
-  const isExtracting = row.state === 'extracting';
-  const extractPct = isExtracting ? (progress?.extractPercent ?? null) : null;
-  const liveBytes = progress?.bytes ?? row.bytesDone;
-  const liveTotal = progress?.total ?? row.bytesTotal;
-  const pct = isExtracting
-    ? extractPct
-    : liveTotal && liveTotal > 0
-      ? Math.min(100, (liveBytes / liveTotal) * 100)
-      : null;
-  const displayTitle = game?.title ?? t('dl.thread', { id: row.threadId });
-
-  return (
-    <article className="dl-active-card" onContextMenu={onContextMenu}>
-      <Link to={`/store/game/${row.threadId}`} className="dl-active-thumb">
-        {game?.thumbnailUrl ? (
-          <LibraryThumbnail src={game.thumbnailUrl} alt="" />
-        ) : (
-          <span className="dl-active-thumb-fallback">
-            {displayTitle.slice(0, 1).toUpperCase()}
-          </span>
-        )}
-      </Link>
-
-      <div className="dl-active-body">
-        <div className="dl-active-top">
-          <div>
-            <Link to={`/store/game/${row.threadId}`} className="dl-active-title">
-              {displayTitle}
-            </Link>
-            <div className="dl-active-sub">
-              <span className={`dl-pill dl-pill-${row.state}`}>{t(stateKey(row.state))}</span>
-              <span className="dl-meta-text">{row.host}</span>
-              {row.gameVersion && <span className="dl-meta-text">{row.gameVersion}</span>}
-            </div>
-          </div>
-          {pct !== null && <span className="dl-active-pct">{pct.toFixed(0)}%</span>}
-        </div>
-
-        <div className="dl-active-progress">
-          <div
-            className="dl-active-progress-fill"
-            style={{ width: `${pct ?? (isExtracting ? 100 : 0)}%` }}
-          />
-        </div>
-
-        <div className="dl-active-footer">
-          <span className="dl-meta-text">
-            {isExtracting ? (
-              <>
-                {t('downloads.action.extracting')}
-                {extractPct != null && <> · {extractPct}%</>}
-                {progress?.extractEtaSecs != null && progress.extractEtaSecs > 0 && (
-                  <>
-                    {' '}
-                    · {t('dllist.meta.eta', {
-                      eta: formatDuration(progress.extractEtaSecs),
-                    })}
-                  </>
-                )}
-              </>
-            ) : (
-              <>
-                {formatBytes(liveBytes)}
-                {liveTotal ? ` / ${formatBytes(liveTotal)}` : ''}
-                {progress && progress.speedBps > 0 && (
-                  <> · {formatDownloadSpeed(progress.speedBps, dlSettings.speedInMbps)}</>
-                )}
-                {progress && progress.speedBps > 0 && liveTotal && (
-                  <> · {t('dllist.meta.eta', { eta: formatEta(liveTotal - liveBytes, progress.speedBps) })}</>
-                )}
-              </>
-            )}
-          </span>
-          <div className="dl-active-actions">
-            {showAssign && onAssign && (
-              <button type="button" className="dl-link-btn dl-link-btn-accent" onClick={onAssign}>
-                {t('install.assign.cta')}
-              </button>
-            )}
-            <button type="button" className="dl-link-btn" onClick={onCancel} disabled={isExtracting}>
-              {t('downloads.action.cancel')}
-            </button>
-          </div>
-        </div>
-      </div>
-    </article>
-  );
-}
-
-interface RowProps {
-  row: DownloadRow;
-  game?: DownloadGameInfo;
-  onRemove: () => void;
-  onReveal: () => void;
-  onRetry: () => void;
-  onExtract: () => void;
+  onCancel?: () => void;
+  onRemove?: () => void;
+  onReveal?: () => void;
+  onRetry?: () => void;
+  onExtract?: () => void;
   onOpenCaptcha?: () => void;
   onContinueCaptcha?: () => void;
   onChangeProvider?: () => void;
-  /** Show Assign… when linked install job is pending. */
-  showAssign?: boolean;
-  onAssign?: () => void;
   onContextMenu?: (e: React.MouseEvent) => void;
 }
 
-/** Compact single-line row for history (completed / failed / etc.). */
-export function DownloadHistoryRow({
+const LIVE_STATES = new Set([
+  'downloading',
+  'extracting',
+  'resolving',
+  'pending',
+  'awaiting_choice',
+]);
+
+/** Unified card for active and history downloads. Progress only on live rows. */
+export function DownloadCard({
   row,
+  progress,
   game,
+  showAssign,
+  onAssign,
+  onCancel,
   onRemove,
   onReveal,
   onRetry,
@@ -160,14 +61,26 @@ export function DownloadHistoryRow({
   onOpenCaptcha,
   onContinueCaptcha,
   onChangeProvider,
-  showAssign,
-  onAssign,
   onContextMenu,
-}: RowProps) {
+}: DownloadCardProps) {
   const { t } = useT();
+  const { settings: dlSettings } = useDownloadSettings();
   const [extracting, setExtracting] = useState(false);
   const [continuing, setContinuing] = useState(false);
-  const isArchive = row.destPath ? isArchivePath(row.destPath) : false;
+
+  const isLive = LIVE_STATES.has(row.state);
+  const isExtracting = row.state === 'extracting';
+  const extractPct = isExtracting ? (progress?.extractPercent ?? null) : null;
+  const liveBytes = progress?.bytes ?? row.bytesDone;
+  const liveTotal = progress?.total ?? row.bytesTotal;
+  const pct = isLive
+    ? isExtracting
+      ? extractPct
+      : liveTotal && liveTotal > 0
+        ? Math.min(100, (liveBytes / liveTotal) * 100)
+        : null
+    : null;
+
   const displayTitle = game?.title ?? t('dl.thread', { id: row.threadId });
   const fileName = fileLabel(row, displayTitle);
   const size = formatBytes(row.bytesTotal ?? row.bytesDone);
@@ -181,6 +94,10 @@ export function DownloadHistoryRow({
     !STREAMABLE_HOSTS.has(row.host.trim().toLowerCase());
   const showChangeProvider =
     !!onChangeProvider && canChangeDownloadProvider(row);
+  const isArchive = row.destPath ? isArchivePath(row.destPath) : false;
+  const hostKey = row.host.trim().toLowerCase();
+  const hostColor = HOST_COLORS[hostKey];
+
   const date = row.finishedAt
     ? new Date(row.finishedAt).toLocaleString(undefined, {
         day: '2-digit',
@@ -190,69 +107,135 @@ export function DownloadHistoryRow({
       })
     : null;
 
+  const statusLabel =
+    row.state === 'needs_browser'
+      ? captchaHost
+        ? t('downloads.action.captchaShort')
+        : t('downloads.action.openBrowserShort')
+      : t(stateKey(row.state));
+
   return (
     <article
-      className={`dl-history-row dl-history-row-${row.state}`}
+      className={`dl-card${isLive ? ' dl-card-live' : ''}`}
       onContextMenu={onContextMenu}
     >
-      <Link to={`/store/game/${row.threadId}`} className="dl-history-thumb">
+      <Link to={`/store/game/${row.threadId}`} className="dl-card-thumb">
         {game?.thumbnailUrl ? (
           <LibraryThumbnail src={game.thumbnailUrl} alt="" />
         ) : (
-          <span>{displayTitle.slice(0, 1).toUpperCase()}</span>
+          displayTitle.slice(0, 1).toUpperCase()
         )}
       </Link>
 
-      <div className="dl-history-main">
-        <Link to={`/store/game/${row.threadId}`} className="dl-history-title">
-          {displayTitle}
-        </Link>
-        <span className="dl-history-file" title={row.destPath ?? row.sourceUrl}>
+      <div className="dl-card-main">
+        <div className="dl-card-title-row">
+          <Link to={`/store/game/${row.threadId}`} className="dl-card-title">
+            {displayTitle}
+          </Link>
+          {isLive && pct !== null && (
+            <span className="dl-card-pct">{pct.toFixed(0)}%</span>
+          )}
+        </div>
+        <span className="dl-card-file" title={row.destPath ?? row.sourceUrl}>
           {fileName}
         </span>
       </div>
 
-      <span className="dl-history-col dl-history-status">
-        <span
-          className={`dl-pill dl-pill-${row.state}`}
-          title={t(stateKey(row.state))}
-        >
-          {row.state === 'needs_browser'
-            ? captchaHost
-              ? t('downloads.action.captchaShort')
-              : t('downloads.action.openBrowserShort')
-            : t(stateKey(row.state))}
+      <div className="dl-card-meta">
+        <span className={`dl-pill dl-pill-${row.state}`} title={statusLabel}>
+          {statusLabel}
         </span>
         {showApiKeyHint && (
-          <span
-            className="dl-pill dl-pill-no-api-key"
-            title={t('downloads.hint.noApiKey.title')}
-          >
+          <span className="dl-pill dl-pill-no-api-key" title={t('downloads.hint.noApiKey.title')}>
             {t('downloads.hint.noApiKey')}
           </span>
         )}
         {showUnsupportedHint && (
-          <span
-            className="dl-pill dl-pill-unsupported"
-            title={t('downloads.hint.unsupported.title')}
-          >
+          <span className="dl-pill dl-pill-unsupported" title={t('downloads.hint.unsupported.title')}>
             {t('downloads.hint.unsupported')}
           </span>
         )}
-      </span>
-      <span className="dl-history-col dl-history-host">{row.host}</span>
-      <span className="dl-history-col">{row.gameVersion ?? '—'}</span>
-      <span className="dl-history-col dl-history-size">{size}</span>
-      <span className="dl-history-col dl-history-date">{date ?? '—'}</span>
+        <span
+          className="dl-card-host"
+          style={hostColor ? { borderColor: hostColor, color: hostColor } : undefined}
+        >
+          {row.host}
+        </span>
+        {row.gameVersion && (
+          <span className="dl-card-meta-item">v{row.gameVersion}</span>
+        )}
+        {!isLive && <span className="dl-card-meta-item">{size}</span>}
+        {!isLive && date && <span className="dl-card-meta-item">{date}</span>}
+      </div>
 
-      {row.errorMessage && row.state === 'failed' && (
-        <div className="dl-history-error">
-          {translateBackendMessage(row.errorMessage, t)}
+      {isLive && pct !== null && (
+        <div className="dl-card-progress-wrap">
+          <div
+            className="dl-card-progress-fill"
+            style={{ width: `${pct ?? (isExtracting ? 100 : 0)}%` }}
+          />
         </div>
       )}
 
-      <div className="dl-history-actions">
-        {row.state === 'needs_browser' && captchaHost && row.resolvedUrl && (
+      {isLive && (
+        <div className="dl-card-stats">
+          {isExtracting ? (
+            <>
+              {t('downloads.action.extracting')}
+              {extractPct != null && <> · {extractPct}%</>}
+              {progress?.extractEtaSecs != null && progress.extractEtaSecs > 0 && (
+                <>
+                  {' '}
+                  ·{' '}
+                  {t('dllist.meta.eta', {
+                    eta: formatDuration(progress.extractEtaSecs),
+                  })}
+                </>
+              )}
+            </>
+          ) : (
+            <>
+              {formatBytes(liveBytes)}
+              {liveTotal ? ` / ${formatBytes(liveTotal)}` : ''}
+              {progress && progress.speedBps > 0 && (
+                <> · {formatDownloadSpeed(progress.speedBps, dlSettings.speedInMbps)}</>
+              )}
+              {progress && progress.speedBps > 0 && liveTotal && (
+                <>
+                  {' '}
+                  ·{' '}
+                  {t('dllist.meta.eta', {
+                    eta: formatEta(liveTotal - liveBytes, progress.speedBps),
+                  })}
+                </>
+              )}
+            </>
+          )}
+        </div>
+      )}
+
+      {row.errorMessage && row.state === 'failed' && (
+        <p className="dl-card-error">{translateBackendMessage(row.errorMessage, t)}</p>
+      )}
+
+      <div className="dl-card-actions">
+        {isLive && showAssign && onAssign && (
+          <button type="button" className="dl-action-btn dl-action-btn-accent" onClick={onAssign}>
+            {t('install.assign.cta')}
+          </button>
+        )}
+        {isLive && onCancel && (
+          <button
+            type="button"
+            className="dl-link-btn"
+            onClick={onCancel}
+            disabled={isExtracting}
+          >
+            {t('downloads.action.cancel')}
+          </button>
+        )}
+
+        {!isLive && row.state === 'needs_browser' && captchaHost && row.resolvedUrl && (
           <>
             <button type="button" className="dl-action-btn" onClick={onOpenCaptcha}>
               {t('downloads.action.openCaptcha')}
@@ -277,12 +260,12 @@ export function DownloadHistoryRow({
             </button>
           </>
         )}
-        {row.state === 'needs_browser' && !captchaHost && row.resolvedUrl && (
+        {!isLive && row.state === 'needs_browser' && !captchaHost && row.resolvedUrl && (
           <button type="button" className="dl-action-btn" onClick={() => openUrl(row.resolvedUrl!)}>
             {t('downloads.action.openBrowserShort')}
           </button>
         )}
-        {showChangeProvider && (
+        {!isLive && showChangeProvider && (
           <button
             type="button"
             className="dl-action-btn dl-action-btn-accent"
@@ -292,18 +275,14 @@ export function DownloadHistoryRow({
             {t('downloads.action.changeProvider')}
           </button>
         )}
-        {showAssign && onAssign && (
-          <button
-            type="button"
-            className="dl-action-btn dl-action-btn-accent"
-            onClick={onAssign}
-          >
+        {!isLive && showAssign && onAssign && (
+          <button type="button" className="dl-action-btn dl-action-btn-accent" onClick={onAssign}>
             {t('install.assign.cta')}
           </button>
         )}
-        {row.state === 'completed' && row.destPath && (
+        {!isLive && row.state === 'completed' && row.destPath && (
           <>
-            {isArchive && (
+            {isArchive && onExtract && (
               <button
                 type="button"
                 className="dl-action-btn dl-action-btn-accent"
@@ -320,26 +299,38 @@ export function DownloadHistoryRow({
                 {extracting ? t('downloads.action.extracting') : t('downloads.action.extract')}
               </button>
             )}
-            <button type="button" className="dl-action-btn" onClick={onReveal}>
-              {t('downloads.action.revealShort')}
-            </button>
+            {onReveal && (
+              <button type="button" className="dl-action-btn" onClick={onReveal}>
+                {t('downloads.action.revealShort')}
+              </button>
+            )}
             <Link to={`/library/game/${row.threadId}`} className="dl-action-btn">
               {t('downloads.action.libraryShort')}
             </Link>
           </>
         )}
-        {(row.state === 'failed' || row.state === 'cancelled' || row.state === 'needs_browser') && (
-          <button type="button" className="dl-action-btn dl-action-btn-accent" onClick={onRetry}>
-            {t('downloads.action.retry')}
+        {!isLive &&
+          (row.state === 'failed' || row.state === 'cancelled' || row.state === 'needs_browser') &&
+          onRetry && (
+            <button type="button" className="dl-action-btn dl-action-btn-accent" onClick={onRetry}>
+              {t('downloads.action.retry')}
+            </button>
+          )}
+        {!isLive && onRemove && (
+          <button type="button" className="dl-action-btn dl-action-btn-muted" onClick={onRemove}>
+            {t('common.remove')}
           </button>
         )}
-        <button type="button" className="dl-action-btn dl-action-btn-muted" onClick={onRemove}>
-          {t('common.remove')}
-        </button>
       </div>
     </article>
   );
 }
+
+/** @deprecated Use DownloadCard */
+export const DownloadActiveCard = DownloadCard;
+
+/** @deprecated Use DownloadCard */
+export const DownloadHistoryRow = DownloadCard;
 
 function supportsCaptchaWindow(host: string): boolean {
   return host.trim().toLowerCase() === 'mixdrop';

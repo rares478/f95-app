@@ -12,6 +12,17 @@ import * as libraries from '../lib/libraries';
 import * as ipc from '../lib/ipc';
 import { loadDownloadSettings } from '../lib/downloadSettings';
 import {
+  averageSpeedBps,
+  EMPTY_GRAPH_HISTORY,
+  pushByteSample,
+  pushGraphHistory,
+  SPEED_SAMPLE_MS,
+  sumSpeeds,
+  type ByteSample,
+  type GraphHistory,
+} from '../lib/downloadSpeed';
+import { applyDownloadProgress, createGenerationGuard } from '../lib/downloadProgress';
+import {
   archiveParentDir,
   extractDirForArchive,
   isArchivePath,
@@ -24,6 +35,7 @@ import {
   emitInstallNeedsAssign,
   pickBundleLeadJob,
   shouldAutoExtractDownload,
+  shouldRevertExtractFailure,
   withBundleAssignLock,
   withBundleExtractLock,
 } from '../lib/installJobExtract';
@@ -97,7 +109,9 @@ export async function runExtraction(
     game.installStatus === 'installed' || game.installStatus === 'update_available';
 
   try {
-    await downloads.markExtracting(threadId, archivePath);
+    if (resolvedDownloadId != null) {
+      await downloads.markExtracting(resolvedDownloadId);
+    }
     await library.setStatus(threadId, 'extracting');
     onExtracting?.();
   } catch {
@@ -286,7 +300,9 @@ export async function runExtraction(
         }
       }
       try {
-        await downloads.markExtracted(threadId, archivePath);
+        if (resolvedDownloadId != null) {
+          await downloads.markExtracted(resolvedDownloadId, result.destDir);
+        }
       } catch {
         /* ignore */
       }
@@ -325,7 +341,9 @@ export async function runExtraction(
       }
     }
     try {
-      await downloads.markExtracted(threadId, archivePath);
+      if (resolvedDownloadId != null) {
+        await downloads.markExtracted(resolvedDownloadId, result.destDir);
+      }
     } catch {
       /* ignore */
     }
@@ -377,28 +395,52 @@ export async function runExtraction(
     }
   } catch (err) {
     console.error('[extract] failed', err);
-    try {
-      await downloads.markExtractFailed(threadId, archivePath, extractRawMessage(err));
-    } catch {
-      /* ignore */
-    }
-    if (linkedJob) {
+    const revert = shouldRevertExtractFailure(linkedJob);
+    if (revert) {
       try {
-        await markJobAssign(linkedJob.id, 'failed', {
-          errorMessage: extractRawMessage(err),
-        });
-        await recomputePlanStatus(linkedJob.planId);
+        if (resolvedDownloadId != null) {
+          await downloads.markExtractFailed(
+            resolvedDownloadId,
+            extractRawMessage(err),
+          );
+        }
       } catch {
         /* ignore */
       }
-    }
-    try {
-      const game = await library.get(threadId);
-      if (game) {
-        await library.setStatus(threadId, recoverStatusAfterDownloadFailure(game));
+      if (linkedJob) {
+        try {
+          await markJobAssign(linkedJob.id, 'failed', {
+            errorMessage: extractRawMessage(err),
+          });
+          await recomputePlanStatus(linkedJob.planId);
+        } catch {
+          /* ignore */
+        }
       }
-    } catch {
-      /* ignore */
+      try {
+        const game = await library.get(threadId);
+        if (game) {
+          await library.setStatus(threadId, recoverStatusAfterDownloadFailure(game));
+        }
+      } catch {
+        /* ignore */
+      }
+    } else {
+      try {
+        if (resolvedDownloadId != null) {
+          await downloads.markExtracted(resolvedDownloadId);
+        }
+      } catch {
+        /* ignore */
+      }
+      try {
+        await library.setStatus(
+          threadId,
+          previousStatus === 'extracting' ? 'installed' : previousStatus,
+        );
+      } catch {
+        /* ignore */
+      }
     }
     throw err;
   }
@@ -479,14 +521,19 @@ async function reconcilePendingExtractions(
   ) => Promise<void>,
 ): Promise<void> {
   const dlSettings = await loadDownloadSettings();
-  if (!dlSettings.autoExtract) return;
-
   const rows = await downloads.list();
   for (const row of rows) {
-    if (row.state !== 'completed' || !row.destPath || !isArchivePath(row.destPath)) continue;
+    if (row.state !== 'completed' || !row.destPath) continue;
+    const linkedJob = await findJobByDownloadId(row.id);
+    // After delete-archive, dest_path can still point at the missing .7z/.zip.
+    // Point it at the extract folder so Reveal works and Extract is not offered.
+    if (linkedJob?.extractPath && isArchivePath(row.destPath)) {
+      await downloads.markExtracted(row.id, linkedJob.extractPath);
+      continue;
+    }
+    if (!dlSettings.autoExtract || !isArchivePath(row.destPath)) continue;
     const game = await library.get(row.threadId);
     if (!game || !needsExtraction(row, game)) continue;
-    const linkedJob = await findJobByDownloadId(row.id);
     if (!shouldAutoExtractDownload({ job: linkedJob })) continue;
     await tryAutoExtract(row.threadId, row.destPath, row.gameVersion, row.id);
   }
@@ -495,17 +542,26 @@ async function reconcilePendingExtractions(
 export function useDownloads(options?: UseDownloadsOptions): {
   rows: DownloadRow[];
   progress: Record<number, DownloadProgress>;
+  speedHistory: GraphHistory;
   reload: () => Promise<void>;
 } {
   const [rows, setRows] = useState<DownloadRow[]>([]);
   const [progress, setProgress] = useState<Record<number, DownloadProgress>>({});
+  const [speedHistory, setSpeedHistory] = useState<GraphHistory>(EMPTY_GRAPH_HISTORY);
   const progressRef = useRef(progress);
   progressRef.current = progress;
+  const rowsRef = useRef(rows);
+  rowsRef.current = rows;
   const extractingRef = useRef(new Set<string>());
+  const byteSamplesRef = useRef<Record<number, ByteSample[]>>({});
+  const extractSamplesRef = useRef<Record<number, ByteSample[]>>({});
+  const reloadGuardRef = useRef(createGenerationGuard());
 
   const reload = useCallback(async () => {
+    const token = reloadGuardRef.current.begin();
     const list = await downloads.list();
     await syncLibraryFromDownloads(list);
+    if (!reloadGuardRef.current.isCurrent(token)) return;
     setRows(list);
     const activeIds = new Set(
       list
@@ -528,6 +584,14 @@ export function useDownloads(options?: UseDownloadsOptions): {
       }
       return mutated ? out : p;
     });
+    const samples = byteSamplesRef.current;
+    for (const id of Object.keys(samples)) {
+      if (!activeIds.has(Number(id))) delete samples[Number(id)];
+    }
+    const extractSamples = extractSamplesRef.current;
+    for (const id of Object.keys(extractSamples)) {
+      if (!activeIds.has(Number(id))) delete extractSamples[Number(id)];
+    }
   }, []);
 
   useEffect(() => {
@@ -554,6 +618,7 @@ export function useDownloads(options?: UseDownloadsOptions): {
           tStandalone('dllist.extract.failed', { error: formatIpcError(err) }),
           { kind: 'error' },
         );
+        if (!cancelled) reload();
       } finally {
         extractingRef.current.delete(key);
       }
@@ -603,17 +668,38 @@ export function useDownloads(options?: UseDownloadsOptions): {
       unlisten.push(
         await listen<ExtractProgressPayload>('extract:progress', (e) => {
           if (cancelled) return;
+          const now = Date.now();
+          const id = e.payload.id;
+          const prev = progressRef.current[id];
+          const row = rowsRef.current.find((r) => r.id === id);
+          const archiveBytes = prev?.total ?? row?.bytesTotal ?? 0;
+          const extractedBytes =
+            archiveBytes > 0
+              ? Math.round((Math.min(100, Math.max(0, e.payload.percent)) / 100) * archiveBytes)
+              : 0;
+          if (archiveBytes > 0) {
+            const samples = extractSamplesRef.current[id] ?? [];
+            extractSamplesRef.current[id] = pushByteSample(samples, {
+              t: now,
+              bytes: extractedBytes,
+            });
+          }
+          const extractSpeedBps = averageSpeedBps(
+            extractSamplesRef.current[id] ?? [],
+            now,
+          );
           setProgress((p) => ({
             ...p,
-            [e.payload.id]: {
-              ...(p[e.payload.id] ?? {
-                id: e.payload.id,
+            [id]: {
+              ...(p[id] ?? {
+                id,
                 bytes: 0,
                 total: null,
                 speedBps: 0,
               }),
               extractPercent: e.payload.percent,
               extractEtaSecs: e.payload.etaSecs,
+              extractSpeedBps,
             },
           }));
         }),
@@ -621,14 +707,22 @@ export function useDownloads(options?: UseDownloadsOptions): {
       unlisten.push(
         await listen<ProgressPayload>('download:progress', (e) => {
           if (cancelled) return;
+          const now = Date.now();
+          const id = e.payload.id;
+          const prev = byteSamplesRef.current[id] ?? [];
+          byteSamplesRef.current[id] = pushByteSample(prev, {
+            t: now,
+            bytes: e.payload.bytes,
+          });
+          const speedBps = averageSpeedBps(byteSamplesRef.current[id]!, now);
           setProgress((p) => ({
             ...p,
-            [e.payload.id]: {
-              id: e.payload.id,
+            [id]: applyDownloadProgress(p[id], {
+              id,
               bytes: e.payload.bytes,
               total: e.payload.total,
-              speedBps: e.payload.speedBps,
-            },
+              speedBps,
+            }),
           }));
         }),
       );
@@ -743,11 +837,28 @@ export function useDownloads(options?: UseDownloadsOptions): {
     }
     setup();
 
+    const historyTimer = window.setInterval(() => {
+      if (cancelled) return;
+      const now = Date.now();
+      const downloadSpeeds: number[] = [];
+      for (const samples of Object.values(byteSamplesRef.current)) {
+        downloadSpeeds.push(averageSpeedBps(samples, now));
+      }
+      const extractSpeeds: number[] = [];
+      for (const samples of Object.values(extractSamplesRef.current)) {
+        extractSpeeds.push(averageSpeedBps(samples, now));
+      }
+      const downloadBps = sumSpeeds(downloadSpeeds);
+      const extractBps = sumSpeeds(extractSpeeds);
+      setSpeedHistory((prev) => pushGraphHistory(prev, downloadBps, extractBps));
+    }, SPEED_SAMPLE_MS);
+
     return () => {
       cancelled = true;
+      window.clearInterval(historyTimer);
       for (const u of unlisten) u();
     };
   }, [reload, options?.onNeedsFileChoice]);
 
-  return { rows, progress, reload };
+  return { rows, progress, speedHistory, reload };
 }

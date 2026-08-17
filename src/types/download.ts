@@ -34,6 +34,8 @@ export interface DownloadProgress {
   bytes: number;
   total: number | null;
   speedBps: number;
+  /** Archive throughput while extracting, derived from percent × archive size. */
+  extractSpeedBps?: number;
   /** Set while `extract:progress` events stream from the backend. */
   extractPercent?: number | null;
   extractEtaSecs?: number | null;

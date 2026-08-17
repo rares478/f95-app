@@ -3,6 +3,7 @@ import { archiveBaseName, archiveParentDir } from './archives';
 /** Strip chars that break path segments on Windows or POSIX (mirrors Rust sanitize_segment). */
 export function sanitizePathSegment(s: string): string {
   const cleaned = s
+    .replace(/\s*[\u00b7\u2022\u2013\u2014]\s*/g, ' - ')
     .split('')
     .map((c) => {
       if ('/\\:*?"<>|'.includes(c)) return '_';
@@ -71,13 +72,14 @@ export function buildJobExtractDest(args: {
   installPath?: string | null;
   /** Other jobs' extract paths that must not be reused. */
   takenPaths?: Iterable<string | null | undefined>;
-  /** When >1, always suffix so concurrent extracts cannot collide. */
+  /** When >1, prefix section and suffix job id so concurrent extracts cannot collide. Single jobs use the archive stem (same folder as a manual extract). */
   jobCount?: number;
 }): string {
   const gameDir = resolveLibraryGameDir(args.archivePath, args.installPath);
-  const baseName = `${sanitizePathSegment(args.sectionLabel)}-${sanitizePathSegment(
-    archiveStem(args.archivePath),
-  )}`;
+  const stem = sanitizePathSegment(archiveStem(args.archivePath));
+  const section = sanitizePathSegment(args.sectionLabel);
+  const multi = args.jobCount != null && args.jobCount > 1;
+  const baseName = multi ? `${section}-${stem}` : stem;
   const primary = joinPath(gameDir, baseName);
   const taken = new Set(
     [...(args.takenPaths ?? [])]
@@ -184,6 +186,23 @@ const TERMINAL_ASSIGN_STATUSES = new Set(['assigned', 'skipped', 'failed']);
  * Job-linked extracts leave library `not_installed` until Assign; once a job
  * already has an extract path (or a terminal assign status), do not re-extract.
  */
+/**
+ * After a failed extract attempt, whether to mark the download/job failed.
+ * Skip when this job already extracted (e.g. archive was deleted afterwards
+ * and the user clicked Extract again).
+ */
+export function shouldRevertExtractFailure(
+  job:
+    | { extractPath: string | null; assignStatus: string }
+    | null
+    | undefined,
+): boolean {
+  if (!job) return true;
+  if (job.extractPath) return false;
+  if (job.assignStatus === 'assigned') return false;
+  return true;
+}
+
 export function shouldAutoExtractDownload(args: {
   job:
     | { extractPath: string | null; assignStatus: string }

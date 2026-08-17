@@ -192,8 +192,9 @@
 :root[data-skin='steam'] .settings-panel,
 :root[data-skin='steam'] .settings-host-panel,
 :root[data-skin='steam'] .settings-account-card,
-:root[data-skin='steam'] .downloads-history-panel,
-:root[data-skin='steam'] .dl-active-card {
+:root[data-skin='steam'] .dl-card,
+:root[data-skin='steam'] .dl-card-live,
+:root[data-skin='steam'] .dl-speed-graph {
   background: linear-gradient(180deg, var(--sk-panel-top) 0%, var(--sk-panel-bottom) 100%);
   border: 1px solid var(--sk-border-dark);
   border-radius: 3px;

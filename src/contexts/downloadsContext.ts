@@ -1,9 +1,11 @@
 import { createContext, useContext } from 'react';
+import type { GraphHistory } from '../lib/downloadSpeed';
 import type { DownloadProgress, DownloadRow } from '../types/download';
 
 export interface DownloadsContextValue {
   rows: DownloadRow[];
   progress: Record<number, DownloadProgress>;
+  speedHistory: GraphHistory;
   reload: () => Promise<void>;
 }
 

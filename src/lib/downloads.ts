@@ -211,33 +211,41 @@ export async function markDone(
   );
 }
 
-export async function markExtracting(
-  threadId: string,
-  archivePath: string,
-): Promise<void> {
+export async function markExtracting(id: number): Promise<void> {
   await execute(
     `UPDATE downloads
-        SET state = 'extracting'
-        WHERE thread_id = ? AND dest_path = ? AND state = 'completed'`,
-    [threadId, archivePath],
+        SET state = 'extracting',
+            error_message = NULL
+        WHERE id = ? AND state IN ('completed', 'failed', 'extracting')`,
+    [id],
   );
 }
 
 export async function markExtracted(
-  threadId: string,
-  archivePath: string,
+  id: number,
+  destPath?: string | null,
 ): Promise<void> {
+  if (destPath) {
+    await execute(
+      `UPDATE downloads
+          SET state = 'completed',
+              dest_path = ?,
+              error_message = NULL
+          WHERE id = ?`,
+      [destPath, id],
+    );
+    return;
+  }
   await execute(
     `UPDATE downloads
         SET state = 'completed'
-        WHERE thread_id = ? AND dest_path = ? AND state = 'extracting'`,
-    [threadId, archivePath],
+        WHERE id = ? AND state = 'extracting'`,
+    [id],
   );
 }
 
 export async function markExtractFailed(
-  threadId: string,
-  archivePath: string,
+  id: number,
   message: string,
 ): Promise<void> {
   await execute(
@@ -245,8 +253,8 @@ export async function markExtractFailed(
         SET state = 'failed',
             error_message = ?,
             finished_at = datetime('now')
-        WHERE thread_id = ? AND dest_path = ? AND state = 'extracting'`,
-    [message, threadId, archivePath],
+        WHERE id = ? AND state = 'extracting'`,
+    [message, id],
   );
 }
 

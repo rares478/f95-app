@@ -1,16 +1,18 @@
 import { Link, useNavigate } from 'react-router-dom';
 import { dialog } from '../lib/dialog';
-import { useCallback, useEffect, useMemo, useState, Fragment } from 'react';
+import { useCallback, useEffect, useMemo, useState } from 'react';
 import { runExtraction } from '../hooks/useDownloads';
 import { useDownloads } from '../contexts/Downloads';
 import { useDownloadSettings } from '../contexts/DownloadSettings';
 import { useInstallAssign } from '../contexts/InstallAssign';
-import { formatDownloadSpeed } from '../lib/downloadSettings';
 import type { DownloadGameInfo } from '../components/downloads/DownloadCard';
-import { DownloadActiveCard, DownloadHistoryRow } from '../components/downloads/DownloadRowItem';
+import { DownloadSpeedGraph } from '../components/downloads/DownloadSpeedGraph';
+import { DownloadCard } from '../components/downloads/DownloadRowItem';
 import * as downloads from '../lib/downloads';
 import { libraryPathForDownloadRow } from '../lib/downloadLibraryPath';
 import { isHtmlEngine } from '../lib/storeEngine';
+import { isArchivePath } from '../lib/archives';
+import { shouldAutoExtractDownload } from '../lib/installJobExtract';
 import * as library from '../lib/library';
 import * as ipc from '../lib/ipc';
 import {
@@ -42,13 +44,14 @@ import {
   recoverStatusAfterDownloadFailure,
 } from '../lib/downloadLibrarySync';
 import '../styles/install-plan.css';
+import '../styles/downloads.css';
 
 export function DownloadsPage() {
   const { t } = useT();
   const navigate = useNavigate();
   const { isOffline } = useOffline();
   const { openContextMenu } = useContextMenu();
-  const { rows, progress, reload } = useDownloads();
+  const { rows, progress, reload, speedHistory } = useDownloads();
   const { settings: dlSettings } = useDownloadSettings();
   const { openAssign, pending: assignPending } = useInstallAssign();
   const installFlow = useLibraryInstallFlow({ onStarted: () => { void reload(); } });
@@ -157,6 +160,16 @@ export function DownloadsPage() {
     return bps;
   }, [active, progress]);
 
+  const totalExtractSpeed = useMemo(() => {
+    let bps = 0;
+    for (const r of active) {
+      if (r.state === 'extracting') {
+        bps += progress[r.id]?.extractSpeedBps ?? 0;
+      }
+    }
+    return bps;
+  }, [active, progress]);
+
   const totalDownloaded = useMemo(() => {
     let bytes = 0;
     for (const r of rows) {
@@ -181,6 +194,11 @@ export function DownloadsPage() {
 
   function needsAssign(row: DownloadRow): boolean {
     return jobByDownloadId[row.id]?.assignStatus === 'pending';
+  }
+
+  function canExtract(row: DownloadRow): boolean {
+    if (!row.destPath || !isArchivePath(row.destPath)) return false;
+    return shouldAutoExtractDownload({ job: jobByDownloadId[row.id] ?? null });
   }
 
   async function onAssign(row: DownloadRow) {
@@ -393,20 +411,18 @@ export function DownloadsPage() {
     const counts = countAssignProgress(planJobs);
     const title = libraryMap[threadId]?.title ?? t('dl.thread', { id: threadId });
     return (
-      <div className="downloads-plan-header" key={`plan-${threadId}`}>
-        <div className="downloads-plan-header-text">
-          <span className="downloads-plan-title">{title}</span>
-          <span className="downloads-plan-progress">
-            {t('downloads.plan.progress', {
-              done: counts.done,
-              total: counts.total,
-              pending: counts.pending,
-              assigned: counts.assigned,
-              skipped: counts.skipped,
-              failed: counts.failed,
-            })}
-          </span>
-        </div>
+      <div className="downloads-plan-strip" key={`plan-${threadId}`}>
+        <span className="downloads-plan-name">{title}</span>
+        <span className="downloads-plan-progress">
+          {t('downloads.plan.progress', {
+            done: counts.done,
+            total: counts.total,
+            pending: counts.pending,
+            assigned: counts.assigned,
+            skipped: counts.skipped,
+            failed: counts.failed,
+          })}
+        </span>
       </div>
     );
   }
@@ -417,9 +433,6 @@ export function DownloadsPage() {
       <header className="downloads-top">
         <div className="downloads-top-text">
           <h1 className="downloads-title">{t('downloads.title')}</h1>
-          <p className="downloads-subtitle">
-            {rows.length > 0 ? t('downloads.subtitle') : t('downloads.subtitleEmpty')}
-          </p>
         </div>
         <div className="downloads-top-actions">
           {canClearHistory && (
@@ -439,28 +452,12 @@ export function DownloadsPage() {
       </header>
 
       {rows.length > 0 && (
-        <div className="downloads-summary">
-          <SummaryItem
-            label={t('downloads.stats.active')}
-            value={String(active.length)}
-            active={active.length > 0}
-          />
-          <SummaryItem label={t('downloads.stats.completed')} value={String(completed.length)} />
-          <SummaryItem label={t('downloads.stats.other')} value={String(other.length)} />
-          <SummaryItem
-            label={t('downloads.stats.totalSize')}
-            value={totalDownloaded > 0 ? formatBytes(totalDownloaded) : '—'}
-          />
-          <SummaryItem
-            label={t('downloads.stats.speed')}
-            value={
-              totalSpeed > 0
-                ? formatDownloadSpeed(totalSpeed, dlSettings.speedInMbps)
-                : '—'
-            }
-            active={totalSpeed > 0}
-          />
-        </div>
+        <DownloadSpeedGraph
+          history={speedHistory}
+          downloadBps={totalSpeed}
+          extractBps={totalExtractSpeed}
+          speedInMbps={dlSettings.speedInMbps}
+        />
       )}
 
       {rows.length === 0 && (
@@ -477,14 +474,16 @@ export function DownloadsPage() {
       )}
 
       {active.length > 0 && (
-        <section className="downloads-block">
-          <h2 className="downloads-block-title">{t('downloads.section.active')}</h2>
-          <div className="downloads-active-list">
+        <section className="downloads-section">
+          <div className="downloads-section-head">
+            <h2 className="downloads-section-title">{t('downloads.section.active')}</h2>
+          </div>
+          <div className="downloads-list">
             {activeGroups.map((group) => (
               <div key={group.threadId} className="downloads-thread-group">
                 {renderPlanHeader(group.threadId, group.rows)}
                 {group.rows.map((r) => (
-                  <DownloadActiveCard
+                  <DownloadCard
                     key={r.id}
                     row={r}
                     progress={progress[r.id]}
@@ -504,85 +503,56 @@ export function DownloadsPage() {
       )}
 
       {history.length > 0 && (
-        <section className="downloads-block">
-          <div className="downloads-history-panel">
-            <div className="dl-history-panel-head">
-              <h2 className="downloads-block-title">
-                {t('downloads.section.history')}
-                <span className="downloads-block-count">{history.length}</span>
-              </h2>
-              <p className="dl-history-panel-meta">
-                {t('downloads.panel.meta', {
-                  completed: completed.length,
-                  size: totalDownloaded > 0 ? formatBytes(totalDownloaded) : '—',
-                })}
-              </p>
-            </div>
-            <div className="dl-history-table">
-              <div className="dl-history-header">
-                <span aria-hidden />
-                <span>{t('downloads.col.game')}</span>
-                <span>{t('downloads.col.status')}</span>
-                <span>{t('downloads.col.host')}</span>
-                <span>{t('downloads.col.version')}</span>
-                <span>{t('downloads.col.size')}</span>
-                <span>{t('downloads.col.date')}</span>
-                <span className="dl-history-head-actions">{t('downloads.col.actions')}</span>
+        <section className="downloads-section">
+          <div className="downloads-section-head">
+            <h2 className="downloads-section-title">
+              {t('downloads.section.history')}
+              <span className="downloads-section-count">{history.length}</span>
+            </h2>
+            <p className="downloads-section-meta">
+              {t('downloads.panel.meta', {
+                completed: completed.length,
+                size: totalDownloaded > 0 ? formatBytes(totalDownloaded) : '—',
+              })}
+            </p>
+          </div>
+          <div className="downloads-list">
+            {historyGroups.map((group) => (
+              <div key={group.threadId} className="downloads-thread-group">
+                {renderPlanHeader(group.threadId, group.rows)}
+                {group.rows.map((r) => (
+                  <DownloadCard
+                    key={r.id}
+                    row={r}
+                    game={libraryMap[r.threadId]}
+                    showAssign={needsAssign(r)}
+                    onAssign={() => void onAssign(r)}
+                    onRemove={() => onRemove(r)}
+                    onReveal={() => onReveal(r)}
+                    onRetry={() => onRetry(r)}
+                    onExtract={canExtract(r) ? () => onExtract(r) : undefined}
+                    onContinueCaptcha={() => onContinueCaptcha(r)}
+                    onOpenCaptcha={() => onOpenCaptcha(r)}
+                    onChangeProvider={() => onChangeProvider(r)}
+                    onContextMenu={(e) =>
+                      openDownloadContextMenu(e, r, {
+                        onRemove: () => onRemove(r),
+                        onReveal: () => onReveal(r),
+                        onRetry: () => onRetry(r),
+                        onExtract: canExtract(r) ? () => onExtract(r) : undefined,
+                        onContinueCaptcha: () => onContinueCaptcha(r),
+                        onOpenCaptcha: () => onOpenCaptcha(r),
+                      })
+                    }
+                  />
+                ))}
               </div>
-              {historyGroups.map((group) => (
-                <Fragment key={group.threadId}>
-                  {renderPlanHeader(group.threadId, group.rows)}
-                  {group.rows.map((r) => (
-                    <DownloadHistoryRow
-                      key={r.id}
-                      row={r}
-                      game={libraryMap[r.threadId]}
-                      showAssign={needsAssign(r)}
-                      onAssign={() => void onAssign(r)}
-                      onRemove={() => onRemove(r)}
-                      onReveal={() => onReveal(r)}
-                      onRetry={() => onRetry(r)}
-                      onExtract={() => onExtract(r)}
-                      onContinueCaptcha={() => onContinueCaptcha(r)}
-                      onOpenCaptcha={() => onOpenCaptcha(r)}
-                      onChangeProvider={() => onChangeProvider(r)}
-                      onContextMenu={(e) =>
-                        openDownloadContextMenu(e, r, {
-                          onRemove: () => onRemove(r),
-                          onReveal: () => onReveal(r),
-                          onRetry: () => onRetry(r),
-                          onExtract: () => onExtract(r),
-                          onContinueCaptcha: () => onContinueCaptcha(r),
-                          onOpenCaptcha: () => onOpenCaptcha(r),
-                        })
-                      }
-                    />
-                  ))}
-                </Fragment>
-              ))}
-            </div>
+            ))}
           </div>
         </section>
       )}
     </div>
     {installFlow.modal}
     </OfflineGate>
-  );
-}
-
-function SummaryItem({
-  label,
-  value,
-  active,
-}: {
-  label: string;
-  value: string;
-  active?: boolean;
-}) {
-  return (
-    <div className={`downloads-summary-item${active ? ' downloads-summary-item-active' : ''}`}>
-      <span className="downloads-summary-value">{value}</span>
-      <span className="downloads-summary-label">{label}</span>
-    </div>
   );
 }
