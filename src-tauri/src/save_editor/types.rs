@@ -18,6 +18,13 @@ pub struct RpgmProbeResult {
 
 #[derive(Debug, Clone, Serialize, PartialEq, Eq)]
 #[serde(rename_all = "camelCase")]
+pub struct WolfProbeResult {
+    pub is_wolf_layout: bool,
+    pub saves_dir: Option<String>,
+}
+
+#[derive(Debug, Clone, Serialize, PartialEq, Eq)]
+#[serde(rename_all = "camelCase")]
 pub struct RenpySaveSlot {
     pub key: String,
     /// One of: `slot` | `auto` | `quick` | `persistent` | `other`

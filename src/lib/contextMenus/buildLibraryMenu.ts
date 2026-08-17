@@ -15,7 +15,7 @@ import {
 } from '../libraryGameActions';
 import type { LibraryGame } from '../../types/library';
 import { openManageCollections } from '../collections';
-import { isRenPyEngine, isRpgmEngine, isUnityEngine } from '../storeEngine';
+import { isRenPyEngine, isRpgmEngine, isUnityEngine, isWolfEngine } from '../storeEngine';
 import { item, offlineTitle, sep } from './helpers';
 
 function primaryLabel(
@@ -105,7 +105,8 @@ export function buildLibraryMenu(
       game.installStatus === 'installed' &&
       (isRenPyEngine(game.storeTags) ||
         isRpgmEngine(game.storeTags) ||
-        isUnityEngine(game.storeTags))
+        isUnityEngine(game.storeTags) ||
+        isWolfEngine(game.storeTags))
     ) {
       items.push(
         item('saveEditor', t('libdetail.action.saveEditor'), () =>

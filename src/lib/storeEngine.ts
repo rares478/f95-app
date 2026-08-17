@@ -16,6 +16,10 @@ const UNITY_ENGINE_KEY = KNOWN_PREFIXES.find(
   (p) => p.group === 'engine' && p.name.trim().toLowerCase() === 'unity',
 )?.name.trim().toLowerCase() ?? 'unity';
 
+const WOLF_ENGINE_KEY = KNOWN_PREFIXES.find(
+  (p) => p.group === 'engine' && p.name.trim().toLowerCase() === 'wolf rpg',
+)?.name.trim().toLowerCase() ?? 'wolf rpg';
+
 /** True when library store tags include the F95 HTML engine prefix. */
 export function isHtmlEngine(storeTags: string[] | null | undefined): boolean {
   if (!storeTags?.length) return false;
@@ -38,4 +42,10 @@ export function isRpgmEngine(storeTags: string[] | null | undefined): boolean {
 export function isUnityEngine(storeTags: string[] | null | undefined): boolean {
   if (!storeTags?.length) return false;
   return storeTags.some((t) => t.trim().toLowerCase() === UNITY_ENGINE_KEY);
+}
+
+/** True when library store tags include the F95 Wolf RPG engine prefix. */
+export function isWolfEngine(storeTags: string[] | null | undefined): boolean {
+  if (!storeTags?.length) return false;
+  return storeTags.some((t) => t.trim().toLowerCase() === WOLF_ENGINE_KEY);
 }

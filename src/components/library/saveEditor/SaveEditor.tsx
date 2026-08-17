@@ -342,6 +342,8 @@ export function SaveEditor({ game, onClose, developer: developerProp }: Props) {
       const list =
         engine === 'rpgm'
           ? await ipc.rpgmSavesList(installPath, extraRootsArg)
+          : engine === 'wolf'
+            ? await ipc.wolfSavesList(installPath, extraRootsArg)
           : engine === 'unity'
             ? await ipc.unitySavesList(installPath, unityOpts)
             : await ipc.renpySavesList(installPath, extraRootsArg);
@@ -376,6 +378,11 @@ export function SaveEditor({ game, onClose, developer: developerProp }: Props) {
                 threadId: game.threadId,
                 slotKey,
               })
+            : engine === 'wolf'
+              ? await ipc.wolfSaveBackupsList({
+                  threadId: game.threadId,
+                  slotKey,
+                })
             : engine === 'unity'
               ? await ipc.unitySaveBackupsList({
                   threadId: game.threadId,
@@ -436,6 +443,8 @@ export function SaveEditor({ game, onClose, developer: developerProp }: Props) {
         const root =
           engine === 'rpgm'
             ? await ipc.rpgmSaveRead({ installPath, slotKey, extraRoots: extraRootsArg })
+            : engine === 'wolf'
+              ? await ipc.wolfSaveRead({ installPath, slotKey, extraRoots: extraRootsArg })
             : await ipc.renpySaveRead({ installPath, slotKey, extraRoots: extraRootsArg });
         if (generation !== treeLoadGenRef.current || selectedKeyRef.current !== slotKey) return;
         setTree(root);
@@ -606,6 +615,8 @@ export function SaveEditor({ game, onClose, developer: developerProp }: Props) {
       const root =
         engine === 'rpgm'
           ? await ipc.rpgmSaveWrite(writeArgs)
+          : engine === 'wolf'
+            ? await ipc.wolfSaveWrite(writeArgs)
           : engine === 'unity'
             ? await ipc.unitySaveWrite({
                 ...writeArgs,
@@ -670,6 +681,8 @@ export function SaveEditor({ game, onClose, developer: developerProp }: Props) {
       try {
         if (engine === 'rpgm') {
           await ipc.rpgmSaveBackupRestore(restoreArgs);
+        } else if (engine === 'wolf') {
+          await ipc.wolfSaveBackupRestore(restoreArgs);
         } else if (engine === 'unity') {
           await ipc.unitySaveBackupRestore({
             ...restoreArgs,

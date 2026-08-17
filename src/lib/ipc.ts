@@ -31,6 +31,7 @@ import type {
   RenpyVarNode,
 } from '../types/renpySave';
 import type { RpgmProbeResult } from '../types/rpgmSave';
+import type { WolfProbeResult } from '../types/wolfSave';
 import type {
   UnityProbeResult,
   UnitySaveReadResult,
@@ -459,6 +460,64 @@ export async function rpgmSaveBackupRestore(args: {
   extraRoots?: ExtraSaveRoot[];
 }): Promise<void> {
   return invoke<void>('rpgm_save_backup_restore', {
+    ...args,
+    extraRoots: args.extraRoots ?? null,
+  });
+}
+
+export async function wolfSavesProbe(installPath: string): Promise<WolfProbeResult> {
+  return invoke<WolfProbeResult>('wolf_saves_probe', { installPath });
+}
+
+export async function wolfSavesList(
+  installPath: string,
+  extraRoots?: ExtraSaveRoot[],
+): Promise<RenpySaveSlot[]> {
+  return invoke<RenpySaveSlot[]>('wolf_saves_list', {
+    installPath,
+    extraRoots: extraRoots ?? null,
+  });
+}
+
+export async function wolfSaveRead(args: {
+  installPath: string;
+  slotKey: string;
+  extraRoots?: ExtraSaveRoot[];
+}): Promise<RenpyVarNode> {
+  return invoke<RenpyVarNode>('wolf_save_read', {
+    ...args,
+    extraRoots: args.extraRoots ?? null,
+  });
+}
+
+export async function wolfSaveWrite(args: {
+  threadId: string;
+  installPath: string;
+  slotKey: string;
+  patches: RenpySavePatch[];
+  extraRoots?: ExtraSaveRoot[];
+}): Promise<RenpyVarNode> {
+  return invoke<RenpyVarNode>('wolf_save_write', {
+    ...args,
+    extraRoots: args.extraRoots ?? null,
+  });
+}
+
+export async function wolfSaveBackupsList(args: {
+  threadId: string;
+  slotKey: string;
+}): Promise<RenpySaveBackup[]> {
+  return invoke<RenpySaveBackup[]>('wolf_save_backups_list', args);
+}
+
+export async function wolfSaveBackupRestore(args: {
+  threadId: string;
+  installPath: string;
+  slotKey: string;
+  backupFileName: string;
+  extraRoots?: ExtraSaveRoot[];
+}): Promise<void> {
+  return invoke<void>('wolf_save_backup_restore', {
     ...args,
     extraRoots: args.extraRoots ?? null,
   });

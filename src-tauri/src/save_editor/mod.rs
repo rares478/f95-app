@@ -7,6 +7,7 @@ mod pickle_tree;
 pub mod rpgm;
 mod types;
 pub mod unity;
+pub mod wolf;
 mod zip_save;
 
 pub use backup::{
@@ -18,7 +19,7 @@ pub use extra_roots::{parse_extra_rel, resolve_extra_live};
 pub use pickle_tree::{read_save_tree, write_save_patches};
 pub use types::{
     ExtraSaveRoot, RpgmProbeResult, RenpyProbeResult, RenpySavePatch, RenpySaveSlot, RenpyVarNode,
-    UnityMeta, UnityProbeResult, UnitySaveReadResult, UnitySaveSlot,
+    UnityMeta, UnityProbeResult, UnitySaveReadResult, UnitySaveSlot, WolfProbeResult,
 };
 pub use zip_save::zip_has_screenshot;
 
