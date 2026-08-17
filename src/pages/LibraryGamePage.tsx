@@ -36,6 +36,7 @@ import {
   GameDetailStat,
   GameDetailStatGrid,
   GameDetailAside,
+  GameDetailTag,
 } from '../components/game/GameDetailLayout';
 import { useLibraryGameActions } from '../hooks/useLibraryGameActions';
 import { useLibraryInstallFlow } from '../hooks/useLibraryInstallFlow';
@@ -712,9 +713,7 @@ export function LibraryGamePage() {
                 </span>
               )}
               {g.storeTags.map((tag) => (
-                <span key={tag} className="game-detail-custom-tag">
-                  {tag}
-                </span>
+                <GameDetailTag key={tag}>{tag}</GameDetailTag>
               ))}
             </div>
           </GameDetailSection>

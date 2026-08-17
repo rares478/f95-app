@@ -129,7 +129,18 @@
   border-bottom-color: color-mix(in srgb, var(--border) 75%, transparent);
 }
 
+.game-detail-tag,
+.game-detail-custom-tag {
+  display: inline-flex;
+  align-items: center;
+  line-height: 1;
+  padding-top: 5px;
+  padding-bottom: 4px;
+}
+
 .game-detail-tag {
+  padding-left: 10px;
+  padding-right: 10px;
   background:
     linear-gradient(
       180deg,
