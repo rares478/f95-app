@@ -1,9 +1,9 @@
-import type { GameDownload, GameDetail, GamePrefix, GameTag } from '../types/game';
+import type { GameDownload, GameDetail } from '../types/game';
 import type { LibraryGame } from '../types/library';
 import { buildInstallCatalog } from './installCatalog';
 import * as library from './library';
 import * as ipc from './ipc';
-import { buildStoreTagsFromDetail } from './storeTagsFromDetail';
+import { buildStoreTagsFromDetail, type StoreTagSource } from './storeTagsFromDetail';
 
 export type LinkIntent = 'install' | 'update';
 
@@ -59,7 +59,7 @@ export function linksAreStale(game: LibraryGame, intent: LinkIntent): boolean {
   return !versionsEqual(stamped, target);
 }
 
-export type StoreTagSource = Pick<GameDetail, 'tags' | 'prefixes'>;
+export type { StoreTagSource };
 
 export async function saveLinksAndStoreTags(
   threadId: string,

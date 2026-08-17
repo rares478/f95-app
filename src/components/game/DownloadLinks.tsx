@@ -1,6 +1,6 @@
 import { useState, type ReactNode } from 'react';
 import { createPortal } from 'react-dom';
-import type { GameDownload, GamePrefix, GameTag } from '../types/game';
+import type { GameDownload, GamePrefix, GameTag } from '../../types/game';
 import * as downloads from '../../lib/downloads';
 import * as library from '../../lib/library';
 import * as libraries from '../../lib/libraries';

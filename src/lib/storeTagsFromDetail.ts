@@ -1,6 +1,8 @@
 import type { GameDetail } from '../types/game';
 import { KNOWN_PREFIXES, type PrefixOption } from '../types/sam';
 
+export type StoreTagSource = Pick<GameDetail, 'tags' | 'prefixes'>;
+
 const ENGINE_NAMES_LOWER = new Set(
   KNOWN_PREFIXES.filter((p) => p.group === 'engine').map((p) =>
     p.name.trim().toLowerCase(),
@@ -54,7 +56,7 @@ export function splitStoreTags(tags: string[]): { engines: string[]; contentTags
   return { engines, contentTags };
 }
 
-export function buildStoreTagsFromDetail(detail: GameDetail): string[] {
+export function buildStoreTagsFromDetail(detail: StoreTagSource): string[] {
   const out: string[] = [];
   const seen = new Set<string>();
 
