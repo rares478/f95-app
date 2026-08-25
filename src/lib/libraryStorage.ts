@@ -44,6 +44,18 @@ export function sortGameUsageRows(rows: LibraryGameUsageRow[]): LibraryGameUsage
   });
 }
 
+/** Drop size patches when the caller's generation no longer matches (e.g. after uninstall reload). */
+export function withGenerationGuard<T extends unknown[]>(
+  getGeneration: () => number,
+  capturedGeneration: number,
+  fn: (...args: T) => void,
+): (...args: T) => void {
+  return (...args: T) => {
+    if (getGeneration() !== capturedGeneration) return;
+    fn(...args);
+  };
+}
+
 export function startLibraryGameSizeLoads(
   rows: LibraryGameUsageRow[],
   opts: {

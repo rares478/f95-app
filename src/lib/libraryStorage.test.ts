@@ -5,6 +5,7 @@ import {
   sortGameUsageRows,
   startLibraryGameSizeLoads,
   toUsageRows,
+  withGenerationGuard,
   type LibraryGameUsageRow,
 } from './libraryStorage';
 import type { LibraryGame } from '../types/library';
@@ -102,5 +103,54 @@ describe('startLibraryGameSizeLoads', () => {
     await Promise.resolve();
     await Promise.resolve();
     expect(updates.every((u) => !u.startsWith('1:ready'))).toBe(true);
+  });
+
+  it('generation guard drops patches that outrace cancel', async () => {
+    const rows = toUsageRows([
+      game({ threadId: '1', title: 'A', installPath: 'D:\\Lib\\A' }),
+    ]);
+    let generation = 1;
+    const captured = 1;
+    const updates: string[] = [];
+    let resolveSize!: (v: { usedBytes: number; available: boolean }) => void;
+    const pending = new Promise<{ usedBytes: number; available: boolean }>((r) => {
+      resolveSize = r;
+    });
+    // Do not cancel — simulates in-flight directorySize completing after uninstall
+    // bumped generation but before effect cleanup cancelled the loader.
+    startLibraryGameSizeLoads(rows, {
+      concurrency: 1,
+      directorySize: async () => pending,
+      onUpdate: withGenerationGuard(
+        () => generation,
+        captured,
+        (threadId, patch) => {
+          updates.push(`${threadId}:${patch.sizeState}:${patch.usedBytes}`);
+        },
+      ),
+    });
+    generation += 1;
+    resolveSize({ usedBytes: 99, available: true });
+    await Promise.resolve();
+    await Promise.resolve();
+    expect(updates).toEqual([]);
+  });
+});
+
+describe('withGenerationGuard', () => {
+  it('invokes only while generation matches', () => {
+    let generation = 2;
+    const calls: number[] = [];
+    const guarded = withGenerationGuard(
+      () => generation,
+      2,
+      (n: number) => {
+        calls.push(n);
+      },
+    );
+    guarded(1);
+    generation = 3;
+    guarded(2);
+    expect(calls).toEqual([1]);
   });
 });

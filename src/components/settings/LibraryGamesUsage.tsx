@@ -11,6 +11,7 @@ import {
   sortGameUsageRows,
   startLibraryGameSizeLoads,
   toUsageRows,
+  withGenerationGuard,
   type LibraryGameUsageRow,
 } from '../../lib/libraryStorage';
 import { useT } from '../../lib/i18n';
@@ -41,6 +42,8 @@ export function LibraryGamesUsage({
   const [loading, setLoading] = useState(false);
   const [reloadToken, setReloadToken] = useState(0);
   const cancelRef = useRef<(() => void) | null>(null);
+  const generationRef = useRef(0);
+  const rowsRef = useRef<LibraryGameUsageRow[] | null>(cachedRows);
   const cachedRowsRef = useRef(cachedRows);
   const onCacheRowsRef = useRef(onCacheRows);
   const prevCachedRef = useRef(cachedRows);
@@ -48,31 +51,43 @@ export function LibraryGamesUsage({
   onCacheRowsRef.current = onCacheRows;
 
   // Detect Task 5-style cache invalidation (non-null → null while expanded).
+  // Bump generation + cancel size loads synchronously so in-flight patches cannot
+  // resurrect the parent cache before the reload effect runs.
   useEffect(() => {
     const prev = prevCachedRef.current;
     prevCachedRef.current = cachedRows;
     if (expanded && prev != null && cachedRows == null) {
+      generationRef.current += 1;
+      cancelRef.current?.();
+      cancelRef.current = null;
       setReloadToken((n) => n + 1);
     }
   }, [cachedRows, expanded]);
 
   useEffect(() => {
     if (!expanded) {
+      generationRef.current += 1;
       cancelRef.current?.();
       cancelRef.current = null;
       return;
     }
 
-    const applyPatch = (threadId: string, patch: Pick<LibraryGameUsageRow, 'sizeState' | 'usedBytes'>) => {
-      setRows((prev) => {
-        if (!prev) return prev;
+    const gen = ++generationRef.current;
+
+    const applyPatch = withGenerationGuard(
+      () => generationRef.current,
+      gen,
+      (threadId: string, patch: Pick<LibraryGameUsageRow, 'sizeState' | 'usedBytes'>) => {
+        const prev = rowsRef.current;
+        if (!prev) return;
         const next = sortGameUsageRows(
           prev.map((r) => (r.threadId === threadId ? { ...r, ...patch } : r)),
         );
+        rowsRef.current = next;
+        setRows(next);
         onCacheRowsRef.current(libraryId, next);
-        return next;
-      });
-    };
+      },
+    );
 
     const startSizes = (usageRows: LibraryGameUsageRow[]) => {
       const pending = usageRows.filter((r) => r.sizeState === 'pending');
@@ -87,10 +102,12 @@ export function LibraryGamesUsage({
 
     const cached = cachedRowsRef.current;
     if (cached != null) {
+      rowsRef.current = cached;
       setRows(cached);
       setLoading(false);
       startSizes(cached);
       return () => {
+        generationRef.current += 1;
         cancelRef.current?.();
         cancelRef.current = null;
       };
@@ -98,20 +115,23 @@ export function LibraryGamesUsage({
 
     let cancelled = false;
     setLoading(true);
+    rowsRef.current = null;
     setRows(null);
 
     void (async () => {
       try {
         const games = await library.list();
-        if (cancelled) return;
+        if (cancelled || generationRef.current !== gen) return;
         const usageRows = toUsageRows(filterGamesInLibrary(games, libraryPath));
+        rowsRef.current = usageRows;
         setRows(usageRows);
         onCacheRowsRef.current(libraryId, usageRows);
         setLoading(false);
         startSizes(usageRows);
       } catch (err) {
         console.warn('[settings] failed to load library games usage', err);
-        if (cancelled) return;
+        if (cancelled || generationRef.current !== gen) return;
+        rowsRef.current = [];
         setRows([]);
         onCacheRowsRef.current(libraryId, []);
         setLoading(false);
@@ -120,6 +140,7 @@ export function LibraryGamesUsage({
 
     return () => {
       cancelled = true;
+      generationRef.current += 1;
       cancelRef.current?.();
       cancelRef.current = null;
     };

@@ -2878,7 +2878,12 @@ function LibraryRow({
               </span>
             </span>
           </div>
-          <button type="button" className="settings-lib-expand" onClick={onToggleExpand}>
+          <button
+            type="button"
+            className="settings-lib-expand"
+            aria-expanded={expanded}
+            onClick={onToggleExpand}
+          >
             {expandLabel}
           </button>
           <LibraryGamesUsage
