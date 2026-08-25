@@ -125,3 +125,15 @@ export function storeGameFullUrls(game: StoreImageSource): string[] {
   }
   return out;
 }
+
+/** Tag tiles at ~275px in the 1280 column; threshold sits just below that. */
+export const STORE_FULL_RES_MIN_WIDTH_PX = 270;
+
+/** Preview thumbs below the threshold; full-res attachments at/above. */
+export function storeGameUrlsForWidth(
+  game: StoreImageSource,
+  widthPx: number,
+): string[] {
+  if (widthPx >= STORE_FULL_RES_MIN_WIDTH_PX) return storeGameFullUrls(game);
+  return storeGameThumbUrls(game);
+}

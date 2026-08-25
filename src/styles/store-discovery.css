@@ -705,8 +705,8 @@
 }
 
 .rail-game-card-skeleton {
-  flex: 0 0 220px;
-  width: 220px;
+  flex: 0 0 260px;
+  width: 260px;
   display: flex;
   flex-direction: column;
   gap: 6px;
@@ -735,10 +735,10 @@
   width: 65%;
 }
 
-/* Compact rail card (~220px) */
+/* Popular / default rail card (~260px) */
 .rail-game-card {
-  flex: 0 0 220px;
-  width: 220px;
+  flex: 0 0 260px;
+  width: 260px;
   display: flex;
   flex-direction: column;
   position: relative;
@@ -771,6 +771,19 @@
   box-shadow: 0 12px 28px rgba(0, 0, 0, 0.55);
   text-decoration: none;
   overflow: visible;
+}
+
+/* Edge cards under chevrons: stay back, no hover pop / clicks. */
+.rail-game-card.is-under-nav,
+.rail-game-card.is-under-nav.is-hovered {
+  z-index: 0;
+  transform: scale(0.9);
+  filter: blur(2.5px);
+  opacity: 0.72;
+  pointer-events: none;
+  border-color: var(--border);
+  box-shadow: inset 0 1px 0 color-mix(in srgb, var(--text-primary) 6%, transparent);
+  overflow: hidden;
 }
 
 .rail-game-card.is-hovered .rail-game-card-title {
@@ -1029,12 +1042,12 @@
   white-space: nowrap;
 }
 
-/* ── Compact rail (~150px posters) ───────────────────────────────────── */
+/* ── Compact rail (~200px posters) ───────────────────────────────────── */
 
 .discovery-rail.is-compact .rail-game-card,
 .discovery-rail.is-compact .rail-game-card-skeleton {
-  flex: 0 0 150px;
-  width: 150px;
+  flex: 0 0 200px;
+  width: 200px;
 }
 
 .discovery-rail.is-compact .rail-game-card-title {
@@ -1046,11 +1059,11 @@
   padding: 6px 8px 8px;
 }
 
-/* ── Wide capsule rail (~280×130) ────────────────────────────────────── */
+/* ── Wide capsule rail (~340×130) ────────────────────────────────────── */
 
 .wide-capsule-card {
-  flex: 0 0 280px;
-  width: 280px;
+  flex: 0 0 340px;
+  width: 340px;
   display: block;
   position: relative;
   z-index: 1;
@@ -1082,6 +1095,18 @@
   box-shadow: 0 12px 28px rgba(0, 0, 0, 0.55);
   text-decoration: none;
   overflow: visible;
+}
+
+.wide-capsule-card.is-under-nav,
+.wide-capsule-card.is-under-nav.is-hovered {
+  z-index: 0;
+  transform: scale(0.9);
+  filter: blur(2.5px);
+  opacity: 0.72;
+  pointer-events: none;
+  border-color: var(--border);
+  box-shadow: inset 0 1px 0 color-mix(in srgb, var(--text-primary) 6%, transparent);
+  overflow: hidden;
 }
 
 .wide-capsule-card-thumb {
@@ -1185,8 +1210,8 @@
 }
 
 .wide-capsule-card-skeleton {
-  flex: 0 0 280px;
-  width: 280px;
+  flex: 0 0 340px;
+  width: 340px;
   border-radius: 4px;
   overflow: hidden;
   border: 1px solid var(--border);

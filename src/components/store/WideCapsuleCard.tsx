@@ -1,4 +1,6 @@
+import { useRef } from 'react';
 import { Link } from 'react-router-dom';
+import { useElementWidth } from '../../hooks/useElementWidth';
 import { useStoreCardHoverImages } from '../../hooks/useStoreCardHoverImages';
 import { useStoreContextMenu } from '../../hooks/useStoreContextMenu';
 import { useT } from '../../lib/i18n';
@@ -9,6 +11,8 @@ import { StoreCardThumbDots } from './StoreCardThumbDots';
 interface Props {
   game: SamGameCard;
   category: SamCategory;
+  /** True when this card sits under a rail chevron — stay dimmed, no hover pop. */
+  underNav?: boolean;
 }
 
 function shortUpdatedAt(updatedAt: string | null): string | null {
@@ -19,24 +23,32 @@ function shortUpdatedAt(updatedAt: string | null): string | null {
 }
 
 /** Landscape capsule card for discovery rails with hover screenshot cycle. */
-export function WideCapsuleCard({ game, category }: Props) {
+export function WideCapsuleCard({ game, category, underNav = false }: Props) {
   const { t } = useT();
   const { openStoreContextMenu } = useStoreContextMenu(category);
   const inLibrary = useIsInLibrary(game.threadId);
+  const cardRef = useRef<HTMLAnchorElement>(null);
+  const widthPx = useElementWidth(cardRef);
   const { images, hovered, slide, activeSrc, onEnter, onLeave } =
-    useStoreCardHoverImages(game);
+    useStoreCardHoverImages(game, widthPx);
 
   const meta = game.version || shortUpdatedAt(game.updatedAt);
+  const showHover = hovered && !underNav;
 
   return (
     <Link
+      ref={cardRef}
       to={`/store/game/${game.threadId}?cat=${category}`}
-      className={`wide-capsule-card${hovered ? ' is-hovered' : ''}`}
-      onContextMenu={(e) => void openStoreContextMenu(e, game)}
-      onMouseEnter={onEnter}
-      onMouseLeave={onLeave}
-      onFocus={onEnter}
-      onBlur={onLeave}
+      data-rail-card-id={game.threadId}
+      className={`wide-capsule-card${showHover ? ' is-hovered' : ''}${underNav ? ' is-under-nav' : ''}`}
+      tabIndex={underNav ? -1 : undefined}
+      aria-disabled={underNav || undefined}
+      onContextMenu={underNav ? (e) => e.preventDefault() : (e) => void openStoreContextMenu(e, game)}
+      onMouseEnter={underNav ? undefined : onEnter}
+      onMouseLeave={underNav ? undefined : onLeave}
+      onFocus={underNav ? undefined : onEnter}
+      onBlur={underNav ? undefined : onLeave}
+      onClick={underNav ? (e) => e.preventDefault() : undefined}
     >
       <div className="wide-capsule-card-thumb">
         {activeSrc ? (
@@ -59,7 +71,7 @@ export function WideCapsuleCard({ game, category }: Props) {
             {t('store.badge.inLibrary')}
           </div>
         )}
-        {hovered && <StoreCardThumbDots images={images} slide={slide} />}
+        {showHover && <StoreCardThumbDots images={images} slide={slide} />}
         <div className="wide-capsule-card-overlay">
           <div className="wide-capsule-card-title" title={game.title}>
             {game.title}

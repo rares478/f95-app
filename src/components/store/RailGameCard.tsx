@@ -10,25 +10,33 @@ import { StoreCardThumbDots } from './StoreCardThumbDots';
 interface Props {
   game: SamGameCard;
   category: SamCategory;
+  /** True when this card sits under a rail chevron — stay dimmed, no hover pop. */
+  underNav?: boolean;
 }
 
 /** Rail card with Steam-style hover: pop-out, screenshot cycle, meta. */
-export function RailGameCard({ game, category }: Props) {
+export function RailGameCard({ game, category, underNav = false }: Props) {
   const { t } = useT();
   const { openStoreContextMenu } = useStoreContextMenu(category);
   const inLibrary = useIsInLibrary(game.threadId);
   const { images, hovered, slide, activeSrc, onEnter, onLeave } =
     useStoreCardHoverImages(game);
 
+  const showHover = hovered && !underNav;
+
   return (
     <Link
       to={`/store/game/${game.threadId}?cat=${category}`}
-      className={`rail-game-card${hovered ? ' is-hovered' : ''}`}
-      onContextMenu={(e) => void openStoreContextMenu(e, game)}
-      onMouseEnter={onEnter}
-      onMouseLeave={onLeave}
-      onFocus={onEnter}
-      onBlur={onLeave}
+      data-rail-card-id={game.threadId}
+      className={`rail-game-card${showHover ? ' is-hovered' : ''}${underNav ? ' is-under-nav' : ''}`}
+      tabIndex={underNav ? -1 : undefined}
+      aria-disabled={underNav || undefined}
+      onContextMenu={underNav ? (e) => e.preventDefault() : (e) => void openStoreContextMenu(e, game)}
+      onMouseEnter={underNav ? undefined : onEnter}
+      onMouseLeave={underNav ? undefined : onLeave}
+      onFocus={underNav ? undefined : onEnter}
+      onBlur={underNav ? undefined : onLeave}
+      onClick={underNav ? (e) => e.preventDefault() : undefined}
     >
       <div className="rail-game-card-thumb">
         {activeSrc ? (
@@ -51,7 +59,7 @@ export function RailGameCard({ game, category }: Props) {
           </div>
         )}
         {game.version && <div className="rail-game-card-version">{game.version}</div>}
-        {hovered && <StoreCardThumbDots images={images} slide={slide} />}
+        {showHover && <StoreCardThumbDots images={images} slide={slide} />}
       </div>
       <div className="rail-game-card-body">
         <div className="rail-game-card-title" title={game.title}>

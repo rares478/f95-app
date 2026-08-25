@@ -1,4 +1,6 @@
+import { useRef } from 'react';
 import { Link } from 'react-router-dom';
+import { useElementWidth } from '../../hooks/useElementWidth';
 import { useStoreCardHoverImages } from '../../hooks/useStoreCardHoverImages';
 import { useStoreContextMenu } from '../../hooks/useStoreContextMenu';
 import { useT } from '../../lib/i18n';
@@ -22,8 +24,10 @@ export function TagPanelTile({ game, category }: Props) {
   const { t } = useT();
   const { openStoreContextMenu } = useStoreContextMenu(category);
   const inLibrary = useIsInLibrary(game.threadId);
+  const tileRef = useRef<HTMLAnchorElement>(null);
+  const widthPx = useElementWidth(tileRef);
   const { images, hovered, slide, activeSrc, onEnter, onLeave } =
-    useStoreCardHoverImages(game);
+    useStoreCardHoverImages(game, widthPx);
 
   const footer =
     game.rating != null
@@ -34,6 +38,7 @@ export function TagPanelTile({ game, category }: Props) {
 
   return (
     <Link
+      ref={tileRef}
       to={`/store/game/${game.threadId}?cat=${category}`}
       className={`tag-panel-tile${hovered ? ' is-hovered' : ''}`}
       onContextMenu={(e) => void openStoreContextMenu(e, game)}

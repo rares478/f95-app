@@ -1,5 +1,7 @@
 import { useCallback, useEffect, useRef, useState } from 'react';
+import { useRailCardsUnderNav } from '../../hooks/useRailCardsUnderNav';
 import { useT } from '../../lib/i18n';
+import { scrollRailByPage, snapRailToNearestCard } from '../../lib/scrollRailPage';
 import type { SamCategory, SamGameCard } from '../../types/sam';
 import { Skeleton } from '../ui/Skeleton';
 import { RailGameCard } from './RailGameCard';
@@ -26,12 +28,18 @@ interface Props {
 export function PopularTabsModule({ tabs, title, seeAllLabel, category }: Props) {
   const { t } = useT();
   const [activeIndex, setActiveIndex] = useState(0);
+  const scrollerRef = useRef<HTMLDivElement>(null);
   const trackRef = useRef<HTMLDivElement>(null);
   const [canPrev, setCanPrev] = useState(false);
   const [canNext, setCanNext] = useState(false);
 
   const safeIndex = tabs.length === 0 ? 0 : Math.min(activeIndex, tabs.length - 1);
   const active = tabs[safeIndex];
+  const underNav = useRailCardsUnderNav(
+    scrollerRef,
+    trackRef,
+    `${active?.id ?? ''}:${active?.items.length ?? 0}:${active?.loading ? 1 : 0}:${canPrev ? 1 : 0}:${canNext ? 1 : 0}`,
+  );
 
   useEffect(() => {
     if (activeIndex !== safeIndex) setActiveIndex(safeIndex);
@@ -53,12 +61,15 @@ export function PopularTabsModule({ tabs, title, seeAllLabel, category }: Props)
     const el = trackRef.current;
     if (!el) return;
 
+    const onScrollEnd = () => snapRailToNearestCard(el);
     updateScrollState();
     el.addEventListener('scroll', updateScrollState, { passive: true });
+    el.addEventListener('scrollend', onScrollEnd);
     const ro = new ResizeObserver(() => updateScrollState());
     ro.observe(el);
     return () => {
       el.removeEventListener('scroll', updateScrollState);
+      el.removeEventListener('scrollend', onScrollEnd);
       ro.disconnect();
     };
   }, [active?.items.length, active?.loading, active?.id, updateScrollState]);
@@ -73,8 +84,7 @@ export function PopularTabsModule({ tabs, title, seeAllLabel, category }: Props)
   const scrollByPage = (dir: -1 | 1) => {
     const el = trackRef.current;
     if (!el) return;
-    const amount = Math.max(el.clientWidth * 0.85, 200);
-    el.scrollBy({ left: dir * amount, behavior: 'smooth' });
+    scrollRailByPage(el, dir);
   };
 
   if (!active || tabs.length === 0) return null;
@@ -131,7 +141,7 @@ export function PopularTabsModule({ tabs, title, seeAllLabel, category }: Props)
         )}
 
         {(showTrack || showSkeleton) && (
-          <div className="discovery-rail-scroller">
+          <div ref={scrollerRef} className="discovery-rail-scroller">
             {showTrack && (
               <button
                 type="button"
@@ -163,7 +173,12 @@ export function PopularTabsModule({ tabs, title, seeAllLabel, category }: Props)
                     </div>
                   ))
                 : active.items.map((g) => (
-                    <RailGameCard key={g.threadId} game={g} category={category} />
+                    <RailGameCard
+                      key={g.threadId}
+                      game={g}
+                      category={category}
+                      underNav={underNav.has(g.threadId)}
+                    />
                   ))}
             </div>
 

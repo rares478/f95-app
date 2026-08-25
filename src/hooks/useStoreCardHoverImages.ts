@@ -1,5 +1,5 @@
 import { useEffect, useMemo, useRef, useState } from 'react';
-import { storeGameThumbUrls } from '../lib/f95ImageUrl';
+import { storeGameUrlsForWidth } from '../lib/f95ImageUrl';
 import {
   STORE_CARD_HOVER_OPEN_MS,
   STORE_CARD_SLIDE_MS,
@@ -8,17 +8,20 @@ import {
   storeCardActiveSrc,
 } from '../lib/storeCardHoverImages';
 
-export function useStoreCardHoverImages(game: {
-  thumbnailUrl: string | null;
-  screens: string[];
-}) {
+export function useStoreCardHoverImages(
+  game: {
+    thumbnailUrl: string | null;
+    screens: string[];
+  },
+  widthPx?: number,
+) {
   const [hovered, setHovered] = useState(false);
   const [slide, setSlide] = useState(0);
   const openTimerRef = useRef<number | null>(null);
 
   const images = useMemo(
-    () => storeGameThumbUrls(game),
-    [game.thumbnailUrl, game.screens],
+    () => storeGameUrlsForWidth(game, widthPx ?? 0),
+    [game.thumbnailUrl, game.screens, widthPx],
   );
 
   useEffect(() => {

@@ -1,5 +1,7 @@
 import { useCallback, useEffect, useRef, useState } from 'react';
+import { useRailCardsUnderNav } from '../../hooks/useRailCardsUnderNav';
 import { useT } from '../../lib/i18n';
+import { scrollRailByPage, snapRailToNearestCard } from '../../lib/scrollRailPage';
 import type { SamCategory, SamGameCard } from '../../types/sam';
 import { Skeleton } from '../ui/Skeleton';
 import { RailGameCard } from './RailGameCard';
@@ -33,9 +35,15 @@ export function DiscoveryRail({
   variant = 'default',
 }: Props) {
   const { t } = useT();
+  const scrollerRef = useRef<HTMLDivElement>(null);
   const trackRef = useRef<HTMLDivElement>(null);
   const [canPrev, setCanPrev] = useState(false);
   const [canNext, setCanNext] = useState(false);
+  const underNav = useRailCardsUnderNav(
+    scrollerRef,
+    trackRef,
+    `${variant}:${items.length}:${loading ? 1 : 0}:${canPrev ? 1 : 0}:${canNext ? 1 : 0}`,
+  );
 
   const updateScrollState = useCallback(() => {
     const el = trackRef.current;
@@ -53,12 +61,15 @@ export function DiscoveryRail({
     const el = trackRef.current;
     if (!el) return;
 
+    const onScrollEnd = () => snapRailToNearestCard(el);
     updateScrollState();
     el.addEventListener('scroll', updateScrollState, { passive: true });
+    el.addEventListener('scrollend', onScrollEnd);
     const ro = new ResizeObserver(() => updateScrollState());
     ro.observe(el);
     return () => {
       el.removeEventListener('scroll', updateScrollState);
+      el.removeEventListener('scrollend', onScrollEnd);
       ro.disconnect();
     };
   }, [items.length, loading, updateScrollState]);
@@ -66,8 +77,7 @@ export function DiscoveryRail({
   const scrollByPage = (dir: -1 | 1) => {
     const el = trackRef.current;
     if (!el) return;
-    const amount = Math.max(el.clientWidth * 0.85, 200);
-    el.scrollBy({ left: dir * amount, behavior: 'smooth' });
+    scrollRailByPage(el, dir);
   };
 
   if (!loading && !error && items.length === 0) {
@@ -107,7 +117,7 @@ export function DiscoveryRail({
       )}
 
       {(showTrack || showSkeleton) && (
-        <div className="discovery-rail-scroller">
+        <div ref={scrollerRef} className="discovery-rail-scroller">
           {showTrack && (
             <button
               type="button"
@@ -146,9 +156,19 @@ export function DiscoveryRail({
                 )
               : items.map((g) =>
                   isCapsule ? (
-                    <WideCapsuleCard key={g.threadId} game={g} category={category} />
+                    <WideCapsuleCard
+                      key={g.threadId}
+                      game={g}
+                      category={category}
+                      underNav={underNav.has(g.threadId)}
+                    />
                   ) : (
-                    <RailGameCard key={g.threadId} game={g} category={category} />
+                    <RailGameCard
+                      key={g.threadId}
+                      game={g}
+                      category={category}
+                      underNav={underNav.has(g.threadId)}
+                    />
                   ),
                 )}
           </div>

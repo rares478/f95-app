@@ -1,8 +1,10 @@
 import { describe, expect, it } from 'vitest';
 import {
+  STORE_FULL_RES_MIN_WIDTH_PX,
   storeGameFullUrls,
   storeGameImageUrl,
   storeGameThumbUrls,
+  storeGameUrlsForWidth,
   toF95FullUrl,
   toF95ThumbUrl,
 } from './f95ImageUrl';
@@ -85,5 +87,24 @@ describe('storeGameFullUrls', () => {
         screens: [SCREEN_PREVIEW],
       }),
     ).toEqual([FULL, SCREEN_FULL]);
+  });
+});
+
+describe('storeGameUrlsForWidth', () => {
+  const game = { thumbnailUrl: PREVIEW, screens: [SCREEN_FULL] };
+
+  it('uses thumbs below the threshold', () => {
+    expect(storeGameUrlsForWidth(game, STORE_FULL_RES_MIN_WIDTH_PX - 1)).toEqual(
+      storeGameThumbUrls(game),
+    );
+  });
+
+  it('uses full urls at and above the threshold', () => {
+    expect(storeGameUrlsForWidth(game, STORE_FULL_RES_MIN_WIDTH_PX)).toEqual(
+      storeGameFullUrls(game),
+    );
+    expect(storeGameUrlsForWidth(game, STORE_FULL_RES_MIN_WIDTH_PX + 50)).toEqual(
+      storeGameFullUrls(game),
+    );
   });
 });
