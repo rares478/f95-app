@@ -6,6 +6,7 @@ import { log } from '../../logger';
 import { classifyHost } from './hosts';
 import { assertNotCloudflareChallenge } from '../../shared/cloudflare';
 import { F95_BASE } from '../../shared/constants';
+import { extractChangelogHtml } from './changelog';
 import { absoluteUrl, cleanText, normalizeOpHtml } from './htmlNormalize';
 import {
   extractCurrentPageFromHtml,
@@ -60,6 +61,8 @@ export interface GameDetail {
   screenshots: string[];
   /** OP body HTML, normalized: lazy `data-src` → `src`, spoilers → <details>. */
   descriptionHtml: string;
+  /** Normalized HTML of the OP Changelog outer spoiler, when present. */
+  changelogHtml: string | null;
   prefixes: GamePrefix[];
   fields: Record<string, string>;
   tags: GameTag[];
@@ -483,6 +486,7 @@ function parseThread(html: string, finalUrl: string): GameDetail {
     ...screenshots,
   ]);
   const descriptionHtml = normalizeOpHtml($, opBody, galleryUrls);
+  const changelogHtml = extractChangelogHtml($, opBody);
   const attachments = parseMessageAttachments($, op);
 
   return {
@@ -498,6 +502,7 @@ function parseThread(html: string, finalUrl: string): GameDetail {
     bannerUrl,
     screenshots,
     descriptionHtml,
+    changelogHtml,
     prefixes,
     fields,
     tags,
