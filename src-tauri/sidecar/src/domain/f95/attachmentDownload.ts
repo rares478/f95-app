@@ -9,10 +9,10 @@ import {
 import { isAllowedAttachmentUrl } from './attachmentUrl';
 
 const MAX_REDIRECTS = 10;
+/** Hard ceiling for in-memory attachment bodies (512 MiB). */
+export const MAX_ATTACHMENT_BYTES = 512 * 1024 * 1024;
 
 export interface DownloadPostAttachmentParams {
-  /** Present for callers that share F95Client.http; unused for binary bodies. */
-  http?: unknown;
   url: string;
   fileName: string;
   destDir: string;
@@ -68,9 +68,15 @@ export async function fetchAttachmentBinary(
     sessionDir?: string;
     sessionId?: string;
     userAgent?: string;
+    /** Injected fetch (tests). Defaults to global fetch. */
+    fetchImpl?: typeof fetch;
+    /** Override max body size (tests). Defaults to MAX_ATTACHMENT_BYTES. */
+    maxBytes?: number;
   } = {},
 ): Promise<Buffer> {
   const ua = opts.userAgent ?? USER_AGENT;
+  const doFetch = opts.fetchImpl ?? fetch;
+  const maxBytes = opts.maxBytes ?? MAX_ATTACHMENT_BYTES;
   let current = url;
 
   for (let i = 0; i < MAX_REDIRECTS; i++) {
@@ -84,7 +90,7 @@ export async function fetchAttachmentBinary(
       opts.sessionId,
     );
 
-    const res = await fetch(current, {
+    const res = await doFetch(current, {
       method: 'GET',
       redirect: 'manual',
       headers: {
@@ -107,11 +113,57 @@ export async function fetchAttachmentBinary(
       throw new Error(`attachment download HTTP ${res.status}`);
     }
 
+    const contentType = (res.headers.get('content-type') ?? '').toLowerCase();
+    if (contentType.includes('text/html')) {
+      throw new Error(
+        'attachment download returned HTML (login or error page), not a file',
+      );
+    }
+
+    const contentLengthRaw = res.headers.get('content-length');
+    if (contentLengthRaw != null && contentLengthRaw !== '') {
+      const contentLength = Number(contentLengthRaw);
+      if (Number.isFinite(contentLength) && contentLength > maxBytes) {
+        throw new Error(
+          `attachment download exceeds size limit (${contentLength} > ${maxBytes} bytes)`,
+        );
+      }
+    }
+
     const ab = await res.arrayBuffer();
-    return Buffer.from(ab);
+    if (ab.byteLength > maxBytes) {
+      throw new Error(
+        `attachment download exceeds size limit (${ab.byteLength} > ${maxBytes} bytes)`,
+      );
+    }
+
+    const buf = Buffer.from(ab);
+    if (looksLikeHtmlBody(buf)) {
+      throw new Error(
+        'attachment download returned HTML (login or error page), not a file',
+      );
+    }
+
+    return buf;
   }
 
   throw new Error('attachment download: too many redirects');
+}
+
+/** True when the leading bytes look like an HTML document / login page. */
+function looksLikeHtmlBody(buf: Buffer): boolean {
+  const head = buf
+    .subarray(0, Math.min(buf.length, 512))
+    .toString('utf8')
+    .replace(/^\uFEFF/, '')
+    .trimStart()
+    .toLowerCase();
+  if (!head) return false;
+  if (head.startsWith('<!doctype html') || head.startsWith('<html')) return true;
+  if (head.includes('<html') && (head.includes('login') || head.includes('<body'))) {
+    return true;
+  }
+  return false;
 }
 
 async function cookieHeaderForUrl(

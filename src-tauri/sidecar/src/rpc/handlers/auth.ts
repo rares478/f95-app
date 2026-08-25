@@ -61,7 +61,6 @@ export function createAuthHandlers(ctx: AppContext): Record<string, RpcHandler> 
       const client = ctx.requireClient();
       try {
         return await downloadPostAttachmentToDir({
-          http: client.http,
           url,
           fileName,
           destDir,
