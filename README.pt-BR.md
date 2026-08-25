@@ -4,7 +4,7 @@
 
 Cliente desktop para o [F95Zone](https://f95zone.to/). Navegue pelo catálogo SAM, gerencie uma biblioteca local, baixe de vários hosts de arquivo, lance jogos e continue usando o app offline quando a rede cair.
 
-Repositório: [github.com/jky-sh/f95-app](https://github.com/jky-sh/f95-app)
+Repositório: [github.com/rares478/f95-app](https://github.com/rares478/f95-app)
 
 <!-- adicionar screenshots antes do release -->
 
@@ -117,7 +117,7 @@ macOS e Linux compilam o shell, mas overlay e recursos específicos de plataform
 ## Primeiros passos
 
 ```bash
-git clone https://github.com/jky-sh/f95-app.git
+git clone https://github.com/rares478/f95-app.git
 cd f95-app
 npm install
 npm --prefix src-tauri/sidecar install
@@ -202,6 +202,6 @@ O F95 App é um projeto paralelo. Se ele te poupa tempo, um café ajuda a manter
 
 ## Licença
 
-Copyright (c) 2026 jky-sh / F95 App
+Copyright (c) 2026 rares478 / F95 App
 
 Distribuído sob a [GNU General Public License v3.0 ou posterior](LICENSE).

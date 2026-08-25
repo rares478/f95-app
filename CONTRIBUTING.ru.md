@@ -4,7 +4,7 @@
 
 Спасибо, что смотрите код. Здесь — настройка окружения, именование веток, коммиты и pull request'ы.
 
-Репозиторий: [github.com/jky-sh/f95-app](https://github.com/jky-sh/f95-app)
+Репозиторий: [github.com/rares478/f95-app](https://github.com/rares478/f95-app)
 
 ---
 
@@ -20,7 +20,7 @@
 ### Клонирование и запуск
 
 ```bash
-git clone https://github.com/jky-sh/f95-app.git
+git clone https://github.com/rares478/f95-app.git
 cd f95-app
 npm install
 npm --prefix src-tauri/sidecar install

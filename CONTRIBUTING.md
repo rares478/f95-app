@@ -4,7 +4,7 @@
 
 Thanks for looking at the codebase. This document covers how to set up a dev environment, name branches, write commits, and open pull requests.
 
-Repository: [github.com/jky-sh/f95-app](https://github.com/jky-sh/f95-app)
+Repository: [github.com/rares478/f95-app](https://github.com/rares478/f95-app)
 
 ---
 
@@ -20,7 +20,7 @@ Repository: [github.com/jky-sh/f95-app](https://github.com/jky-sh/f95-app)
 ### Clone and run
 
 ```bash
-git clone https://github.com/jky-sh/f95-app.git
+git clone https://github.com/rares478/f95-app.git
 cd f95-app
 npm install
 npm --prefix src-tauri/sidecar install

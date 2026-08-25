@@ -4,7 +4,7 @@
 
 Десктопный клиент для [F95Zone](https://f95zone.to/). Просмотр каталога SAM, управление локальной библиотекой, загрузка с разных файловых хостов, запуск игр и работа офлайн при обрыве сети.
 
-Репозиторий: [github.com/jky-sh/f95-app](https://github.com/jky-sh/f95-app)
+Репозиторий: [github.com/rares478/f95-app](https://github.com/rares478/f95-app)
 
 <!-- добавить скриншоты перед релизом -->
 
@@ -117,7 +117,7 @@ macOS и Linux собирают оболочку, но оверлей и пла�
 ## Быстрый старт
 
 ```bash
-git clone https://github.com/jky-sh/f95-app.git
+git clone https://github.com/rares478/f95-app.git
 cd f95-app
 npm install
 npm --prefix src-tauri/sidecar install
@@ -202,6 +202,6 @@ F95 App — побочный проект. Если он экономит вам
 
 ## Лицензия
 
-Copyright (c) 2026 jky-sh / F95 App
+Copyright (c) 2026 rares478 / F95 App
 
 Распространяется под [GNU General Public License v3.0 или позднее](LICENSE).

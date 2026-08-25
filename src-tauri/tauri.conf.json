@@ -81,9 +81,9 @@
   },
   "plugins": {
     "updater": {
-      "pubkey": "dW50cnVzdGVkIGNvbW1lbnQ6IG1pbmlzaWduIHB1YmxpYyBrZXk6IEVDOTMzNEU4NzlGMkFFRQpSV1R1S3ArSFRqUEpEcFpBclo0T3BBWG9jNFVwN2hydnRkQjBBZFk3Vzl4ZFcwUTc2WlVhUksrUgo=",
+      "pubkey": "dW50cnVzdGVkIGNvbW1lbnQ6IG1pbmlzaWduIHB1YmxpYyBrZXk6IEFDRTIzQUUzNEE4RTQ5NEUKUldST1NZNUs0enJpckIwQkM2ckZrR3NianNJcERKSHlXQWpxbnJzam1tTVQzVGJ4U2srR2IyVTIK",
       "endpoints": [
-        "https://github.com/jky-sh/f95-app/releases/latest/download/latest.json"
+        "https://github.com/rares478/f95-app/releases/latest/download/latest.json"
       ],
       "windows": {
         "installMode": "passive"
@@ -94,7 +94,6 @@
     "active": true,
     "createUpdaterArtifacts": true,
     "targets": "all",
-    "createUpdaterArtifacts": true,
     "publisher": "F95 App",
     "copyright": "Copyright © 2026 F95 App",
     "category": "Utility",
@@ -137,17 +136,6 @@
         "language": ["en-US", "pt-BR"],
         "bannerPath": "windows/installer/wix-banner.bmp",
         "dialogImagePath": "windows/installer/wix-dialog.bmp"
-      }
-    }
-  },
-  "plugins": {
-    "updater": {
-      "pubkey": "dW50cnVzdGVkIGNvbW1lbnQ6IG1pbmlzaWduIHB1YmxpYyBrZXk6IEFDRTIzQUUzNEE4RTQ5NEUKUldST1NZNUs0enJpckIwQkM2ckZrR3NianNJcERKSHlXQWpxbnJzam1tTVQzVGJ4U2srR2IyVTIK",
-      "endpoints": [
-        "https://github.com/rares478/f95-app/releases/latest/download/latest.json"
-      ],
-      "windows": {
-        "installMode": "passive"
       }
     }
   }

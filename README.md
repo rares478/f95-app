@@ -4,7 +4,7 @@
 
 Desktop client for [F95Zone](https://f95zone.to/). Browse the SAM catalog, manage a local library, download from multiple file hosts, launch games, and work offline when the network drops.
 
-Repository: [github.com/jky-sh/f95-app](https://github.com/jky-sh/f95-app)
+Repository: [github.com/rares478/f95-app](https://github.com/rares478/f95-app)
 
 <!-- add screenshots before release -->
 
@@ -117,7 +117,7 @@ macOS and Linux can compile the shell, but overlay and some platform-specific fe
 ## Getting started
 
 ```bash
-git clone https://github.com/jky-sh/f95-app.git
+git clone https://github.com/rares478/f95-app.git
 cd f95-app
 npm install
 npm --prefix src-tauri/sidecar install
@@ -202,6 +202,6 @@ F95 App is a side project. If it saves you time, a coffee helps keep development
 
 ## License
 
-Copyright (c) 2026 jky-sh / F95 App
+Copyright (c) 2026 rares478 / F95 App
 
 Released under the [GNU General Public License v3.0 or later](LICENSE).

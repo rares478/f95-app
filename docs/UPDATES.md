@@ -3,7 +3,7 @@
 The desktop client uses [Tauri's updater plugin](https://v2.tauri.app/plugin/updater/) with a static `latest.json` hosted on GitHub Releases:
 
 ```
-https://github.com/jky-sh/f95-app/releases/latest/download/latest.json
+https://github.com/rares478/f95-app/releases/latest/download/latest.json
 ```
 
 ## Signing keys
