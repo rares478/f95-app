@@ -186,7 +186,11 @@ export function LoginWindow() {
     };
   }, []);
 
-  async function completeLogin(opts: { offline: boolean }) {
+  async function completeLogin(opts: {
+    offline: boolean;
+    /** When false, create main without show/focus (hidden autostart). Default show. */
+    showWindow?: boolean;
+  }) {
     const updatePromise = updateCheckRef.current;
     updateCheckRef.current = null;
 
@@ -201,7 +205,9 @@ export function LoginWindow() {
 
     setPhase({ kind: 'completing' });
     try {
-      await ipc.completeLogin();
+      await ipc.completeLogin(
+        opts.showWindow === false ? { showWindow: false } : undefined,
+      );
     } catch (err) {
       setError(isBackendError(err) ? err : String(err));
       setPhase({ kind: 'form' });

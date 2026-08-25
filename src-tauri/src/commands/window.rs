@@ -45,26 +45,40 @@ pub async fn move_install_cancel(
 /// `capabilities/default.json`, so the main window inherits all the
 /// permissions (db, opener, dialog, window controls…) automatically.
 #[tauri::command]
-pub async fn complete_login(app: AppHandle) -> Result<(), AppError> {
+pub async fn complete_login(
+    app: AppHandle,
+    show_window: Option<bool>,
+) -> Result<(), AppError> {
     use tauri::{WebviewUrl, WebviewWindowBuilder};
+
+    let should_show = show_window != Some(false);
 
     // 1. Ensure main window exists (idempotent - double-click Sign in
     //    doesn't spawn a second window, just shows the existing one).
     let main = if let Some(existing) = app.get_webview_window("main") {
         existing
     } else {
-        WebviewWindowBuilder::new(&app, "main", WebviewUrl::App("index.html".into()))
-            .title("F95 App")
-            .inner_size(1200.0, 800.0)
-            .min_inner_size(900.0, 600.0)
-            .decorations(false)
-            .center()
+        let mut builder =
+            WebviewWindowBuilder::new(&app, "main", WebviewUrl::App("index.html".into()))
+                .title("F95 App")
+                .inner_size(1200.0, 800.0)
+                .min_inner_size(900.0, 600.0)
+                .decorations(false)
+                .center();
+        if !should_show {
+            builder = builder.visible(false);
+        }
+        builder
             .build()
             .map_err(|e| AppError::Other(format!("create main window: {e}")))?
     };
 
-    let _ = main.show();
-    let _ = main.set_focus();
+    // None / Some(true) → show+focus (today's behavior). Some(false) keeps
+    // main created but hidden for autostart start-hidden launches.
+    if should_show {
+        let _ = main.show();
+        let _ = main.set_focus();
+    }
     crate::app_log::info("auth", "complete login");
 
     // 2. Now close login.

@@ -799,8 +799,12 @@ export async function verifyMixdropCredentials(): Promise<MixdropVerifyResult> {
   return invoke<MixdropVerifyResult>('verify_mixdrop_credentials');
 }
 
-export async function completeLogin(): Promise<void> {
-  return invoke('complete_login');
+export async function completeLogin(opts?: {
+  showWindow?: boolean;
+}): Promise<void> {
+  return invoke('complete_login', {
+    showWindow: opts?.showWindow,
+  });
 }
 
 export async function restartToLogin(): Promise<void> {
