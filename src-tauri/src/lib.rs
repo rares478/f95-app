@@ -54,7 +54,7 @@ use commands::{
     overlay_sync_compact_from_window,
     overlay_sync_hotkey, overlay_toggle, AppState,
 };
-use tauri::{Manager, RunEvent};
+use tauri::{AppHandle, Manager, RunEvent};
 use tauri_plugin_sql::{Builder as SqlBuilder, Migration, MigrationKind};
 
 /// SQLite file under `app_local_data_dir`. Dev builds use a separate DB so
@@ -66,6 +66,20 @@ fn sqlite_db_url() -> &'static str {
     } else {
         "sqlite:f95app.db"
     }
+}
+
+/// Bring the primary UI forward when a second process tries to start.
+/// Prefer `main` (post-login); fall back to `login` at startup.
+fn focus_primary_window(app: &AppHandle) {
+    let Some(win) = app
+        .get_webview_window("main")
+        .or_else(|| app.get_webview_window("login"))
+    else {
+        return;
+    };
+    let _ = win.unminimize();
+    let _ = win.show();
+    let _ = win.set_focus();
 }
 
 #[cfg_attr(mobile, tauri::mobile_entry_point)]
@@ -170,6 +184,9 @@ pub fn run() {
     ];
 
     tauri::Builder::default()
+        .plugin(tauri_plugin_single_instance::init(|app, _args, _cwd| {
+            focus_primary_window(app);
+        }))
         .plugin(tauri_plugin_process::init())
         .plugin(tauri_plugin_global_shortcut::Builder::new().build())
         .plugin(tauri_plugin_opener::init())

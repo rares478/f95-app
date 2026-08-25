@@ -52,6 +52,7 @@ mega = { version = "0.8", features = ["reqwest"] }
 sluice = "0.5"
 futures = "0.3"
 tauri-plugin-global-shortcut = "2"
+tauri-plugin-single-instance = "2"
 tauri-plugin-updater = "2"
 tauri-plugin-process = "2"
 chrono = { version = "0.4", default-features = false, features = ["clock", "std"] }
