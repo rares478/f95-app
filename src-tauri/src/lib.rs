@@ -56,7 +56,14 @@ use commands::{
     overlay_sync_hotkey, overlay_toggle, AppState,
 };
 use tauri::{AppHandle, Manager, RunEvent};
+use tauri_plugin_autostart::MacosLauncher;
 use tauri_plugin_sql::{Builder as SqlBuilder, Migration, MigrationKind};
+
+/// CLI flag presence when the process was launched via OS autostart.
+#[allow(dead_code)] // consumed by later autostart/tray commands
+struct AutostartCli {
+    from_autostart: bool,
+}
 
 /// SQLite file under `app_local_data_dir`. Dev builds use a separate DB so
 /// experimental migrations do not break the installed release database.
@@ -194,6 +201,10 @@ pub fn run() {
         .plugin(tauri_plugin_dialog::init())
         .plugin(tauri_plugin_updater::Builder::new().build())
         .plugin(tauri_plugin_process::init())
+        .plugin(tauri_plugin_autostart::init(
+            MacosLauncher::LaunchAgent,
+            Some(vec!["--autostart"]),
+        ))
         .plugin(
             SqlBuilder::default()
                 .add_migrations(sqlite_db_url(), migrations)
@@ -226,6 +237,13 @@ pub fn run() {
                 .plugin(tauri_plugin_updater::Builder::new().build())?;
             let state = build_state(&app.handle())?;
             app.manage(state);
+            let from_autostart = std::env::args().any(|a| a == "--autostart");
+            app.manage(AutostartCli { from_autostart });
+            if from_autostart {
+                if let Some(login) = app.handle().get_webview_window("login") {
+                    let _ = login.hide();
+                }
+            }
             {
                 let local = app
                     .path()
