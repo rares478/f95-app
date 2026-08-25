@@ -103,27 +103,6 @@ export function StoreHomePage() {
 
           {bands.map((band) => {
             switch (band.type) {
-              case 'forYou':
-                return (
-                  <section
-                    key="forYou"
-                    className="store-home-for-you"
-                    aria-label={t('store.home.section.forYou')}
-                  >
-                    {band.rails.map((rail) => (
-                      <DiscoveryRail
-                        key={rail.id}
-                        variant="compact"
-                        title={t(rail.titleKey, rail.titleParams)}
-                        items={rail.items}
-                        category={category}
-                        loading={rail.loading || (bootstrapping && rail.items.length === 0)}
-                        error={rail.error}
-                        onRetry={rail.retry}
-                      />
-                    ))}
-                  </section>
-                );
               case 'recent':
                 return (
                   <DiscoveryRail

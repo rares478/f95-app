@@ -13,22 +13,15 @@ export interface StoreDiscoveryRailLike {
 }
 
 export type HomeBand<T extends StoreDiscoveryRailLike = StoreDiscoveryRailLike> =
-  | { type: 'forYou'; rails: T[] }
   | { type: 'recent'; rail: T }
   | { type: 'popular'; tabs: T[] }
   | { type: 'tags'; panels: T[] };
 
-const FOR_YOU_IDS = ['recently-viewed', 'because-you-play'] as const;
 const POPULAR_IDS = ['likes', 'views', 'rating'] as const;
 
 export function groupHomeBands<T extends StoreDiscoveryRailLike>(rails: T[]): HomeBand<T>[] {
   const byId = new Map(rails.map((rail) => [rail.id, rail]));
   const bands: HomeBand<T>[] = [];
-
-  const forYou = FOR_YOU_IDS.map((id) => byId.get(id)).filter((rail): rail is T => rail != null);
-  if (forYou.length > 0) {
-    bands.push({ type: 'forYou', rails: forYou });
-  }
 
   const recent = byId.get('recent');
   if (recent) {

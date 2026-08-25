@@ -25,20 +25,25 @@ describe('groupHomeBands', () => {
       rail('tag:1'),
       rail('tag:2'),
     ]);
-    expect(bands.map((b) => b.type)).toEqual(['forYou', 'recent', 'popular', 'tags']);
-    expect(bands[0]).toMatchObject({ type: 'forYou' });
-    if (bands[0]?.type === 'forYou') {
-      expect(bands[0].rails.map((r) => r.id)).toEqual(['recently-viewed', 'because-you-play']);
+    expect(bands.map((b) => b.type)).toEqual(['recent', 'popular', 'tags']);
+    if (bands[1]?.type === 'popular') {
+      expect(bands[1].tabs.map((r) => r.id)).toEqual(['likes', 'views', 'rating']);
     }
-    if (bands[2]?.type === 'popular') {
-      expect(bands[2].tabs.map((r) => r.id)).toEqual(['likes', 'views', 'rating']);
-    }
-    if (bands[3]?.type === 'tags') {
-      expect(bands[3].panels.map((r) => r.id)).toEqual(['tag:1', 'tag:2']);
+    if (bands[2]?.type === 'tags') {
+      expect(bands[2].panels.map((r) => r.id)).toEqual(['tag:1', 'tag:2']);
     }
   });
 
-  it('omits empty forYou and missing sections', () => {
+  it('ignores legacy forYou rail ids', () => {
+    const bands = groupHomeBands([
+      rail('recently-viewed'),
+      rail('because-you-play'),
+      rail('recent'),
+    ]);
+    expect(bands.map((b) => b.type)).toEqual(['recent']);
+  });
+
+  it('omits missing sections', () => {
     const bands = groupHomeBands([rail('likes'), rail('tag:9')]);
     expect(bands.map((b) => b.type)).toEqual(['popular', 'tags']);
   });
