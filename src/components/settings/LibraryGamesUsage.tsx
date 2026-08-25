@@ -39,11 +39,22 @@ export function LibraryGamesUsage({
   const { rows: downloadRows } = useDownloads();
   const [rows, setRows] = useState<LibraryGameUsageRow[] | null>(cachedRows);
   const [loading, setLoading] = useState(false);
+  const [reloadToken, setReloadToken] = useState(0);
   const cancelRef = useRef<(() => void) | null>(null);
   const cachedRowsRef = useRef(cachedRows);
   const onCacheRowsRef = useRef(onCacheRows);
+  const prevCachedRef = useRef(cachedRows);
   cachedRowsRef.current = cachedRows;
   onCacheRowsRef.current = onCacheRows;
+
+  // Detect Task 5-style cache invalidation (non-null → null while expanded).
+  useEffect(() => {
+    const prev = prevCachedRef.current;
+    prevCachedRef.current = cachedRows;
+    if (expanded && prev != null && cachedRows == null) {
+      setReloadToken((n) => n + 1);
+    }
+  }, [cachedRows, expanded]);
 
   useEffect(() => {
     if (!expanded) {
@@ -52,11 +63,37 @@ export function LibraryGamesUsage({
       return;
     }
 
+    const applyPatch = (threadId: string, patch: Pick<LibraryGameUsageRow, 'sizeState' | 'usedBytes'>) => {
+      setRows((prev) => {
+        if (!prev) return prev;
+        const next = sortGameUsageRows(
+          prev.map((r) => (r.threadId === threadId ? { ...r, ...patch } : r)),
+        );
+        onCacheRowsRef.current(libraryId, next);
+        return next;
+      });
+    };
+
+    const startSizes = (usageRows: LibraryGameUsageRow[]) => {
+      const pending = usageRows.filter((r) => r.sizeState === 'pending');
+      if (pending.length === 0) return;
+      cancelRef.current?.();
+      cancelRef.current = startLibraryGameSizeLoads(pending, {
+        concurrency: 3,
+        directorySize: ipc.directorySize,
+        onUpdate: applyPatch,
+      });
+    };
+
     const cached = cachedRowsRef.current;
     if (cached != null) {
       setRows(cached);
       setLoading(false);
-      return;
+      startSizes(cached);
+      return () => {
+        cancelRef.current?.();
+        cancelRef.current = null;
+      };
     }
 
     let cancelled = false;
@@ -71,21 +108,7 @@ export function LibraryGamesUsage({
         setRows(usageRows);
         onCacheRowsRef.current(libraryId, usageRows);
         setLoading(false);
-
-        cancelRef.current = startLibraryGameSizeLoads(usageRows, {
-          concurrency: 3,
-          directorySize: ipc.directorySize,
-          onUpdate: (threadId, patch) => {
-            setRows((prev) => {
-              if (!prev) return prev;
-              const next = sortGameUsageRows(
-                prev.map((r) => (r.threadId === threadId ? { ...r, ...patch } : r)),
-              );
-              onCacheRowsRef.current(libraryId, next);
-              return next;
-            });
-          },
-        });
+        startSizes(usageRows);
       } catch (err) {
         console.warn('[settings] failed to load library games usage', err);
         if (cancelled) return;
@@ -100,14 +123,14 @@ export function LibraryGamesUsage({
       cancelRef.current?.();
       cancelRef.current = null;
     };
-  }, [expanded, libraryId, libraryPath]);
+  }, [expanded, libraryId, libraryPath, reloadToken]);
 
   if (!expanded) return null;
 
   if (loading || rows == null) {
     return (
       <div className="settings-lib-games">
-        <div className="settings-lib-games-loading">{t('settings.libraries.loading')}</div>
+        <div className="settings-lib-games-loading">{t('common.loading')}</div>
       </div>
     );
   }

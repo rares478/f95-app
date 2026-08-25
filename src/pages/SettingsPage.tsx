@@ -706,13 +706,8 @@ export function SettingsPage({ onLoggedOut: _onLoggedOut }: Props) {
   );
 
   const onUninstallLibraryGame = useCallback(async (_row: LibraryGameUsageRow) => {
-    // Full uninstall flow is Task 5; keep prop wired and disable rules active.
-    setUninstallingThreadId(_row.threadId);
-    try {
-      /* stub */
-    } finally {
-      setUninstallingThreadId(null);
-    }
+    // Full uninstall flow is Task 5; button calls this prop and respects disable rules.
+    void setUninstallingThreadId;
   }, []);
 
   useEffect(() => {
