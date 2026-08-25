@@ -7,10 +7,12 @@ import { dialog } from '../lib/dialog';
 import { openUrl } from '@tauri-apps/plugin-opener';
 import * as ipc from '../lib/ipc';
 import * as libraries from '../lib/libraries';
+import * as library from '../lib/library';
 import * as downloads from '../lib/downloads';
 import * as settings from '../lib/settings';
 import * as theme from '../lib/theme';
 import * as navLayout from '../lib/navLayout';
+import * as uninstall from '../lib/uninstall';
 import { useT, LOCALES, type Locale } from '../lib/i18n';
 import { execute, query } from '../lib/db';
 import { clearCredentials } from '../lib/stronghold';
@@ -22,6 +24,9 @@ import { useStoreSettings } from '../contexts/StoreSettings';
 import { useDiscussionSettings } from '../contexts/DiscussionSettings';
 import type { StoreScrollMode } from '../lib/storeSettings';
 import { useOffline } from '../contexts/Offline';
+import { useRunningGames } from '../contexts/RunningGames';
+import { useDownloads } from '../contexts/Downloads';
+import { inFlightLibraryStatus } from '../lib/downloadLibrarySync';
 import {
   loadDevDebugSettings,
   saveDevDebugSettings,
@@ -89,6 +94,8 @@ export function SettingsPage({ onLoggedOut: _onLoggedOut }: Props) {
   const { t, locale, setLocale } = useT();
   const [searchParams, setSearchParams] = useSearchParams();
   const initialSection = parseSettingsSection(searchParams.get('section'));
+  const { running } = useRunningGames();
+  const { rows: downloadRows } = useDownloads();
   const {
     isOffline,
     offlineReason,
@@ -705,10 +712,65 @@ export function SettingsPage({ onLoggedOut: _onLoggedOut }: Props) {
     [],
   );
 
-  const onUninstallLibraryGame = useCallback(async (_row: LibraryGameUsageRow) => {
-    // Full uninstall flow is Task 5; button calls this prop and respects disable rules.
-    void setUninstallingThreadId;
-  }, []);
+  const onUninstallLibraryGame = useCallback(
+    async (row: LibraryGameUsageRow, libraryId: number) => {
+      if (running.has(row.threadId)) {
+        await dialog.alert(t('libdetail.uninstall.notRunning'));
+        return;
+      }
+      const inFlight =
+        row.installStatus === 'downloading' ||
+        row.installStatus === 'extracting' ||
+        inFlightLibraryStatus(downloadRows, row.threadId) === 'downloading' ||
+        inFlightLibraryStatus(downloadRows, row.threadId) === 'extracting';
+      if (inFlight) {
+        await dialog.alert(t('libdetail.uninstall.waitDownload'));
+        return;
+      }
+      const ok = await dialog.confirm(t('libdetail.confirmUninstall', { title: row.title }), {
+        title: t('libdetail.confirmUninstallTitle'),
+        kind: 'warning',
+      });
+      if (!ok) return;
+      setUninstallingThreadId(row.threadId);
+      try {
+        const result = await uninstall.uninstallGame(row.threadId);
+        const removeFromLibrary = await dialog.ask(
+          t('libdetail.uninstall.askRemoveLibrary', { title: row.title }),
+          {
+            title: t('libdetail.uninstall.askRemoveLibraryTitle'),
+            kind: 'warning',
+          },
+        );
+        if (removeFromLibrary) {
+          await library.remove(row.threadId);
+        }
+        setGameUsageCache((prev) => {
+          const next = { ...prev };
+          delete next[libraryId];
+          return next;
+        });
+        libraryUsageCancelRef.current?.();
+        libraryUsageCancelRef.current = libraries.refreshLibraryUsage(libs, (id, usedBytes) => {
+          setLibs((prev) =>
+            prev.map((lib) => (lib.id === id ? { ...lib, usedBytes } : lib)),
+          );
+        });
+        if (result.skippedPaths.length > 0) {
+          await dialog.alert(
+            t('libdetail.uninstall.partial', { paths: result.skippedPaths.join('\n') }),
+          );
+        } else if (!result.deleted) {
+          await dialog.alert(t('libdetail.uninstall.outsideLibrary'));
+        }
+      } catch (err) {
+        await dialog.alert(t('libdetail.uninstall.failed', { error: formatIpcError(err) }));
+      } finally {
+        setUninstallingThreadId(null);
+      }
+    },
+    [running, downloadRows, libs, t],
+  );
 
   useEffect(() => {
     return () => {
@@ -1279,7 +1341,7 @@ export function SettingsPage({ onLoggedOut: _onLoggedOut }: Props) {
                       }))
                     }
                     onCacheGameRows={onCacheGameUsageRows}
-                    onUninstallGame={onUninstallLibraryGame}
+                    onUninstallGame={(row) => onUninstallLibraryGame(row, lib.id)}
                     onReveal={() => onRevealLibrary(lib.path)}
                     onRename={() => onRenameLibrary(lib)}
                     onSetDefault={() => onSetDefaultLibrary(lib.id)}
