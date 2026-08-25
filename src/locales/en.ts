@@ -759,6 +759,12 @@ const en: Record<string, string> = {
   'settings.updates.installFailed': 'Could not install the update: {error}',
   'settings.updates.installing': 'Installing update…',
 
+  'settings.startup.section': 'Startup',
+  'settings.startup.hint': 'Launch F95 App when you sign in to Windows. Hidden start uses the system tray.',
+  'settings.startup.withWindows': 'Start with Windows',
+  'settings.startup.startHidden': 'Start hidden in tray',
+  'settings.startup.enableFailed': 'Could not update Windows startup setting: {error}',
+
   'settings.tray.section': 'System tray',
   'settings.tray.hint': 'Keep the app in the notification area. When enabled, closing the window hides it instead of quitting.',
   'settings.tray.enabled': 'Show tray icon',

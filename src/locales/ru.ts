@@ -723,6 +723,12 @@ const ru: Record<string, string> = {
   'settings.updates.installFailed': 'Не удалось установить обновление: {error}',
   'settings.updates.installing': 'Установка обновления…',
 
+  'settings.startup.section': 'Автозапуск',
+  'settings.startup.hint': 'Запускать F95 App при входе в Windows. Скрытый запуск использует системный трей.',
+  'settings.startup.withWindows': 'Запускать вместе с Windows',
+  'settings.startup.startHidden': 'Запускать скрыто в трее',
+  'settings.startup.enableFailed': 'Не удалось обновить автозапуск Windows: {error}',
+
   'settings.tray.section': 'Системный трей',
   'settings.tray.hint': 'Держать приложение в области уведомлений. При включении закрытие окна скрывает приложение вместо выхода.',
   'settings.tray.enabled': 'Показывать значок в трее',

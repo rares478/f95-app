@@ -53,6 +53,8 @@ import {
   type AppRuntimeSettings,
 } from '../lib/appRuntimeSettings';
 import { syncTrayIcon } from '../lib/tray';
+import { applyStartHiddenToggle, applyTrayToggle } from '../lib/autostartCoupling';
+import { reconcileAutostartPreference, syncAutostartWithOs } from '../lib/autostartLaunch';
 import { getChangelogEntries } from '../lib/changelog';
 import { checkForAppUpdate, installAppUpdate } from '../lib/appUpdater';
 import { LoadingState } from '../components/ui/LoadingState';
@@ -259,7 +261,14 @@ export function SettingsPage({ onLoggedOut: _onLoggedOut }: Props) {
   }, []);
 
   useEffect(() => {
-    void loadAppRuntimeSettings().then(setRuntime);
+    void loadAppRuntimeSettings().then((s) => {
+      setRuntime(s);
+      if (s.autostartEnabled) {
+        void reconcileAutostartPreference(true).catch((err) => {
+          console.warn('[settings] failed to reconcile autostart', err);
+        });
+      }
+    });
     return subscribeAppRuntimeSettings(setRuntime);
   }, []);
 
@@ -2129,25 +2138,74 @@ export function SettingsPage({ onLoggedOut: _onLoggedOut }: Props) {
             </div>
 
             {runtime && (
-              <div className="settings-card">
-                <h3 className="settings-card-title">{t('settings.tray.section')}</h3>
-                <p className="settings-card-hint">{t('settings.tray.hint')}</p>
-                <div className="settings-checklist">
-                  <label className="settings-check-row">
-                    <input
-                      type="checkbox"
-                      checked={runtime.trayIconEnabled}
-                      onChange={(e) => {
-                        const enabled = e.target.checked;
-                        void saveAppRuntimeSettings({ trayIconEnabled: enabled }).then(() =>
-                          syncTrayIcon(t),
-                        );
-                      }}
-                    />
-                    <span>{t('settings.tray.enabled')}</span>
-                  </label>
+              <>
+                <div className="settings-card">
+                  <h3 className="settings-card-title">{t('settings.startup.section')}</h3>
+                  <p className="settings-card-hint">{t('settings.startup.hint')}</p>
+                  <div className="settings-checklist">
+                    <label className="settings-check-row">
+                      <input
+                        type="checkbox"
+                        checked={runtime.autostartEnabled}
+                        onChange={(e) => {
+                          const enabled = e.target.checked;
+                          void (async () => {
+                            await saveAppRuntimeSettings({ autostartEnabled: enabled });
+                            try {
+                              await syncAutostartWithOs(enabled);
+                            } catch (err) {
+                              await saveAppRuntimeSettings({ autostartEnabled: !enabled });
+                              await dialog.alert(
+                                t('settings.startup.enableFailed', {
+                                  error: formatIpcError(err),
+                                }),
+                                { kind: 'error' },
+                              );
+                            }
+                          })();
+                        }}
+                      />
+                      <span>{t('settings.startup.withWindows')}</span>
+                    </label>
+                    <label className="settings-check-row">
+                      <input
+                        type="checkbox"
+                        checked={runtime.startHiddenOnAutostart}
+                        onChange={(e) => {
+                          const enabled = e.target.checked;
+                          const patch = applyStartHiddenToggle(runtime, enabled);
+                          void saveAppRuntimeSettings(patch).then(() => {
+                            if (patch.trayIconEnabled) {
+                              return syncTrayIcon(t);
+                            }
+                          });
+                        }}
+                      />
+                      <span>{t('settings.startup.startHidden')}</span>
+                    </label>
+                  </div>
                 </div>
-              </div>
+
+                <div className="settings-card">
+                  <h3 className="settings-card-title">{t('settings.tray.section')}</h3>
+                  <p className="settings-card-hint">{t('settings.tray.hint')}</p>
+                  <div className="settings-checklist">
+                    <label className="settings-check-row">
+                      <input
+                        type="checkbox"
+                        checked={runtime.trayIconEnabled}
+                        onChange={(e) => {
+                          const enabled = e.target.checked;
+                          void saveAppRuntimeSettings(applyTrayToggle(runtime, enabled)).then(() =>
+                            syncTrayIcon(t),
+                          );
+                        }}
+                      />
+                      <span>{t('settings.tray.enabled')}</span>
+                    </label>
+                  </div>
+                </div>
+              </>
             )}
 
             <div className="settings-card">

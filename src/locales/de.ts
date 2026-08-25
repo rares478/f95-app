@@ -723,6 +723,12 @@ const de: Record<string, string> = {
   'settings.updates.installFailed': 'Update konnte nicht installiert werden: {error}',
   'settings.updates.installing': 'Update wird installiert…',
 
+  'settings.startup.section': 'Autostart',
+  'settings.startup.hint': 'F95 App beim Anmelden an Windows starten. Versteckter Start nutzt das Systemtray.',
+  'settings.startup.withWindows': 'Mit Windows starten',
+  'settings.startup.startHidden': 'Versteckt im Tray starten',
+  'settings.startup.enableFailed': 'Windows-Autostart konnte nicht aktualisiert werden: {error}',
+
   'settings.tray.section': 'Systemtray',
   'settings.tray.hint': 'App im Infobereich behalten. Wenn aktiv, blendet Schließen das Fenster aus, statt die App zu beenden.',
   'settings.tray.enabled': 'Tray-Symbol anzeigen',
