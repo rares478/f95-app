@@ -1,6 +1,7 @@
 export interface ThreadPost {
   postId: string;
   author: string;
+  authorUserId: string | null;
   authorAvatarUrl: string | null;
   postedAt: string | null;
   html: string;

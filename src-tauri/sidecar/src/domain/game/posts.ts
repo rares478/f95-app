@@ -1,11 +1,13 @@
 import * as cheerio from 'cheerio';
 import type { Element } from 'domhandler';
 import { F95_BASE } from '../../shared/constants';
+import { parseMessageAuthorUserId } from '../../shared/memberId';
 import { normalizeOpHtml } from './htmlNormalize';
 
 export interface ThreadPost {
   postId: string;
   author: string;
+  authorUserId: string | null;
   authorAvatarUrl: string | null;
   postedAt: string | null;
   html: string;
@@ -182,6 +184,7 @@ export function parseThreadPostsPage(
     posts.push({
       postId,
       author,
+      authorUserId: parseMessageAuthorUserId($, $el),
       authorAvatarUrl: avatar,
       postedAt,
       html: htmlBody,

@@ -56,11 +56,25 @@ describe('parseThreadPostsPage', () => {
     expect(page.posts).toHaveLength(1);
     expect(page.posts[0].postId).toBe('2');
     expect(page.posts[0].author).toBe('ReplyUser');
+    expect(page.posts[0].authorUserId).toBe('2');
     expect(page.posts[0].html).toContain('Hello reply');
     expect(page.posts[0].html).not.toContain('My cool signature');
     expect(page.posts[0].signatureHtml).toContain('My cool signature');
     expect(page.hasMore).toBe(true);
     expect(page.totalPages).toBe(2);
+  });
+
+  it('sets authorUserId null when message has no member link', () => {
+    const html = `
+      <html><body>
+        <article class="message" data-content="post-10" id="js-post-10">
+          <h4 class="message-name"><a>NoLinkUser</a></h4>
+          <div class="message-body"><div class="bbWrapper"><p>no id</p></div></div>
+        </article>
+      </body></html>`;
+    const page = parseThreadPostsPage(html, { threadId: '100', page: 2 });
+    expect(page.posts).toHaveLength(1);
+    expect(page.posts[0].authorUserId).toBeNull();
   });
 
   it('keeps all messages on later pages', () => {
