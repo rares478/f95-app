@@ -1135,6 +1135,15 @@ const pt: Record<string, string> = {
   'profile.field.badges': 'Distintivos',
   'profile.activity.empty': 'Nenhuma atividade recente.',
   'profile.posts.empty': 'Ainda não há mensagens no perfil de {username}.',
+
+  // ─── Post file attachments ──────────────────────────────────────────────
+  'attachments.title': 'Anexos',
+  'attachments.download': 'Baixar',
+  'attachments.downloading': 'Baixando…',
+  'attachments.downloaded': 'Salvo',
+  'attachments.failed': 'Não foi possível baixar: {error}',
+  'attachments.offline': 'Anexos indisponíveis offline.',
+
   'profile.openOnF95': 'Abrir no F95Zone',
   'profile.banner.alt': 'Banner do perfil',
   'profile.loadFailed': 'Falha ao carregar o perfil.',

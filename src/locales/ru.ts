@@ -1130,6 +1130,15 @@ const ru: Record<string, string> = {
   'profile.field.badges': 'Значки',
   'profile.activity.empty': 'Нет недавней активности.',
   'profile.posts.empty': 'На профиле {username} пока нет сообщений.',
+
+  // ─── Post file attachments ──────────────────────────────────────────────
+  'attachments.title': 'Вложения',
+  'attachments.download': 'Скачать',
+  'attachments.downloading': 'Скачивание…',
+  'attachments.downloaded': 'Сохранено',
+  'attachments.failed': 'Не удалось скачать: {error}',
+  'attachments.offline': 'Вложения недоступны офлайн.',
+
   'profile.openOnF95': 'Открыть на F95Zone',
   'profile.banner.alt': 'Баннер профиля',
   'profile.loadFailed': 'Не удалось загрузить профиль.',

@@ -1,0 +1,76 @@
+/* ── Post file attachments (non-image) ─────────────────────────────────── */
+
+.post-attachments {
+  display: flex;
+  flex-direction: column;
+  gap: 8px;
+  margin-top: 12px;
+  padding-top: 10px;
+  border-top: 1px solid var(--border-faint);
+}
+
+.post-attachments-title {
+  margin: 0;
+  font-size: 12px;
+  font-weight: 700;
+  letter-spacing: 0.04em;
+  text-transform: uppercase;
+  color: var(--text-muted);
+}
+
+.post-attachments-offline {
+  margin: 0;
+  font-size: 12px;
+  color: var(--text-muted);
+}
+
+.post-attachments-list {
+  list-style: none;
+  margin: 0;
+  padding: 0;
+  display: flex;
+  flex-direction: column;
+  gap: 6px;
+}
+
+.post-attachments-row {
+  display: flex;
+  align-items: center;
+  gap: 12px;
+  min-width: 0;
+  padding: 8px 10px;
+  border: 1px solid var(--border);
+  border-radius: 6px;
+  background: var(--bg-sunken);
+}
+
+.post-attachments-meta {
+  flex: 1;
+  min-width: 0;
+  display: flex;
+  flex-direction: column;
+  gap: 2px;
+}
+
+.post-attachments-name {
+  font-size: 13px;
+  font-weight: 600;
+  color: var(--text-primary);
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+.post-attachments-size {
+  font-size: 11px;
+  color: var(--text-muted);
+}
+
+.post-attachments-btn {
+  flex-shrink: 0;
+}
+
+.post-attachments-btn:disabled {
+  opacity: 0.5;
+  cursor: not-allowed;
+}

@@ -61,6 +61,18 @@ pub struct ProfileBadge {
 }
 
 #[derive(Debug, Serialize, Deserialize)]
+pub struct PostAttachment {
+    pub id: String,
+    #[serde(rename = "fileName")]
+    pub file_name: String,
+    #[serde(rename = "fileSize", default)]
+    pub file_size: Option<f64>,
+    pub url: String,
+    #[serde(rename = "isImage", default)]
+    pub is_image: bool,
+}
+
+#[derive(Debug, Serialize, Deserialize)]
 pub struct ProfilePostItem {
     #[serde(rename = "authorName")]
     pub author_name: String,
@@ -72,4 +84,6 @@ pub struct ProfilePostItem {
     pub message_text: String,
     pub date: Option<String>,
     pub url: Option<String>,
+    #[serde(default)]
+    pub attachments: Vec<PostAttachment>,
 }

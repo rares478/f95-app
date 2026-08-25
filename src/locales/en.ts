@@ -1166,6 +1166,15 @@ const en: Record<string, string> = {
   'profile.field.badges': 'Badges',
   'profile.activity.empty': 'No recent activity.',
   'profile.posts.empty': 'There are no messages on {username}\'s profile yet.',
+
+  // ─── Post file attachments ──────────────────────────────────────────────
+  'attachments.title': 'Attachments',
+  'attachments.download': 'Download',
+  'attachments.downloading': 'Downloading…',
+  'attachments.downloaded': 'Saved',
+  'attachments.failed': 'Could not download: {error}',
+  'attachments.offline': 'Attachments unavailable offline.',
+
   'profile.openOnF95': 'Open on F95Zone',
   'profile.banner.alt': 'Profile banner',
   'profile.loadFailed': 'Failed to load profile.',

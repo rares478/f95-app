@@ -1130,6 +1130,15 @@ const de: Record<string, string> = {
   'profile.field.badges': 'Abzeichen',
   'profile.activity.empty': 'Keine kürzliche Aktivität.',
   'profile.posts.empty': 'Es gibt noch keine Nachrichten auf dem Profil von {username}.',
+
+  // ─── Post file attachments ──────────────────────────────────────────────
+  'attachments.title': 'Anhänge',
+  'attachments.download': 'Herunterladen',
+  'attachments.downloading': 'Wird heruntergeladen…',
+  'attachments.downloaded': 'Gespeichert',
+  'attachments.failed': 'Download fehlgeschlagen: {error}',
+  'attachments.offline': 'Anhänge sind offline nicht verfügbar.',
+
   'profile.openOnF95': 'Auf F95Zone öffnen',
   'profile.banner.alt': 'Profilbanner',
   'profile.loadFailed': 'Profil konnte nicht geladen werden.',
