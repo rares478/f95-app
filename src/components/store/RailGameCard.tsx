@@ -1,77 +1,24 @@
-import { useEffect, useMemo, useRef, useState } from 'react';
 import { Link } from 'react-router-dom';
+import { useStoreCardHoverImages } from '../../hooks/useStoreCardHoverImages';
 import { useStoreContextMenu } from '../../hooks/useStoreContextMenu';
-import { storeGameThumbUrls } from '../../lib/f95ImageUrl';
 import { useT } from '../../lib/i18n';
 import { useIsInLibrary } from '../../lib/libraryMembership';
 import type { SamCategory, SamGameCard } from '../../types/sam';
 import { ContentTagPills } from './ContentTagPills';
+import { StoreCardThumbDots } from './StoreCardThumbDots';
 
 interface Props {
   game: SamGameCard;
   category: SamCategory;
 }
 
-const SLIDE_MS = 1400;
-/** Lets the pointer reach rail arrows without triggering pop-out. */
-const HOVER_OPEN_MS = 200;
-
 /** Rail card with Steam-style hover: pop-out, screenshot cycle, meta. */
 export function RailGameCard({ game, category }: Props) {
   const { t } = useT();
   const { openStoreContextMenu } = useStoreContextMenu(category);
   const inLibrary = useIsInLibrary(game.threadId);
-  const [hovered, setHovered] = useState(false);
-  const [slide, setSlide] = useState(0);
-  const openTimerRef = useRef<number | null>(null);
-
-  const images = useMemo(
-    () => storeGameThumbUrls(game),
-    [game.thumbnailUrl, game.screens],
-  );
-
-  useEffect(() => {
-    if (!hovered || images.length <= 1) {
-      setSlide(0);
-      return;
-    }
-    if (window.matchMedia('(prefers-reduced-motion: reduce)').matches) return;
-    const id = window.setInterval(() => {
-      setSlide((i) => (i + 1) % images.length);
-    }, SLIDE_MS);
-    return () => window.clearInterval(id);
-  }, [hovered, images.length]);
-
-  useEffect(() => {
-    return () => {
-      if (openTimerRef.current != null) {
-        window.clearTimeout(openTimerRef.current);
-      }
-    };
-  }, []);
-
-  const clearOpenTimer = () => {
-    if (openTimerRef.current != null) {
-      window.clearTimeout(openTimerRef.current);
-      openTimerRef.current = null;
-    }
-  };
-
-  const onEnter = () => {
-    clearOpenTimer();
-    openTimerRef.current = window.setTimeout(() => {
-      openTimerRef.current = null;
-      setHovered(true);
-    }, HOVER_OPEN_MS);
-  };
-
-  const onLeave = () => {
-    clearOpenTimer();
-    setHovered(false);
-    setSlide(0);
-  };
-
-  const activeSrc = images[Math.min(slide, Math.max(images.length - 1, 0))] ?? null;
+  const { images, hovered, slide, activeSrc, onEnter, onLeave } =
+    useStoreCardHoverImages(game);
 
   return (
     <Link
@@ -104,16 +51,7 @@ export function RailGameCard({ game, category }: Props) {
           </div>
         )}
         {game.version && <div className="rail-game-card-version">{game.version}</div>}
-        {hovered && images.length > 1 && (
-          <div className="rail-game-card-dots" aria-hidden>
-            {images.map((src, i) => (
-              <span
-                key={src}
-                className={`rail-game-card-dot${i === slide ? ' is-active' : ''}`}
-              />
-            ))}
-          </div>
-        )}
+        {hovered && <StoreCardThumbDots images={images} slide={slide} />}
       </div>
       <div className="rail-game-card-body">
         <div className="rail-game-card-title" title={game.title}>
