@@ -27,7 +27,7 @@ mod uploadhaven;
 mod win_job;
 
 use commands::{
-    append_app_log, build_state, check_network, close_captcha_window, complete_login,
+    append_app_log, build_state, check_network, cli_args, close_captcha_window, complete_login,
     create_game_shortcuts,
     default_downloads_path, delete_install_dir, delete_path, directory_size, disk_info, download_cancel,
     download_continue_captcha, download_continue_choice, download_start, extract_archive,
@@ -339,6 +339,7 @@ pub fn run() {
             verify_datanodes_key,
             set_mixdrop_credentials,
             verify_mixdrop_credentials,
+            cli_args,
             complete_login,
             restart_to_login,
             ping_sidecar,

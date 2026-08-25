@@ -3,6 +3,12 @@ use crate::error::AppError;
 use crate::mover::MoveStartResult;
 use tauri::{AppHandle, Manager, State};
 
+/// Process argv for the frontend (e.g. detect `--autostart` on login boot).
+#[tauri::command]
+pub fn cli_args() -> Vec<String> {
+    std::env::args().collect()
+}
+
 /// Start moving an installed game from one library to another. Returns the
 /// computed destination path + total size immediately; progress is reported
 /// via `install_move:*` events.

@@ -9,6 +9,16 @@ import {
   shouldStartLoginUpdateCheck,
   tryLoginAutoInstall,
 } from '../lib/appUpdater';
+import {
+  AUTOSTART_ARG,
+  readProcessArgs,
+  shouldHideOnAutostartLaunch,
+} from '../lib/autostartLaunch';
+import {
+  loadAppRuntimeSettings,
+  saveAppRuntimeSettings,
+} from '../lib/appRuntimeSettings';
+import { syncTrayIcon } from '../lib/tray';
 import { useT } from '../lib/i18n';
 import { appLog } from '../lib/appLog';
 import { isBackendError, type BackendError } from '../types';
@@ -74,6 +84,9 @@ export function LoginWindow() {
   // `?logout=1` to our URL precisely to disable the auto-login fast-path.
   // Without this, a stale session cookie on disk could revive the session
   // immediately after the user clicked "Sign out".
+  //
+  // Autostart: when `--autostart` + start-hidden + tray, keep login hidden,
+  // ensure tray, and open main without show. `?logout=1` never uses that path.
   useEffect(() => {
     void appLog('INFO', 'auth', 'login window ready');
     let cancelled = false;
@@ -82,6 +95,43 @@ export function LoginWindow() {
       new URLSearchParams(window.location.search).get('logout') === '1';
 
     (async () => {
+      let hideOnAutostart = false;
+
+      try {
+        const [args, settings] = await Promise.all([
+          readProcessArgs().catch(() => [] as string[]),
+          loadAppRuntimeSettings(),
+        ]);
+        hideOnAutostart =
+          !cameFromLogout && shouldHideOnAutostartLaunch(args, settings);
+
+        if (hideOnAutostart) {
+          if (!settings.trayIconEnabled) {
+            await saveAppRuntimeSettings({ trayIconEnabled: true });
+          }
+          await syncTrayIcon();
+        } else if (args.includes(AUTOSTART_ARG)) {
+          // Rust may have hidden login early for any --autostart launch;
+          // settings say we should not stay hidden — show the form shell.
+          const win = getCurrentWindow();
+          await win.show();
+          await win.setFocus();
+        }
+      } catch (err) {
+        void appLog(
+          'WARN',
+          'auth',
+          `autostart boot prep failed: ${err instanceof Error ? err.message : String(err)}`,
+        );
+      }
+
+      const revealLoginIfNeeded = async () => {
+        if (!hideOnAutostart || cancelled) return;
+        const win = getCurrentWindow();
+        await win.show();
+        await win.setFocus();
+      };
+
       try {
         if (cameFromLogout) {
           // Defensive: wipe any creds that survived the main-window logout
@@ -109,11 +159,12 @@ export function LoginWindow() {
           const hasSession = await ipc.hasLocalSession();
           if (hasSession && !cancelled) {
             void appLog('INFO', 'auth', 'local session present');
-            await completeLogin({ offline: true });
+            await completeLogin({ offline: true, showWindow: !hideOnAutostart });
             return;
           }
           if (!cancelled) {
             void appLog('INFO', 'auth', 'session missing');
+            await revealLoginIfNeeded();
             setPhase({ kind: 'form' });
           }
           return;
@@ -137,7 +188,9 @@ export function LoginWindow() {
           );
           void appLog('INFO', 'auth', loggedIn ? 'session probe: yes' : 'session probe: no');
           if (loggedIn) {
-            if (!cancelled) await completeLogin({ offline: false });
+            if (!cancelled) {
+              await completeLogin({ offline: false, showWindow: !hideOnAutostart });
+            }
             return;
           }
         } catch (err) {
@@ -156,19 +209,25 @@ export function LoginWindow() {
           try {
             void appLog('INFO', 'auth', 'auto-login start');
             await ipc.login(stored.username, stored.password);
-            if (!cancelled) await completeLogin({ offline: false });
+            if (!cancelled) {
+              await completeLogin({ offline: false, showWindow: !hideOnAutostart });
+            }
             return;
           } catch {
             if (!cancelled) {
               setUsername(stored.username);
               setPassword(stored.password);
+              await revealLoginIfNeeded();
               setPhase({ kind: 'form', prefill: stored });
             }
             return;
           }
         }
 
-        if (!cancelled) setPhase({ kind: 'form' });
+        if (!cancelled) {
+          await revealLoginIfNeeded();
+          setPhase({ kind: 'form' });
+        }
       } catch (err) {
         void appLog(
           'ERROR',
@@ -177,6 +236,7 @@ export function LoginWindow() {
         );
         if (!cancelled) {
           setError(isBackendError(err) ? err : String(err));
+          await revealLoginIfNeeded();
           setPhase({ kind: 'form' });
         }
       }
