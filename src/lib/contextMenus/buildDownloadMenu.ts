@@ -44,13 +44,26 @@ export function buildDownloadMenu(
     }),
   ];
 
-  if (row.state === 'pending' || row.state === 'resolving' || row.state === 'downloading') {
+  if (
+    row.state === 'pending' ||
+    row.state === 'resolving' ||
+    row.state === 'downloading' ||
+    row.state === 'extracting'
+  ) {
     if (callbacks.onCancel) {
+      const extracting = row.state === 'extracting';
       items.push(
-        item('cancel', t('contextMenu.cancelDownload'), callbacks.onCancel, {
-          disabled: isOffline,
-          title: off,
-        }),
+        item(
+          'cancel',
+          extracting ? t('downloads.action.cancel') : t('contextMenu.cancelDownload'),
+          callbacks.onCancel,
+          extracting
+            ? undefined
+            : {
+                disabled: isOffline,
+                title: off,
+              },
+        ),
       );
     }
   }

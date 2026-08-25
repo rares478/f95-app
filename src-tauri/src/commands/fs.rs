@@ -1,6 +1,7 @@
 use super::state::AppState;
 use crate::download::host::clean_download_filename;
 use crate::error::AppError;
+use crate::extract_jobs::ExtractCancel;
 use crate::extraction::ExtractProgressFn;
 use fs4::available_space;
 use serde::Serialize;
@@ -24,6 +25,7 @@ pub struct ExtractResult {
 #[tauri::command]
 pub async fn extract_archive(
     app: AppHandle,
+    state: State<'_, AppState>,
     archive_path: String,
     game_title: String,
     download_id: Option<i64>,
@@ -63,8 +65,11 @@ pub async fn extract_archive(
         None
     });
     let progress = download_id.map(|id| make_extract_progress(app.clone(), id));
+    let cancel: Option<Arc<ExtractCancel>> =
+        download_id.map(|id| state.extract_cancels.begin(id));
+    let cancel_for_block = cancel.clone();
     let prefer_html = prefer_html.unwrap_or(false);
-    let result = tokio::task::spawn_blocking(move || -> Result<ExtractResult, AppError> {
+    let join_result = tokio::task::spawn_blocking(move || -> Result<ExtractResult, AppError> {
         let archive = PathBuf::from(&archive_path);
         if !archive.exists() {
             return Err(AppError::keyed_vars(
@@ -90,7 +95,13 @@ pub async fn extract_archive(
             Some(p) if !p.trim().is_empty() => PathBuf::from(p),
             _ => parent.join(stem),
         };
-        crate::extraction::extract(&archive, &dest, bundled_7z.as_deref(), progress)?;
+        crate::extraction::extract(
+            &archive,
+            &dest,
+            bundled_7z.as_deref(),
+            progress,
+            cancel_for_block.as_deref(),
+        )?;
         let exe = crate::extraction::find_main_launch(&dest, &game_title, prefer_html);
         Ok(ExtractResult {
             dest_dir: dest.to_string_lossy().into_owned(),
@@ -103,8 +114,11 @@ pub async fn extract_archive(
             "error.extract.failed",
             json!({ "detail": format!("extract task join: {e}") }),
         )
-    })??;
-    Ok(result)
+    });
+    if let Some(id) = download_id {
+        state.extract_cancels.finish(id);
+    }
+    join_result?
 }
 
 /// Re-detect the main launch file under an already-extracted folder.

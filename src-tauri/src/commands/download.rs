@@ -59,5 +59,6 @@ pub async fn download_continue_choice(
 #[tauri::command]
 pub async fn download_cancel(state: State<'_, AppState>, id: i64) -> Result<(), AppError> {
     state.downloader.cancel(id).await;
+    state.extract_cancels.cancel(id);
     Ok(())
 }

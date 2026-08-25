@@ -5,6 +5,7 @@ mod commands;
 mod dev_debug;
 mod download;
 mod error;
+mod extract_jobs;
 mod extraction;
 mod game_window;
 mod gdrive;

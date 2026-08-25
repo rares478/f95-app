@@ -9,6 +9,7 @@
 //! patterns for installers/redistributables).
 
 use crate::error::AppError;
+use crate::extract_jobs::ExtractCancel;
 use serde_json::json;
 use std::ffi::OsString;
 use std::fs;
@@ -24,6 +25,18 @@ const DISK_SPACE_MARGIN: u64 = 256 * 1024 * 1024;
 
 pub type ExtractProgressFn = Arc<dyn Fn(u8, Option<u64>) + Send + Sync>;
 
+fn cancelled_err() -> AppError {
+    AppError::keyed("error.extract.cancelled")
+}
+
+fn check_cancelled(cancel: Option<&ExtractCancel>) -> Result<(), AppError> {
+    if cancel.is_some_and(|c| c.is_cancelled()) {
+        Err(cancelled_err())
+    } else {
+        Ok(())
+    }
+}
+
 /// Extract `archive` into `dest`. The dest directory is created if missing.
 /// Existing files inside it are overwritten. Returns the dest path on success.
 pub fn extract(
@@ -31,17 +44,20 @@ pub fn extract(
     dest: &Path,
     bundled_7z: Option<&Path>,
     progress: Option<ExtractProgressFn>,
+    cancel: Option<&ExtractCancel>,
 ) -> Result<(), AppError> {
+    check_cancelled(cancel)?;
     let start = Instant::now();
     if let Some(ref cb) = progress {
         cb(0, None);
     }
     let result = if let Some(seven_zip) = find_7z_executable(bundled_7z) {
-        extract_with_7z(&seven_zip, archive, dest, progress.clone(), start)
+        extract_with_7z(&seven_zip, archive, dest, progress.clone(), start, cancel)
     } else {
-        extract_in_process(archive, dest, progress.clone(), start)
+        extract_in_process(archive, dest, progress.clone(), start, cancel)
     };
     if result.is_ok() {
+        check_cancelled(cancel)?;
         if let Some(ref cb) = progress {
             cb(100, Some(0));
         }
@@ -117,6 +133,7 @@ fn extract_in_process(
     dest: &Path,
     progress: Option<ExtractProgressFn>,
     start: Instant,
+    cancel: Option<&ExtractCancel>,
 ) -> Result<(), AppError> {
     let ext = archive
         .extension()
@@ -124,10 +141,14 @@ fn extract_in_process(
         .unwrap_or("")
         .to_lowercase();
     preflight_disk_space(archive, dest, &ext)?;
+    check_cancelled(cancel)?;
     match ext.as_str() {
-        "zip" => extract_zip(archive, dest, progress, start),
-        "7z" => extract_7z(archive, dest),
-        "rar" => extract_rar(archive, dest),
+        "zip" => extract_zip(archive, dest, progress, start, cancel),
+        "7z" => {
+            check_cancelled(cancel)?;
+            extract_7z(archive, dest)
+        }
+        "rar" => extract_rar(archive, dest, cancel),
         other => Err(AppError::keyed_vars(
             "error.extract.unsupported",
             json!({ "ext": other }),
@@ -149,7 +170,9 @@ fn extract_with_7z(
     dest: &Path,
     progress: Option<ExtractProgressFn>,
     start: Instant,
+    cancel: Option<&ExtractCancel>,
 ) -> Result<(), AppError> {
+    check_cancelled(cancel)?;
     fs::create_dir_all(dest).map_err(io_err)?;
     // `-o` must be glued to the path with no space; keep raw OsStr so Unicode
     // install paths are not lossily mangled via Display.
@@ -200,14 +223,22 @@ fn extract_with_7z(
     });
     let stderr_handle = thread::spawn(move || read_stream_to_string(stderr));
 
-    let status = child.wait().map_err(|e| {
-        AppError::keyed_vars(
-            "error.extract.failed",
-            json!({ "detail": format!("7z wait: {e}") }),
-        )
-    })?;
+    let status = if let Some(token) = cancel {
+        token.wait_child(child)?
+    } else {
+        child.wait().map_err(|e| {
+            AppError::keyed_vars(
+                "error.extract.failed",
+                json!({ "detail": format!("7z wait: {e}") }),
+            )
+        })?
+    };
     stdout_handle.join().ok();
     let stderr_text = stderr_handle.join().unwrap_or_default();
+
+    if cancel.is_some_and(|c| c.is_cancelled()) {
+        return Err(cancelled_err());
+    }
 
     let code = status.code().unwrap_or(2);
     if code < 2 {
@@ -454,6 +485,7 @@ fn extract_zip(
     dest: &Path,
     progress: Option<ExtractProgressFn>,
     start: Instant,
+    cancel: Option<&ExtractCancel>,
 ) -> Result<(), AppError> {
     let f = fs::File::open(archive).map_err(io_err)?;
     let mut z = zip::ZipArchive::new(f).map_err(|e| {
@@ -465,6 +497,7 @@ fn extract_zip(
     fs::create_dir_all(dest).map_err(io_err)?;
     let total = z.len().max(1);
     for i in 0..z.len() {
+        check_cancelled(cancel)?;
         let mut entry = z.by_index(i).map_err(|e| {
             AppError::keyed_vars(
                 "error.extract.failed",
@@ -509,7 +542,11 @@ fn extract_7z(archive: &Path, dest: &Path) -> Result<(), AppError> {
 /// the official UnRAR C++ engine; no DLL needed on Windows. Encrypted archives
 /// surface a "missing password" error since we don't prompt - the user can
 /// extract those manually with 7-Zip.
-fn extract_rar(archive: &Path, dest: &Path) -> Result<(), AppError> {
+fn extract_rar(
+    archive: &Path,
+    dest: &Path,
+    cancel: Option<&ExtractCancel>,
+) -> Result<(), AppError> {
     fs::create_dir_all(dest).map_err(io_err)?;
     let mut open = unrar::Archive::new(archive)
         .open_for_processing()
@@ -520,6 +557,7 @@ fn extract_rar(archive: &Path, dest: &Path) -> Result<(), AppError> {
             )
         })?;
     loop {
+        check_cancelled(cancel)?;
         let next = open.read_header().map_err(|e| {
             AppError::keyed_vars(
                 "error.extract.failed",

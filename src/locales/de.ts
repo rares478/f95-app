@@ -1307,9 +1307,11 @@ const de: Record<string, string> = {
   'error.download.generic': 'Download: {detail}',
   'error.download.insufficientSpace': 'Nicht genug Speicherplatz — {required} benötigt, nur {available} verfügbar',
   'error.download.shaMismatch': 'SHA-256 stimmt nicht — erwartet {expected}, erhalten {actual}. Datei verworfen.',
+  'error.download.incomplete': 'Download unvollständig — {got} Bytes erhalten, {expected} erwartet. Datei verworfen.',
 
   // Captcha / extract / launch / overlay / FS / shortcuts
   'error.extract.failed': 'Extraktion fehlgeschlagen: {detail}',
+  'error.extract.cancelled': 'Extraktion abgebrochen',
   'error.extract.unsupported': 'Nicht unterstütztes Archivformat: .{ext}',
   'error.captcha.windowClosed':
     'Verifizierungsfenster ist nicht geöffnet — klicke zuerst auf Verifizierung öffnen.',

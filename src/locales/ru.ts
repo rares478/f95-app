@@ -1307,9 +1307,11 @@ const ru: Record<string, string> = {
   'error.download.generic': 'Загрузка: {detail}',
   'error.download.insufficientSpace': 'Недостаточно места на диске — нужно {required}, доступно только {available}',
   'error.download.shaMismatch': 'Несовпадение SHA-256 — ожидалось {expected}, получено {actual}. Файл отброшен.',
+  'error.download.incomplete': 'Загрузка неполная — получено {got} байт, ожидалось {expected}. Файл отброшен.',
 
   // Captcha / extract / launch / overlay / FS / shortcuts
   'error.extract.failed': 'Ошибка распаковки: {detail}',
+  'error.extract.cancelled': 'Распаковка отменена',
   'error.extract.unsupported': 'Неподдерживаемый формат архива: .{ext}',
   'error.captcha.windowClosed':
     'Окно проверки не открыто — сначала нажмите Открыть проверку.',

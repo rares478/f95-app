@@ -21,7 +21,7 @@ import {
   type ByteSample,
   type GraphHistory,
 } from '../lib/downloadSpeed';
-import { applyDownloadProgress, createGenerationGuard } from '../lib/downloadProgress';
+import { applyDownloadProgress, createGenerationGuard, progressAfterDownloadDone } from '../lib/downloadProgress';
 import {
   archiveParentDir,
   extractDirForArchive,
@@ -51,6 +51,7 @@ import {
 import { dialog } from '../lib/dialog';
 import { tStandalone } from '../lib/i18n';
 import { extractRawMessage, formatIpcError } from '../lib/ipcError';
+import { isExtractCancelled } from '../lib/extractCancel';
 import type { DownloadProgress, DownloadRow } from '../types/download';
 import type { LibraryGame } from '../types/library';
 
@@ -395,6 +396,27 @@ export async function runExtraction(
     }
   } catch (err) {
     console.error('[extract] failed', err);
+    if (isExtractCancelled(err)) {
+      try {
+        if (resolvedDownloadId != null) {
+          await downloads.markCancelled(resolvedDownloadId);
+        }
+      } catch {
+        /* ignore */
+      }
+      try {
+        const game = await library.get(threadId);
+        if (game) {
+          await library.setStatus(
+            threadId,
+            recoverStatusAfterDownloadFailure(game),
+          );
+        }
+      } catch {
+        /* ignore */
+      }
+      return;
+    }
     const revert = shouldRevertExtractFailure(linkedJob);
     if (revert) {
       try {
@@ -614,10 +636,12 @@ export function useDownloads(options?: UseDownloadsOptions): {
         if (!cancelled) reload();
       } catch (err) {
         console.error('[extract] auto failed', err);
-        await dialog.alert(
-          tStandalone('dllist.extract.failed', { error: formatIpcError(err) }),
-          { kind: 'error' },
-        );
+        if (!isExtractCancelled(err)) {
+          await dialog.alert(
+            tStandalone('dllist.extract.failed', { error: formatIpcError(err) }),
+            { kind: 'error' },
+          );
+        }
         if (!cancelled) reload();
       } finally {
         extractingRef.current.delete(key);
@@ -728,6 +752,18 @@ export function useDownloads(options?: UseDownloadsOptions): {
       );
       unlisten.push(
         await listen<DonePayload>('download:done', async (e) => {
+          // Snap the bar to 100% before extract so throttled ticks cannot leave
+          // the UI under 100% while auto-extract already started.
+          if (!cancelled) {
+            setProgress((p) => ({
+              ...p,
+              [e.payload.id]: progressAfterDownloadDone(
+                p[e.payload.id],
+                e.payload.id,
+                e.payload.bytes,
+              ),
+            }));
+          }
           await downloads.markDone(e.payload.id, {
             bytes: e.payload.bytes,
             filePath: e.payload.filePath,

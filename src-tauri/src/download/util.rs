@@ -93,9 +93,33 @@ pub(crate) use crate::uploadhaven::html::{
     find_attr_value, find_text_in_class, percent_decode_lossy,
 };
 
+/// When the host advertised an exact size (Content-Length / Content-Range),
+/// refuse to finalize a short or long body so extract never opens a truncated archive.
+pub(crate) fn check_authoritative_size(
+    downloaded: u64,
+    authoritative_total: Option<u64>,
+) -> Result<(), (u64, u64)> {
+    match authoritative_total {
+        Some(expected) if downloaded != expected => Err((downloaded, expected)),
+        _ => Ok(()),
+    }
+}
+
 #[cfg(test)]
 mod tests {
-    use super::find_mediafire_button_href;
+    use super::{check_authoritative_size, find_mediafire_button_href};
+
+    #[test]
+    fn authoritative_size_ok_when_unknown_or_exact() {
+        assert!(check_authoritative_size(100, None).is_ok());
+        assert!(check_authoritative_size(100, Some(100)).is_ok());
+    }
+
+    #[test]
+    fn authoritative_size_rejects_mismatch() {
+        assert_eq!(check_authoritative_size(90, Some(100)), Err((90, 100)));
+        assert_eq!(check_authoritative_size(110, Some(100)), Err((110, 100)));
+    }
 
     #[test]
     fn mediafire_href_before_id_ignores_sibling_hash() {

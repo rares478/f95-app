@@ -229,7 +229,6 @@ export function DownloadCard({
             type="button"
             className="dl-link-btn"
             onClick={onCancel}
-            disabled={isExtracting}
           >
             {t('downloads.action.cancel')}
           </button>

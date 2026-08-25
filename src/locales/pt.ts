@@ -1312,9 +1312,11 @@ const pt: Record<string, string> = {
   'error.download.generic': 'Download: {detail}',
   'error.download.insufficientSpace': 'Espaço em disco insuficiente — são necessários {required} livres, apenas {available} disponíveis',
   'error.download.shaMismatch': 'SHA-256 não confere — esperado {expected}, obtido {actual}. Arquivo descartado.',
+  'error.download.incomplete': 'Download incompleto — obtidos {got} bytes, esperados {expected}. Arquivo descartado.',
 
   // Captcha / extract / launch / overlay / FS / shortcuts
   'error.extract.failed': 'Extração falhou: {detail}',
+  'error.extract.cancelled': 'Extração cancelada',
   'error.extract.unsupported': 'Formato de arquivo não suportado: .{ext}',
   'error.captcha.windowClosed':
     'Janela de verificação não está aberta — clique em Abrir verificação primeiro.',

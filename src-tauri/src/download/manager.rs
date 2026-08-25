@@ -13,6 +13,7 @@ use super::resolvers::{
 };
 use super::stream::{hash_existing, hash_file, parse_content_range_total, with_part_ext};
 use super::types::{ResolveResult, ResolvedFileOption};
+use super::util::check_authoritative_size;
 use crate::error::AppError;
 use crate::sidecar::SidecarClient;
 use crate::uploadhaven::UploadHavenSession;
@@ -915,13 +916,14 @@ impl Manager {
 
         // Total bytes: prefer Content-Range "bytes start-end/total", fall back
         // to Content-Length + offset, then to the hint from the resolver.
-        let total = parse_content_range_total(response.headers().get(CONTENT_RANGE))
-            .or_else(|| {
+        // Only header-derived sizes are authoritative for completeness checks.
+        let authoritative_total =
+            parse_content_range_total(response.headers().get(CONTENT_RANGE)).or_else(|| {
                 response
                     .content_length()
                     .map(|c| if resuming { c + existing } else { c })
-            })
-            .or(hint_total);
+            });
+        let total = authoritative_total.or(hint_total);
 
         if let Some(total) = total {
             if let Some(name) = dest_path.file_name().and_then(|s| s.to_str()) {
@@ -1001,6 +1003,25 @@ impl Manager {
         }
         file.flush().await?;
         drop(file);
+
+        if let Err((got, expected)) = check_authoritative_size(downloaded, authoritative_total) {
+            let _ = fs::remove_file(part_path).await;
+            return Err(AppError::keyed_vars(
+                "error.download.incomplete",
+                json!({ "got": got, "expected": expected }),
+            ));
+        }
+
+        // Final tick so the UI can hit 100% before hash/rename/extract.
+        let _ = app.emit(
+            "download:progress",
+            json!({
+                "id": id,
+                "bytes": downloaded,
+                "total": total.or(Some(downloaded)),
+                "speedBps": 0,
+            }),
+        );
 
         self.finalize_part(app, id, part_path, dest_path, expected_sha256, downloaded)
             .await
@@ -1110,6 +1131,15 @@ impl Manager {
             .map(|p| p.to_string_lossy().into_owned())
             .collect();
 
+        let _ = app.emit(
+            "download:progress",
+            json!({
+                "id": id,
+                "bytes": info.total_size,
+                "total": info.total_size,
+                "speedBps": 0,
+            }),
+        );
         let _ = app.emit(
             "download:done",
             json!({

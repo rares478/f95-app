@@ -1346,9 +1346,11 @@ const en: Record<string, string> = {
   'error.download.generic': 'Download: {detail}',
   'error.download.insufficientSpace': 'Not enough disk space — need {required} free, only {available} available',
   'error.download.shaMismatch': 'SHA-256 mismatch — expected {expected}, got {actual}. File discarded.',
+  'error.download.incomplete': 'Download incomplete — got {got} bytes, expected {expected}. File discarded.',
 
   // Captcha / extract / launch / overlay / FS / shortcuts
   'error.extract.failed': 'Extraction failed: {detail}',
+  'error.extract.cancelled': 'Extraction cancelled',
   'error.extract.unsupported': 'Unsupported archive format: .{ext}',
   'error.captcha.windowClosed': 'Verification window is not open — click Open verification first.',
   'error.captcha.unsupportedHost': 'In-app verification is not available for {host}',

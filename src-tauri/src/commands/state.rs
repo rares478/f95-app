@@ -1,5 +1,6 @@
 use crate::download::Manager as DownloadManager;
 use crate::error::AppError;
+use crate::extract_jobs::ExtractCancelRegistry;
 use crate::launcher::LauncherManager;
 use crate::mover::MoveManager;
 use crate::sidecar::{self, SidecarClient};
@@ -18,6 +19,7 @@ pub struct AppState {
     pub downloader: Arc<DownloadManager>,
     pub launcher: Arc<LauncherManager>,
     pub mover: Arc<MoveManager>,
+    pub extract_cancels: ExtractCancelRegistry,
     pub overlay_context: Mutex<Option<super::overlay::OverlayContext>>,
     pub overlay_visible: Mutex<bool>,
     pub overlay_target_pid: Mutex<Option<u32>>,
@@ -69,6 +71,7 @@ pub fn build_state(app: &AppHandle) -> Result<AppState, AppError> {
         downloader,
         launcher,
         mover,
+        extract_cancels: ExtractCancelRegistry::new(),
         overlay_context: Mutex::new(None),
         overlay_visible: Mutex::new(false),
         overlay_target_pid: Mutex::new(None),
