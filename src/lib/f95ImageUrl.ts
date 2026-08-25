@@ -109,3 +109,19 @@ export function storeGameThumbUrls(game: StoreImageSource): string[] {
   }
   return out;
 }
+
+/** Cover + screens at attachment full resolution (spotlight / large tiles). */
+export function storeGameFullUrls(game: StoreImageSource): string[] {
+  const out: string[] = [];
+  const seen = new Set<string>();
+  const push = (url: string | null | undefined) => {
+    if (!url || seen.has(url)) return;
+    seen.add(url);
+    out.push(url);
+  };
+  if (game.thumbnailUrl) push(toF95FullUrl(game.thumbnailUrl));
+  for (const s of game.screens ?? []) {
+    push(toF95FullUrl(s));
+  }
+  return out;
+}

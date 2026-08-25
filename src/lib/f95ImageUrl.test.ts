@@ -1,5 +1,6 @@
 import { describe, expect, it } from 'vitest';
 import {
+  storeGameFullUrls,
   storeGameImageUrl,
   storeGameThumbUrls,
   toF95FullUrl,
@@ -73,5 +74,16 @@ describe('storeGameThumbUrls', () => {
         screens: [SCREEN_FULL],
       }),
     ).toEqual([PREVIEW, SCREEN_PREVIEW]);
+  });
+});
+
+describe('storeGameFullUrls', () => {
+  it('keeps cover first at full resolution and upgrades screens', () => {
+    expect(
+      storeGameFullUrls({
+        thumbnailUrl: PREVIEW,
+        screens: [SCREEN_PREVIEW],
+      }),
+    ).toEqual([FULL, SCREEN_FULL]);
   });
 });
