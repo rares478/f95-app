@@ -538,6 +538,12 @@ const pt: Record<string, string> = {
   'settings.libraries.pick': 'Escolher pasta para nova biblioteca de jogos',
   'settings.libraries.confirmRemove': 'Remover "{label}" da lista de bibliotecas? Os arquivos em {path} permanecem no disco — só não vamos baixar novos jogos lá.',
   'settings.libraries.confirmRemoveTitle': 'Remover biblioteca',
+  'settings.libraries.games.expand': 'Mostrar jogos',
+  'settings.libraries.games.collapse': 'Ocultar jogos',
+  'settings.libraries.games.empty': 'Nenhum jogo instalado nesta biblioteca.',
+  'settings.libraries.games.calculating': 'Calculando…',
+  'settings.libraries.games.unavailable': 'Indisponível',
+  'settings.libraries.games.count': '{count} jogos',
 
   'settings.downloads.section': 'Downloads',
   'settings.downloads.hint': 'Comportamento automático ao baixar e extrair jogos.',

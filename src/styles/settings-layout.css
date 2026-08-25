@@ -91,3 +91,69 @@
     padding-top: 8px;
   }
 }
+
+.settings-lib-expand {
+  display: inline-flex;
+  align-items: center;
+  gap: 6px;
+  margin-top: 8px;
+  padding: 0;
+  border: 0;
+  background: none;
+  color: var(--text-secondary);
+  font-size: 12px;
+  cursor: pointer;
+}
+
+.settings-lib-expand:hover {
+  color: var(--text-primary);
+}
+
+.settings-lib-games {
+  margin-top: 10px;
+  display: flex;
+  flex-direction: column;
+  gap: 6px;
+}
+
+.settings-lib-games-empty,
+.settings-lib-games-loading {
+  font-size: 12px;
+  color: var(--text-muted);
+  font-style: italic;
+}
+
+.settings-lib-game-row {
+  display: flex;
+  align-items: center;
+  gap: 12px;
+  padding: 6px 0;
+  border-top: 1px solid var(--border-faint);
+}
+
+.settings-lib-game-title {
+  flex: 1;
+  min-width: 0;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+  color: var(--text-primary);
+  text-decoration: none;
+  font-size: 13px;
+}
+
+.settings-lib-game-title:hover {
+  text-decoration: underline;
+}
+
+.settings-lib-game-size {
+  flex: 0 0 auto;
+  font-size: 12px;
+  color: var(--text-tertiary);
+  font-variant-numeric: tabular-nums;
+}
+
+.settings-lib-game-size-pending {
+  font-style: italic;
+  color: var(--text-muted);
+}

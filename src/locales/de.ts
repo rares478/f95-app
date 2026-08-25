@@ -536,6 +536,12 @@ const de: Record<string, string> = {
   'settings.libraries.pick': 'Ordner für neue Spielbibliothek wählen',
   'settings.libraries.confirmRemove': '"{label}" aus der Bibliotheksliste entfernen? Dateien in {path} bleiben auf der Festplatte — wir senden nur keine neuen Downloads mehr dorthin.',
   'settings.libraries.confirmRemoveTitle': 'Bibliothek entfernen',
+  'settings.libraries.games.expand': 'Spiele anzeigen',
+  'settings.libraries.games.collapse': 'Spiele ausblenden',
+  'settings.libraries.games.empty': 'Keine installierten Spiele in dieser Bibliothek.',
+  'settings.libraries.games.calculating': 'Wird berechnet…',
+  'settings.libraries.games.unavailable': 'Nicht verfügbar',
+  'settings.libraries.games.count': '{count} Spiele',
 
   'settings.downloads.section': 'Downloads',
   'settings.downloads.hint': 'Automatisches Verhalten beim Herunterladen und Entpacken.',

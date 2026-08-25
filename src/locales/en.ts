@@ -569,6 +569,12 @@ const en: Record<string, string> = {
   'settings.libraries.pick': 'Choose folder for new game library',
   'settings.libraries.confirmRemove': 'Remove "{label}" from the library list? Files in {path} stay on disk — we just stop sending new downloads there.',
   'settings.libraries.confirmRemoveTitle': 'Remove library',
+  'settings.libraries.games.expand': 'Show games',
+  'settings.libraries.games.collapse': 'Hide games',
+  'settings.libraries.games.empty': 'No installed games in this library.',
+  'settings.libraries.games.calculating': 'Calculating…',
+  'settings.libraries.games.unavailable': 'Unavailable',
+  'settings.libraries.games.count': '{count} games',
 
   'settings.downloads.section': 'Downloads',
   'settings.downloads.hint': 'Automatic behavior when downloading and extracting games.',

@@ -536,6 +536,12 @@ const ru: Record<string, string> = {
   'settings.libraries.pick': 'Выберите папку для новой библиотеки игр',
   'settings.libraries.confirmRemove': 'Удалить «{label}» из списка библиотек? Файлы в {path} останутся на диске — мы просто перестанем туда отправлять новые загрузки.',
   'settings.libraries.confirmRemoveTitle': 'Удалить библиотеку',
+  'settings.libraries.games.expand': 'Показать игры',
+  'settings.libraries.games.collapse': 'Скрыть игры',
+  'settings.libraries.games.empty': 'В этой библиотеке нет установленных игр.',
+  'settings.libraries.games.calculating': 'Вычисляется…',
+  'settings.libraries.games.unavailable': 'Недоступно',
+  'settings.libraries.games.count': '{count} игр',
 
   'settings.downloads.section': 'Загрузки',
   'settings.downloads.hint': 'Автоматическое поведение при скачивании и распаковке.',
