@@ -17,18 +17,20 @@ function isChangelogLabel(raw: string): boolean {
 
 /**
  * OP pattern: bold "Changelog" label, then the first following `.bbCodeSpoiler`
- * (skip `<br>` / whitespace). Returns normalized HTML (spoilers → x-spoiler),
- * or null when heading or spoiler is missing.
+ * (skip `<br>`, whitespace, and a lone trailing `:`). Returns the spoiler's
+ * *inner* content normalized (nested spoilers → x-spoiler) — the outer spoiler
+ * shell is discarded so the UI can use its own "Show changelog" control.
+ * Null when heading or spoiler is missing.
  */
 export function extractChangelogHtml(
   $: cheerio.CheerioAPI,
   opBody: cheerio.Cheerio<Element>,
 ): string | null {
-  let heading: Element | null = null;
-  opBody.find('b').each((_, el) => {
-    if (heading) return;
-    if (isChangelogLabel($(el).text())) heading = el;
-  });
+  const heading =
+    opBody
+      .find('b')
+      .toArray()
+      .find((el) => isChangelogLabel($(el).text())) ?? null;
   if (!heading) return null;
 
   let n: AnyNode | null = heading.next ?? null;
@@ -49,7 +51,7 @@ export function extractChangelogHtml(
         continue;
       }
       const $n = $(n);
-      if ($n.is('.bbCodeSpoiler') || $n.hasClass('bbCodeSpoiler')) {
+      if ($n.is('.bbCodeSpoiler')) {
         spoiler = n;
         break;
       }
@@ -60,8 +62,25 @@ export function extractChangelogHtml(
   }
   if (!spoiler) return null;
 
-  const $container = $('<div></div>');
-  $container.append($(spoiler).clone());
+  // Unwrap: take .bbCodeSpoiler-content (or whole node as fallback), not the
+  // outer button/summary — UI already has "Show changelog". Prefer the XF
+  // block body when the content is a single bbCodeBlock--spoiler wrapper.
+  const $spoiler = $(spoiler);
+  let innerHtml =
+    $spoiler.find('> .bbCodeSpoiler-content').first().html() ??
+    $spoiler.find('.bbCodeSpoiler-content').first().html() ??
+    $spoiler.html() ??
+    '';
+  const $probe = $(`<div>${innerHtml}</div>`);
+  const $block = $probe.children('.bbCodeBlock--spoiler, .bbCodeBlock').first();
+  if ($block.length === 1 && $probe.children().length === 1) {
+    const blockBody =
+      $block.find('> .bbCodeBlock-content').first().html() ?? $block.html();
+    if (blockBody != null) innerHtml = blockBody;
+  }
+  if (!cleanText(innerHtml.replace(/<[^>]+>/g, ' '))) return null;
+
+  const $container = $(`<div>${innerHtml}</div>`) as cheerio.Cheerio<Element>;
   const html = normalizeOpHtml($, $container).trim();
   return html || null;
 }

@@ -45,7 +45,10 @@ describe('GameDetail.changelogHtml', () => {
     expect(detail.changelogHtml).toBeTruthy();
     expect(detail.changelogHtml!).toContain('-- outer --');
     expect(detail.changelogHtml!).toContain('inner changelog');
-    expect(detail.changelogHtml!.match(/class="x-spoiler"/g)?.length).toBeGreaterThanOrEqual(2);
+    // Outer spoiler is unwrapped (UI provides "Show changelog"); nested remain.
+    expect(detail.changelogHtml!).not.toMatch(/^\s*<details\b/);
+    expect(detail.changelogHtml!.match(/class="x-spoiler"/g)?.length).toBe(1);
+    expect(detail.changelogHtml!).toContain('<summary>Spoiler</summary>');
     // Description still includes changelog (not stripped).
     expect(detail.descriptionHtml).toContain('-- outer --');
   });
