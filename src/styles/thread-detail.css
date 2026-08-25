@@ -38,25 +38,25 @@
 
 .thread-detail-author {
   display: flex;
-  align-items: center;
-  gap: 10px;
+  flex-direction: column;
+  align-items: flex-start;
+  gap: 2px;
   min-width: 0;
 }
 
-.thread-detail-author-avatar {
-  width: 36px;
-  height: 36px;
-  border-radius: 50%;
-  object-fit: cover;
-  background: var(--bg-sunken);
-  border: 1px solid var(--border);
-  flex-shrink: 0;
+.thread-detail-user {
+  font-size: 13px;
+  font-weight: 700;
+  color: var(--text-primary);
+  max-width: 100%;
 }
 
-.thread-detail-author-avatar--fallback {
-  display: flex;
-  align-items: center;
-  justify-content: center;
+.thread-detail-user .user-chip-avatar {
+  border: 1px solid var(--border);
+  background: var(--bg-sunken);
+}
+
+.thread-detail-user .user-chip-avatar--fallback {
   font-size: 14px;
   font-weight: 700;
   color: var(--text-muted);
@@ -67,15 +67,7 @@
   flex-direction: column;
   gap: 1px;
   min-width: 0;
-}
-
-.thread-detail-author-name {
-  font-size: 13px;
-  font-weight: 700;
-  color: var(--text-primary);
-  overflow: hidden;
-  text-overflow: ellipsis;
-  white-space: nowrap;
+  padding-inline-start: calc(48px + 0.5rem);
 }
 
 .thread-detail-author-label {

@@ -4,6 +4,7 @@ import { openUrl } from '@tauri-apps/plugin-opener';
 import { useSearchParams } from 'react-router-dom';
 import { DiscussionComposer } from './DiscussionComposer';
 import { GameDescription } from './GameDescription';
+import { UserChip } from '../UserChip';
 import {
   appendQuoteToDraft,
   buildQuoteBbcode,
@@ -25,11 +26,6 @@ type FocusStatus = 'idle' | 'seeking' | 'found' | 'missing';
 interface Props {
   threadId: string;
   offline?: boolean;
-}
-
-function authorInitial(author: string): string {
-  const trimmed = author.trim();
-  return trimmed ? trimmed[0]!.toUpperCase() : '?';
 }
 
 function sanitizePostHtml(html: string): string {
@@ -100,19 +96,14 @@ function ThreadPostItem({
   return (
     <li ref={liRef} id={`post-${post.postId}`} className="thread-post">
       <div className="thread-post-header">
-        {post.authorAvatarUrl ? (
-          <img
-            src={post.authorAvatarUrl}
-            alt=""
-            className="thread-post-avatar"
-          />
-        ) : (
-          <div className="thread-post-avatar thread-post-avatar--fallback" aria-hidden>
-            {authorInitial(post.author)}
-          </div>
-        )}
         <div className="thread-post-meta">
-          <span className="thread-post-author">{post.author}</span>
+          <UserChip
+            userId={post.authorUserId}
+            username={post.author}
+            avatarUrl={post.authorAvatarUrl}
+            className="thread-post-user"
+            size={40}
+          />
           <span className="thread-post-date">
             {formatRelativeDate(post.postedAt, locale) ?? post.postedAt ?? ''}
           </span>

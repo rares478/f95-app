@@ -11,6 +11,7 @@ import {
   GameDetailShell,
 } from '../components/game/GameDetailLayout';
 import { ThreadDiscussion } from '../components/game/ThreadDiscussion';
+import { UserChip } from '../components/UserChip';
 import { useOffline } from '../contexts/Offline';
 import * as ipc from '../lib/ipc';
 import { useT } from '../lib/i18n';
@@ -157,26 +158,14 @@ export function ThreadDetailPage() {
           <h1 className="thread-detail-title">{title}</h1>
           {(g.author || g.authorAvatarUrl) && (
             <div className="thread-detail-author">
-              {g.authorAvatarUrl ? (
-                <img
-                  src={g.authorAvatarUrl}
-                  alt=""
-                  className="thread-detail-author-avatar"
-                  loading="lazy"
-                  referrerPolicy="no-referrer"
-                />
-              ) : (
-                <div
-                  className="thread-detail-author-avatar thread-detail-author-avatar--fallback"
-                  aria-hidden
-                >
-                  {(g.author?.trim()?.[0] ?? '?').toUpperCase()}
-                </div>
-              )}
+              <UserChip
+                userId={g.authorUserId}
+                username={g.author || t('threaddetail.authorUnknown')}
+                avatarUrl={g.authorAvatarUrl}
+                className="thread-detail-user"
+                size={48}
+              />
               <div className="thread-detail-author-meta">
-                <span className="thread-detail-author-name">
-                  {g.author || t('threaddetail.authorUnknown')}
-                </span>
                 <span className="thread-detail-author-label">
                   {t('threaddetail.author')}
                 </span>
