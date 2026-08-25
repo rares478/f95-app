@@ -760,7 +760,7 @@ const en: Record<string, string> = {
   'settings.updates.installing': 'Installing update…',
 
   'settings.startup.section': 'Startup',
-  'settings.startup.hint': 'Launch F95 App when you sign in to Windows. Hidden start uses the system tray.',
+  'settings.startup.hint': 'Launch F95 App when you sign in to Windows. Enabling hidden start also turns on the system tray.',
   'settings.startup.withWindows': 'Start with Windows',
   'settings.startup.startHidden': 'Start hidden in tray',
   'settings.startup.enableFailed': 'Could not update Windows startup setting: {error}',

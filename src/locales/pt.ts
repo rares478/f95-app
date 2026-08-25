@@ -729,7 +729,7 @@ const pt: Record<string, string> = {
   'settings.updates.installing': 'Instalando atualização…',
 
   'settings.startup.section': 'Inicialização',
-  'settings.startup.hint': 'Abrir o F95 App ao iniciar sessão no Windows. O início oculto usa a bandeja do sistema.',
+  'settings.startup.hint': 'Abrir o F95 App ao iniciar sessão no Windows. Ativar o início oculto também liga a bandeja do sistema.',
   'settings.startup.withWindows': 'Iniciar com o Windows',
   'settings.startup.startHidden': 'Iniciar oculto na bandeja',
   'settings.startup.enableFailed': 'Não foi possível atualizar a inicialização com o Windows: {error}',

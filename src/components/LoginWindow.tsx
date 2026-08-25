@@ -18,7 +18,6 @@ import {
   loadAppRuntimeSettings,
   saveAppRuntimeSettings,
 } from '../lib/appRuntimeSettings';
-import { syncTrayIcon } from '../lib/tray';
 import { useT } from '../lib/i18n';
 import { appLog } from '../lib/appLog';
 import { isBackendError, type BackendError } from '../types';
@@ -124,10 +123,12 @@ export function LoginWindow() {
           hideOnAutostart || hasAutostartArg || !argsReadable;
 
         if (hideOnAutostart) {
+          // Ensure tray is on so AppShell's startTrayIconSync can create the
+          // icon after main mounts. Do NOT syncTrayIcon here — that would bind
+          // close-to-tray on the login window and block complete_login close.
           if (!settings.trayIconEnabled) {
             await saveAppRuntimeSettings({ trayIconEnabled: true });
           }
-          await syncTrayIcon();
         } else if (hasAutostartArg || !argsReadable) {
           // Recover from Rust early hide when not taking the hide path
           // (or when argv is unknown and the window might already be hidden).

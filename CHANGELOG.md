@@ -1,4 +1,4 @@
-# Changelog
+﻿# Changelog
 
 All notable changes to this project are documented in this file.
 
@@ -14,6 +14,29 @@ together when cutting a release:
 - `src-tauri/sidecar/package.json` / `src-tauri/sidecar/package-lock.json`
 
 ## [Unreleased]
+
+### Added
+- Settings ΓåÆ Startup: start with Windows and optional start hidden in tray (enables tray when hidden start is on).
+- Store home **Because youΓÇª** recommendations after tag panels: up to three daily feature cards from recently played games and weighted tags from recent views (intersection bias + denylist so generic tags do not always win).
+- Game detail **More like this** uses the same discovery carousel as the store (chevrons, snap scroll, under-arrow treatment).
+- Store cards cycle cover screenshots on hover (rails, capsules, tag tiles, browse, spotlight).
+- Discovery rails dim and shrink cards under the nav chevrons and make them unclickable; arrow scrolls snap to card edges.
+- Wide store tiles load fuller-resolution images when the card is large enough.
+- Single-instance app: a second launch focuses the existing window.
+
+### Changed
+- Removed the top **For You** carousels (Recently viewed / Because you play); personalization lives in Because youΓÇª instead.
+- Store home layout polish: fuller-bleed home column, hover meta pop-out, and tag sampling that avoids repeating the same games across panels.
+- App repo and updater target `rares478/f95-app`.
+
+### Fixed
+- Because youΓÇª: no link underline on hover; hovering a screenshot previews it in the large cover; warm pack no longer flickers empty on reload; an empty rebuild does not wipe a good same-day cache.
+- Spotlight uses cover art with hover screenshot cycling; version/meta sit above screenshot dots; removed the redundant View details CTA.
+- Popular Liked/Viewed/Rated tabs restore a full hit area.
+- Tray custom menu opens on the first right-click.
+- Downloads finish writing files before extract; extract jobs can be cancelled.
+- Game detail screenshots are taken only from the download block.
+- Spotlight full-resolution helper export for cover images.
 
 ## [1.7.6] - 2026-08-17
 
@@ -59,17 +82,17 @@ together when cutting a release:
 - Curated RPG Maker tabs (Party, Inventory, Actors, Switches, Variables) plus Raw tree; `System.json` switch/variable names and item DB labels when available.
 
 ### Fixed
-- Login no longer hangs forever on “Loading session…” (network/session probe timeouts + clearer auth bootstrap logs).
+- Login no longer hangs forever on ΓÇ£Loading sessionΓÇªΓÇ¥ (network/session probe timeouts + clearer auth bootstrap logs).
 - Store spotlight and tag panels use full-resolution images via `attachments.f95zone.to` (SAM `preview.*` CDN was showing soft/downscaled art).
 - Store rails / Up next keep lightweight preview covers instead of inventing broken `/thumb/` URLs.
-- Settings → Maintenance → Store cache now also clears discovery pools so the Store home actually refreshes on the next visit.
+- Settings ΓåÆ Maintenance ΓåÆ Store cache now also clears discovery pools so the Store home actually refreshes on the next visit.
 
 ## [1.7.3] - 2026-08-12
 
 ### Added
 - Library collections with folders, collection pages, and a collection picker.
 - Auto-update from GitHub Releases, with a Settings toggle to disable automatic checks.
-- In-app changelog for app versions under Settings → System.
+- In-app changelog for app versions under Settings ΓåÆ System.
 - System tray icon with show/quit actions and a Settings toggle (close hides to tray when enabled).
 - App skins (Default and Steam) with a Steam color theme and Steam-style library layout.
 - Top navigation layout option for the default skin.

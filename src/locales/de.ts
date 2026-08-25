@@ -724,7 +724,7 @@ const de: Record<string, string> = {
   'settings.updates.installing': 'Update wird installiert…',
 
   'settings.startup.section': 'Autostart',
-  'settings.startup.hint': 'F95 App beim Anmelden an Windows starten. Versteckter Start nutzt das Systemtray.',
+  'settings.startup.hint': 'F95 App beim Anmelden an Windows starten. Versteckter Start schaltet auch das Systemtray ein.',
   'settings.startup.withWindows': 'Mit Windows starten',
   'settings.startup.startHidden': 'Versteckt im Tray starten',
   'settings.startup.enableFailed': 'Windows-Autostart konnte nicht aktualisiert werden: {error}',
