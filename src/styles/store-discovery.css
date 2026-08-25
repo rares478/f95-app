@@ -269,7 +269,7 @@
 }
 
 .spotlight-slide .store-card-thumb-dots {
-  bottom: 28px;
+  bottom: 14px;
   z-index: 3;
 }
 
@@ -316,8 +316,8 @@
   left: 0;
   right: 0;
   bottom: 0;
-  /* Extra bottom padding so optional dots don't cover the CTA */
-  padding: 24px 28px 40px;
+  /* Extra bottom padding so optional screenshot dots don't cover tags */
+  padding: 24px 28px 32px;
   display: flex;
   flex-direction: column;
   gap: 10px;
@@ -372,21 +372,6 @@
   display: flex;
   gap: 6px;
   flex-wrap: wrap;
-}
-
-.spotlight-cta-row {
-  margin-top: 4px;
-}
-
-.spotlight-cta {
-  display: inline-block;
-  background: var(--accent);
-  color: var(--accent-text);
-  padding: 8px 18px;
-  border-radius: 3px;
-  font-size: 13px;
-  font-weight: 700;
-  letter-spacing: 0.3px;
 }
 
 .spotlight-dots {

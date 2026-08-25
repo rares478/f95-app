@@ -304,10 +304,6 @@ function SpotlightSlide({
           <PrefixPills prefixIds={game.prefixIds} threadId={game.threadId} />
         </div>
         <ContentTagPills tagIds={game.tagIds} max={6} />
-
-        <div className="spotlight-cta-row">
-          <span className="spotlight-cta">{t('store.featured.viewDetails')} →</span>
-        </div>
       </div>
     </Link>
   );

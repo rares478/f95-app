@@ -1090,7 +1090,6 @@ const en: Record<string, string> = {
   'store.pagination.next': 'Next',
   'store.pagination.page': 'Page {page} of {total}',
   'store.featured': 'Featured',
-  'store.featured.viewDetails': 'View details',
   'store.home.browseAll': 'Browse all',
   'store.home.searchPlaceholder': 'Search games…',
   'store.home.upNext': 'Up next',

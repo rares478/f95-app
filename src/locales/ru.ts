@@ -1054,7 +1054,6 @@ const ru: Record<string, string> = {
   'store.pagination.next': 'Вперёд',
   'store.pagination.page': 'Страница {page} из {total}',
   'store.featured': 'В центре внимания',
-  'store.featured.viewDetails': 'Подробнее',
   'store.home.browseAll': 'Смотреть всё',
   'store.home.searchPlaceholder': 'Искать игры…',
   'store.home.upNext': 'Далее',

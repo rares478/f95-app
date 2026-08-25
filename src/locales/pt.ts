@@ -1059,7 +1059,6 @@ const pt: Record<string, string> = {
   'store.pagination.next': 'Próxima',
   'store.pagination.page': 'Página {page} de {total}',
   'store.featured': 'Em destaque',
-  'store.featured.viewDetails': 'Ver detalhes',
   'store.home.browseAll': 'Ver tudo',
   'store.home.searchPlaceholder': 'Buscar jogos…',
   'store.home.upNext': 'A seguir',
