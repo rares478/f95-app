@@ -1,3 +1,7 @@
+import type { PostAttachment } from './types/threadPosts';
+
+export type { PostAttachment };
+
 export interface ActivityItem {
   avatarUrl: string | null;
   title: string;
@@ -27,6 +31,7 @@ export interface ProfilePostItem {
   messageText: string;
   date: string | null;
   url: string | null;
+  attachments: PostAttachment[];
 }
 
 export interface ProfileBadge {

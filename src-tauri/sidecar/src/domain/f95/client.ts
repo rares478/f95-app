@@ -8,6 +8,10 @@ import { assertNotCloudflareChallenge } from '../../shared/cloudflare';
 import { F95_BASE, USER_AGENT } from '../../shared/constants';
 import { normalizeOpHtml } from '../game/htmlNormalize';
 import {
+  parseMessageAttachments,
+  type PostAttachment,
+} from '../game/postAttachments';
+import {
   fetchAlertsList,
   fetchAlertsPopup,
   type F95Alert,
@@ -16,6 +20,7 @@ import {
 } from './alerts';
 
 export type { F95Alert, F95AlertsListResult, F95AlertsPopupResult };
+export type { PostAttachment };
 
 const BASE = F95_BASE;
 const LOGIN_PAGE = `${BASE}/login/`;
@@ -53,6 +58,7 @@ export interface ProfilePostItem {
   messageText: string;
   date: string | null;
   url: string | null;
+  attachments: PostAttachment[];
 }
 
 export interface ProfileBadge {
@@ -684,6 +690,7 @@ function extractProfilePost(
     messageText,
     date,
     url: href ? absoluteUrl(href) : null,
+    attachments: parseMessageAttachments($, $msg),
   };
 }
 
