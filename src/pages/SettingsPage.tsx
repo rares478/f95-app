@@ -58,6 +58,8 @@ import { reconcileAutostartPreference, syncAutostartWithOs } from '../lib/autost
 import { getChangelogEntries } from '../lib/changelog';
 import { checkForAppUpdate, installAppUpdate } from '../lib/appUpdater';
 import { LoadingState } from '../components/ui/LoadingState';
+import { LibraryGamesUsage } from '../components/settings/LibraryGamesUsage';
+import type { LibraryGameUsageRow } from '../lib/libraryStorage';
 import {
   SETTINGS_NAV_GROUPS,
   parseSettingsSection,
@@ -165,6 +167,11 @@ export function SettingsPage({ onLoggedOut: _onLoggedOut }: Props) {
   const [libs, setLibs] = useState<InstallLibraryWithDisk[]>([]);
   const [libsLoading, setLibsLoading] = useState(true);
   const libraryUsageCancelRef = useRef<(() => void) | null>(null);
+  const [expandedLibIds, setExpandedLibIds] = useState<Record<number, boolean>>({});
+  const [gameUsageCache, setGameUsageCache] = useState<Record<number, LibraryGameUsageRow[]>>(
+    {},
+  );
+  const [uninstallingThreadId, setUninstallingThreadId] = useState<string | null>(null);
   const [activeSection, setActiveSection] = useState<SettingsSectionId>(initialSection);
   const [activeTheme, setActiveTheme] = useState<ThemeId>(theme.currentTheme());
   const [activeSkin, setActiveSkin] = useState<SkinId>(theme.currentSkin());
@@ -680,6 +687,31 @@ export function SettingsPage({ onLoggedOut: _onLoggedOut }: Props) {
       console.warn('[settings] failed to load install libraries', err);
     } finally {
       setLibsLoading(false);
+    }
+  }, []);
+
+  const onCacheGameUsageRows = useCallback(
+    (libraryId: number, rows: LibraryGameUsageRow[] | null) => {
+      setGameUsageCache((prev) => {
+        if (rows == null) {
+          if (!(libraryId in prev)) return prev;
+          const next = { ...prev };
+          delete next[libraryId];
+          return next;
+        }
+        return { ...prev, [libraryId]: rows };
+      });
+    },
+    [],
+  );
+
+  const onUninstallLibraryGame = useCallback(async (_row: LibraryGameUsageRow) => {
+    // Full uninstall flow is Task 5; keep prop wired and disable rules active.
+    setUninstallingThreadId(_row.threadId);
+    try {
+      /* stub */
+    } finally {
+      setUninstallingThreadId(null);
     }
   }, []);
 
@@ -1242,6 +1274,17 @@ export function SettingsPage({ onLoggedOut: _onLoggedOut }: Props) {
                     isLast={index === libs.length - 1}
                     canRemove={!lib.isDefault && libs.length > 1}
                     t={t}
+                    expanded={!!expandedLibIds[lib.id]}
+                    cachedGameRows={gameUsageCache[lib.id] ?? null}
+                    uninstallingThreadId={uninstallingThreadId}
+                    onToggleExpand={() =>
+                      setExpandedLibIds((prev) => ({
+                        ...prev,
+                        [lib.id]: !prev[lib.id],
+                      }))
+                    }
+                    onCacheGameRows={onCacheGameUsageRows}
+                    onUninstallGame={onUninstallLibraryGame}
                     onReveal={() => onRevealLibrary(lib.path)}
                     onRename={() => onRenameLibrary(lib)}
                     onSetDefault={() => onSetDefaultLibrary(lib.id)}
@@ -2687,6 +2730,12 @@ function LibraryRow({
   isLast,
   canRemove,
   t,
+  expanded,
+  cachedGameRows,
+  uninstallingThreadId,
+  onToggleExpand,
+  onCacheGameRows,
+  onUninstallGame,
   onReveal,
   onRename,
   onSetDefault,
@@ -2697,6 +2746,12 @@ function LibraryRow({
   isLast: boolean;
   canRemove: boolean;
   t: (key: string, vars?: Record<string, string | number>) => string;
+  expanded: boolean;
+  cachedGameRows: LibraryGameUsageRow[] | null;
+  uninstallingThreadId: string | null;
+  onToggleExpand: () => void;
+  onCacheGameRows: (libraryId: number, rows: LibraryGameUsageRow[] | null) => void;
+  onUninstallGame: (row: LibraryGameUsageRow) => Promise<void>;
   onReveal: () => void;
   onRename: () => void;
   onSetDefault: () => void;
@@ -2705,6 +2760,13 @@ function LibraryRow({
   const diskOk = lib.disk.available;
   const spaceLevel = diskSpaceLevel(lib.disk.freeBytes, diskOk);
   const drive = driveLetter(lib.path);
+  const expandLabel = expanded
+    ? t('settings.libraries.games.collapse')
+    : cachedGameRows != null
+      ? `${t('settings.libraries.games.expand')} · ${t('settings.libraries.games.count', {
+          count: cachedGameRows.length,
+        })}`
+      : t('settings.libraries.games.expand');
 
   return (
     <article
@@ -2759,6 +2821,18 @@ function LibraryRow({
               </span>
             </span>
           </div>
+          <button type="button" className="settings-lib-expand" onClick={onToggleExpand}>
+            {expandLabel}
+          </button>
+          <LibraryGamesUsage
+            libraryPath={lib.path}
+            libraryId={lib.id}
+            expanded={expanded}
+            cachedRows={cachedGameRows}
+            onCacheRows={onCacheGameRows}
+            onUninstall={onUninstallGame}
+            uninstallingThreadId={uninstallingThreadId}
+          />
         </div>
       </div>
       <div className="settings-lib-toolbar">
