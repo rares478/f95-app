@@ -227,8 +227,8 @@ export function useStoreDiscovery(): StoreDiscoveryState {
       setFatalError(null);
       setLoadingKeys(new Set(keys));
       setErrorKeys(new Map());
+      // Cancel in-flight pack load; keep prior cards visible until the next result.
       personalGenRef.current += 1;
-      setBecauseYouCards([]);
       setBecauseYouLoading(false);
 
       try {

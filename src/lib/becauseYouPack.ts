@@ -333,6 +333,15 @@ export async function loadBecauseYouPack(args: {
       maxInterest: BECAUSE_YOU_MAX_INTEREST_SLOTS,
     });
 
+    // Never persist a successful empty rebuild over a prior non-empty same-key pack.
+    if (
+      cards.length === 0 &&
+      previous &&
+      previous.payload.cards.length > 0
+    ) {
+      return { cards: previous.payload.cards, fromCache: true };
+    }
+
     const payload: BecauseYouPackPayload = { dayKey: today, fingerprint, cards };
     await setPackCache(payload, nowMs);
     return { cards, fromCache: false };

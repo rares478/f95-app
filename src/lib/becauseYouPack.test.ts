@@ -1,11 +1,75 @@
-import { describe, expect, it } from 'vitest';
+import { beforeEach, describe, expect, it, vi } from 'vitest';
+import type { LibraryGame } from '../types/library';
+import type { BecauseYouCardModel } from '../types/becauseYou';
+import type { SamGameCard } from '../types/sam';
+import { BECAUSE_YOU_POOL_KEY } from './discoveryConfig';
+import { localDayKey } from './discoveryTagRails';
+
+const { query, execute } = vi.hoisted(() => ({
+  query: vi.fn(),
+  execute: vi.fn(),
+}));
+
+vi.mock('./db', () => ({
+  query: (...a: unknown[]) => query(...a),
+  execute: (...a: unknown[]) => execute(...a),
+}));
+
+vi.mock('./library', () => ({
+  list: vi.fn(),
+}));
+
+vi.mock('./ipc', () => ({
+  gameDetail: vi.fn(),
+  samList: vi.fn(),
+}));
+
+vi.mock('./gamesCacheRead', () => ({
+  getCachedTagIds: vi.fn(),
+}));
+
+vi.mock('./moreLikeThisFetch', () => ({
+  fetchMoreLikeThis: vi.fn(),
+}));
+
+vi.mock('./storeViewHistory', () => ({
+  listRecentStoreViews: vi.fn(),
+}));
+
+import * as library from './library';
+import * as ipc from './ipc';
+import { getCachedTagIds } from './gamesCacheRead';
+import { fetchMoreLikeThis } from './moreLikeThisFetch';
+import { listRecentStoreViews } from './storeViewHistory';
 import {
   buildBecauseYouFingerprint,
+  loadBecauseYouPack,
   mixBecauseYouSlots,
   shouldRebuildBecauseYouPack,
 } from './becauseYouPack';
-import type { BecauseYouCardModel } from '../types/becauseYou';
-import type { SamGameCard } from '../types/sam';
+
+function game(partial: Partial<LibraryGame> & Pick<LibraryGame, 'threadId' | 'title'>): LibraryGame {
+  return {
+    category: 'games',
+    threadUrl: 'https://x',
+    thumbnailUrl: null,
+    currentVersion: null,
+    availableVersion: null,
+    installStatus: 'installed',
+    installPath: null,
+    exePath: null,
+    addedAt: '2026-01-01T00:00:00.000Z',
+    lastPlayedAt: null,
+    totalPlaytimeSeconds: 0,
+    customTags: [],
+    storeTags: [],
+    notes: '',
+    downloadLinks: [],
+    downloadLinksVersion: null,
+    downloadLinksFetchedAt: null,
+    ...partial,
+  };
+}
 
 function card(id: string): SamGameCard {
   return {
@@ -28,6 +92,31 @@ function card(id: string): SamGameCard {
     isNew: false,
   };
 }
+
+function becauseCard(
+  id: string,
+  reason: BecauseYouCardModel['reason'] = {
+    kind: 'play',
+    seedThreadId: 'seed-1',
+    seedTitle: 'Seed',
+  },
+): BecauseYouCardModel {
+  return { game: card(id), reason };
+}
+
+const seedGame = game({
+  threadId: 'seed-1',
+  title: 'Seed Game Title',
+  totalPlaytimeSeconds: 600,
+  lastPlayedAt: '2026-08-09T12:00:00.000Z',
+});
+
+const tagNameById = new Map<number, string>([
+  [10, 'Romance'],
+  [20, 'Fantasy'],
+]);
+
+const resolveTagIds = vi.fn(() => [10]);
 
 describe('shouldRebuildBecauseYouPack', () => {
   it('keeps cache on same day even if fingerprint changed', () => {
@@ -81,5 +170,165 @@ describe('buildBecauseYouFingerprint', () => {
         viewThreadIds: ['a', 'b'],
       }),
     ).toBe('play:1@t|views:a,b');
+  });
+});
+
+describe('loadBecauseYouPack', () => {
+  const now = new Date(2026, 7, 25, 15, 0, 0).getTime();
+  const today = localDayKey(now);
+
+  beforeEach(() => {
+    query.mockReset();
+    execute.mockReset();
+    execute.mockResolvedValue({ rowsAffected: 1 });
+    vi.mocked(library.list).mockReset();
+    vi.mocked(ipc.gameDetail).mockReset();
+    vi.mocked(ipc.samList).mockReset();
+    vi.mocked(getCachedTagIds).mockReset();
+    vi.mocked(fetchMoreLikeThis).mockReset();
+    vi.mocked(listRecentStoreViews).mockReset();
+    resolveTagIds.mockReset();
+    resolveTagIds.mockReturnValue([10]);
+    vi.mocked(library.list).mockResolvedValue([seedGame]);
+    vi.mocked(listRecentStoreViews).mockResolvedValue([]);
+  });
+
+  it('returns same-day cache without rebuilding', async () => {
+    const cachedCards = [becauseCard('c1'), becauseCard('c2')];
+    query.mockResolvedValueOnce([
+      {
+        payload: JSON.stringify({
+          dayKey: today,
+          fingerprint: 'any-fp',
+          cards: cachedCards,
+        }),
+        fetched_at: now - 60_000,
+      },
+    ]);
+
+    const result = await loadBecauseYouPack({
+      category: 'games',
+      resolveTagIds,
+      tagNameById,
+      nowMs: now,
+    });
+
+    expect(result).toEqual({ cards: cachedCards, fromCache: true });
+    expect(fetchMoreLikeThis).not.toHaveBeenCalled();
+    expect(ipc.samList).not.toHaveBeenCalled();
+    expect(execute).not.toHaveBeenCalled();
+  });
+
+  it('force rebuilds even on same-day cache', async () => {
+    const cachedCards = [becauseCard('cached')];
+    query.mockResolvedValueOnce([
+      {
+        payload: JSON.stringify({
+          dayKey: today,
+          fingerprint: 'any-fp',
+          cards: cachedCards,
+        }),
+        fetched_at: now - 1_000,
+      },
+    ]);
+    vi.mocked(getCachedTagIds).mockResolvedValue([10]);
+    vi.mocked(fetchMoreLikeThis).mockResolvedValue([card('fresh-1'), card('fresh-2')]);
+
+    const result = await loadBecauseYouPack({
+      category: 'games',
+      force: true,
+      resolveTagIds,
+      tagNameById,
+      nowMs: now,
+    });
+
+    expect(fetchMoreLikeThis).toHaveBeenCalled();
+    expect(result.fromCache).toBe(false);
+    expect(result.cards.map((c) => c.game.threadId)).toContain('fresh-1');
+    expect(execute).toHaveBeenCalled();
+    const [sql, params] = execute.mock.calls[0]!;
+    expect(String(sql)).toMatch(/INSERT INTO discovery_pools/i);
+    expect(params[0]).toBe(BECAUSE_YOU_POOL_KEY);
+  });
+
+  it('on rebuild failure returns prior cache when present', async () => {
+    const cachedCards = [becauseCard('prev-1'), becauseCard('prev-2')];
+    query.mockResolvedValueOnce([
+      {
+        payload: JSON.stringify({
+          dayKey: localDayKey(now - 86_400_000),
+          fingerprint: 'old-fp',
+          cards: cachedCards,
+        }),
+        fetched_at: now - 86_400_000,
+      },
+    ]);
+    vi.mocked(getCachedTagIds).mockResolvedValue([10]);
+    vi.mocked(fetchMoreLikeThis).mockRejectedValueOnce(new Error('sam down'));
+
+    const result = await loadBecauseYouPack({
+      category: 'games',
+      resolveTagIds,
+      tagNameById,
+      nowMs: now,
+    });
+
+    expect(result).toEqual({ cards: cachedCards, fromCache: true });
+    expect(execute).not.toHaveBeenCalled();
+  });
+
+  it('does not persist empty rebuild over prior non-empty pack', async () => {
+    const cachedCards = [
+      becauseCard('prev-1'),
+      becauseCard('prev-2'),
+      becauseCard('prev-3'),
+    ];
+    query.mockResolvedValueOnce([
+      {
+        payload: JSON.stringify({
+          dayKey: localDayKey(now - 86_400_000),
+          fingerprint: 'old-fp',
+          cards: cachedCards,
+        }),
+        fetched_at: now - 86_400_000,
+      },
+    ]);
+    vi.mocked(getCachedTagIds).mockResolvedValue([10]);
+    vi.mocked(fetchMoreLikeThis).mockResolvedValue([]);
+    vi.mocked(listRecentStoreViews).mockResolvedValue([]);
+
+    const result = await loadBecauseYouPack({
+      category: 'games',
+      resolveTagIds,
+      tagNameById,
+      nowMs: now,
+    });
+
+    expect(result).toEqual({ cards: cachedCards, fromCache: true });
+    expect(execute).not.toHaveBeenCalled();
+  });
+
+  it('allows empty when there is no prior non-empty pack', async () => {
+    query.mockResolvedValueOnce([]);
+    vi.mocked(library.list).mockResolvedValue([
+      game({ threadId: '1', title: 'Unplayed', totalPlaytimeSeconds: 0 }),
+    ]);
+    vi.mocked(listRecentStoreViews).mockResolvedValue([]);
+
+    const result = await loadBecauseYouPack({
+      category: 'games',
+      resolveTagIds,
+      tagNameById,
+      nowMs: now,
+    });
+
+    expect(result).toEqual({ cards: [], fromCache: false });
+    expect(execute).toHaveBeenCalledTimes(1);
+    const written = JSON.parse(String(execute.mock.calls[0]![1][1])) as {
+      cards: BecauseYouCardModel[];
+      dayKey: string;
+    };
+    expect(written.cards).toEqual([]);
+    expect(written.dayKey).toBe(today);
   });
 });
