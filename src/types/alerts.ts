@@ -4,6 +4,7 @@ export interface F95Alert {
   url: string | null;
   avatarUrl: string | null;
   username: string | null;
+  userId: string | null;
   date: string | null;
   isUnread: boolean;
 }

@@ -4,6 +4,7 @@ import { RPC_ERROR, RpcError } from '../../rpc';
 import { log } from '../../logger';
 import { assertNotCloudflareChallenge } from '../../shared/cloudflare';
 import { F95_BASE } from '../../shared/constants';
+import { extractMemberUserIdFromHref } from '../../shared/memberId';
 
 const BASE = F95_BASE;
 const ACCOUNT_PAGE = `${BASE}/account/`;
@@ -15,6 +16,7 @@ export interface F95Alert {
   url: string | null;
   avatarUrl: string | null;
   username: string | null;
+  userId: string | null;
   date: string | null;
   isUnread: boolean;
 }
@@ -200,6 +202,9 @@ function parseAlertRow(
 
   const $userLink = $scope.find('a[href*="/members/"]').first();
   const username = cleanText($userLink.text()) || null;
+  const userId =
+    extractMemberUserIdFromHref($userLink.attr('href')) ??
+    ($userLink.attr('data-user-id')?.match(/^\d+$/) ? $userLink.attr('data-user-id')! : null);
 
   const $mainLink = $scope
     .find(
@@ -238,6 +243,7 @@ function parseAlertRow(
     url,
     avatarUrl,
     username: username && username.length > 2 ? username : null,
+    userId,
     date,
     isUnread,
   };
