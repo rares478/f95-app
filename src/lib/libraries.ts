@@ -196,6 +196,14 @@ export async function findContaining(
   return null;
 }
 
+/** True when `installPath` is the library root or a path under it. */
+export function isPathInsideLibrary(installPath: string, libraryPath: string): boolean {
+  const target = normalizePath(installPath);
+  const root = normalizePath(libraryPath);
+  if (!target || !root) return false;
+  return target === root || target.startsWith(root + pathSep(root));
+}
+
 /** All registered library paths — for passing as `safeRoots` to backend. */
 export async function allPaths(): Promise<string[]> {
   const libs = await list();
