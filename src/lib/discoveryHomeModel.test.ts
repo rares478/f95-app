@@ -294,4 +294,50 @@ describe('buildDiscoveryHomeModel', () => {
       pickSample(ids.map(card), TAG_PANEL_DISPLAY_COUNT, seed).map((c) => c.threadId),
     );
   });
+
+  it('keeps tag panel games unique across rails and backfills from each pool', () => {
+    const milf: SamTag = { id: 7, name: 'MILF' };
+    // Overlapping pools: first N after the shared seed would collide without exclude.
+    const shared = Array.from({ length: 8 }, (_, i) => `shared${i}`);
+    const fantasyOnly = Array.from({ length: 8 }, (_, i) => `fan${i}`);
+    const milfOnly = Array.from({ length: 8 }, (_, i) => `milf${i}`);
+
+    const pools = new Map<string, DiscoveryPoolRecord>([
+      ['recent', pool('recent', [])],
+      ['likes', pool('likes', [])],
+      ['views', pool('views', [])],
+      ['rating', pool('rating', [])],
+      ['tag:42', pool('tag:42', [...shared, ...fantasyOnly])],
+      ['tag:7', pool('tag:7', [...shared, ...milfOnly])],
+    ]);
+
+    const model = buildDiscoveryHomeModel({
+      pools,
+      tagRails: [
+        { key: 'tag:42', tag: fantasy, name: 'Fantasy' },
+        { key: 'tag:7', tag: milf, name: 'MILF' },
+      ],
+      seed: 'hour-seed',
+      tagSeed: 'day:tag:overlap',
+      loadingKeys: new Set(),
+      errorKeys: new Map(),
+    });
+
+    const a = model.rails.find((r) => r.id === 'tag:42')!;
+    const b = model.rails.find((r) => r.id === 'tag:7')!;
+    expect(a.items).toHaveLength(TAG_PANEL_DISPLAY_COUNT);
+    expect(b.items).toHaveLength(TAG_PANEL_DISPLAY_COUNT);
+
+    const aIds = a.items.map((c) => c.threadId);
+    const bIds = b.items.map((c) => c.threadId);
+    expect(aIds.some((id) => bIds.includes(id))).toBe(false);
+
+    // Without exclude, both rails would pick the same sample from the shared-heavy shuffle.
+    const naive = pickSample(
+      [...shared, ...fantasyOnly].map(card),
+      TAG_PANEL_DISPLAY_COUNT,
+      'day:tag:overlap',
+    ).map((c) => c.threadId);
+    expect(aIds).toEqual(naive);
+  });
 });

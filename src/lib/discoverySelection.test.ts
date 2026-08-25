@@ -5,6 +5,7 @@ import {
   isPoolFresh,
   pickHead,
   pickSample,
+  pickSampleExcluding,
   withoutIgnored,
 } from './discoverySelection';
 import type { SamGameCard } from '../types/sam';
@@ -60,6 +61,16 @@ describe('pickHead / pickSample / buildSpotlight', () => {
     const c = pickSample(pool, 5, 'hour-2').map((c) => c.threadId);
     expect(a).toEqual(b);
     expect(a).not.toEqual(c);
+  });
+
+  it('pickSampleExcluding skips claimed ids and fills from the rest', () => {
+    const pool = Array.from({ length: 10 }, (_, i) => card(String(i)));
+    const first = pickSample(pool, 4, 'seed');
+    const claimed = new Set(first.map((c) => c.threadId));
+    const second = pickSampleExcluding(pool, 4, 'seed', claimed);
+    expect(second).toHaveLength(4);
+    expect(second.every((c) => !claimed.has(c.threadId))).toBe(true);
+    expect(new Set([...first, ...second].map((c) => c.threadId)).size).toBe(8);
   });
 
   it('buildSpotlight mixes sources and dedupes to count', () => {

@@ -47,146 +47,148 @@ export function StoreHomePage() {
   return (
     <OfflineGate allowReadOnly>
       <div className="store-home">
-        <header className="store-home-header">
-          <div className="store-home-header-row">
-            <h1 className="store-home-title">{t('store.title')}</h1>
-            <form className="store-home-search" onSubmit={onSearchSubmit}>
-              <input
-                type="search"
-                className="store-home-search-input"
-                value={search}
-                onChange={(e) => setSearch(e.target.value)}
-                placeholder={t('store.home.searchPlaceholder')}
-                aria-label={t('store.home.searchPlaceholder')}
-              />
-            </form>
-            <button
-              type="button"
-              className="store-home-browse-all"
-              onClick={() => goBrowse({})}
-            >
-              {t('store.home.browseAll')}
-            </button>
-          </div>
-
-          <nav className="store-home-categories" aria-label={t('store.title')}>
-            {SAM_CATEGORIES.map((c) => {
-              const active = c.id === 'games';
-              const label = c.literal ?? (c.labelKey ? t(c.labelKey) : c.id);
-              return (
-                <button
-                  key={c.id}
-                  type="button"
-                  className={`store-home-category${active ? ' is-active' : ''}`}
-                  aria-current={active ? 'page' : undefined}
-                  onClick={() => onCategory(c.id)}
-                >
-                  {label}
-                </button>
-              );
-            })}
-          </nav>
-        </header>
-
-        {showFatal && (
-          <div className="store-home-fatal" role="alert">
-            <span>{t('store.home.loadFailed')}</span>
-            {fatalError && <span className="store-home-fatal-detail">{fatalError}</span>}
-            <button type="button" className="store-home-fatal-retry" onClick={reload}>
-              {t('store.home.retry')}
-            </button>
-          </div>
-        )}
-
-        {spotlight.length > 0 && <SpotlightHero slides={spotlight} category={category} />}
-
-        {bands.map((band) => {
-          switch (band.type) {
-            case 'forYou':
-              return (
-                <section
-                  key="forYou"
-                  className="store-home-for-you"
-                  aria-label={t('store.home.section.forYou')}
-                >
-                  {band.rails.map((rail) => (
-                    <DiscoveryRail
-                      key={rail.id}
-                      variant="compact"
-                      title={t(rail.titleKey, rail.titleParams)}
-                      items={rail.items}
-                      category={category}
-                      loading={rail.loading || (bootstrapping && rail.items.length === 0)}
-                      error={rail.error}
-                      onRetry={rail.retry}
-                    />
-                  ))}
-                </section>
-              );
-            case 'recent':
-              return (
-                <DiscoveryRail
-                  key={band.rail.id}
-                  variant="capsule"
-                  title={t(band.rail.titleKey, band.rail.titleParams)}
-                  seeAllLabel={t('store.home.seeAll')}
-                  onSeeAll={() => goBrowse({ sort: band.rail.seeAll.sort })}
-                  items={band.rail.items}
-                  category={category}
-                  loading={band.rail.loading || (bootstrapping && band.rail.items.length === 0)}
-                  error={band.rail.error}
-                  onRetry={band.rail.retry}
+        <div className="store-home-inner">
+          <header className="store-home-header">
+            <div className="store-home-header-row">
+              <h1 className="store-home-title">{t('store.title')}</h1>
+              <form className="store-home-search" onSubmit={onSearchSubmit}>
+                <input
+                  type="search"
+                  className="store-home-search-input"
+                  value={search}
+                  onChange={(e) => setSearch(e.target.value)}
+                  placeholder={t('store.home.searchPlaceholder')}
+                  aria-label={t('store.home.searchPlaceholder')}
                 />
-              );
-            case 'popular':
-              return (
-                <PopularTabsModule
-                  key="popular"
-                  title={t('store.home.section.popular')}
-                  seeAllLabel={t('store.home.seeAll')}
-                  category={category}
-                  tabs={band.tabs.map((rail) => ({
-                    id: rail.id,
-                    label: t(
-                      rail.id === 'likes'
-                        ? 'store.home.tab.likes'
-                        : rail.id === 'views'
-                          ? 'store.home.tab.views'
-                          : 'store.home.tab.rated',
-                    ),
-                    items: rail.items,
-                    loading: rail.loading || (bootstrapping && rail.items.length === 0),
-                    error: rail.error,
-                    onRetry: rail.retry,
-                    onSeeAll: () => goBrowse({ sort: rail.seeAll.sort }),
-                  }))}
-                />
-              );
-            case 'tags':
-              return (
-                <TagPanelsSection
-                  key="tags"
-                  seeAllLabel={t('store.home.seeAll')}
-                  category={category}
-                  panels={band.panels.map((rail) => ({
-                    id: rail.id,
-                    title: t(rail.titleKey, rail.titleParams),
-                    items: rail.items,
-                    loading: rail.loading || (bootstrapping && rail.items.length === 0),
-                    error: rail.error,
-                    onRetry: rail.retry,
-                    onSeeAll: () =>
-                      goBrowse({
-                        sort: rail.seeAll.sort,
-                        includeTag: rail.seeAll.includeTag,
-                      }),
-                  }))}
-                />
-              );
-            default:
-              return null;
-          }
-        })}
+              </form>
+              <button
+                type="button"
+                className="store-home-browse-all"
+                onClick={() => goBrowse({})}
+              >
+                {t('store.home.browseAll')}
+              </button>
+            </div>
+
+            <nav className="store-home-categories" aria-label={t('store.title')}>
+              {SAM_CATEGORIES.map((c) => {
+                const active = c.id === 'games';
+                const label = c.literal ?? (c.labelKey ? t(c.labelKey) : c.id);
+                return (
+                  <button
+                    key={c.id}
+                    type="button"
+                    className={`store-home-category${active ? ' is-active' : ''}`}
+                    aria-current={active ? 'page' : undefined}
+                    onClick={() => onCategory(c.id)}
+                  >
+                    {label}
+                  </button>
+                );
+              })}
+            </nav>
+          </header>
+
+          {showFatal && (
+            <div className="store-home-fatal" role="alert">
+              <span>{t('store.home.loadFailed')}</span>
+              {fatalError && <span className="store-home-fatal-detail">{fatalError}</span>}
+              <button type="button" className="store-home-fatal-retry" onClick={reload}>
+                {t('store.home.retry')}
+              </button>
+            </div>
+          )}
+
+          {spotlight.length > 0 && <SpotlightHero slides={spotlight} category={category} />}
+
+          {bands.map((band) => {
+            switch (band.type) {
+              case 'forYou':
+                return (
+                  <section
+                    key="forYou"
+                    className="store-home-for-you"
+                    aria-label={t('store.home.section.forYou')}
+                  >
+                    {band.rails.map((rail) => (
+                      <DiscoveryRail
+                        key={rail.id}
+                        variant="compact"
+                        title={t(rail.titleKey, rail.titleParams)}
+                        items={rail.items}
+                        category={category}
+                        loading={rail.loading || (bootstrapping && rail.items.length === 0)}
+                        error={rail.error}
+                        onRetry={rail.retry}
+                      />
+                    ))}
+                  </section>
+                );
+              case 'recent':
+                return (
+                  <DiscoveryRail
+                    key={band.rail.id}
+                    variant="capsule"
+                    title={t(band.rail.titleKey, band.rail.titleParams)}
+                    seeAllLabel={t('store.home.seeAll')}
+                    onSeeAll={() => goBrowse({ sort: band.rail.seeAll.sort })}
+                    items={band.rail.items}
+                    category={category}
+                    loading={band.rail.loading || (bootstrapping && band.rail.items.length === 0)}
+                    error={band.rail.error}
+                    onRetry={band.rail.retry}
+                  />
+                );
+              case 'popular':
+                return (
+                  <PopularTabsModule
+                    key="popular"
+                    title={t('store.home.section.popular')}
+                    seeAllLabel={t('store.home.seeAll')}
+                    category={category}
+                    tabs={band.tabs.map((rail) => ({
+                      id: rail.id,
+                      label: t(
+                        rail.id === 'likes'
+                          ? 'store.home.tab.likes'
+                          : rail.id === 'views'
+                            ? 'store.home.tab.views'
+                            : 'store.home.tab.rated',
+                      ),
+                      items: rail.items,
+                      loading: rail.loading || (bootstrapping && rail.items.length === 0),
+                      error: rail.error,
+                      onRetry: rail.retry,
+                      onSeeAll: () => goBrowse({ sort: rail.seeAll.sort }),
+                    }))}
+                  />
+                );
+              case 'tags':
+                return (
+                  <TagPanelsSection
+                    key="tags"
+                    seeAllLabel={t('store.home.seeAll')}
+                    category={category}
+                    panels={band.panels.map((rail) => ({
+                      id: rail.id,
+                      title: t(rail.titleKey, rail.titleParams),
+                      items: rail.items,
+                      loading: rail.loading || (bootstrapping && rail.items.length === 0),
+                      error: rail.error,
+                      onRetry: rail.retry,
+                      onSeeAll: () =>
+                        goBrowse({
+                          sort: rail.seeAll.sort,
+                          includeTag: rail.seeAll.includeTag,
+                        }),
+                    }))}
+                  />
+                );
+              default:
+                return null;
+            }
+          })}
+        </div>
       </div>
     </OfflineGate>
   );

@@ -40,6 +40,21 @@ export function pickSample(items: SamGameCard[], n: number, seed: string): SamGa
   return copy.slice(0, Math.min(n, copy.length));
 }
 
+/** Like pickSample, but skips threadIds already claimed (e.g. by earlier tag panels). */
+export function pickSampleExcluding(
+  items: SamGameCard[],
+  n: number,
+  seed: string,
+  exclude: ReadonlySet<string>,
+): SamGameCard[] {
+  if (exclude.size === 0) return pickSample(items, n, seed);
+  return pickSample(
+    items.filter((item) => !exclude.has(item.threadId)),
+    n,
+    seed,
+  );
+}
+
 export function buildSpotlight(
   recent: SamGameCard[],
   likes: SamGameCard[],

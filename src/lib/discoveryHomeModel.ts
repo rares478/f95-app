@@ -4,7 +4,7 @@ import {
   TAG_PANEL_DISPLAY_COUNT,
 } from './discoveryConfig';
 import type { DiscoveryPoolRecord } from './discoveryPools';
-import { buildSpotlight, pickHead, pickSample, withoutIgnored } from './discoverySelection';
+import { buildSpotlight, pickHead, pickSample, pickSampleExcluding, withoutIgnored } from './discoverySelection';
 import type { SamGameCard, SamSort, SamTag } from '../types/sam';
 
 export interface DiscoveryTagRail {
@@ -105,14 +105,22 @@ export function buildDiscoveryHomeModel(args: {
   });
 
   const sampleSeed = args.tagSeed ?? seed;
+  const claimedTagGames = new Set<string>();
   for (const tagRail of tagRails) {
     const poolItems = withoutIgnored(itemsOf(pools, tagRail.key));
+    const items = pickSampleExcluding(
+      poolItems,
+      TAG_PANEL_DISPLAY_COUNT,
+      sampleSeed,
+      claimedTagGames,
+    );
+    for (const item of items) claimedTagGames.add(item.threadId);
     rails.push({
       id: tagRail.key,
       poolKey: tagRail.key,
       titleKey: 'store.home.rail.tag',
       titleParams: { name: tagRail.name },
-      items: pickSample(poolItems, TAG_PANEL_DISPLAY_COUNT, sampleSeed),
+      items,
       loading: loadingKeys.has(tagRail.key),
       error: errorKeys.get(tagRail.key) ?? null,
       seeAll: { sort: 'likes', includeTag: tagRail.tag },

@@ -1,7 +1,7 @@
 import { useEffect, useMemo, useRef, useState, type MouseEvent } from 'react';
 import { Link } from 'react-router-dom';
 import { useStoreContextMenu } from '../../hooks/useStoreContextMenu';
-import { storeGameImageUrl, storeGameThumbUrls } from '../../lib/f95ImageUrl';
+import { storeGameFullUrls, storeGameImageUrl } from '../../lib/f95ImageUrl';
 import { useT } from '../../lib/i18n';
 import { useIsInLibrary } from '../../lib/libraryMembership';
 import {
@@ -219,7 +219,7 @@ function SpotlightSlide({
   const { t } = useT();
   const inLibrary = useIsInLibrary(game.threadId);
   const images = useMemo(
-    () => storeGameThumbUrls(game),
+    () => storeGameFullUrls(game),
     [game.thumbnailUrl, game.screens],
   );
   const [slide, setSlide] = useState(0);
