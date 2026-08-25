@@ -17,6 +17,7 @@ import {
   hideTrayMenu,
   isTrayMenuOpen,
   openTrayMenuAt,
+  prefetchTrayMenuWindow,
   registerTrayTooltipController,
   showMainWindow,
 } from './trayMenu';
@@ -93,6 +94,7 @@ async function createTray(): Promise<void> {
       registerTrayTooltipController((visible) => {
         void setTrayTooltipVisible(visible);
       });
+      void prefetchTrayMenuWindow();
       return;
     } catch (err) {
       console.warn('[tray] existing handle stale, recreating', err);
@@ -124,6 +126,9 @@ async function createTray(): Promise<void> {
   registerTrayTooltipController((visible) => {
     void setTrayTooltipVisible(visible);
   });
+  // Warm the custom menu webview so the first right-click does not cold-start
+  // the popup (which used to lose the focus race and need a second click).
+  void prefetchTrayMenuWindow();
   console.info('[tray] icon created');
 }
 

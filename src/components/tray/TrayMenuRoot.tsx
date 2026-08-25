@@ -6,6 +6,8 @@ import {
   emitTrayMenuAction,
   getLastTrayMenuOpen,
   hideTrayMenu,
+  isTrayMenuDismissArmed,
+  signalTrayMenuPageReady,
   MAX_RECENT_GAMES,
   MENU_WIDTH,
   resizeTrayMenuTo,
@@ -38,6 +40,7 @@ function TrayMenuPanel() {
   useEffect(() => {
     document.documentElement.classList.add('tray-menu-window');
     document.body.classList.add('tray-menu-window');
+    void signalTrayMenuPageReady();
     return () => {
       document.documentElement.classList.remove('tray-menu-window');
       document.body.classList.remove('tray-menu-window');
@@ -56,7 +59,9 @@ function TrayMenuPanel() {
     let unlisten: (() => void) | undefined;
     void getCurrentWindow()
       .onFocusChanged(({ payload: focused }) => {
-        if (!focused) void hideTrayMenu();
+        // Match trayMenu grace: first open used to hide immediately while the
+        // webview was still initializing / focus was settling after tray click.
+        if (!focused && isTrayMenuDismissArmed()) void hideTrayMenu();
       })
       .then((fn) => {
         unlisten = fn;

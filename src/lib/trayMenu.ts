@@ -11,6 +11,8 @@ import { isAppQuitting, quitApp } from './appQuit';
 export const TRAY_MENU_LABEL = 'tray-menu';
 export const TRAY_MENU_ACTION_EVENT = 'tray-menu:action';
 export const TRAY_MENU_OPEN_EVENT = 'tray-menu:open';
+/** Fired by the tray-menu webview once React has mounted (main window listens). */
+export const TRAY_MENU_READY_EVENT = 'tray-menu:ready';
 
 export type TrayMenuAction =
   | 'show'
@@ -38,6 +40,11 @@ export const MAX_RECENT_GAMES = 5;
 const MARGIN = 8;
 /** Extra CSS px so DPI rounding never leaves a 1px scrollbar gutter. */
 const SIZE_PAD = 6;
+/**
+ * After show/focus, Windows often reports the popup unfocused for a beat
+ * (especially on the first cold create). Ignore blur dismiss during this window.
+ */
+export const TRAY_MENU_DISMISS_GRACE_MS = 450;
 
 let lastAppliedW = 0;
 let lastAppliedH = 0;
@@ -48,9 +55,57 @@ let menuOpen = false;
 let focusUnlisten: UnlistenFn | null = null;
 let focusPoll: ReturnType<typeof setInterval> | null = null;
 let lastOpenPayload: TrayMenuOpenPayload | null = null;
+/** Earliest time blur/focus-poll may hide the menu (0 = not open / not armed). */
+let dismissArmedAt = 0;
+/** True once the tray-menu webview has emitted {@link TRAY_MENU_READY_EVENT}. */
+let menuPageReady = false;
+let menuPageReadyWaiters: Array<() => void> = [];
+let readyListenStarted = false;
 
 export function isTrayMenuOpen(): boolean {
   return menuOpen;
+}
+
+/** Whether focus-loss dismiss is allowed (past the post-open grace period). */
+export function isTrayMenuDismissArmed(now = Date.now()): boolean {
+  return menuOpen && dismissArmedAt > 0 && now >= dismissArmedAt;
+}
+
+function noteTrayMenuPageReady(): void {
+  menuPageReady = true;
+  const waiters = menuPageReadyWaiters;
+  menuPageReadyWaiters = [];
+  for (const resolve of waiters) resolve();
+}
+
+/** Emit from TrayMenuRoot so the main window knows the popup UI is alive. */
+export async function signalTrayMenuPageReady(): Promise<void> {
+  // Local copy (tray webview) — harmless; main window relies on the event.
+  noteTrayMenuPageReady();
+  await emit(TRAY_MENU_READY_EVENT);
+}
+
+async function ensureReadyListener(): Promise<void> {
+  if (readyListenStarted) return;
+  readyListenStarted = true;
+  await listen(TRAY_MENU_READY_EVENT, () => {
+    noteTrayMenuPageReady();
+  });
+}
+
+function waitTrayMenuPageReady(timeoutMs = 8_000): Promise<void> {
+  if (menuPageReady) return Promise.resolve();
+  return new Promise<void>((resolve, reject) => {
+    const timer = window.setTimeout(() => {
+      menuPageReadyWaiters = menuPageReadyWaiters.filter((w) => w !== onReady);
+      reject(new Error('tray-menu ready timeout'));
+    }, timeoutMs);
+    const onReady = () => {
+      window.clearTimeout(timer);
+      resolve();
+    };
+    menuPageReadyWaiters.push(onReady);
+  });
 }
 
 export function getLastTrayMenuOpen(): TrayMenuOpenPayload | null {
@@ -79,13 +134,17 @@ function startFocusPoll(win: WebviewWindow): void {
       stopFocusPoll();
       return;
     }
+    if (!isTrayMenuDismissArmed()) return;
     void win.isFocused().then((focused) => {
-      if (!focused && menuOpen && !isAppQuitting()) void hideTrayMenu();
+      if (!focused && menuOpen && isTrayMenuDismissArmed() && !isAppQuitting()) {
+        void hideTrayMenu();
+      }
     });
   }, 120);
 }
 
 async function ensureTrayMenuWindow(): Promise<WebviewWindow> {
+  await ensureReadyListener();
   const existing = await WebviewWindow.getByLabel(TRAY_MENU_LABEL);
   if (existing) {
     try {
@@ -95,11 +154,19 @@ async function ensureTrayMenuWindow(): Promise<WebviewWindow> {
     } catch {
       /* ignore */
     }
+    if (!menuPageReady) {
+      try {
+        await waitTrayMenuPageReady();
+      } catch {
+        /* first paint may still race; grace period covers dismiss */
+      }
+    }
     return existing;
   }
   if (creating) return creating;
 
   creating = (async () => {
+    menuPageReady = false;
     const win = new WebviewWindow(TRAY_MENU_LABEL, {
       url: 'index.html?window=tray-menu',
       title: '',
@@ -111,7 +178,8 @@ async function ensureTrayMenuWindow(): Promise<WebviewWindow> {
       alwaysOnTop: true,
       skipTaskbar: true,
       resizable: false,
-      focus: true,
+      // Don't steal focus during cold create — openTrayMenuAt focuses explicitly.
+      focus: false,
       shadow: false,
     });
 
@@ -127,6 +195,12 @@ async function ensureTrayMenuWindow(): Promise<WebviewWindow> {
       });
     });
 
+    try {
+      await waitTrayMenuPageReady();
+    } catch (err) {
+      console.warn('[tray-menu] page ready wait failed', err);
+    }
+
     return win;
   })();
 
@@ -137,13 +211,25 @@ async function ensureTrayMenuWindow(): Promise<WebviewWindow> {
   }
 }
 
+/**
+ * Create (and keep hidden) the tray-menu webview so the first right-click
+ * does not pay cold-start cost or lose the race to focus-dismiss.
+ */
+export async function prefetchTrayMenuWindow(): Promise<void> {
+  try {
+    await ensureTrayMenuWindow();
+  } catch (err) {
+    console.warn('[tray-menu] prefetch failed', err);
+  }
+}
+
 async function bindDismissOnBlur(win: WebviewWindow): Promise<void> {
   if (focusUnlisten) {
     focusUnlisten();
     focusUnlisten = null;
   }
   focusUnlisten = await win.onFocusChanged(({ payload: focused }) => {
-    if (!focused && menuOpen && !isAppQuitting()) {
+    if (!focused && menuOpen && isTrayMenuDismissArmed() && !isAppQuitting()) {
       void hideTrayMenu();
     }
   });
@@ -185,9 +271,12 @@ export async function openTrayMenuAt(click: PhysicalPosition): Promise<void> {
 
   lastOpenPayload = { menuWidth: MENU_WIDTH };
   await win.setPosition(new PhysicalPosition(x, y));
-  await bindDismissOnBlur(win);
   onTooltipVisible?.(false);
   menuOpen = true;
+  // Arm dismiss only after grace so cold create / tray-click focus steal
+  // cannot immediately hide the popup on the first open.
+  dismissArmedAt = Date.now() + TRAY_MENU_DISMISS_GRACE_MS;
+  await bindDismissOnBlur(win);
   await win.show();
   await win.setFocus();
   await emit(TRAY_MENU_OPEN_EVENT, lastOpenPayload);
@@ -238,6 +327,7 @@ async function clampTrayMenuOnScreen(
 export async function hideTrayMenu(): Promise<void> {
   if (isAppQuitting()) return;
   menuOpen = false;
+  dismissArmedAt = 0;
   stopFocusPoll();
   onTooltipVisible?.(true);
   try {
@@ -257,6 +347,9 @@ export async function hideTrayMenu(): Promise<void> {
 /** Fully destroy the tray-menu webview so it cannot keep the app alive. */
 export async function destroyTrayMenuWindow(): Promise<void> {
   menuOpen = false;
+  dismissArmedAt = 0;
+  menuPageReady = false;
+  menuPageReadyWaiters = [];
   stopFocusPoll();
   if (focusUnlisten) {
     focusUnlisten();
@@ -281,6 +374,7 @@ export async function emitTrayMenuAction(
   // do not await hide first (blur-dismiss / hide can race and drop exit).
   if (action === 'quit') {
     menuOpen = false;
+    dismissArmedAt = 0;
     stopFocusPoll();
     await quitApp();
     return;
