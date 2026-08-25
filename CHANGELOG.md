@@ -88,17 +88,17 @@ together when cutting a release:
 - Curated RPG Maker tabs (Party, Inventory, Actors, Switches, Variables) plus Raw tree; `System.json` switch/variable names and item DB labels when available.
 
 ### Fixed
-- Login no longer hangs forever on ΓÇ£Loading sessionΓÇªΓÇ¥ (network/session probe timeouts + clearer auth bootstrap logs).
+- Login no longer hangs forever on "Loading session…" (network/session probe timeouts + clearer auth bootstrap logs).
 - Store spotlight and tag panels use full-resolution images via `attachments.f95zone.to` (SAM `preview.*` CDN was showing soft/downscaled art).
 - Store rails / Up next keep lightweight preview covers instead of inventing broken `/thumb/` URLs.
-- Settings ΓåÆ Maintenance ΓåÆ Store cache now also clears discovery pools so the Store home actually refreshes on the next visit.
+- Settings → Maintenance → Store cache now also clears discovery pools so the Store home actually refreshes on the next visit.
 
 ## [1.7.3] - 2026-08-12
 
 ### Added
 - Library collections with folders, collection pages, and a collection picker.
 - Auto-update from GitHub Releases, with a Settings toggle to disable automatic checks.
-- In-app changelog for app versions under Settings ΓåÆ System.
+- In-app changelog for app versions under Settings → System.
 - System tray icon with show/quit actions and a Settings toggle (close hides to tray when enabled).
 - App skins (Default and Steam) with a Steam color theme and Steam-style library layout.
 - Top navigation layout option for the default skin.
