@@ -1,10 +1,12 @@
 import { Link } from 'react-router-dom';
+import { useStoreCardHoverImages } from '../../hooks/useStoreCardHoverImages';
 import { useStoreContextMenu } from '../../hooks/useStoreContextMenu';
 import { useT } from '../../lib/i18n';
 import { useIsInLibrary } from '../../lib/libraryMembership';
 import type { SamCategory, SamGameCard } from '../../types/sam';
 import { ContentTagPills } from './ContentTagPills';
 import { PrefixPills } from './PrefixPills';
+import { StoreCardThumbDots } from './StoreCardThumbDots';
 
 interface Props {
   game: SamGameCard;
@@ -15,20 +17,29 @@ export function GameCard({ game, category }: Props) {
   const { t } = useT();
   const { openStoreContextMenu } = useStoreContextMenu(category);
   const inLibrary = useIsInLibrary(game.threadId);
+  const { images, hovered, slide, activeSrc, onEnter, onLeave } =
+    useStoreCardHoverImages(game);
+
   return (
     <Link
       to={`/store/game/${game.threadId}?cat=${category}`}
       style={cardStyle}
-      className="store-card"
+      className={`store-card${hovered ? ' is-hovered' : ''}`}
       onContextMenu={(e) => void openStoreContextMenu(e, game)}
+      onMouseEnter={onEnter}
+      onMouseLeave={onLeave}
+      onFocus={onEnter}
+      onBlur={onLeave}
     >
       <div style={thumbWrap}>
-        {game.thumbnailUrl ? (
+        {activeSrc ? (
           <img
-            src={game.thumbnailUrl}
+            key={activeSrc}
+            src={activeSrc}
             alt={game.title}
             loading="lazy"
             style={thumbImg}
+            className="store-card-thumb-img-anim"
             onError={(e) => {
               (e.target as HTMLImageElement).style.display = 'none';
             }}
@@ -42,6 +53,7 @@ export function GameCard({ game, category }: Props) {
           </div>
         )}
         {game.version && <div style={versionBadge}>{game.version}</div>}
+        {hovered && <StoreCardThumbDots images={images} slide={slide} />}
       </div>
 
       <div style={bodyStyle}>
