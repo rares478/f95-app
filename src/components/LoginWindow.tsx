@@ -55,6 +55,13 @@ function withTimeout<T>(promise: Promise<T>, ms: number, label: string): Promise
   });
 }
 
+/** Rust may early-hide login on `--autostart`; restore visibility when the form is needed. */
+async function showAndFocusLogin(): Promise<void> {
+  const win = getCurrentWindow();
+  await win.show();
+  await win.setFocus();
+}
+
 /**
  * Standalone login window. Renders the Steam-style sign-in flow:
  * a small fixed-size window with a compact title bar (drag + close only),
@@ -96,26 +103,35 @@ export function LoginWindow() {
 
     (async () => {
       let hideOnAutostart = false;
+      /** Hide path, known `--autostart`, or uncertain prep — form must show+focus. */
+      let mustRevealOnForm = false;
 
       try {
-        const [args, settings] = await Promise.all([
-          readProcessArgs().catch(() => [] as string[]),
-          loadAppRuntimeSettings(),
-        ]);
+        let args: string[] = [];
+        let argsReadable = false;
+        try {
+          args = await readProcessArgs();
+          argsReadable = true;
+        } catch {
+          args = [];
+        }
+        const settings = await loadAppRuntimeSettings();
+        const hasAutostartArg = args.includes(AUTOSTART_ARG);
         hideOnAutostart =
           !cameFromLogout && shouldHideOnAutostartLaunch(args, settings);
+        // If argv could not be read, Rust may still have early-hidden for --autostart.
+        mustRevealOnForm =
+          hideOnAutostart || hasAutostartArg || !argsReadable;
 
         if (hideOnAutostart) {
           if (!settings.trayIconEnabled) {
             await saveAppRuntimeSettings({ trayIconEnabled: true });
           }
           await syncTrayIcon();
-        } else if (args.includes(AUTOSTART_ARG)) {
-          // Rust may have hidden login early for any --autostart launch;
-          // settings say we should not stay hidden — show the form shell.
-          const win = getCurrentWindow();
-          await win.show();
-          await win.setFocus();
+        } else if (hasAutostartArg || !argsReadable) {
+          // Recover from Rust early hide when not taking the hide path
+          // (or when argv is unknown and the window might already be hidden).
+          await showAndFocusLogin();
         }
       } catch (err) {
         void appLog(
@@ -123,13 +139,14 @@ export function LoginWindow() {
           'auth',
           `autostart boot prep failed: ${err instanceof Error ? err.message : String(err)}`,
         );
+        mustRevealOnForm = true;
+        // Best-effort: Rust may already have early-hidden for --autostart.
+        await showAndFocusLogin();
       }
 
       const revealLoginIfNeeded = async () => {
-        if (!hideOnAutostart || cancelled) return;
-        const win = getCurrentWindow();
-        await win.show();
-        await win.setFocus();
+        if (!mustRevealOnForm || cancelled) return;
+        await showAndFocusLogin();
       };
 
       try {
@@ -271,6 +288,11 @@ export function LoginWindow() {
     } catch (err) {
       setError(isBackendError(err) ? err : String(err));
       setPhase({ kind: 'form' });
+      // Hidden autostart called completeLogin with showWindow: false; Rust already
+      // hid login — restore so the user can sign in again.
+      if (opts.showWindow === false) {
+        await showAndFocusLogin();
+      }
     }
   }
 
