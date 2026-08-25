@@ -887,6 +887,8 @@ const ru: Record<string, string> = {
   'libdetail.category.animations': 'Анимация',
   'libdetail.category.assets': 'Ресурс',
   'libdetail.section.notes': 'Заметки',
+  'libdetail.section.changelog': 'Список изменений',
+  'libdetail.changelog.show': 'Показать список изменений',
   'libdetail.notes.placeholder': 'Личные заметки, расположение сейвов, подсказки…',
   'libdetail.section.sessions': 'Последние сессии',
   'libdetail.sessions.empty': 'Пока нет сессий. Нажмите «Играть», чтобы начать.',

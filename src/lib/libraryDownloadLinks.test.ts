@@ -43,6 +43,7 @@ function detail(over: Partial<GameDetail> = {}): GameDetail {
     bannerUrl: null,
     screenshots: [],
     descriptionHtml: '',
+    changelogHtml: null,
     prefixes: [],
     fields: {},
     tags: [],

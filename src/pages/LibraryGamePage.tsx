@@ -1,8 +1,10 @@
 import { useCallback, useEffect, useMemo, useState } from 'react';
 import { useNavigate, useParams } from 'react-router-dom';
+import DOMPurify from 'dompurify';
 import { dialog } from '../lib/dialog';
 import { openUrl } from '@tauri-apps/plugin-opener';
 import * as ipc from '../lib/ipc';
+import { GameDescription } from '../components/game/GameDescription';
 import * as library from '../lib/library';
 import * as libraries from '../lib/libraries';
 import * as sessions from '../lib/sessions';
@@ -669,6 +671,22 @@ export function LibraryGamePage() {
 
       <GameDetailBody>
         <GameDetailMain>
+          {storeDetail?.changelogHtml ? (
+            <GameDetailSection title={t('libdetail.section.changelog')}>
+              <details className="libdetail-changelog">
+                <summary>{t('libdetail.changelog.show')}</summary>
+                <GameDescription
+                  html={DOMPurify.sanitize(storeDetail.changelogHtml, {
+                    ADD_TAGS: ['details', 'summary', 'button'],
+                    ADD_ATTR: ['target', 'rel', 'loading', 'type', 'hidden'],
+                  })}
+                  className="libdetail-changelog-body"
+                  style={{ fontSize: 13.5, lineHeight: 1.65, wordBreak: 'break-word' }}
+                />
+              </details>
+            </GameDetailSection>
+          ) : null}
+
           <GameDetailSection title={t('libdetail.section.notes')}>
             <textarea
               value={notesDraft}

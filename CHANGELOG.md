@@ -16,6 +16,7 @@ together when cutting a release:
 ## [Unreleased]
 
 ### Added
+- Library game detail: collapsed Changelog section from the thread OP (heading + outer spoiler).
 - Settings → Install locations: expand a library to see installed games by disk usage (largest first) with Uninstall.
 - Settings → Install locations: segmented drive usage bar (library / other / free) and per-game share bars.
 - Discussion, thread/game OP, and profile posts show non-image file attachments with in-app download to the Downloads folder.

@@ -892,6 +892,8 @@ const pt: Record<string, string> = {
   'libdetail.category.animations': 'Animação',
   'libdetail.category.assets': 'Asset',
   'libdetail.section.notes': 'Notas',
+  'libdetail.section.changelog': 'Changelog',
+  'libdetail.changelog.show': 'Mostrar changelog',
   'libdetail.notes.placeholder': 'Anotações pessoais, save locations, dicas…',
   'libdetail.section.sessions': 'Sessões recentes',
   'libdetail.sessions.empty': 'Nenhuma sessão ainda. Clique em Jogar pra começar.',

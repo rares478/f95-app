@@ -172,3 +172,33 @@
       color-mix(in srgb, #000000 25%, transparent) 100%
     );
 }
+
+.libdetail-changelog {
+  margin: 0;
+}
+
+.libdetail-changelog > summary {
+  cursor: pointer;
+  color: var(--text-secondary);
+  font-size: 13px;
+  user-select: none;
+}
+
+.libdetail-changelog > summary::-webkit-details-marker {
+  display: none;
+}
+
+.libdetail-changelog > summary::before {
+  content: '▸';
+  display: inline-block;
+  margin-right: 6px;
+  color: var(--text-muted);
+}
+
+.libdetail-changelog[open] > summary::before {
+  content: '▾';
+}
+
+.libdetail-changelog-body {
+  margin-top: 10px;
+}

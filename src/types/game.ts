@@ -45,6 +45,8 @@ export interface GameDetail {
   bannerUrl: string | null;
   screenshots: string[];
   descriptionHtml: string;
+  /** Normalized OP Changelog spoiler HTML; null when absent. */
+  changelogHtml: string | null;
   prefixes: GamePrefix[];
   fields: Record<string, string>;
   tags: GameTag[];
