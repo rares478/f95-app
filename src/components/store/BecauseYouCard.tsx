@@ -1,4 +1,4 @@
-import { useMemo } from 'react';
+import { useMemo, useState } from 'react';
 import { Link } from 'react-router-dom';
 import { useStoreContextMenu } from '../../hooks/useStoreContextMenu';
 import { storeGameFullUrls } from '../../lib/f95ImageUrl';
@@ -16,6 +16,7 @@ export function BecauseYouCard({ card, category }: Props) {
   const { t } = useT();
   const { openStoreContextMenu } = useStoreContextMenu(category);
   const { game, reason } = card;
+  const [previewSrc, setPreviewSrc] = useState<string | null>(null);
 
   const reasonText =
     reason.kind === 'play'
@@ -30,11 +31,14 @@ export function BecauseYouCard({ card, category }: Props) {
     };
   }, [game.thumbnailUrl, game.screens]);
 
+  const heroSrc = previewSrc ?? coverSrc;
+
   return (
     <Link
       to={`/store/game/${game.threadId}?cat=${category}`}
       className="because-you-card"
       onContextMenu={(e) => void openStoreContextMenu(e, game)}
+      onMouseLeave={() => setPreviewSrc(null)}
     >
       <header className="because-you-card-header">
         <h3 className="because-you-card-title">{game.title}</h3>
@@ -42,9 +46,10 @@ export function BecauseYouCard({ card, category }: Props) {
       </header>
       <div className="because-you-card-media">
         <div className="because-you-card-cover">
-          {coverSrc ? (
+          {heroSrc ? (
             <img
-              src={coverSrc}
+              key={heroSrc}
+              src={heroSrc}
               alt={game.title}
               loading="lazy"
               decoding="async"
@@ -59,7 +64,11 @@ export function BecauseYouCard({ card, category }: Props) {
         </div>
         <div className="because-you-card-grid">
           {screenSrcs.map((src) => (
-            <div key={src} className="because-you-card-screen">
+            <div
+              key={src}
+              className={`because-you-card-screen${previewSrc === src ? ' is-preview' : ''}`}
+              onMouseEnter={() => setPreviewSrc(src)}
+            >
               <img
                 src={src}
                 alt=""

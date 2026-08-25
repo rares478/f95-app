@@ -1664,7 +1664,7 @@
   width: 100%;
   box-sizing: border-box;
   padding: 16px;
-  text-decoration: none;
+  text-decoration: none !important;
   color: inherit;
   background: var(--bg-elevated);
   border: 1px solid var(--border);
@@ -1672,8 +1672,25 @@
   transition: border-color 0.12s ease;
 }
 
-.because-you-card:hover {
+a.because-you-card:hover,
+a.because-you-card:focus,
+a.because-you-card:focus-visible,
+a.because-you-card:active,
+a.because-you-card:visited {
+  text-decoration: none !important;
+  border-color: var(--border);
+  color: inherit;
+}
+
+a.because-you-card:hover {
   border-color: var(--accent);
+}
+
+a.because-you-card *,
+a.because-you-card:hover *,
+a.because-you-card:focus *,
+a.because-you-card:visited * {
+  text-decoration: none !important;
 }
 
 .because-you-card:focus-visible {
@@ -1692,6 +1709,7 @@
   font-weight: 700;
   color: var(--text-primary);
   letter-spacing: 0.2px;
+  text-decoration: none;
   overflow: hidden;
   text-overflow: ellipsis;
   white-space: nowrap;
@@ -1741,6 +1759,15 @@
   border-radius: 4px;
   background: var(--bg-sunken);
   border: 1px solid var(--border-faint);
+  cursor: pointer;
+  outline: 1px solid transparent;
+  outline-offset: -1px;
+  transition: outline-color 0.12s ease;
+}
+
+.because-you-card-screen:hover,
+.because-you-card-screen.is-preview {
+  outline-color: var(--accent);
 }
 
 .because-you-card-img {
