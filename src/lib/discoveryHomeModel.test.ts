@@ -197,7 +197,7 @@ describe('buildDiscoveryHomeModel', () => {
         {
           id: 'recently-viewed',
           poolKey: 'recently-viewed',
-          titleKey: 'store.home.rail.recentlyViewed',
+          titleKey: 'test.userRail.recentlyViewed',
           items: [card('v1')],
           loading: false,
           error: null,
@@ -206,7 +206,7 @@ describe('buildDiscoveryHomeModel', () => {
         {
           id: 'because-you-play',
           poolKey: 'because-you-play',
-          titleKey: 'store.home.rail.becauseYouPlay',
+          titleKey: 'test.userRail.becauseYouPlay',
           titleParams: { title: 'Seed' },
           items: [],
           loading: false,
@@ -244,7 +244,7 @@ describe('buildDiscoveryHomeModel', () => {
         {
           id: 'because-you-play',
           poolKey: 'because-you-play',
-          titleKey: 'store.home.rail.becauseYouPlay',
+          titleKey: 'test.userRail.becauseYouPlay',
           titleParams: { title: 'X' },
           items: [ignored, card('ok')],
           loading: false,

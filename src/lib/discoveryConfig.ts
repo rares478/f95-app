@@ -34,8 +34,6 @@ export const TAG_SAMPLE_ROTATE_MS = 30 * 60 * 1000;
 
 export const VIEW_HISTORY_CAP = 24;
 export const MIN_PLAYTIME_SECONDS = 300;
-export const PERSONAL_TTL_MS = RECENT_TTL_MS;
-export const PERSONAL_POOL_KEY = 'personal:home';
 
 export const BECAUSE_YOU_POOL_KEY = 'personal:because-you';
 export const BECAUSE_YOU_MAX_CARDS = 3;
