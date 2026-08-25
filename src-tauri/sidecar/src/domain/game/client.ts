@@ -429,10 +429,14 @@ function parseThread(html: string, finalUrl: string): GameDetail {
     op.find('.message-avatar img, .avatar img').first().attr('data-src');
   const authorAvatarUrl = avatarSrc ? absoluteUrl(avatarSrc) : null;
 
-  // -- Banner + screenshots --
-  const images = collectOpImages($, opBody);
-  const bannerUrl = images[0] ?? null;
-  const screenshots = images.slice(1, 31); // cap at 30 to keep payload small
+  // -- Links first so screenshot gallery can be scoped to the download div --
+  const { downloads, social } = collectLinks($, opBody);
+  const downloadRoot = resolveDownloadRoot($, opBody);
+  const { bannerUrl, screenshots } = resolveBannerAndScreenshots(
+    $,
+    opBody,
+    downloadRoot,
+  );
 
   // -- Fields (Developer/Version/OS/...) --
   const fields = collectFields($, opBody);
@@ -462,11 +466,12 @@ function parseThread(html: string, finalUrl: string): GameDetail {
     }
   }
 
-  // -- Links: split into downloads vs social --
-  const { downloads, social } = collectLinks($, opBody);
-
-  // -- Description: normalized HTML (sem repetir imagens já na galeria/banner) --
-  const descriptionHtml = normalizeOpHtml($, opBody, new Set(images));
+  // -- Description: keep inline story images; strip banner + gallery only --
+  const galleryUrls = new Set<string>([
+    ...(bannerUrl ? [bannerUrl] : []),
+    ...screenshots,
+  ]);
+  const descriptionHtml = normalizeOpHtml($, opBody, galleryUrls);
 
   return {
     threadId,
@@ -539,6 +544,26 @@ function collectOpImages(
     out.push(full);
   });
   return out;
+}
+
+/**
+ * Banner = first OP image outside the download block.
+ * Screenshots = images in the same div as DOWNLOAD links (after them), never
+ * description/changelog embeds elsewhere in the OP.
+ */
+export function resolveBannerAndScreenshots(
+  $: cheerio.CheerioAPI,
+  opBody: cheerio.Cheerio<Element>,
+  downloadRoot: cheerio.Cheerio<Element> | null,
+): { bannerUrl: string | null; screenshots: string[] } {
+  const fromDownload = downloadRoot ? collectOpImages($, downloadRoot) : [];
+  const screenshotSet = new Set(fromDownload);
+  const all = collectOpImages($, opBody);
+  const bannerUrl = all.find((u) => !screenshotSet.has(u)) ?? null;
+  const screenshots = fromDownload
+    .filter((u) => u !== bannerUrl)
+    .slice(0, 30);
+  return { bannerUrl, screenshots };
 }
 
 function pickImageSrc($el: cheerio.Cheerio<Element>): string | null {
