@@ -3,9 +3,11 @@ import { createPortal } from 'react-dom';
 import { Link, useNavigate } from 'react-router-dom';
 import { useNotifications } from '../contexts/Notifications';
 import { useOffline } from '../contexts/Offline';
+import { alertInitial, cleanAlertText } from '../lib/alertText';
 import { formatRelativeDate } from '../lib/formatDate';
 import { openF95NotificationTarget } from '../lib/openF95NotificationTarget';
 import { useT } from '../lib/i18n';
+import { UserChip } from './UserChip';
 
 interface NotificationBellProps {
   /**
@@ -126,32 +128,39 @@ export function NotificationBell({ placement = 'side' }: NotificationBellProps) 
                   }
 
                   const a = entry.alert;
+                  const text = cleanAlertText(a.text);
                   return (
                     <li key={a.alertId}>
-                      <button
-                        type="button"
-                        className={`notification-item${a.isUnread ? ' notification-item--unread' : ''}`}
-                        onClick={() => {
-                          void markRead(a.alertId, 'f95');
-                          setOpen(false);
-                          void openF95NotificationTarget(a.url, navigate);
-                        }}
-                      >
-                        {a.avatarUrl ? (
-                          <img src={a.avatarUrl} alt="" className="notification-item-avatar" />
-                        ) : (
-                          <div className="notification-item-avatar" style={{ background: 'var(--bg-sunken)' }} />
-                        )}
-                        <div className="notification-item-body">
-                          <div className="notification-item-source">{t('notifications.source.f95')}</div>
-                          <div className="notification-item-text">{a.text}</div>
-                          {a.date && (
-                            <div className="notification-item-meta">
-                              {formatRelativeDate(a.date, locale) ?? a.date}
-                            </div>
-                          )}
-                        </div>
-                      </button>
+                      <div className="notification-item-shell">
+                        <UserChip
+                          userId={a.userId}
+                          username={a.username ?? alertInitial(text)}
+                          avatarUrl={a.avatarUrl}
+                          className="notification-item-user"
+                          showName={Boolean(a.username)}
+                          size={36}
+                          onNavigate={() => setOpen(false)}
+                        />
+                        <button
+                          type="button"
+                          className={`notification-item${a.isUnread ? ' notification-item--unread' : ''}`}
+                          onClick={() => {
+                            void markRead(a.alertId, 'f95');
+                            setOpen(false);
+                            void openF95NotificationTarget(a.url, navigate);
+                          }}
+                        >
+                          <div className="notification-item-body">
+                            <div className="notification-item-source">{t('notifications.source.f95')}</div>
+                            <div className="notification-item-text">{text}</div>
+                            {a.date && (
+                              <div className="notification-item-meta">
+                                {formatRelativeDate(a.date, locale) ?? a.date}
+                              </div>
+                            )}
+                          </div>
+                        </button>
+                      </div>
                     </li>
                   );
                 })}

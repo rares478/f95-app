@@ -14,6 +14,7 @@ import { openF95NotificationTarget } from '../lib/openF95NotificationTarget';
 import { useT } from '../lib/i18n';
 import { formatIpcError } from '../lib/ipcError';
 import { Spinner } from '../components/ui/Spinner';
+import { UserChip } from '../components/UserChip';
 import type { AppNotification, F95Alert } from '../types/alerts';
 
 type Filter = 'all' | 'f95' | 'library';
@@ -255,34 +256,39 @@ export function AlertsPage() {
                     const text = cleanAlertText(a.text);
                     return (
                       <li key={a.alertId}>
-                        <button
-                          type="button"
-                          className={`alerts-row${a.isUnread ? ' alerts-row--unread' : ''}`}
-                          onClick={() => {
-                            void markRead(a.alertId, 'f95');
-                            void openF95NotificationTarget(a.url, navigate);
-                          }}
-                        >
-                          <AlertMedia
+                        <div className="alerts-row-shell">
+                          <UserChip
+                            userId={a.userId}
+                            username={a.username ?? alertInitial(text)}
                             avatarUrl={a.avatarUrl}
-                            fallbackLetter={alertInitial(text)}
-                            variant="avatar"
+                            className="alerts-row-user"
+                            showName={Boolean(a.username)}
+                            size={40}
                           />
-                          <div className="alerts-row-content">
-                            <div className="alerts-row-text">{text}</div>
-                            <div className="alerts-row-footer">
-                              <span className="alerts-row-pill alerts-row-pill--f95">
-                                {t('notifications.source.f95')}
-                              </span>
-                              {a.date && (
-                                <span className="alerts-row-date">
-                                  {formatRelativeDate(a.date, locale) ?? a.date}
+                          <button
+                            type="button"
+                            className={`alerts-row${a.isUnread ? ' alerts-row--unread' : ''}`}
+                            onClick={() => {
+                              void markRead(a.alertId, 'f95');
+                              void openF95NotificationTarget(a.url, navigate);
+                            }}
+                          >
+                            <div className="alerts-row-content">
+                              <div className="alerts-row-text">{text}</div>
+                              <div className="alerts-row-footer">
+                                <span className="alerts-row-pill alerts-row-pill--f95">
+                                  {t('notifications.source.f95')}
                                 </span>
-                              )}
+                                {a.date && (
+                                  <span className="alerts-row-date">
+                                    {formatRelativeDate(a.date, locale) ?? a.date}
+                                  </span>
+                                )}
+                              </div>
                             </div>
-                          </div>
-                          <IconChevronSmall />
-                        </button>
+                            <IconChevronSmall />
+                          </button>
+                        </div>
                       </li>
                     );
                   })}
