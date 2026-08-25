@@ -24,6 +24,7 @@ import {
   type InstallPlatform,
   type InstallSeason,
 } from '../../lib/installCatalog';
+import { resolveInitialWizardStep } from '../../lib/installWizardSteps';
 import {
   classifySectionLabel,
   detectInstallPlatform,
@@ -54,6 +55,8 @@ export interface InstallPlanWizardProps {
   onBrowseAll?: () => void;
   /** Runs once before plan creation (e.g. library.add + setStatus). */
   prepareStart?: () => Promise<void>;
+  /** When true, open on the season step if it is in the visible step list. */
+  preferSeasonStep?: boolean;
 }
 
 type WizardStep = 'platform' | 'season' | 'package' | 'hosts';
@@ -146,6 +149,7 @@ export function InstallPlanWizard({
   onStarted,
   onBrowseAll,
   prepareStart,
+  preferSeasonStep = false,
 }: InstallPlanWizardProps) {
   const { t } = useT();
   const { isOffline } = useOffline();
@@ -195,8 +199,8 @@ export function InstallPlanWizard({
     setPendingJobs(null);
 
     const initialSteps = visibleStepsFor(catalog, platform, season);
-    setStep(initialSteps[0] ?? 'hosts');
-  }, [open, catalog, os]);
+    setStep(resolveInitialWizardStep(initialSteps, preferSeasonStep));
+  }, [open, catalog, os, preferSeasonStep]);
 
   if (!open) return null;
 

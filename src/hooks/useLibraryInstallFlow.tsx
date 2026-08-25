@@ -21,17 +21,25 @@ export function useLibraryInstallFlow(opts?: { onStarted?: () => void }) {
   const [game, setGame] = useState<LibraryGame | null>(null);
   const [links, setLinks] = useState<GameDownload[]>([]);
   const [busy, setBusy] = useState(false);
+  const [preferSeasonStep, setPreferSeasonStep] = useState(false);
 
-  async function beginInstallOrUpdate(g: LibraryGame) {
+  async function beginInstallOrUpdate(
+    g: LibraryGame,
+    opts?: { preferSeasonStep?: boolean },
+  ) {
     if (busy) return;
+    const forceInstall = opts?.preferSeasonStep === true;
     const intent: LinkIntent =
-      g.installStatus === 'update_available' ? 'update' : 'install';
+      forceInstall || g.installStatus !== 'update_available'
+        ? 'install'
+        : 'update';
     setBusy(true);
     try {
       const fresh = (await library.get(g.threadId)) ?? g;
       const ensured = await ensureLinks(fresh, intent);
       setGame(fresh);
       setLinks(ensured);
+      setPreferSeasonStep(forceInstall);
       setMode('wizard');
       setOpen(true);
     } catch (err) {
@@ -51,6 +59,7 @@ export function useLibraryInstallFlow(opts?: { onStarted?: () => void }) {
   function close() {
     setOpen(false);
     setMode('wizard');
+    setPreferSeasonStep(false);
   }
 
   const gameVersion =
@@ -60,7 +69,11 @@ export function useLibraryInstallFlow(opts?: { onStarted?: () => void }) {
     null;
 
   const intent: 'install' | 'update' =
-    game?.installStatus === 'update_available' ? 'update' : 'install';
+    preferSeasonStep
+      ? 'install'
+      : game?.installStatus === 'update_available'
+        ? 'update'
+        : 'install';
 
   const modal =
     game != null && open ? (
@@ -72,6 +85,7 @@ export function useLibraryInstallFlow(opts?: { onStarted?: () => void }) {
           links={links}
           gameVersion={gameVersion}
           intent={intent}
+          preferSeasonStep={preferSeasonStep}
           onClose={close}
           onStarted={opts?.onStarted}
           onBrowseAll={() => setMode('browse')}
