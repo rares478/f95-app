@@ -52,7 +52,11 @@ export function GameCard({ game, category }: Props) {
             {t('store.badge.inLibrary')}
           </div>
         )}
-        {game.version && <div style={versionBadge}>{game.version}</div>}
+        {game.version && (
+          <div className="store-card-version" style={versionBadge}>
+            {game.version}
+          </div>
+        )}
         {hovered && <StoreCardThumbDots images={images} slide={slide} />}
       </div>
 
@@ -135,8 +139,8 @@ const thumbFallback: React.CSSProperties = {
 
 const versionBadge: React.CSSProperties = {
   position: 'absolute',
-  bottom: 6,
   right: 6,
+  /* bottom: idle 6px / hovered 18px via .store-card-version CSS */
   background: 'rgba(0, 0, 0, 0.75)',
   color: 'var(--text-primary)',
   padding: '2px 8px',

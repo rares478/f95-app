@@ -50,6 +50,7 @@ describe('storeCardActiveSrc', () => {
   it('returns null for empty list and clamps slide', () => {
     expect(storeCardActiveSrc([], 0)).toBe(null);
     expect(storeCardActiveSrc(['a', 'b'], 99)).toBe('b');
+    expect(storeCardActiveSrc(['a', 'b'], -1)).toBe('a');
     expect(storeCardActiveSrc(['a', 'b'], 0)).toBe('a');
   });
 });

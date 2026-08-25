@@ -16,5 +16,5 @@ export function nextStoreCardSlide(slide: number, imageCount: number): number {
 
 export function storeCardActiveSrc(images: string[], slide: number): string | null {
   if (images.length === 0) return null;
-  return images[Math.min(slide, images.length - 1)] ?? null;
+  return images[Math.min(Math.max(0, slide), images.length - 1)] ?? null;
 }

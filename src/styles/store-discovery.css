@@ -889,7 +889,12 @@
   pointer-events: none;
 }
 
-.rail-game-card.is-hovered .rail-game-card-version {
+.store-card-version {
+  bottom: 6px;
+}
+
+.rail-game-card.is-hovered .rail-game-card-version,
+.store-card.is-hovered .store-card-version {
   bottom: 18px;
 }
 
@@ -1141,6 +1146,11 @@
   -webkit-box-orient: vertical;
   text-shadow: 0 1px 6px rgba(0, 0, 0, 0.65);
   transition: color 0.12s ease;
+}
+
+.wide-capsule-card.is-hovered .wide-capsule-card-overlay {
+  /* Lift title/meta above hover screenshot dots (bottom: 6px). */
+  padding-bottom: 18px;
 }
 
 .wide-capsule-card.is-hovered .wide-capsule-card-title {
