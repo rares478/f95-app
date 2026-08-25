@@ -46,6 +46,7 @@ import './styles/nav-accent.css';
 import './styles/custom-video-fullscreen.css';
 import './styles/collections.css';
 import './styles/library-filters.css';
+import './styles/user-chip.css';
 
 type AppWindowKind = 'login' | 'main' | 'overlay' | 'overlay-hint' | 'tray-menu';
 
