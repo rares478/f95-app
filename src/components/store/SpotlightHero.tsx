@@ -1,12 +1,19 @@
-import { useEffect, useRef, useState, type MouseEvent } from 'react';
+import { useEffect, useMemo, useRef, useState, type MouseEvent } from 'react';
 import { Link } from 'react-router-dom';
 import { useStoreContextMenu } from '../../hooks/useStoreContextMenu';
-import { storeGameImageUrl } from '../../lib/f95ImageUrl';
+import { storeGameImageUrl, storeGameThumbUrls } from '../../lib/f95ImageUrl';
 import { useT } from '../../lib/i18n';
 import { useIsInLibrary } from '../../lib/libraryMembership';
+import {
+  STORE_CARD_SLIDE_MS,
+  nextStoreCardSlide,
+  shouldAdvanceStoreCardSlide,
+  storeCardActiveSrc,
+} from '../../lib/storeCardHoverImages';
 import type { SamCategory, SamGameCard } from '../../types/sam';
 import { ContentTagPills } from './ContentTagPills';
 import { PrefixPills } from './PrefixPills';
+import { StoreCardThumbDots } from './StoreCardThumbDots';
 
 interface Props {
   slides: SamGameCard[];
@@ -126,6 +133,7 @@ export function SpotlightHero({ slides, category }: Props) {
               detailTo={`/store/game/${back.threadId}?cat=${category}`}
               onContextMenu={(e) => void openStoreContextMenu(e, back)}
               layer="back"
+              cycling={false}
             />
           )}
           <SpotlightSlide
@@ -135,6 +143,7 @@ export function SpotlightHero({ slides, category }: Props) {
             onContextMenu={(e) => void openStoreContextMenu(e, front)}
             layer="front"
             animate={animateFront}
+            cycling={paused}
           />
         </div>
 
@@ -198,16 +207,44 @@ function SpotlightSlide({
   onContextMenu,
   layer,
   animate = false,
+  cycling,
 }: {
   game: SamGameCard;
   detailTo: string;
   onContextMenu: (e: MouseEvent) => void;
   layer: 'front' | 'back';
   animate?: boolean;
+  cycling: boolean;
 }) {
   const { t } = useT();
   const inLibrary = useIsInLibrary(game.threadId);
-  const imageSrc = storeGameImageUrl(game, 'full');
+  const images = useMemo(
+    () => storeGameThumbUrls(game),
+    [game.thumbnailUrl, game.screens],
+  );
+  const [slide, setSlide] = useState(0);
+
+  useEffect(() => {
+    const prefersReducedMotion = window.matchMedia(
+      '(prefers-reduced-motion: reduce)',
+    ).matches;
+    if (
+      !shouldAdvanceStoreCardSlide({
+        hovered: cycling,
+        imageCount: images.length,
+        prefersReducedMotion,
+      })
+    ) {
+      setSlide(0);
+      return;
+    }
+    const id = window.setInterval(() => {
+      setSlide((i) => nextStoreCardSlide(i, images.length));
+    }, STORE_CARD_SLIDE_MS);
+    return () => window.clearInterval(id);
+  }, [cycling, images.length]);
+
+  const imageSrc = storeCardActiveSrc(images, slide);
   const className = [
     'spotlight-slide',
     `spotlight-slide--${layer}`,
@@ -229,7 +266,7 @@ function SpotlightSlide({
           key={imageSrc}
           src={imageSrc}
           alt={game.title}
-          className="spotlight-slide-img"
+          className={`spotlight-slide-img${cycling ? ' store-card-thumb-img-anim' : ''}`}
           loading="eager"
           decoding="async"
         />
@@ -237,6 +274,7 @@ function SpotlightSlide({
         <div className="spotlight-slide-fallback">{game.title.slice(0, 1).toUpperCase()}</div>
       )}
       <div className="spotlight-slide-overlay" />
+      {cycling && <StoreCardThumbDots images={images} slide={slide} />}
 
       {inLibrary && (
         <div className="spotlight-library" title={t('store.badge.inLibrary')}>
