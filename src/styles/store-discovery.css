@@ -1230,6 +1230,10 @@
   flex-wrap: wrap;
   gap: 6px;
   margin-bottom: 8px;
+  /* Above the rail track: shared discovery rails use margin-top: -16px for
+   * hover scale room, which otherwise covers the lower third of these tabs. */
+  position: relative;
+  z-index: 3;
 }
 
 .popular-tabs-tab {
@@ -1264,6 +1268,12 @@
 
 .popular-tabs-panel {
   min-width: 0;
+}
+
+/* Do not pull the card row up into the tab hit area (shared rail uses -16px). */
+.popular-tabs .discovery-rail-track,
+.popular-tabs .discovery-rail-skeleton {
+  margin-top: 0;
 }
 
 /* ── Tag panels (2×2 of panels, each 2×2 tiles) ───────────────────────── */
