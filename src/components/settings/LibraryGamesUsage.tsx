@@ -12,6 +12,7 @@ import {
   startLibraryGameSizeLoads,
   toUsageRows,
   withGenerationGuard,
+  gameShareOfLibrary,
   type LibraryGameUsageRow,
 } from '../../lib/libraryStorage';
 import { useT } from '../../lib/i18n';
@@ -19,6 +20,8 @@ import { useT } from '../../lib/i18n';
 export interface LibraryGamesUsageProps {
   libraryPath: string;
   libraryId: number;
+  /** Folder used bytes for per-game share %; null while calculating. */
+  libraryUsedBytes: number | null;
   expanded: boolean;
   cachedRows: LibraryGameUsageRow[] | null;
   onCacheRows: (libraryId: number, rows: LibraryGameUsageRow[] | null) => void;
@@ -29,6 +32,7 @@ export interface LibraryGamesUsageProps {
 export function LibraryGamesUsage({
   libraryPath,
   libraryId,
+  libraryUsedBytes,
   expanded,
   cachedRows,
   onCacheRows,
@@ -175,33 +179,45 @@ export function LibraryGamesUsage({
           row.installStatus === 'extracting' ||
           inflight === 'downloading' ||
           inflight === 'extracting';
+        const share =
+          row.sizeState === 'ready'
+            ? gameShareOfLibrary(row.usedBytes, libraryUsedBytes)
+            : null;
 
         return (
-          <div key={row.threadId} className="settings-lib-game-row">
-            <Link
-              to={`/library/game/${row.threadId}`}
-              className="settings-lib-game-title"
-              title={row.title}
-            >
-              {row.title}
-            </Link>
-            <span
-              className={`settings-lib-game-size${
-                row.sizeState === 'pending' ? ' settings-lib-game-size-pending' : ''
-              }`}
-            >
-              {sizeLabel(row, t)}
-            </span>
-            <button
-              type="button"
-              className="settings-link-btn settings-link-btn-danger"
-              disabled={uninstallDisabled}
-              onClick={() => void onUninstall(row)}
-            >
-              {uninstallingThreadId === row.threadId
-                ? t('libdetail.action.uninstalling')
-                : t('libdetail.action.uninstall')}
-            </button>
+          <div key={row.threadId} className="settings-lib-game-block">
+            <div className="settings-lib-game-row">
+              <Link
+                to={`/library/game/${row.threadId}`}
+                className="settings-lib-game-title"
+                title={row.title}
+              >
+                {row.title}
+              </Link>
+              <span
+                className={`settings-lib-game-size${
+                  row.sizeState === 'pending' ? ' settings-lib-game-size-pending' : ''
+                }`}
+              >
+                {sizeLabel(row, t)}
+              </span>
+              <span className="settings-lib-game-pct">
+                {share != null ? `${Math.round(share)}%` : '—'}
+              </span>
+              <button
+                type="button"
+                className="settings-link-btn settings-link-btn-danger"
+                disabled={uninstallDisabled}
+                onClick={() => void onUninstall(row)}
+              >
+                {uninstallingThreadId === row.threadId
+                  ? t('libdetail.action.uninstalling')
+                  : t('libdetail.action.uninstall')}
+              </button>
+            </div>
+            <div className="settings-lib-game-share" aria-hidden>
+              <i style={{ width: `${share ?? 0}%` }} />
+            </div>
           </div>
         );
       })}

@@ -64,7 +64,7 @@ import { getChangelogEntries } from '../lib/changelog';
 import { checkForAppUpdate, installAppUpdate } from '../lib/appUpdater';
 import { LoadingState } from '../components/ui/LoadingState';
 import { LibraryGamesUsage } from '../components/settings/LibraryGamesUsage';
-import type { LibraryGameUsageRow } from '../lib/libraryStorage';
+import { driveUsageSegments, type LibraryGameUsageRow } from '../lib/libraryStorage';
 import {
   SETTINGS_NAV_GROUPS,
   parseSettingsSection,
@@ -2817,6 +2817,11 @@ function LibraryRow({
   const diskOk = lib.disk.available;
   const spaceLevel = diskSpaceLevel(lib.disk.freeBytes, diskOk);
   const drive = driveLetter(lib.path);
+  const segments = driveUsageSegments({
+    totalBytes: lib.disk.totalBytes,
+    freeBytes: lib.disk.freeBytes,
+    libraryUsedBytes: lib.usedBytes,
+  });
   const expandLabel = expanded
     ? t('settings.libraries.games.collapse')
     : cachedGameRows != null
@@ -2855,29 +2860,85 @@ function LibraryRow({
           <code className="settings-lib-path" title={lib.path}>
             {lib.path}
           </code>
-          <div className="settings-lib-stats">
-            <span
-              className={`settings-lib-stat settings-lib-stat-used${
-                lib.usedBytes == null ? ' settings-lib-stat-pending' : ''
-              }`}
-            >
-              {lib.usedBytes == null
-                ? t('settings.libraries.usedCalculating')
-                : t('settings.libraries.used', {
-                    amount: libraries.formatStorageSize(lib.usedBytes),
+          {diskOk && segments ? (
+            <div className="settings-lib-meter">
+              <div className="settings-lib-meter-labels">
+                <span>
+                  {t('settings.libraries.driveTotal', {
+                    amount: libraries.formatStorageSize(segments.totalBytes),
                   })}
-            </span>
-            <span className={`settings-lib-stat settings-lib-space settings-lib-space-${spaceLevel}`}>
-              <span className="settings-lib-space-dot" aria-hidden />
-              <span>
-                {diskOk
-                  ? t('settings.libraries.free', {
-                      amount: libraries.formatStorageSize(lib.disk.freeBytes),
-                    })
-                  : t('settings.libraries.unavailable')}
+                </span>
+                <span className={`settings-lib-space settings-lib-space-${spaceLevel}`}>
+                  <span className="settings-lib-space-dot" aria-hidden />
+                  {t('settings.libraries.free', {
+                    amount: libraries.formatStorageSize(segments.freeBytes),
+                  })}
+                </span>
+              </div>
+              <div
+                className="settings-lib-meter-track"
+                role="img"
+                aria-label={t('settings.libraries.meterAria', {
+                  library: libraries.formatStorageSize(segments.libraryBytes),
+                  other: libraries.formatStorageSize(segments.otherBytes),
+                  free: libraries.formatStorageSize(segments.freeBytes),
+                })}
+              >
+                <span
+                  className="settings-lib-meter-seg settings-lib-meter-library"
+                  style={{ width: `${segments.libraryPct}%` }}
+                />
+                <span
+                  className="settings-lib-meter-seg settings-lib-meter-other"
+                  style={{ width: `${segments.otherPct}%` }}
+                />
+                <span className="settings-lib-meter-seg settings-lib-meter-free" />
+              </div>
+              <div className="settings-lib-meter-legend">
+                <span className="settings-lib-meter-leg settings-lib-meter-leg-library">
+                  {lib.usedBytes == null
+                    ? t('settings.libraries.usedCalculating')
+                    : t('settings.libraries.meterLibrary', {
+                        amount: libraries.formatStorageSize(segments.libraryBytes),
+                      })}
+                </span>
+                <span className="settings-lib-meter-leg settings-lib-meter-leg-other">
+                  {t('settings.libraries.meterOther', {
+                    amount: libraries.formatStorageSize(segments.otherBytes),
+                  })}
+                </span>
+                <span className="settings-lib-meter-leg settings-lib-meter-leg-free">
+                  {t('settings.libraries.meterFree', {
+                    amount: libraries.formatStorageSize(segments.freeBytes),
+                  })}
+                </span>
+              </div>
+            </div>
+          ) : (
+            <div className="settings-lib-stats">
+              <span
+                className={`settings-lib-stat settings-lib-stat-used${
+                  lib.usedBytes == null ? ' settings-lib-stat-pending' : ''
+                }`}
+              >
+                {lib.usedBytes == null
+                  ? t('settings.libraries.usedCalculating')
+                  : t('settings.libraries.used', {
+                      amount: libraries.formatStorageSize(lib.usedBytes),
+                    })}
               </span>
-            </span>
-          </div>
+              <span className={`settings-lib-stat settings-lib-space settings-lib-space-${spaceLevel}`}>
+                <span className="settings-lib-space-dot" aria-hidden />
+                <span>
+                  {diskOk
+                    ? t('settings.libraries.free', {
+                        amount: libraries.formatStorageSize(lib.disk.freeBytes),
+                      })
+                    : t('settings.libraries.unavailable')}
+                </span>
+              </span>
+            </div>
+          )}
           <button
             type="button"
             className="settings-lib-expand"
@@ -2889,6 +2950,7 @@ function LibraryRow({
           <LibraryGamesUsage
             libraryPath={lib.path}
             libraryId={lib.id}
+            libraryUsedBytes={lib.usedBytes}
             expanded={expanded}
             cachedRows={cachedGameRows}
             onCacheRows={onCacheGameRows}

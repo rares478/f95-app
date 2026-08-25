@@ -534,6 +534,12 @@ const pt: Record<string, string> = {
   'settings.libraries.used': 'Usado: {amount}',
   'settings.libraries.usedCalculating': 'Usado: calculando…',
   'settings.libraries.unavailable': 'Disco indisponível',
+  'settings.libraries.driveTotal': 'Disco {amount}',
+  'settings.libraries.meterLibrary': 'Biblioteca {amount}',
+  'settings.libraries.meterOther': 'Outros no disco {amount}',
+  'settings.libraries.meterFree': 'Livre {amount}',
+  'settings.libraries.meterAria':
+    'Uso do disco: biblioteca {library}, outros {other}, livre {free}',
   'settings.libraries.setDefault': 'Definir padrão',
   'settings.libraries.pick': 'Escolher pasta para nova biblioteca de jogos',
   'settings.libraries.confirmRemove': 'Remover "{label}" da lista de bibliotecas? Os arquivos em {path} permanecem no disco — só não vamos baixar novos jogos lá.',

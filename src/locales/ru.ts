@@ -532,6 +532,12 @@ const ru: Record<string, string> = {
   'settings.libraries.used': 'Занято: {amount}',
   'settings.libraries.usedCalculating': 'Занято: вычисляется…',
   'settings.libraries.unavailable': 'Диск недоступен',
+  'settings.libraries.driveTotal': 'Диск {amount}',
+  'settings.libraries.meterLibrary': 'Библиотека {amount}',
+  'settings.libraries.meterOther': 'Другое на диске {amount}',
+  'settings.libraries.meterFree': 'Свободно {amount}',
+  'settings.libraries.meterAria':
+    'Использование диска: библиотека {library}, другое {other}, свободно {free}',
   'settings.libraries.setDefault': 'Сделать по умолчанию',
   'settings.libraries.pick': 'Выберите папку для новой библиотеки игр',
   'settings.libraries.confirmRemove': 'Удалить «{label}» из списка библиотек? Файлы в {path} останутся на диске — мы просто перестанем туда отправлять новые загрузки.',

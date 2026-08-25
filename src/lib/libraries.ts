@@ -74,10 +74,22 @@ export async function listWithDisk(): Promise<InstallLibraryWithDisk[]> {
     libs.map(async (lib) => {
       try {
         const disk = await ipc.diskInfo(lib.path);
-        return { ...lib, disk, usedBytes: null };
+        return {
+          ...lib,
+          disk: {
+            freeBytes: disk.freeBytes,
+            totalBytes: disk.totalBytes ?? null,
+            available: disk.available,
+          },
+          usedBytes: null,
+        };
       } catch (err) {
         console.warn(`[libraries] disk info failed for ${lib.path}`, err);
-        return { ...lib, disk: { freeBytes: 0, available: false }, usedBytes: null };
+        return {
+          ...lib,
+          disk: { freeBytes: 0, totalBytes: null, available: false },
+          usedBytes: null,
+        };
       }
     }),
   );

@@ -565,6 +565,12 @@ const en: Record<string, string> = {
   'settings.libraries.used': 'Used: {amount}',
   'settings.libraries.usedCalculating': 'Used: calculating…',
   'settings.libraries.unavailable': 'Disk unavailable',
+  'settings.libraries.driveTotal': 'Drive {amount}',
+  'settings.libraries.meterLibrary': 'Library {amount}',
+  'settings.libraries.meterOther': 'Other on drive {amount}',
+  'settings.libraries.meterFree': 'Free {amount}',
+  'settings.libraries.meterAria':
+    'Disk usage: library {library}, other {other}, free {free}',
   'settings.libraries.setDefault': 'Make default',
   'settings.libraries.pick': 'Choose folder for new game library',
   'settings.libraries.confirmRemove': 'Remove "{label}" from the library list? Files in {path} stay on disk — we just stop sending new downloads there.',

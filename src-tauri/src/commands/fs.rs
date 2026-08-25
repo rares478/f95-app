@@ -3,7 +3,7 @@ use crate::download::host::clean_download_filename;
 use crate::error::AppError;
 use crate::extract_jobs::ExtractCancel;
 use crate::extraction::ExtractProgressFn;
-use fs4::available_space;
+use fs4::{available_space, total_space};
 use serde::Serialize;
 use serde_json::json;
 use std::path::PathBuf;
@@ -308,13 +308,16 @@ pub fn default_downloads_path(state: State<'_, AppState>) -> Result<String, AppE
 pub struct DiskInfo {
     #[serde(rename = "freeBytes")]
     pub free_bytes: u64,
+    /// Total volume capacity in bytes; `None` when unavailable.
+    #[serde(rename = "totalBytes")]
+    pub total_bytes: Option<u64>,
     /// True when the path exists and we could read its disk info. Frontend
     /// uses this to grey out libraries that point at an unplugged drive.
     pub available: bool,
 }
 
-/// Free-space on the filesystem that hosts `path`. Used by the install-
-/// library picker UI to show "D:\F95 (livre: 203 GB)".
+/// Free-space (and total capacity) on the filesystem that hosts `path`.
+/// Used by the install-library picker UI to show drive usage.
 ///
 /// Returns `available: false` (with `free_bytes: 0`) when the path doesn't
 /// exist or fs4 can't read it - typical for an unmounted external drive.
@@ -324,16 +327,19 @@ pub fn disk_info(path: String) -> Result<DiskInfo, AppError> {
     if !p.exists() {
         return Ok(DiskInfo {
             free_bytes: 0,
+            total_bytes: None,
             available: false,
         });
     }
     match available_space(&p) {
         Ok(free) => Ok(DiskInfo {
             free_bytes: free,
+            total_bytes: total_space(&p).ok(),
             available: true,
         }),
         Err(_) => Ok(DiskInfo {
             free_bytes: 0,
+            total_bytes: None,
             available: false,
         }),
     }

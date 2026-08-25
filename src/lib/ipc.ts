@@ -624,6 +624,7 @@ export async function defaultDownloadsPath(): Promise<string> {
 
 export interface DiskInfo {
   freeBytes: number;
+  totalBytes: number | null;
   available: boolean;
 }
 

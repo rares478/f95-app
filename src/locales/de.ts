@@ -532,6 +532,12 @@ const de: Record<string, string> = {
   'settings.libraries.used': 'Belegt: {amount}',
   'settings.libraries.usedCalculating': 'Belegt: wird berechnet…',
   'settings.libraries.unavailable': 'Laufwerk nicht verfügbar',
+  'settings.libraries.driveTotal': 'Laufwerk {amount}',
+  'settings.libraries.meterLibrary': 'Bibliothek {amount}',
+  'settings.libraries.meterOther': 'Sonstiges auf dem Laufwerk {amount}',
+  'settings.libraries.meterFree': 'Frei {amount}',
+  'settings.libraries.meterAria':
+    'Speichernutzung: Bibliothek {library}, sonstiges {other}, frei {free}',
   'settings.libraries.setDefault': 'Als Standard',
   'settings.libraries.pick': 'Ordner für neue Spielbibliothek wählen',
   'settings.libraries.confirmRemove': '"{label}" aus der Bibliotheksliste entfernen? Dateien in {path} bleiben auf der Festplatte — wir senden nur keine neuen Downloads mehr dorthin.',

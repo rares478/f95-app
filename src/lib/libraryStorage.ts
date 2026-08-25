@@ -99,3 +99,49 @@ export function startLibraryGameSizeLoads(
     cancelled = true;
   };
 }
+
+/** Segment bytes for a library/other/free drive meter. */
+export interface DriveUsageSegments {
+  totalBytes: number;
+  freeBytes: number;
+  libraryBytes: number;
+  otherBytes: number;
+  libraryPct: number;
+  otherPct: number;
+  freePct: number;
+}
+
+/**
+ * Build drive meter segments. Returns null when total capacity is unknown.
+ * `other` is clamped so library + free never exceed total.
+ */
+export function driveUsageSegments(opts: {
+  totalBytes: number | null | undefined;
+  freeBytes: number;
+  libraryUsedBytes: number | null | undefined;
+}): DriveUsageSegments | null {
+  const total = opts.totalBytes;
+  if (total == null || !(total > 0)) return null;
+  const free = Math.max(0, Math.min(opts.freeBytes, total));
+  const library = Math.max(0, Math.min(opts.libraryUsedBytes ?? 0, total));
+  const other = Math.max(0, total - free - library);
+  const pct = (n: number) => (total > 0 ? (n / total) * 100 : 0);
+  return {
+    totalBytes: total,
+    freeBytes: free,
+    libraryBytes: library,
+    otherBytes: other,
+    libraryPct: pct(library),
+    otherPct: pct(other),
+    freePct: pct(free),
+  };
+}
+
+/** 0–100 share of a game within the library folder used size. */
+export function gameShareOfLibrary(
+  gameBytes: number | null | undefined,
+  libraryUsedBytes: number | null | undefined,
+): number | null {
+  if (gameBytes == null || libraryUsedBytes == null || libraryUsedBytes <= 0) return null;
+  return Math.max(0, Math.min(100, (gameBytes / libraryUsedBytes) * 100));
+}

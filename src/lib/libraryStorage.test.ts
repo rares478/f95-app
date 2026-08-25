@@ -6,6 +6,8 @@ import {
   startLibraryGameSizeLoads,
   toUsageRows,
   withGenerationGuard,
+  driveUsageSegments,
+  gameShareOfLibrary,
   type LibraryGameUsageRow,
 } from './libraryStorage';
 import type { LibraryGame } from '../types/library';
@@ -152,5 +154,40 @@ describe('withGenerationGuard', () => {
     generation = 3;
     guarded(2);
     expect(calls).toEqual([1]);
+  });
+});
+
+describe('driveUsageSegments', () => {
+  it('splits library / other / free against total', () => {
+    const s = driveUsageSegments({
+      totalBytes: 100,
+      freeBytes: 40,
+      libraryUsedBytes: 25,
+    });
+    expect(s).toEqual({
+      totalBytes: 100,
+      freeBytes: 40,
+      libraryBytes: 25,
+      otherBytes: 35,
+      libraryPct: 25,
+      otherPct: 35,
+      freePct: 40,
+    });
+  });
+
+  it('returns null without total capacity', () => {
+    expect(
+      driveUsageSegments({ totalBytes: null, freeBytes: 10, libraryUsedBytes: 5 }),
+    ).toBeNull();
+  });
+});
+
+describe('gameShareOfLibrary', () => {
+  it('returns percent of library used', () => {
+    expect(gameShareOfLibrary(25, 100)).toBe(25);
+  });
+
+  it('returns null when library size unknown', () => {
+    expect(gameShareOfLibrary(10, null)).toBeNull();
   });
 });

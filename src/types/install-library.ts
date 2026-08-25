@@ -11,6 +11,8 @@ export interface InstallLibrary {
 /** Disk info for a given path. Returned by ipc.diskInfo. */
 export interface DiskInfo {
   freeBytes: number;
+  /** Volume capacity in bytes; null when the backend could not read it. */
+  totalBytes: number | null;
   /** false when the drive is unplugged / path doesn't exist. */
   available: boolean;
 }
