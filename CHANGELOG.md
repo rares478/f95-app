@@ -16,6 +16,7 @@ together when cutting a release:
 ## [Unreleased]
 
 ### Added
+- Discussion, thread/game OP, and profile posts show non-image file attachments with in-app download to the Downloads folder.
 - Click avatar or username in discussions, thread author, forum search, and alerts to open that member's in-app profile.
 - Settings ΓåÆ Startup: start with Windows and optional start hidden in tray (enables tray when hidden start is on).
 - Store home **Because youΓÇª** recommendations after tag panels: up to three daily feature cards from recently played games and weighted tags from recent views (intersection bias + denylist so generic tags do not always win).
