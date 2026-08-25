@@ -1467,6 +1467,13 @@
   height: 100%;
   object-fit: cover;
   display: block;
+  animation: store-card-thumb-img-in 0.35s ease;
+}
+
+@media (prefers-reduced-motion: reduce) {
+  .tag-panel-tile-img {
+    animation: none;
+  }
 }
 
 .tag-panel-tile-fallback {

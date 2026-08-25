@@ -1,9 +1,10 @@
 import { Link } from 'react-router-dom';
+import { useStoreCardHoverImages } from '../../hooks/useStoreCardHoverImages';
 import { useStoreContextMenu } from '../../hooks/useStoreContextMenu';
-import { storeGameImageUrl } from '../../lib/f95ImageUrl';
 import { useT } from '../../lib/i18n';
 import { useIsInLibrary } from '../../lib/libraryMembership';
 import type { SamCategory, SamGameCard } from '../../types/sam';
+import { StoreCardThumbDots } from './StoreCardThumbDots';
 
 interface Props {
   game: SamGameCard;
@@ -21,6 +22,8 @@ export function TagPanelTile({ game, category }: Props) {
   const { t } = useT();
   const { openStoreContextMenu } = useStoreContextMenu(category);
   const inLibrary = useIsInLibrary(game.threadId);
+  const { images, hovered, slide, activeSrc, onEnter, onLeave } =
+    useStoreCardHoverImages(game);
 
   const footer =
     game.rating != null
@@ -29,18 +32,21 @@ export function TagPanelTile({ game, category }: Props) {
         ? { kind: 'likes' as const, text: formatCount(game.likes) }
         : null;
 
-  const imageSrc = storeGameImageUrl(game, 'full');
-
   return (
     <Link
       to={`/store/game/${game.threadId}?cat=${category}`}
-      className="tag-panel-tile"
+      className={`tag-panel-tile${hovered ? ' is-hovered' : ''}`}
       onContextMenu={(e) => void openStoreContextMenu(e, game)}
+      onMouseEnter={onEnter}
+      onMouseLeave={onLeave}
+      onFocus={onEnter}
+      onBlur={onLeave}
     >
       <div className="tag-panel-tile-thumb">
-        {imageSrc ? (
+        {activeSrc ? (
           <img
-            src={imageSrc}
+            key={activeSrc}
+            src={activeSrc}
             alt={game.title}
             loading="lazy"
             decoding="async"
@@ -57,6 +63,7 @@ export function TagPanelTile({ game, category }: Props) {
             {t('store.badge.inLibrary')}
           </div>
         )}
+        {hovered && <StoreCardThumbDots images={images} slide={slide} />}
       </div>
       <div className="tag-panel-tile-body">
         <div className="tag-panel-tile-title" title={game.title}>
