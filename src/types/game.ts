@@ -28,6 +28,10 @@ export interface SocialLink {
   text: string;
 }
 
+import type { PostAttachment } from './threadPosts';
+
+export type { PostAttachment };
+
 export interface GameDetail {
   threadId: string;
   threadUrl: string;
@@ -46,4 +50,5 @@ export interface GameDetail {
   tags: GameTag[];
   downloads: GameDownload[];
   social: SocialLink[];
+  attachments: PostAttachment[];
 }

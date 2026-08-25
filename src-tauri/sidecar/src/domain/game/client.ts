@@ -31,8 +31,13 @@ import {
   type GameDownload,
 } from './downloadBlock';
 import { parseMessageAuthorUserId } from '../../shared/memberId';
+import {
+  parseMessageAttachments,
+  type PostAttachment,
+} from './postAttachments';
 
 export type { GameDownload } from './downloadBlock';
+export type { PostAttachment } from './postAttachments';
 
 const BASE = F95_BASE;
 
@@ -60,6 +65,8 @@ export interface GameDetail {
   tags: GameTag[];
   downloads: GameDownload[];
   social: SocialLink[];
+  /** File attachments from OP message chrome (outside bbWrapper). */
+  attachments: PostAttachment[];
 }
 export interface GamePrefix {
   name: string;
@@ -476,6 +483,7 @@ function parseThread(html: string, finalUrl: string): GameDetail {
     ...screenshots,
   ]);
   const descriptionHtml = normalizeOpHtml($, opBody, galleryUrls);
+  const attachments = parseMessageAttachments($, op);
 
   return {
     threadId,
@@ -495,6 +503,7 @@ function parseThread(html: string, finalUrl: string): GameDetail {
     tags,
     downloads,
     social,
+    attachments,
   };
 }
 
