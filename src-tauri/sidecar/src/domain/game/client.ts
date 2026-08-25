@@ -30,6 +30,7 @@ import {
   resolveDownloadRoot,
   type GameDownload,
 } from './downloadBlock';
+import { parseMessageAuthorUserId } from '../../shared/memberId';
 
 export type { GameDownload } from './downloadBlock';
 
@@ -46,6 +47,8 @@ export interface GameDetail {
   developer: string | null;
   /** Thread OP author display name. */
   author: string | null;
+  /** Numeric member id for the OP author, when present. */
+  authorUserId: string | null;
   /** Absolute URL for the OP author's avatar, when present. */
   authorAvatarUrl: string | null;
   bannerUrl: string | null;
@@ -424,6 +427,7 @@ function parseThread(html: string, finalUrl: string): GameDetail {
     cleanText(op.find('.message-name').first().text()) ||
     cleanText(op.attr('data-author') ?? '') ||
     null;
+  const authorUserId = parseMessageAuthorUserId($, op);
   const avatarSrc =
     op.find('.message-avatar img, .avatar img').first().attr('src') ??
     op.find('.message-avatar img, .avatar img').first().attr('data-src');
@@ -481,6 +485,7 @@ function parseThread(html: string, finalUrl: string): GameDetail {
     version,
     developer,
     author,
+    authorUserId,
     authorAvatarUrl,
     bannerUrl,
     screenshots,
@@ -733,4 +738,9 @@ function isElement(n: AnyNode): n is Element {
 
 function isText(n: AnyNode): n is Text {
   return n.type === 'text';
+}
+
+/** Test-only seam for OP parse assertions (GameDetail.authorUserId). */
+export function parseThreadHtmlForTests(html: string, finalUrl: string) {
+  return parseThread(html, finalUrl);
 }

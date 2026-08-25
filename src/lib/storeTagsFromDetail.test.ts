@@ -11,6 +11,7 @@ function detail(over: Partial<GameDetail> = {}): GameDetail {
     version: '1.0',
     developer: null,
     author: null,
+    authorUserId: null,
     authorAvatarUrl: null,
     bannerUrl: null,
     screenshots: [],
