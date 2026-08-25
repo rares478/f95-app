@@ -1636,3 +1636,186 @@
   width: calc(100% - 16px);
   margin: 0 8px 8px;
 }
+
+/* ── Because You (feature cards after tags) ───────────────────────────── */
+
+.because-you {
+  margin: 0 0 28px;
+  min-width: 0;
+}
+
+.because-you-title {
+  margin: 0 0 12px;
+  font-size: 15px;
+  font-weight: 700;
+  color: var(--text-primary);
+  letter-spacing: 0.2px;
+}
+
+.because-you-list {
+  display: flex;
+  flex-direction: column;
+  gap: 14px;
+  min-width: 0;
+}
+
+.because-you-card {
+  display: block;
+  width: 100%;
+  box-sizing: border-box;
+  padding: 16px;
+  text-decoration: none;
+  color: inherit;
+  background: var(--bg-elevated);
+  border: 1px solid var(--border);
+  border-radius: 6px;
+  transition: border-color 0.12s ease;
+}
+
+.because-you-card:hover {
+  border-color: var(--accent);
+}
+
+.because-you-card:focus-visible {
+  outline: 2px solid var(--accent);
+  outline-offset: 2px;
+}
+
+.because-you-card-header {
+  margin: 0 0 12px;
+  min-width: 0;
+}
+
+.because-you-card-title {
+  margin: 0 0 4px;
+  font-size: 16px;
+  font-weight: 700;
+  color: var(--text-primary);
+  letter-spacing: 0.2px;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+.because-you-card-reason {
+  margin: 0;
+  font-size: 12px;
+  font-weight: 500;
+  line-height: 1.35;
+  color: var(--text-secondary);
+}
+
+.because-you-card-media {
+  display: grid;
+  grid-template-columns: minmax(0, 58%) minmax(0, 42%);
+  gap: 8px;
+  min-width: 0;
+  min-height: 0;
+}
+
+.because-you-card-cover {
+  position: relative;
+  min-width: 0;
+  min-height: 180px;
+  aspect-ratio: 16 / 9;
+  overflow: hidden;
+  border-radius: 4px;
+  background: var(--bg-sunken);
+  border: 1px solid var(--border-faint);
+}
+
+.because-you-card-grid {
+  display: grid;
+  grid-template-columns: repeat(2, minmax(0, 1fr));
+  grid-template-rows: repeat(2, minmax(0, 1fr));
+  gap: 8px;
+  min-width: 0;
+  min-height: 0;
+}
+
+.because-you-card-screen {
+  position: relative;
+  min-width: 0;
+  min-height: 0;
+  overflow: hidden;
+  border-radius: 4px;
+  background: var(--bg-sunken);
+  border: 1px solid var(--border-faint);
+}
+
+.because-you-card-img {
+  display: block;
+  width: 100%;
+  height: 100%;
+  object-fit: cover;
+}
+
+.because-you-card-fallback {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  width: 100%;
+  height: 100%;
+  font-size: 28px;
+  font-weight: 800;
+  color: var(--text-muted);
+  background: var(--bg-sunken);
+}
+
+.because-you-card-meta {
+  display: flex;
+  flex-direction: column;
+  gap: 6px;
+  grid-column: 2;
+  grid-row: 2;
+  min-width: 0;
+  min-height: 0;
+  padding: 10px;
+  box-sizing: border-box;
+  overflow: hidden;
+  border-radius: 4px;
+  background: color-mix(in srgb, var(--bg-sunken) 35%, var(--bg-elevated));
+  border: 1px solid var(--border-faint);
+}
+
+.because-you-card-meta .store-content-tags {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 4px;
+  min-width: 0;
+}
+
+.because-you-card-meta .store-content-tag {
+  font-size: 10px;
+  padding: 2px 6px;
+}
+
+.because-you-card-creator {
+  font-size: 11px;
+  font-weight: 600;
+  color: var(--text-secondary);
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+.because-you-card-rating {
+  font-size: 12px;
+  font-weight: 700;
+  color: var(--status-warning);
+  letter-spacing: 0.2px;
+}
+
+@media (max-width: 720px) {
+  .because-you-card-media {
+    grid-template-columns: 1fr;
+  }
+
+  .because-you-card-cover {
+    min-height: 140px;
+  }
+
+  .because-you-card-grid {
+    min-height: 160px;
+  }
+}

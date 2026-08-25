@@ -1,6 +1,7 @@
 import { useMemo, useState, type FormEvent } from 'react';
 import { useNavigate } from 'react-router-dom';
 import { OfflineGate } from '../components/OfflineGate';
+import { BecauseYouSection } from '../components/store/BecauseYouSection';
 import { DiscoveryRail } from '../components/store/DiscoveryRail';
 import { PopularTabsModule } from '../components/store/PopularTabsModule';
 import { SpotlightHero } from '../components/store/SpotlightHero';
@@ -17,9 +18,8 @@ export function StoreHomePage() {
   const { t } = useT();
   const navigate = useNavigate();
   const { seedFilters } = useStoreFilters();
-  const { category, spotlight, rails, becauseYou: _becauseYou, bootstrapping, fatalError, reload } =
+  const { category, spotlight, rails, becauseYou, bootstrapping, fatalError, reload } =
     useStoreDiscovery();
-  void _becauseYou;
   const [search, setSearch] = useState('');
 
   // Typed on StoreDiscoveryRail so required `retry` is preserved through banding.
@@ -169,6 +169,8 @@ export function StoreHomePage() {
                 return null;
             }
           })}
+
+          <BecauseYouSection cards={becauseYou.cards} category={category} />
         </div>
       </div>
     </OfflineGate>
