@@ -4,6 +4,7 @@ import { openUrl } from '@tauri-apps/plugin-opener';
 import { useSearchParams } from 'react-router-dom';
 import { DiscussionComposer } from './DiscussionComposer';
 import { GameDescription } from './GameDescription';
+import { PostAttachments } from '../PostAttachments';
 import { UserChip } from '../UserChip';
 import {
   appendQuoteToDraft,
@@ -132,6 +133,7 @@ function ThreadPostItem({
         html={sanitizePostHtml(post.html)}
         className="thread-post-body"
       />
+      <PostAttachments attachments={post.attachments ?? []} />
       {post.signatureHtml ? (
         <SignatureBlock
           postId={post.postId}

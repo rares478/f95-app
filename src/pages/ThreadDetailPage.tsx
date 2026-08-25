@@ -11,6 +11,7 @@ import {
   GameDetailShell,
 } from '../components/game/GameDetailLayout';
 import { ThreadDiscussion } from '../components/game/ThreadDiscussion';
+import { PostAttachments } from '../components/PostAttachments';
 import { UserChip } from '../components/UserChip';
 import { useOffline } from '../contexts/Offline';
 import * as ipc from '../lib/ipc';
@@ -184,6 +185,7 @@ export function ThreadDetailPage() {
             html={sanitized}
             style={{ fontSize: 13.5, lineHeight: 1.65, wordBreak: 'break-word' }}
           />
+          <PostAttachments attachments={g.attachments ?? []} />
         </section>
 
         <div aria-label={t('threaddetail.discussion')}>

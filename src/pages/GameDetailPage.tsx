@@ -14,6 +14,7 @@ import { clearRemoteImageQueue } from '../lib/remoteImageQueue';
 import { recordStoreView } from '../lib/storeViewHistory';
 import { ScreenshotGallery } from '../components/game/ScreenshotGallery';
 import { DownloadLinks } from '../components/game/DownloadLinks';
+import { PostAttachments } from '../components/PostAttachments';
 import {
   GameDetailBackBar,
   GameDetailBody,
@@ -316,6 +317,7 @@ export function GameDetailPage() {
               html={sanitized}
               style={{ fontSize: 13.5, lineHeight: 1.65, wordBreak: 'break-word' }}
             />
+            <PostAttachments attachments={g.attachments ?? []} />
           </GameDetailSection>
 
           <MoreLikeThis threadId={g.threadId} category={category} tags={g.tags} />

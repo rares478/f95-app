@@ -15,6 +15,7 @@ import { clearCredentials } from '../lib/stronghold';
 import { useT } from '../lib/i18n';
 import { dialog } from '../lib/dialog';
 import { GameDescription } from './game/GameDescription';
+import { PostAttachments } from './PostAttachments';
 import { Spinner } from './ui/Spinner';
 
 interface Props {
@@ -298,6 +299,7 @@ function ProfilePostsList({ posts }: { posts: ProfilePostItem[] }) {
             ) : (
               <div className="profile-list-snippet">{post.messageText}</div>
             )}
+            <PostAttachments attachments={post.attachments ?? []} />
             {post.date && <div className="profile-list-date">{post.date}</div>}
           </div>
         </li>
