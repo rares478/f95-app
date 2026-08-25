@@ -33,6 +33,8 @@ export const KEY_PROFILE_CACHE = 'profile_cache';
 
 export const KEY_AUTO_UPDATE_ENABLED = 'auto_update_enabled';
 export const KEY_TRAY_ICON_ENABLED = 'tray_icon_enabled';
+export const KEY_AUTOSTART_ENABLED = 'autostart_enabled';
+export const KEY_START_HIDDEN_ON_AUTOSTART = 'start_hidden_on_autostart';
 
 export const KEY_EXP_OVERLAY_ENABLED = 'exp_overlay_enabled';
 export const KEY_EXP_OVERLAY_HOTKEY = 'exp_overlay_hotkey';
