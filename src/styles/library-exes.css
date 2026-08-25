@@ -229,3 +229,12 @@
 .library-exes-add {
   align-self: flex-start;
 }
+
+.split-play-menu-sep {
+  height: 1px;
+  margin: 4px 6px;
+  padding: 0;
+  list-style: none;
+  background: var(--border-faint, var(--border));
+  border: none;
+}

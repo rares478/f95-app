@@ -47,6 +47,7 @@ import { inFlightLibraryStatus } from '../lib/downloadLibrarySync';
 import { pickExeFor } from '../lib/libraryGameActions';
 import { resolvePlayExe, type LibraryGameExe } from '../lib/libraryExes';
 import { SplitPlayButton } from '../components/library/SplitPlayButton';
+import { catalogHasMultipleSeasons } from '../lib/installCatalog';
 import { LibraryExesSection } from '../components/library/LibraryExesSection';
 import { useT } from '../lib/i18n';
 import { translateBackendMessage } from '../lib/backendMessage';
@@ -382,6 +383,8 @@ export function LibraryGamePage() {
   }
 
   const isGame = g.category === 'games';
+  const canInstallSeason =
+    isGame && catalogHasMultipleSeasons(g.downloadLinks ?? []);
   const canOpenViewer =
     !isGame &&
     !!g.installPath &&
@@ -587,6 +590,15 @@ export function LibraryGamePage() {
                   others={otherExes}
                   onPlay={() => void onPlay()}
                   onPlayExe={(exe) => void onPlayExe(exe)}
+                  onInstallSeason={
+                    canInstallSeason
+                      ? () =>
+                          void installFlow.beginInstallOrUpdate(g, {
+                            preferSeasonStep: true,
+                          })
+                      : undefined
+                  }
+                  installSeasonBusy={installFlow.busy}
                   title={
                     !g.exePath && !resolvedExe
                       ? t('libdetail.action.play.hintExe')

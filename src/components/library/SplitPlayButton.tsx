@@ -11,6 +11,9 @@ export type SplitPlayButtonProps = {
   onPlayExe: (exe: LibraryGameExe) => void;
   variant?: 'primary' | 'secondary';
   title?: string;
+  /** When set, chevron shows even with no other exes; menu ends with this action. */
+  onInstallSeason?: () => void;
+  installSeasonBusy?: boolean;
 };
 
 export function SplitPlayButton({
@@ -21,12 +24,15 @@ export function SplitPlayButton({
   onPlayExe,
   variant = 'primary',
   title,
+  onInstallSeason,
+  installSeasonBusy = false,
 }: SplitPlayButtonProps) {
   const { t } = useT();
   const [open, setOpen] = useState(false);
   const rootRef = useRef<HTMLDivElement>(null);
   const menuId = useId();
-  const showChevron = others.length > 0;
+  const showInstallSeason = onInstallSeason != null;
+  const showChevron = others.length > 0 || showInstallSeason;
 
   useEffect(() => {
     if (!open) return;
@@ -47,8 +53,8 @@ export function SplitPlayButton({
   }, [open]);
 
   useEffect(() => {
-    if (disabled || launching) setOpen(false);
-  }, [disabled, launching]);
+    if (disabled || launching || installSeasonBusy) setOpen(false);
+  }, [disabled, launching, installSeasonBusy]);
 
   const btnClass =
     variant === 'secondary'
@@ -104,6 +110,25 @@ export function SplitPlayButton({
                   </button>
                 </li>
               ))}
+              {others.length > 0 && showInstallSeason && (
+                <li role="separator" className="split-play-menu-sep" />
+              )}
+              {showInstallSeason && (
+                <li role="none">
+                  <button
+                    type="button"
+                    role="menuitem"
+                    className="split-play-menu-item"
+                    disabled={launching || installSeasonBusy}
+                    onClick={() => {
+                      setOpen(false);
+                      onInstallSeason();
+                    }}
+                  >
+                    {t('libdetail.action.installSeason')}
+                  </button>
+                </li>
+              )}
             </ul>
           )}
         </>
