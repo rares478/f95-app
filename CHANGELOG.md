@@ -16,6 +16,7 @@ together when cutting a release:
 ## [Unreleased]
 
 ### Added
+- Settings → Install locations: expand a library to see installed games by disk usage (largest first) with Uninstall.
 - Discussion, thread/game OP, and profile posts show non-image file attachments with in-app download to the Downloads folder.
 - Click avatar or username in discussions, thread author, forum search, and alerts to open that member's in-app profile.
 - Settings → Startup: start with Windows and optional start hidden in tray (enables tray when hidden start is on).
