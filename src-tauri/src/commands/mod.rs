@@ -1,5 +1,6 @@
 mod alerts;
 mod app_log_cmd;
+mod attachments;
 mod auth;
 mod captcha;
 mod download;
@@ -17,6 +18,7 @@ mod window;
 
 pub use alerts::*;
 pub use app_log_cmd::*;
+pub use attachments::*;
 pub use auth::*;
 pub use captcha::*;
 pub use download::*;

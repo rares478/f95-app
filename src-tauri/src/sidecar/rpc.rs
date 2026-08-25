@@ -6,9 +6,14 @@ use serde_json::{json, Value};
 use std::sync::Arc;
 use std::time::Duration;
 
-#[derive(Debug, Deserialize)]
+#[derive(Debug, Deserialize, serde::Serialize)]
 pub struct UnmaskResult {
     pub url: String,
+}
+
+#[derive(Debug, Deserialize, serde::Serialize)]
+pub struct DownloadAttachmentResult {
+    pub path: String,
 }
 
 #[derive(Debug, Deserialize)]
@@ -234,6 +239,26 @@ impl SidecarClient {
 
     pub async fn unmask_url(&self, url: &str) -> Result<UnmaskResult, AppError> {
         let value = self.inner.call("unmaskUrl", json!({ "url": url })).await?;
+        Ok(serde_json::from_value(value)?)
+    }
+
+    pub async fn download_post_attachment(
+        &self,
+        url: &str,
+        file_name: &str,
+        dest_dir: &str,
+    ) -> Result<DownloadAttachmentResult, AppError> {
+        let value = self
+            .inner
+            .call(
+                "downloadPostAttachment",
+                json!({
+                    "url": url,
+                    "fileName": file_name,
+                    "destDir": dest_dir,
+                }),
+            )
+            .await?;
         Ok(serde_json::from_value(value)?)
     }
 

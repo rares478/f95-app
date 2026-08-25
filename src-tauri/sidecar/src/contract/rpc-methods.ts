@@ -102,6 +102,10 @@ export const RPC_METHODS = {
     params: { url: 'string' },
     result: { url: 'string', status: 'number' },
   },
+  downloadPostAttachment: {
+    params: { url: 'string', fileName: 'string', destDir: 'string' },
+    result: { path: 'string' },
+  },
   resolveBuzzheavier: {
     params: { url: 'string', accountId: 'string?' },
     result: { directUrl: 'string', fileName: 'string', fileSize: 'number?' },

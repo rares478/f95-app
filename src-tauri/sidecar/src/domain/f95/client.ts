@@ -140,6 +140,10 @@ export class F95Client {
     return this._sessionId;
   }
 
+  get sessionDir(): string {
+    return this._sessionDir;
+  }
+
   /**
    * Exposes the underlying HTTP client so other modules (SamClient, GameClient)
    * can share the same authenticated session. Treat as read-only.

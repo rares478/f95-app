@@ -217,6 +217,13 @@ export async function downloadCancel(id: number): Promise<void> {
   return invoke('download_cancel', { id });
 }
 
+export async function downloadPostAttachment(args: {
+  url: string;
+  fileName: string;
+}): Promise<{ path: string }> {
+  return invoke<{ path: string }>('download_post_attachment', args);
+}
+
 export async function openCaptchaWindow(args: {
   downloadId: number;
   url: string;
