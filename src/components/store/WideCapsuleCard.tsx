@@ -1,18 +1,15 @@
-import { useEffect, useRef, useState } from 'react';
 import { Link } from 'react-router-dom';
+import { useStoreCardHoverImages } from '../../hooks/useStoreCardHoverImages';
 import { useStoreContextMenu } from '../../hooks/useStoreContextMenu';
-import { storeGameImageUrl } from '../../lib/f95ImageUrl';
 import { useT } from '../../lib/i18n';
 import { useIsInLibrary } from '../../lib/libraryMembership';
 import type { SamCategory, SamGameCard } from '../../types/sam';
+import { StoreCardThumbDots } from './StoreCardThumbDots';
 
 interface Props {
   game: SamGameCard;
   category: SamCategory;
 }
-
-/** Lets the pointer reach rail arrows without triggering pop-out. */
-const HOVER_OPEN_MS = 200;
 
 function shortUpdatedAt(updatedAt: string | null): string | null {
   if (!updatedAt) return null;
@@ -21,44 +18,15 @@ function shortUpdatedAt(updatedAt: string | null): string | null {
   return d.toLocaleDateString(undefined, { month: 'short', day: 'numeric' });
 }
 
-/** Landscape capsule card for discovery rails (no screenshot carousel). */
+/** Landscape capsule card for discovery rails with hover screenshot cycle. */
 export function WideCapsuleCard({ game, category }: Props) {
   const { t } = useT();
   const { openStoreContextMenu } = useStoreContextMenu(category);
   const inLibrary = useIsInLibrary(game.threadId);
-  const [hovered, setHovered] = useState(false);
-  const openTimerRef = useRef<number | null>(null);
-
-  useEffect(() => {
-    return () => {
-      if (openTimerRef.current != null) {
-        window.clearTimeout(openTimerRef.current);
-      }
-    };
-  }, []);
-
-  const clearOpenTimer = () => {
-    if (openTimerRef.current != null) {
-      window.clearTimeout(openTimerRef.current);
-      openTimerRef.current = null;
-    }
-  };
-
-  const onEnter = () => {
-    clearOpenTimer();
-    openTimerRef.current = window.setTimeout(() => {
-      openTimerRef.current = null;
-      setHovered(true);
-    }, HOVER_OPEN_MS);
-  };
-
-  const onLeave = () => {
-    clearOpenTimer();
-    setHovered(false);
-  };
+  const { images, hovered, slide, activeSrc, onEnter, onLeave } =
+    useStoreCardHoverImages(game);
 
   const meta = game.version || shortUpdatedAt(game.updatedAt);
-  const imageSrc = storeGameImageUrl(game, 'thumb');
 
   return (
     <Link
@@ -71,9 +39,10 @@ export function WideCapsuleCard({ game, category }: Props) {
       onBlur={onLeave}
     >
       <div className="wide-capsule-card-thumb">
-        {imageSrc ? (
+        {activeSrc ? (
           <img
-            src={imageSrc}
+            key={activeSrc}
+            src={activeSrc}
             alt={game.title}
             loading="lazy"
             decoding="async"
@@ -90,6 +59,7 @@ export function WideCapsuleCard({ game, category }: Props) {
             {t('store.badge.inLibrary')}
           </div>
         )}
+        {hovered && <StoreCardThumbDots images={images} slide={slide} />}
         <div className="wide-capsule-card-overlay">
           <div className="wide-capsule-card-title" title={game.title}>
             {game.title}

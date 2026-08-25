@@ -1073,6 +1073,7 @@
   height: 100%;
   object-fit: cover;
   display: block;
+  animation: store-card-thumb-img-in 0.35s ease;
 }
 
 .wide-capsule-card-fallback {
@@ -1175,6 +1176,10 @@
 @media (prefers-reduced-motion: reduce) {
   .wide-capsule-card.is-hovered {
     transform: translateY(-4px);
+  }
+
+  .wide-capsule-card-img {
+    animation: none;
   }
 }
 
