@@ -3,6 +3,7 @@ import { useT } from '../../lib/i18n';
 import { prefixPillColor, type PrefixMeta } from '../../lib/prefixCatalog';
 import { resolvePrefixByName } from '../../lib/prefixResolve';
 import type { ForumSearchHit, ForumSearchPrefix } from '../../types/forumSearch';
+import { UserChip } from '../UserChip';
 
 interface Props {
   hit: ForumSearchHit;
@@ -15,55 +16,51 @@ export function ForumSearchResultRow({ hit, onOpen }: Props) {
   const kindLabel =
     hit.resultLabel?.trim() ||
     (hit.postId ? t('search.result.post') : t('search.result.thread'));
-  const metaBits = [kindLabel, hit.author, hit.dateLabel].filter(Boolean);
-  const letter = (hit.author?.trim()?.[0] ?? '?').toUpperCase();
+  // Author name lives on the sibling UserChip — keep meta to kind + date only.
+  const metaBits = [kindLabel, hit.dateLabel].filter(Boolean);
   const prefixes = hit.prefixes ?? [];
 
   return (
     <li className="forum-search-item">
-      <button
-        type="button"
-        className={`forum-search-row${!canOpen ? ' forum-search-row--disabled' : ''}`}
-        onClick={() => {
-          if (!canOpen) return;
-          onOpen();
-        }}
-        disabled={!canOpen}
-      >
-        {hit.avatarUrl ? (
-          <img
-            src={hit.avatarUrl}
-            alt=""
-            className="forum-search-row-avatar"
-            loading="lazy"
-            referrerPolicy="no-referrer"
-          />
-        ) : (
-          <div className="forum-search-row-avatar forum-search-row-avatar--fallback" aria-hidden>
-            {letter}
-          </div>
-        )}
-        <div className="forum-search-row-content">
-          <div className="forum-search-row-title">
-            <SearchPrefixPills prefixes={prefixes} />
-            <span className="forum-search-row-title-text">
-              {hit.title || t('search.result.untitled')}
-            </span>
-          </div>
-          <div className="forum-search-row-meta">
-            {hit.forum && (
-              <span className="forum-search-row-forum">{hit.forum}</span>
-            )}
-            {metaBits.map((bit) => (
-              <span key={bit} className="forum-search-row-meta-bit">
-                {bit}
+      <div className="forum-search-row-shell">
+        <UserChip
+          userId={hit.authorId}
+          username={hit.author ?? '?'}
+          avatarUrl={hit.avatarUrl}
+          className="forum-search-row-user"
+          size={40}
+        />
+        <button
+          type="button"
+          className={`forum-search-row${!canOpen ? ' forum-search-row--disabled' : ''}`}
+          onClick={() => {
+            if (!canOpen) return;
+            onOpen();
+          }}
+          disabled={!canOpen}
+        >
+          <div className="forum-search-row-content">
+            <div className="forum-search-row-title">
+              <SearchPrefixPills prefixes={prefixes} />
+              <span className="forum-search-row-title-text">
+                {hit.title || t('search.result.untitled')}
               </span>
-            ))}
+            </div>
+            <div className="forum-search-row-meta">
+              {hit.forum && (
+                <span className="forum-search-row-forum">{hit.forum}</span>
+              )}
+              {metaBits.map((bit) => (
+                <span key={bit} className="forum-search-row-meta-bit">
+                  {bit}
+                </span>
+              ))}
+            </div>
+            {hit.snippet && <div className="forum-search-row-snippet">{hit.snippet}</div>}
           </div>
-          {hit.snippet && <div className="forum-search-row-snippet">{hit.snippet}</div>}
-        </div>
-        {canOpen && <IconChevronSmall />}
-      </button>
+          {canOpen && <IconChevronSmall />}
+        </button>
+      </div>
     </li>
   );
 }
