@@ -30,4 +30,18 @@ describe('parseMessageAuthorUserId', () => {
     const $ = load(html);
     expect(parseMessageAuthorUserId($, $('article.message').first())).toBeNull();
   });
+
+  it('ignores body-only data-user-id / members links when header has no id', () => {
+    const html = `<article class="message">
+      <div class="message-userDetails">
+        <h4 class="message-name"><a>Anon</a></h4>
+      </div>
+      <div class="message-content">
+        <a href="/members/mentioned.99/" data-user-id="99">@Mentioned</a>
+      </div>
+    </article>`;
+    const $ = load(html);
+    expect(parseMessageAuthorUserId($, $('article.message').first())).toBeNull();
+  });
 });
+

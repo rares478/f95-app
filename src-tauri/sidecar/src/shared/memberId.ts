@@ -21,10 +21,15 @@ export function parseMessageAuthorUserId(
   const fromHref = extractMemberUserIdFromHref($headerLink.attr('href'));
   if (fromHref) return fromHref;
 
+  const $headerUserId = $message
+    .find(
+      '.message-name [data-user-id], .message-userDetails [data-user-id], .message-avatar [data-user-id], .message-cell--user [data-user-id]',
+    )
+    .first();
   const dataAttr =
     $headerLink.attr('data-user-id') ??
     $message.attr('data-user-id') ??
-    $message.find('[data-user-id]').first().attr('data-user-id');
+    $headerUserId.attr('data-user-id');
   if (dataAttr && /^\d+$/.test(dataAttr)) return dataAttr;
 
   return null;
