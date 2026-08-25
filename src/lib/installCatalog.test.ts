@@ -2,6 +2,7 @@ import { describe, expect, it } from 'vitest';
 import {
   backfillDownloadPathFromGroup,
   buildInstallCatalog,
+  catalogHasMultipleSeasons,
   defaultPackageKind,
   defaultPlatformId,
   defaultSeasonId,
@@ -316,5 +317,28 @@ describe('defaultPackageKind', () => {
         packages: [],
       }),
     ).toBeNull();
+  });
+});
+
+describe('catalogHasMultipleSeasons', () => {
+  it('returns false for empty links', () => {
+    expect(catalogHasMultipleSeasons([])).toBe(false);
+  });
+
+  it('returns false when every platform has a single season', () => {
+    const links = [
+      link({
+        host: 'mega',
+        url: 'https://mega.nz/a',
+        platform: 'Win/Linux',
+        kindHint: 'full',
+        group: 'Win/Linux',
+      }),
+    ];
+    expect(catalogHasMultipleSeasons(links)).toBe(false);
+  });
+
+  it('returns true when any platform has multiple seasons (eternum-like)', () => {
+    expect(catalogHasMultipleSeasons(eternumLikeLinks())).toBe(true);
   });
 });

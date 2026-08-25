@@ -188,6 +188,12 @@ export function buildInstallCatalog(links: GameDownload[]): InstallPlatform[] {
   return platforms;
 }
 
+/** True if any platform in the catalog has more than one season. */
+export function catalogHasMultipleSeasons(links: GameDownload[]): boolean {
+  if (!links.length) return false;
+  return buildInstallCatalog(links).some((p) => p.seasons.length > 1);
+}
+
 function labelMatchesOs(
   label: string,
   os: 'windows' | 'macos' | 'linux',
