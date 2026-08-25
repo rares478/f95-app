@@ -3,6 +3,12 @@ import type { Element } from 'domhandler';
 import { F95_BASE } from '../../shared/constants';
 import { parseMessageAuthorUserId } from '../../shared/memberId';
 import { normalizeOpHtml } from './htmlNormalize';
+import {
+  parseMessageAttachments,
+  type PostAttachment,
+} from './postAttachments';
+
+export type { PostAttachment };
 
 export interface ThreadPost {
   postId: string;
@@ -14,6 +20,7 @@ export interface ThreadPost {
   /** Normalized XF profile signature HTML, when present. */
   signatureHtml: string | null;
   permalink: string | null;
+  attachments: PostAttachment[];
 }
 
 export interface ThreadPostsPage {
@@ -190,6 +197,7 @@ export function parseThreadPostsPage(
       html: htmlBody,
       signatureHtml,
       permalink,
+      attachments: parseMessageAttachments($, $el),
     });
   }
 

@@ -1,3 +1,11 @@
+export interface PostAttachment {
+  id: string;
+  fileName: string;
+  fileSize: number | null;
+  url: string;
+  isImage: boolean;
+}
+
 export interface ThreadPost {
   postId: string;
   author: string;
@@ -8,6 +16,7 @@ export interface ThreadPost {
   /** Normalized XF profile signature HTML, when present. */
   signatureHtml: string | null;
   permalink: string | null;
+  attachments: PostAttachment[];
 }
 
 export interface ThreadPostsPage {

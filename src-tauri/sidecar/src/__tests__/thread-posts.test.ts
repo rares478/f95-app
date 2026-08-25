@@ -60,6 +60,7 @@ describe('parseThreadPostsPage', () => {
     expect(page.posts[0].html).toContain('Hello reply');
     expect(page.posts[0].html).not.toContain('My cool signature');
     expect(page.posts[0].signatureHtml).toContain('My cool signature');
+    expect(page.posts[0].attachments[0].fileName).toBe('mysave.zip');
     expect(page.hasMore).toBe(true);
     expect(page.totalPages).toBe(2);
   });
