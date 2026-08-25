@@ -70,7 +70,7 @@ export function PostAttachments({ attachments }: Props) {
               </div>
               <button
                 type="button"
-                className="dl-action-btn post-attachments-btn"
+                className="post-attachments-btn"
                 disabled={isOffline || busy}
                 title={
                   isOffline
