@@ -36,3 +36,18 @@ export const VIEW_HISTORY_CAP = 24;
 export const MIN_PLAYTIME_SECONDS = 300;
 export const PERSONAL_TTL_MS = RECENT_TTL_MS;
 export const PERSONAL_POOL_KEY = 'personal:home';
+
+export const BECAUSE_YOU_POOL_KEY = 'personal:because-you';
+export const BECAUSE_YOU_MAX_CARDS = 3;
+export const BECAUSE_YOU_MAX_PLAY_SLOTS = 2;
+export const BECAUSE_YOU_MAX_INTEREST_SLOTS = 2;
+
+/** Never use these catalog names/slugs as interest *reason* tags (case-insensitive). */
+export const BECAUSE_YOU_INTEREST_DENYLIST = [
+  'Male protagonist',
+  'Female protagonist',
+  'Big tits',
+  'Oral sex',
+  'Creampie',
+  'Voyeurism',
+] as const;
