@@ -1,6 +1,7 @@
 import { createHash } from 'node:crypto';
 import type * as cheerio from 'cheerio';
 import type { Element } from 'domhandler';
+import { isAllowedAttachmentUrl } from '../f95/attachmentUrl';
 import { F95_BASE } from '../../shared/constants';
 
 export interface PostAttachment {
@@ -21,7 +22,11 @@ const IMAGE_EXTS = new Set([
   'avif',
 ]);
 
+/** XF path form: /attachments/name.123/ */
 const ATTACHMENT_ID_RE = /\/attachments\/(?:[^/]*\.)?(\d+)\//i;
+/** CDN form: attachments.f95zone.to/YYYY/MM/12345_filename.ext */
+const CDN_ATTACHMENT_ID_RE =
+  /attachments\.f95zone\.to\/\d{4}\/\d{2}\/(\d+)_/i;
 
 const SIZE_RE =
   /([\d]+(?:[.,]\d+)?)\s*(B|KB|MB|GB|TB|KiB|MiB|GiB|TiB)\b/i;
@@ -69,8 +74,11 @@ export function parseHumanFileSize(text: string): number | null {
 }
 
 function attachmentIdFromUrl(url: string): string {
-  const m = url.match(ATTACHMENT_ID_RE);
-  return m?.[1] ?? stableIdFromUrl(url);
+  const pathId = url.match(ATTACHMENT_ID_RE)?.[1];
+  if (pathId) return pathId;
+  const cdnId = url.match(CDN_ATTACHMENT_ID_RE)?.[1];
+  if (cdnId) return cdnId;
+  return stableIdFromUrl(url);
 }
 
 function isOutsideBbWrapper(
@@ -80,19 +88,38 @@ function isOutsideBbWrapper(
   return $(el).closest('.bbWrapper').length === 0;
 }
 
+function findAttachmentAnchor(
+  $: cheerio.CheerioAPI,
+  $row: cheerio.Cheerio<Element>,
+): cheerio.Cheerio<Element> | null {
+  const candidates = [
+    ...$row.find('.attachment-name a[href]').toArray(),
+    ...$row.find('a[href]').toArray(),
+  ];
+  for (const el of candidates) {
+    const $a = $(el);
+    const url = absUrl($a.attr('href'));
+    if (url && isAllowedAttachmentUrl(url)) return $a;
+  }
+  return null;
+}
+
 function parseOneAttachment(
   $: cheerio.CheerioAPI,
   $row: cheerio.Cheerio<Element>,
 ): PostAttachment | null {
-  const $link = $row.find('a[href*="/attachments/"]').first();
-  if (!$link.length) return null;
+  const $link = findAttachmentAnchor($, $row);
+  if (!$link) return null;
 
   const href = $link.attr('href') ?? '';
   const url = absUrl(href);
-  if (!url) return null;
+  if (!url || !isAllowedAttachmentUrl(url)) return null;
 
+  const title = ($link.attr('title') || '').replace(/\s+/g, ' ').trim();
+  const text = ($link.text() || '').replace(/\s+/g, ' ').trim();
   const fileName =
-    ($link.text() || '').replace(/\s+/g, ' ').trim() ||
+    text ||
+    title ||
     href.split('/').filter(Boolean).pop() ||
     'attachment';
 
@@ -156,7 +183,9 @@ export function parseMessageAttachments(
       return;
     }
 
-    $root.find('a[href*="/attachments/"]').each((_, linkEl) => {
+    $root.find('a[href]').each((_, linkEl) => {
+      const url = absUrl($(linkEl).attr('href'));
+      if (!url || !isAllowedAttachmentUrl(url)) return;
       const att = parseOneAttachment($, $(linkEl).parent());
       if (att) push(att);
     });

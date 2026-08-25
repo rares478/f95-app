@@ -1141,6 +1141,7 @@ const pt: Record<string, string> = {
   'attachments.download': 'Baixar',
   'attachments.downloading': 'Baixando…',
   'attachments.downloaded': 'Salvo',
+  'attachments.open': 'Abrir',
   'attachments.failed': 'Não foi possível baixar: {error}',
   'attachments.offline': 'Anexos indisponíveis offline.',
 

@@ -1172,6 +1172,7 @@ const en: Record<string, string> = {
   'attachments.download': 'Download',
   'attachments.downloading': 'Downloading…',
   'attachments.downloaded': 'Saved',
+  'attachments.open': 'Open',
   'attachments.failed': 'Could not download: {error}',
   'attachments.offline': 'Attachments unavailable offline.',
 

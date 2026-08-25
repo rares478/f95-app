@@ -1136,6 +1136,7 @@ const de: Record<string, string> = {
   'attachments.download': 'Herunterladen',
   'attachments.downloading': 'Wird heruntergeladen…',
   'attachments.downloaded': 'Gespeichert',
+  'attachments.open': 'Öffnen',
   'attachments.failed': 'Download fehlgeschlagen: {error}',
   'attachments.offline': 'Anhänge sind offline nicht verfügbar.',
 

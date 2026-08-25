@@ -1136,6 +1136,7 @@ const ru: Record<string, string> = {
   'attachments.download': 'Скачать',
   'attachments.downloading': 'Скачивание…',
   'attachments.downloaded': 'Сохранено',
+  'attachments.open': 'Открыть',
   'attachments.failed': 'Не удалось скачать: {error}',
   'attachments.offline': 'Вложения недоступны офлайн.',
 

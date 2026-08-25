@@ -35,6 +35,44 @@ describe('parseMessageAttachments', () => {
     expect(list[1]!.isImage).toBe(true);
   });
 
+  it('parses CDN attachment URLs (attachments.f95zone.to) from live chrome', () => {
+    // Shape from https://f95zone.to/.../post-8898452 (save_naming.zip)
+    const html = `<article class="message message--post" id="js-post-8898452">
+      <article class="message-body">
+        <div class="bbWrapper">
+          Unzip the attached zip
+          <a href="https://attachments.f95zone.to/2022/09/2045091_save_naming.png">png</a>
+        </div>
+      </article>
+      <section class="message-attachments">
+        <h4 class="block-textHeader">Attachments</h4>
+        <ul class="attachmentList">
+          <li class="attachment hasEngine">
+            <div class="attachment-icon" data-extension="zip">
+              <a href="https://attachments.f95zone.to/2022/09/2045090_save_naming.zip" target="_blank"><i aria-hidden="true"></i></a>
+            </div>
+            <div class="attachment-name">
+              <a href="https://attachments.f95zone.to/2022/09/2045090_save_naming.zip" target="_blank" title="save_naming.zip">save_naming.zip</a>
+            </div>
+            <div class="attachment-details">
+              <span class="attachment-details-size">11.5 KB</span>
+            </div>
+          </li>
+        </ul>
+      </section>
+    </article>`;
+    const $ = load(html);
+    const list = parseMessageAttachments($, $('article.message').first());
+    expect(list).toHaveLength(1);
+    expect(list[0]).toMatchObject({
+      id: '2045090',
+      fileName: 'save_naming.zip',
+      isImage: false,
+      url: 'https://attachments.f95zone.to/2022/09/2045090_save_naming.zip',
+    });
+    expect(list[0]!.fileSize).toBe(11500);
+  });
+
   it('returns empty when only body links exist', () => {
     const html = `<article class="message">
       <div class="message-body"><div class="bbWrapper">

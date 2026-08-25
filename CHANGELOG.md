@@ -18,8 +18,8 @@ together when cutting a release:
 ### Added
 - Discussion, thread/game OP, and profile posts show non-image file attachments with in-app download to the Downloads folder.
 - Click avatar or username in discussions, thread author, forum search, and alerts to open that member's in-app profile.
-- Settings ΓåÆ Startup: start with Windows and optional start hidden in tray (enables tray when hidden start is on).
-- Store home **Because youΓÇª** recommendations after tag panels: up to three daily feature cards from recently played games and weighted tags from recent views (intersection bias + denylist so generic tags do not always win).
+- Settings → Startup: start with Windows and optional start hidden in tray (enables tray when hidden start is on).
+- Store home **Because you…** recommendations after tag panels: up to three daily feature cards from recently played games and weighted tags from recent views (intersection bias + denylist so generic tags do not always win).
 - Game detail **More like this** uses the same discovery carousel as the store (chevrons, snap scroll, under-arrow treatment).
 - Store cards cycle cover screenshots on hover (rails, capsules, tag tiles, browse, spotlight).
 - Discovery rails dim and shrink cards under the nav chevrons and make them unclickable; arrow scrolls snap to card edges.
@@ -27,12 +27,13 @@ together when cutting a release:
 - Single-instance app: a second launch focuses the existing window.
 
 ### Changed
-- Removed the top **For You** carousels (Recently viewed / Because you play); personalization lives in Because youΓÇª instead.
+- Removed the top **For You** carousels (Recently viewed / Because you play); personalization lives in Because you… instead.
 - Store home layout polish: fuller-bleed home column, hover meta pop-out, and tag sampling that avoids repeating the same games across panels.
 - App repo and updater target `rares478/f95-app`.
 
 ### Fixed
-- Because youΓÇª: no link underline on hover; hovering a screenshot previews it in the large cover; warm pack no longer flickers empty on reload; an empty rebuild does not wipe a good same-day cache.
+- Post attachments parse CDN links (`attachments.f95zone.to`) so zip/mod files show and download; after download, Open reveals the file in Explorer (including paths with spaces).
+- Because you…: no link underline on hover; hovering a screenshot previews it in the large cover; warm pack no longer flickers empty on reload; an empty rebuild does not wipe a good same-day cache.
 - Spotlight uses cover art with hover screenshot cycling; version/meta sit above screenshot dots; removed the redundant View details CTA.
 - Popular Liked/Viewed/Rated tabs restore a full hit area.
 - Tray custom menu opens on the first right-click.

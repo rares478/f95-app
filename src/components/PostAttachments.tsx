@@ -43,6 +43,18 @@ export function PostAttachments({ attachments }: Props) {
     }
   }
 
+  async function onOpen(file: PostAttachment) {
+    const path = savedPathById[file.id];
+    if (!path) return;
+    try {
+      await ipc.revealInExplorer(path);
+    } catch (err) {
+      await dialog.alert(t('attachments.failed', { error: formatIpcError(err) }), {
+        kind: 'error',
+      });
+    }
+  }
+
   return (
     <section className="post-attachments" aria-label={t('attachments.title')}>
       <h3 className="post-attachments-title">{t('attachments.title')}</h3>
@@ -54,9 +66,10 @@ export function PostAttachments({ attachments }: Props) {
           const status = statusById[file.id] ?? 'idle';
           const busy = status === 'working';
           const savedPath = savedPathById[file.id];
+          const canOpen = status === 'done' && !!savedPath;
           let label = t('attachments.download');
           if (status === 'working') label = t('attachments.downloading');
-          else if (status === 'done') label = t('attachments.downloaded');
+          else if (canOpen) label = t('attachments.open');
 
           return (
             <li key={file.id} className="post-attachments-row">
@@ -71,15 +84,15 @@ export function PostAttachments({ attachments }: Props) {
               <button
                 type="button"
                 className="post-attachments-btn"
-                disabled={isOffline || busy}
+                disabled={(!canOpen && isOffline) || busy}
                 title={
-                  isOffline
+                  !canOpen && isOffline
                     ? t('attachments.offline')
-                    : status === 'done' && savedPath
+                    : canOpen
                       ? savedPath
                       : undefined
                 }
-                onClick={() => void onDownload(file)}
+                onClick={() => void (canOpen ? onOpen(file) : onDownload(file))}
               >
                 {label}
               </button>

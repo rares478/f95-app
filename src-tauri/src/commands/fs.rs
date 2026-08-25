@@ -422,14 +422,16 @@ pub fn reveal_in_explorer(path: String) -> Result<(), AppError> {
 
 #[cfg(target_os = "windows")]
 fn spawn_explorer_select(path: &std::path::Path) -> Result<(), AppError> {
-    // /select must be passed as a SINGLE argument with the path concatenated
-    // (`/select,C:\foo\bar.txt`) - splitting it into two args causes explorer
-    // to ignore the path entirely. std::process::Command on Windows quotes
-    // args that contain spaces, but not those with backslashes, so the
-    // formatted argument lands on explorer.exe's CLI exactly as intended.
-    let arg = format!("/select,{}", path.display());
+    use std::os::windows::process::CommandExt;
+
+    // /select must be one CLI token: `/select,"C:\path\file.txt"`.
+    // Paths with spaces (e.g. `save_naming (1).zip`) make `.arg()` quote the
+    // whole token (`"/select,C:\...\file (1).zip"`), which Explorer rejects and
+    // falls back to Documents. `raw_arg` preserves the exact form below.
+    let path_str = strip_verbatim_prefix(&path.to_string_lossy());
+    let arg = format!("/select,\"{path_str}\"");
     std::process::Command::new("explorer.exe")
-        .arg(&arg)
+        .raw_arg(&arg)
         .spawn()
         .map_err(|e| {
             AppError::keyed_vars(
@@ -438,6 +440,17 @@ fn spawn_explorer_select(path: &std::path::Path) -> Result<(), AppError> {
             )
         })?;
     Ok(())
+}
+
+/// Drop Windows verbatim (`\\?\`) prefix so Explorer can parse the path.
+#[cfg(target_os = "windows")]
+fn strip_verbatim_prefix(path: &str) -> String {
+    let trimmed = path
+        .strip_prefix(r"\\?\UNC\")
+        .map(|rest| format!(r"\\{rest}"))
+        .or_else(|| path.strip_prefix(r"\\?\").map(|s| s.to_string()))
+        .unwrap_or_else(|| path.to_string());
+    trimmed
 }
 
 fn spawn_explorer_open(path: &std::path::Path) -> Result<(), AppError> {
@@ -513,5 +526,22 @@ mod tests {
         let size = directory_size_sync(&missing);
         assert!(!size.available);
         assert_eq!(size.used_bytes, 0);
+    }
+
+    #[cfg(target_os = "windows")]
+    #[test]
+    fn strip_verbatim_prefix_normalizes_windows_paths() {
+        assert_eq!(
+            strip_verbatim_prefix(r"\\?\C:\Users\a\file (1).zip"),
+            r"C:\Users\a\file (1).zip"
+        );
+        assert_eq!(
+            strip_verbatim_prefix(r"\\?\UNC\server\share\file.zip"),
+            r"\\server\share\file.zip"
+        );
+        assert_eq!(
+            strip_verbatim_prefix(r"C:\Users\a\file.zip"),
+            r"C:\Users\a\file.zip"
+        );
     }
 }
