@@ -17,7 +17,9 @@ export function StoreHomePage() {
   const { t } = useT();
   const navigate = useNavigate();
   const { seedFilters } = useStoreFilters();
-  const { category, spotlight, rails, bootstrapping, fatalError, reload } = useStoreDiscovery();
+  const { category, spotlight, rails, becauseYou: _becauseYou, bootstrapping, fatalError, reload } =
+    useStoreDiscovery();
+  void _becauseYou;
   const [search, setSearch] = useState('');
 
   // Typed on StoreDiscoveryRail so required `retry` is preserved through banding.

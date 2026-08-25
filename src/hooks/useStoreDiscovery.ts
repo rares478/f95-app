@@ -1,7 +1,7 @@
 import { useCallback, useEffect, useMemo, useRef, useState } from 'react';
 import { useTagCatalog } from '../contexts/TagCatalogContext';
+import { loadBecauseYouPack } from '../lib/becauseYouPack';
 import {
-  RAIL_DISPLAY_COUNT,
   RECENT_PAGES,
   RECENT_TTL_MS,
   SLOW_POOL_PAGES,
@@ -21,17 +21,8 @@ import {
   tagSampleSeed,
 } from '../lib/discoveryTagSample';
 import { formatIpcError } from '../lib/ipcError';
-import * as library from '../lib/library';
-import { loadPersonalizationRail } from '../lib/personalizationRail';
-import {
-  pickPersonalizationSeeds,
-  truncateRailTitle,
-} from '../lib/personalizationSeeds';
-import {
-  listRecentStoreViews,
-  viewRecordToSamCard,
-} from '../lib/storeViewHistory';
 import { findSamTagByNameOrSlug } from '../lib/tagCatalog';
+import type { BecauseYouCardModel } from '../types/becauseYou';
 import type { GameTag } from '../types/game';
 import type { SamCategory, SamGameCard, SamSort, SamTag } from '../types/sam';
 
@@ -50,13 +41,11 @@ export interface StoreDiscoveryState {
   category: SamCategory;
   spotlight: SamGameCard[];
   rails: StoreDiscoveryRail[];
+  becauseYou: { cards: BecauseYouCardModel[]; loading: boolean };
   bootstrapping: boolean;
   fatalError: string | null;
   reload: () => void;
 }
-
-const HISTORY_RAIL_ID = 'recently-viewed';
-const PERSONAL_RAIL_ID = 'because-you-play';
 
 function sampleSeed(nowMs = Date.now()): string {
   return `${Math.floor(nowMs / RECENT_TTL_MS)}`;
@@ -113,52 +102,6 @@ function mapRails(
   }));
 }
 
-function historyRailFromViews(
-  items: SamGameCard[],
-  error: string | null = null,
-): DiscoveryHomeRail | null {
-  if (items.length === 0 && !error) return null;
-  return {
-    id: HISTORY_RAIL_ID,
-    poolKey: HISTORY_RAIL_ID,
-    titleKey: 'store.home.rail.recentlyViewed',
-    items,
-    loading: false,
-    error,
-    seeAll: {},
-  };
-}
-
-function personalLoadingRail(title: string): DiscoveryHomeRail {
-  return {
-    id: PERSONAL_RAIL_ID,
-    poolKey: PERSONAL_RAIL_ID,
-    titleKey: 'store.home.rail.becauseYouPlay',
-    titleParams: { title },
-    items: [],
-    loading: true,
-    error: null,
-    seeAll: {},
-  };
-}
-
-function personalReadyRail(
-  title: string,
-  items: SamGameCard[],
-): DiscoveryHomeRail | null {
-  if (items.length === 0) return null;
-  return {
-    id: PERSONAL_RAIL_ID,
-    poolKey: PERSONAL_RAIL_ID,
-    titleKey: 'store.home.rail.becauseYouPlay',
-    titleParams: { title },
-    items,
-    loading: false,
-    error: null,
-    seeAll: {},
-  };
-}
-
 export function useStoreDiscovery(): StoreDiscoveryState {
   const { catalog } = useTagCatalog();
   const dayKey = localDayKey();
@@ -177,8 +120,8 @@ export function useStoreDiscovery(): StoreDiscoveryState {
   const [reloadToken, setReloadToken] = useState(0);
   const [seed] = useState(() => sampleSeed());
   const [tagSeed, setTagSeed] = useState(() => tagSampleSeed(dayKey));
-  const [historyRail, setHistoryRail] = useState<DiscoveryHomeRail | null>(null);
-  const [personalRail, setPersonalRail] = useState<DiscoveryHomeRail | null>(null);
+  const [becauseYouCards, setBecauseYouCards] = useState<BecauseYouCardModel[]>([]);
+  const [becauseYouLoading, setBecauseYouLoading] = useState(false);
 
   useEffect(() => {
     let cancelled = false;
@@ -206,8 +149,6 @@ export function useStoreDiscovery(): StoreDiscoveryState {
   specsRef.current = poolSpecs;
   const catalogRef = useRef(catalog);
   catalogRef.current = catalog;
-  const historyIdsRef = useRef<Set<string>>(new Set());
-  const libraryThreadIdsRef = useRef<Set<string>>(new Set());
   const genRef = useRef(0);
   const personalGenRef = useRef(0);
 
@@ -215,119 +156,66 @@ export function useStoreDiscovery(): StoreDiscoveryState {
     setReloadToken((n) => n + 1);
   }, []);
 
-  const loadHistory = useCallback(async (opts?: { isCancelled?: () => boolean }) => {
-    try {
-      const rows = await listRecentStoreViews(RAIL_DISPLAY_COUNT);
-      if (opts?.isCancelled?.()) return;
-      historyIdsRef.current = new Set(rows.map((r) => r.threadId));
-      setHistoryRail(historyRailFromViews(rows.map(viewRecordToSamCard)));
-    } catch (err) {
-      if (opts?.isCancelled?.()) return;
-      historyIdsRef.current = new Set();
-      setHistoryRail(historyRailFromViews([], formatIpcError(err)));
-    }
-  }, []);
-
-  const loadPersonal = useCallback(async (force = false) => {
+  const loadBecauseYou = useCallback(async (force = false) => {
     const myGen = ++personalGenRef.current;
+    setBecauseYouLoading(true);
     try {
-      const games = await library.list({ category: 'games' });
-      if (personalGenRef.current !== myGen) return;
-      libraryThreadIdsRef.current = new Set(games.map((g) => g.threadId));
-
-      const seeds = pickPersonalizationSeeds(games);
-      if (seeds.length === 0) {
-        setPersonalRail(null);
-        return;
-      }
-
-      const seedTitle = truncateRailTitle(seeds[0]!.title);
-      setPersonalRail(personalLoadingRail(seedTitle));
-
-      const result = await loadPersonalizationRail({
+      const tagNameById = new Map<number, string>();
+      for (const [id, name] of catalogRef.current) tagNameById.set(id, name);
+      const result = await loadBecauseYouPack({
         category: 'games',
-        libraryThreadIds: libraryThreadIdsRef.current,
-        excludeViewedIds: historyIdsRef.current,
         force,
         resolveTagIds: (tags) => resolveGameTagIds(catalogRef.current, tags),
+        tagNameById,
       });
       if (personalGenRef.current !== myGen) return;
-
-      const title = result.seedTitle ?? seedTitle;
-      setPersonalRail(personalReadyRail(title, result.items));
-    } catch (err) {
+      setBecauseYouCards(result.cards);
+    } catch {
       if (personalGenRef.current !== myGen) return;
-      // Only surface retry UI if we already knew seeds (had a loading rail).
-      setPersonalRail((prev) => {
-        if (!prev || prev.id !== PERSONAL_RAIL_ID) return null;
-        return {
-          ...prev,
-          items: [],
-          loading: false,
-          error: formatIpcError(err),
-        };
-      });
+      setBecauseYouCards([]);
+    } finally {
+      if (personalGenRef.current === myGen) setBecauseYouLoading(false);
     }
   }, []);
 
-  const retryOne = useCallback(
-    async (poolKey: string) => {
-      if (poolKey === HISTORY_RAIL_ID) {
-        await loadHistory();
-        return;
-      }
-      if (poolKey === PERSONAL_RAIL_ID) {
-        await loadPersonal(true);
-        return;
-      }
-
-      const spec = specsRef.current.find((s) => s.key === poolKey);
-      if (!spec) return;
-      const myGen = genRef.current;
-      setLoadingKeys((prev) => new Set(prev).add(poolKey));
-      setErrorKeys((prev) => {
-        const next = new Map(prev);
-        next.delete(poolKey);
-        return next;
+  const retryOne = useCallback(async (poolKey: string) => {
+    const spec = specsRef.current.find((s) => s.key === poolKey);
+    if (!spec) return;
+    const myGen = genRef.current;
+    setLoadingKeys((prev) => new Set(prev).add(poolKey));
+    setErrorKeys((prev) => {
+      const next = new Map(prev);
+      next.delete(poolKey);
+      return next;
+    });
+    try {
+      await refreshPoolIfStale({
+        ...spec,
+        ttlMs: 0,
+        cached: poolsRef.current.get(poolKey) ?? null,
       });
-      try {
-        await refreshPoolIfStale({
-          ...spec,
-          ttlMs: 0,
-          cached: poolsRef.current.get(poolKey) ?? null,
+      if (genRef.current !== myGen) return;
+      const next = await getPools([poolKey]);
+      if (genRef.current !== myGen) return;
+      setPools((prev) => {
+        const merged = new Map(prev);
+        const rec = next.get(poolKey);
+        if (rec) merged.set(poolKey, rec);
+        return merged;
+      });
+    } catch (err) {
+      if (genRef.current !== myGen) return;
+      setErrorKeys((prev) => new Map(prev).set(poolKey, formatIpcError(err)));
+    } finally {
+      if (genRef.current === myGen) {
+        setLoadingKeys((prev) => {
+          const next = new Set(prev);
+          next.delete(poolKey);
+          return next;
         });
-        if (genRef.current !== myGen) return;
-        const next = await getPools([poolKey]);
-        if (genRef.current !== myGen) return;
-        setPools((prev) => {
-          const merged = new Map(prev);
-          const rec = next.get(poolKey);
-          if (rec) merged.set(poolKey, rec);
-          return merged;
-        });
-      } catch (err) {
-        if (genRef.current !== myGen) return;
-        setErrorKeys((prev) => new Map(prev).set(poolKey, formatIpcError(err)));
-      } finally {
-        if (genRef.current === myGen) {
-          setLoadingKeys((prev) => {
-            const next = new Set(prev);
-            next.delete(poolKey);
-            return next;
-          });
-        }
       }
-    },
-    [loadHistory, loadPersonal],
-  );
-
-  useEffect(() => {
-    let cancelled = false;
-    void loadHistory({ isCancelled: () => cancelled });
-    return () => {
-      cancelled = true;
-    };
-  }, [reloadToken, loadHistory]);
+    }
+  }, []);
 
   useEffect(() => {
     const myGen = ++genRef.current;
@@ -340,7 +228,8 @@ export function useStoreDiscovery(): StoreDiscoveryState {
       setLoadingKeys(new Set(keys));
       setErrorKeys(new Map());
       personalGenRef.current += 1;
-      setPersonalRail(null);
+      setBecauseYouCards([]);
+      setBecauseYouLoading(false);
 
       try {
         const cached = await getPools(keys);
@@ -407,16 +296,16 @@ export function useStoreDiscovery(): StoreDiscoveryState {
           setFatalError([...nextErrors.values()][0] ?? null);
         }
 
-        // Prefer personalization after global sequential refresh (SAM manners).
+        // Prefer Because You pack after global sequential refresh (SAM manners).
         if (!cancelled && genRef.current === myGen) {
-          await loadPersonal(false);
+          await loadBecauseYou(false);
         }
       } catch (err) {
         if (cancelled || genRef.current !== myGen) return;
         setFatalError(formatIpcError(err));
         setBootstrapping(false);
         if (!cancelled && genRef.current === myGen) {
-          await loadPersonal(false);
+          await loadBecauseYou(false);
         }
       } finally {
         if (!cancelled && genRef.current === myGen) {
@@ -429,14 +318,7 @@ export function useStoreDiscovery(): StoreDiscoveryState {
     return () => {
       cancelled = true;
     };
-  }, [poolKeysKey, reloadToken, loadPersonal]);
-
-  const userRails = useMemo(() => {
-    const out: DiscoveryHomeRail[] = [];
-    if (historyRail) out.push(historyRail);
-    if (personalRail) out.push(personalRail);
-    return out;
-  }, [historyRail, personalRail]);
+  }, [poolKeysKey, reloadToken, loadBecauseYou]);
 
   const model = buildDiscoveryHomeModel({
     pools,
@@ -445,7 +327,7 @@ export function useStoreDiscovery(): StoreDiscoveryState {
     tagSeed,
     loadingKeys,
     errorKeys,
-    userRails,
+    userRails: [],
   });
 
   return {
@@ -454,6 +336,7 @@ export function useStoreDiscovery(): StoreDiscoveryState {
     rails: mapRails(model.rails, (key) => {
       void retryOne(key);
     }),
+    becauseYou: { cards: becauseYouCards, loading: becauseYouLoading },
     bootstrapping,
     fatalError,
     reload,
