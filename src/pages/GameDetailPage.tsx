@@ -45,6 +45,11 @@ import { BROWSE_PATH } from '../lib/browseHandoff';
 import { useTagCatalog } from '../contexts/TagCatalogContext';
 import { buildStoreMenu } from '../lib/contextMenus/buildStoreMenu';
 import { useT } from '../lib/i18n';
+import {
+  getThreadWatchState,
+  unwatchThread,
+  watchThread,
+} from '../lib/ipc';
 import { formatIpcError } from '../lib/ipcError';
 import { findSamTagByNameOrSlug } from '../lib/tagCatalog';
 import type { GameDetail, GamePrefix, GameTag } from '../types/game';
@@ -84,6 +89,8 @@ export function GameDetailPage() {
   const [state, setState] = useState<State>({ kind: 'loading' });
   const [inLibrary, setInLibrary] = useState(false);
   const [adding, setAdding] = useState(false);
+  const [watched, setWatched] = useState<boolean | null>(null);
+  const [watchBusy, setWatchBusy] = useState(false);
 
   const openDetailContextMenu = useCallback(
     async (e: React.MouseEvent) => {
@@ -150,6 +157,29 @@ export function GameDetailPage() {
 
   useEffect(() => {
     if (state.kind !== 'ready') return;
+    let cancelled = false;
+    const id = state.data.threadId;
+    setWatched(null);
+    setWatchBusy(true);
+    getThreadWatchState(id)
+      .then(({ watched: isWatched }) => {
+        if (!cancelled) setWatched(isWatched);
+      })
+      .catch(async (err) => {
+        if (cancelled) return;
+        setWatched(false);
+        await dialog.alert(formatIpcError(err), { kind: 'error' });
+      })
+      .finally(() => {
+        if (!cancelled) setWatchBusy(false);
+      });
+    return () => {
+      cancelled = true;
+    };
+  }, [state]);
+
+  useEffect(() => {
+    if (state.kind !== 'ready') return;
     cacheThreadPrefixNames(
       state.data.threadId,
       state.data.prefixes.map((p) => p.name),
@@ -187,6 +217,24 @@ export function GameDetailPage() {
     }
     filterByTag(sam, category);
     navigate(BROWSE_PATH);
+  }
+
+  async function onToggleWatch() {
+    if (state.kind !== 'ready' || watchBusy || isOffline || watched === null) return;
+    setWatchBusy(true);
+    try {
+      if (watched) {
+        await unwatchThread(state.data.threadId);
+        setWatched(false);
+      } else {
+        await watchThread(state.data.threadId);
+        setWatched(true);
+      }
+    } catch (err) {
+      await dialog.alert(formatIpcError(err), { kind: 'error' });
+    } finally {
+      setWatchBusy(false);
+    }
   }
 
   async function onAddToLibrary() {
@@ -304,6 +352,16 @@ export function GameDetailPage() {
                 {adding ? t('gamedetail.action.adding') : t('gamedetail.action.addToLibrary')}
               </GameDetailBtnPrimary>
             )}
+            <GameDetailBtnSecondary
+              onClick={() => void onToggleWatch()}
+              disabled={isOffline || watchBusy || watched === null}
+            >
+              {watchBusy
+                ? t('watch.action.watching')
+                : watched
+                  ? t('watch.action.unwatch')
+                  : t('watch.action.watch')}
+            </GameDetailBtnSecondary>
             <GameDetailBtnSecondary onClick={() => openUrl(g.threadUrl)}>
               {t('gamedetail.action.openThread')}
             </GameDetailBtnSecondary>

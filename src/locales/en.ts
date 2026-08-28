@@ -1188,6 +1188,9 @@ const en: Record<string, string> = {
   'news.rss.scrollRight': 'Scroll right',
 
   // ─── Thread watch ───────────────────────────────────────────────────────
+  'watch.action.watch': 'Watch',
+  'watch.action.unwatch': 'Unwatch',
+  'watch.action.watching': 'Watching…',
   'watch.news.section': 'Watched threads',
   'watch.news.empty': 'You aren\'t watching any threads yet.',
   'watch.news.emptyHint': 'Open a game and tap Watch to follow updates here.',
