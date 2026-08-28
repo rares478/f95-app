@@ -193,6 +193,12 @@ pub fn run() {
             sql: migrations::V16_LIBRARY_SAVE_EXTRA_ROOTS,
             kind: MigrationKind::Up,
         },
+        Migration {
+            version: 17,
+            description: "library_games_locale_emulator",
+            sql: migrations::V17_LOCALE_EMULATOR,
+            kind: MigrationKind::Up,
+        },
     ];
 
     tauri::Builder::default()

@@ -314,3 +314,8 @@ CREATE TABLE library_save_extra_roots (
 CREATE INDEX idx_library_save_extra_roots_thread
   ON library_save_extra_roots(thread_id);
 "#;
+
+/// v17: per-game Locale Emulator opt-in (Windows launch path reads this from frontend).
+pub const V17_LOCALE_EMULATOR: &str = r#"
+ALTER TABLE library_games ADD COLUMN locale_emulator_enabled INTEGER NOT NULL DEFAULT 0;
+"#;

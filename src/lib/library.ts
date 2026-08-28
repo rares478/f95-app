@@ -76,6 +76,7 @@ interface DbRow {
   download_links_json?: string | null;
   download_links_version?: string | null;
   download_links_fetched_at?: string | null;
+  locale_emulator_enabled?: number | null;
 }
 
 function parseDownloadLinksJson(raw: string | null | undefined): GameDownload[] {
@@ -138,6 +139,7 @@ function rowToGame(r: DbRow): LibraryGame {
     downloadLinks: parseDownloadLinksJson(r.download_links_json),
     downloadLinksVersion: r.download_links_version ?? null,
     downloadLinksFetchedAt: r.download_links_fetched_at ?? null,
+    localeEmulatorEnabled: (r.locale_emulator_enabled ?? 0) !== 0,
   };
 }
 
@@ -268,6 +270,16 @@ export async function get(threadId: string): Promise<LibraryGame | null> {
     [threadId],
   );
   return rows[0] ? rowToGame(rows[0]) : null;
+}
+
+export async function updateLocaleEmulatorEnabled(
+  threadId: string,
+  enabled: boolean,
+): Promise<void> {
+  await execute(
+    `UPDATE library_games SET locale_emulator_enabled = ? WHERE thread_id = ?`,
+    [enabled ? 1 : 0, threadId],
+  );
 }
 
 export async function isInLibrary(threadId: string): Promise<boolean> {

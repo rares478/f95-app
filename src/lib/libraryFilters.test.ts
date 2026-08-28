@@ -32,6 +32,7 @@ function game(overrides: Partial<LibraryGame> = {}): LibraryGame {
     downloadLinks: [],
     downloadLinksVersion: null,
     downloadLinksFetchedAt: null,
+    localeEmulatorEnabled: false,
     ...overrides,
   };
 }

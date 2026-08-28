@@ -67,6 +67,7 @@ function game(partial: Partial<LibraryGame> & Pick<LibraryGame, 'threadId' | 'ti
     downloadLinks: [],
     downloadLinksVersion: null,
     downloadLinksFetchedAt: null,
+    localeEmulatorEnabled: false,
     ...partial,
   };
 }

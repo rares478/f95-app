@@ -76,6 +76,7 @@ function base(over: Partial<LibraryGame> = {}): LibraryGame {
     downloadLinks: [],
     downloadLinksVersion: null,
     downloadLinksFetchedAt: null,
+    localeEmulatorEnabled: false,
     ...over,
   };
 }

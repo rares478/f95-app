@@ -32,6 +32,7 @@ export interface LibraryGame {
   downloadLinks: GameDownload[];
   downloadLinksVersion: string | null;
   downloadLinksFetchedAt: string | null;
+  localeEmulatorEnabled: boolean;
 }
 
 export interface LibraryFilter {
