@@ -15,6 +15,8 @@ together when cutting a release:
 
 ## [Unreleased]
 
+## [1.8.0] - 2026-08-28
+
 ### Added
 - Library game detail (Windows): optional **Japanese locale (Locale Emulator)** toggle in Actions; bundles Locale Emulator v2.5.0.1 for per-game ja-JP launches.
 - Watch/unwatch threads from game detail.
