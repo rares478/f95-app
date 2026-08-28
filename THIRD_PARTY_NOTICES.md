@@ -4,7 +4,7 @@
 
 - **Project:** Locale Emulator
 - **Version:** 2.5.0.1
-- **License:** MIT
+- **License:** LGPL-3.0 (see `src-tauri/resources/locale-emulator/LICENSE.txt`)
 - **Source:** https://github.com/xupefei/Locale-Emulator
 - **Copyright:** Copyright (c) Locale Emulator contributors
 
