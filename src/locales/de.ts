@@ -38,6 +38,12 @@ const de: Record<string, string> = {
   'search.advanced.subforums': 'Unterforen einbeziehen',
   'search.advanced.toggle': 'Erweitert',
   'search.empty.noneInThread': 'Keine Beiträge in diesem Thread gefunden.',
+  'developer.kicker': 'Entwickler',
+  'developer.blurb': 'Spiele auf F95zone mit diesem Namen im Threadtitel (Spiele-Forum).',
+  'developer.gameCount': '{count} auf dieser Seite',
+  'developer.empty': 'Keine Spiel-Threads für diesen Entwickler.',
+  'developer.offline': 'Entwicklerprofile benötigen eine Online-Verbindung.',
+  'developer.invalid': 'Ungültiger Entwicklername.',
 
   // ─── Title bar ──────────────────────────────────────────────────────────
   'titlebar.minimize': 'Minimieren',

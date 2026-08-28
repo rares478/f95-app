@@ -17,6 +17,7 @@ import { NewsPage } from './pages/NewsPage';
 import { FriendsPage } from './pages/FriendsPage';
 import { MemberProfilePage } from './pages/MemberProfilePage';
 import { AlertsPage } from './pages/AlertsPage';
+import { DeveloperProfilePage } from './pages/DeveloperProfilePage';
 import { ForumSearchPage } from './pages/ForumSearchPage';
 import { ThreadDetailPage } from './pages/ThreadDetailPage';
 import { SettingsPage } from './pages/SettingsPage';
@@ -42,6 +43,7 @@ export function buildRouter({ profile, onLoggedOut }: BuildOpts) {
         { path: 'store/browse', element: <StoreBrowsePage /> },
         { path: 'store/game/:threadId', element: <GameDetailPage /> },
         { path: 'search', element: <ForumSearchPage /> },
+        { path: 'developers/:developerName', element: <DeveloperProfilePage /> },
         { path: 'thread/:threadId', element: <ThreadDetailPage /> },
         { path: 'library', element: <LibraryLayout />, children: [
           { index: true, element: <LibraryPage /> },

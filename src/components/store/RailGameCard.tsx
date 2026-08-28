@@ -5,6 +5,7 @@ import { useT } from '../../lib/i18n';
 import { useIsInLibrary } from '../../lib/libraryMembership';
 import type { SamCategory, SamGameCard } from '../../types/sam';
 import { ContentTagPills } from './ContentTagPills';
+import { DeveloperNameLink } from '../developer/DeveloperNameLink';
 import { StoreCardThumbDots } from './StoreCardThumbDots';
 
 interface Props {
@@ -70,9 +71,11 @@ export function RailGameCard({ game, category, underNav = false }: Props) {
             {(game.creator || game.rating !== null) && (
               <div className="rail-game-card-hover-row">
                 {game.creator && (
-                  <span className="rail-game-card-creator" title={game.creator}>
-                    {game.creator}
-                  </span>
+                  <DeveloperNameLink
+                    name={game.creator}
+                    className="rail-game-card-creator-link rail-game-card-creator"
+                    stopPropagation
+                  />
                 )}
                 {game.rating !== null && (
                   <span className="rail-game-card-rating">

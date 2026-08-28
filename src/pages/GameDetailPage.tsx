@@ -35,6 +35,7 @@ import {
   PrefixPill,
 } from '../components/game/GameDetailLayout';
 import { SocialLinkChips } from '../components/game/SocialLinkChips';
+import { DeveloperNameLink } from '../components/developer/DeveloperNameLink';
 import { MoreLikeThis } from '../components/game/MoreLikeThis';
 import { ThreadDiscussion } from '../components/game/ThreadDiscussion';
 import { useContextMenu } from '../components/contextMenu';
@@ -334,7 +335,10 @@ export function GameDetailPage() {
                   label="Developer"
                   value={
                     <>
-                      {developerName}
+                      <DeveloperNameLink
+                        name={developerName}
+                        className="developer-name-link game-detail-developer-link"
+                      />
                       <SocialLinkChips links={g.social} />
                     </>
                   }
@@ -417,7 +421,7 @@ function buildHeroMeta(
     push(
       key,
       <GameDetailChip key={key} title={t('gamedetail.meta.developer')}>
-        {g.developer}
+        <DeveloperNameLink name={g.developer} className="developer-name-link" />
       </GameDetailChip>,
     );
   }

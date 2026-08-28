@@ -5,6 +5,7 @@ import { useT } from '../../lib/i18n';
 import { useIsInLibrary } from '../../lib/libraryMembership';
 import type { SamCategory, SamGameCard } from '../../types/sam';
 import { ContentTagPills } from './ContentTagPills';
+import { DeveloperNameLink } from '../developer/DeveloperNameLink';
 import { PrefixPills } from './PrefixPills';
 import { StoreCardThumbDots } from './StoreCardThumbDots';
 
@@ -65,7 +66,13 @@ export function GameCard({ game, category }: Props) {
           {game.title}
         </div>
 
-        {game.creator && <div style={creatorStyle}>{game.creator}</div>}
+        {game.creator && (
+          <DeveloperNameLink
+            name={game.creator}
+            className="store-card-creator-link"
+            stopPropagation
+          />
+        )}
 
         <PrefixPills prefixIds={game.prefixIds} threadId={game.threadId} />
         <ContentTagPills tagIds={game.tagIds} />
@@ -179,14 +186,6 @@ const titleStyle: React.CSSProperties = {
   WebkitLineClamp: 2,
   WebkitBoxOrient: 'vertical',
   minHeight: 36,
-};
-
-const creatorStyle: React.CSSProperties = {
-  fontSize: 12,
-  color: 'var(--text-muted)',
-  overflow: 'hidden',
-  whiteSpace: 'nowrap',
-  textOverflow: 'ellipsis',
 };
 
 const metaRow: React.CSSProperties = {

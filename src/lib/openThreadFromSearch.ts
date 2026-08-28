@@ -21,7 +21,8 @@ export async function openThreadFromSearch(
 
   const searchReturnTo =
     typeof opts?.searchReturnTo === 'string' &&
-    opts.searchReturnTo.startsWith('/search')
+    (opts.searchReturnTo.startsWith('/search') ||
+      opts.searchReturnTo.startsWith('/developers/'))
       ? opts.searchReturnTo
       : undefined;
 

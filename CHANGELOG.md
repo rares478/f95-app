@@ -24,6 +24,7 @@ together when cutting a release:
 - Click avatar or username in discussions, thread author, forum search, and alerts to open that member's in-app profile.
 - Thread-scoped forum search (`?thread=` on Search page; XenForo `c[thread]`) and inline search in discussion views with jump-to-post.
 - Forum Search advanced filters: posted by, date range, tags, prefixes, forums, min replies, and title/first-post options.
+- Developer profiles at `/developers/:name` — Steam-style page listing game threads (title search in Games forum); linked from store cards and game detail.
 
 ### Fixed
 - In-thread and scoped forum search no longer return hits from other threads (XF expects `constraints` JSON on POST, not bare `c[thread]`).

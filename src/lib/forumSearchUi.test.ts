@@ -94,6 +94,7 @@ describe('parseForumSearchSearchParams / forumSearchToSearchParams', () => {
 
   it('round-trips non-default state', () => {
     const state = {
+      ...EMPTY_FORUM_SEARCH_ADVANCED,
       query: 'f95 app',
       titleOnly: true,
       searchIn: 'titles' as const,
@@ -102,7 +103,6 @@ describe('parseForumSearchSearchParams / forumSearchToSearchParams', () => {
       postedBy: 'bob',
       tags: 'love',
       prefixIds: [3],
-      ...EMPTY_FORUM_SEARCH_ADVANCED,
     };
     const parsed = parseForumSearchSearchParams(forumSearchToSearchParams(state));
     expect(parsed).toEqual(state);

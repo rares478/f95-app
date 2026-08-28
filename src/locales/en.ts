@@ -60,6 +60,12 @@ const en: Record<string, string> = {
   'search.pagination.prev': 'Previous',
   'search.pagination.next': 'Next',
   'search.pagination.page': 'Page {page}',
+  'developer.kicker': 'Developer',
+  'developer.blurb': 'Games on F95zone with this name in the thread title (Games forum).',
+  'developer.gameCount': '{count} on this page',
+  'developer.empty': 'No game threads found for this developer.',
+  'developer.offline': 'Developer profiles need an online connection.',
+  'developer.invalid': 'Invalid developer name.',
 
   // ─── Thread detail (non-catalog forum threads) ───────────────────────────
   'threaddetail.openOnF95': 'Open on F95Zone',

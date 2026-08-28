@@ -37,7 +37,13 @@ const pt: Record<string, string> = {
   'search.advanced.forumsEmpty': 'Lista de fóruns indisponível offline ou sem login.',
   'search.advanced.subforums': 'Incluir subfóruns',
   'search.advanced.toggle': 'Avançado',
-  'search.empty.noneInThread': 'Nenhuma postagem encontrada neste tópico.',
+  'search.empty.noneInThread': 'Nenhuma publicação neste tópico.',
+  'developer.kicker': 'Desenvolvedor',
+  'developer.blurb': 'Jogos no F95zone com este nome no título do tópico (fórum Games).',
+  'developer.gameCount': '{count} nesta página',
+  'developer.empty': 'Nenhum tópico de jogo para este desenvolvedor.',
+  'developer.offline': 'Perfis de desenvolvedor exigem conexão online.',
+  'developer.invalid': 'Nome de desenvolvedor inválido.',
 
   // ─── Title bar ──────────────────────────────────────────────────────────
   'titlebar.minimize': 'Minimizar',

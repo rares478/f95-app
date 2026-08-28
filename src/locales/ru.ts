@@ -38,6 +38,12 @@ const ru: Record<string, string> = {
   'search.advanced.subforums': 'Искать в подразделах',
   'search.advanced.toggle': 'Дополнительно',
   'search.empty.noneInThread': 'В этой теме ничего не найдено.',
+  'developer.kicker': 'Разработчик',
+  'developer.blurb': 'Игры на F95zone с этим именем в заголовке темы (раздел Games).',
+  'developer.gameCount': '{count} на этой странице',
+  'developer.empty': 'Темы игр для этого разработчика не найдены.',
+  'developer.offline': 'Профили разработчиков требуют подключения к сети.',
+  'developer.invalid': 'Недопустимое имя разработчика.',
 
   // ─── Title bar ──────────────────────────────────────────────────────────
   'titlebar.minimize': 'Свернуть',
