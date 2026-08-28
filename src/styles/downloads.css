@@ -510,6 +510,10 @@
   background: var(--accent);
 }
 
+.dl-pill-paused {
+  background: var(--status-warning);
+}
+
 .dl-pill-completed {
   background: var(--status-success);
 }

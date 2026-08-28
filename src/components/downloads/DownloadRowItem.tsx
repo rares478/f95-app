@@ -10,6 +10,7 @@ import {
   canChangeDownloadProvider,
   hostNeedsApiKeyHint,
 } from '../../lib/downloadLibrarySync';
+import { canPauseDownload } from '../../lib/downloadPause';
 import { HOST_COLORS, STREAMABLE_HOSTS } from '../../lib/downloadHosts';
 import type { DownloadProgress, DownloadRow } from '../../types/download';
 import {
@@ -46,6 +47,7 @@ const LIVE_STATES = new Set([
   'resolving',
   'pending',
   'awaiting_choice',
+  'paused',
 ]);
 
 /** Unified card for active and history downloads. Progress only on live rows. */
@@ -56,6 +58,8 @@ export function DownloadCard({
   showAssign,
   onAssign,
   onCancel,
+  onPause,
+  onResume,
   onRemove,
   onReveal,
   onRetry,
@@ -226,6 +230,11 @@ export function DownloadCard({
             {t('install.assign.cta')}
           </button>
         )}
+        {isLive && onPause && canPauseDownload(row) && (
+          <button type="button" className="dl-action-btn dl-action-btn-accent" onClick={onPause}>
+            {t('downloads.action.pause')}
+          </button>
+        )}
         {isLive && onCancel && (
           <button
             type="button"
@@ -233,6 +242,11 @@ export function DownloadCard({
             onClick={onCancel}
           >
             {t('downloads.action.cancel')}
+          </button>
+        )}
+        {row.state === 'paused' && onResume && (
+          <button type="button" className="dl-action-btn dl-action-btn-accent" onClick={onResume}>
+            {t('downloads.action.resume')}
           </button>
         )}
 
