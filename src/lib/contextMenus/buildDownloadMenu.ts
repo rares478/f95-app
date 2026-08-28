@@ -69,7 +69,8 @@ export function buildDownloadMenu(
     row.state === 'pending' ||
     row.state === 'resolving' ||
     row.state === 'downloading' ||
-    row.state === 'extracting'
+    row.state === 'extracting' ||
+    row.state === 'paused'
   ) {
     if (callbacks.onCancel) {
       const extracting = row.state === 'extracting';

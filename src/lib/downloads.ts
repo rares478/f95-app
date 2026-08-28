@@ -290,26 +290,17 @@ export async function markError(
 
 export async function markCancelled(
   id: number,
-  bytesDone?: number | null,
+  _bytesDone?: number | null,
 ): Promise<void> {
-  if (bytesDone != null && bytesDone > 0) {
-    await execute(
-      `UPDATE downloads
-          SET state = 'cancelled',
-              bytes_done = ?,
-              finished_at = datetime('now')
-          WHERE id = ?`,
-      [bytesDone, id],
-    );
-  } else {
-    await execute(
-      `UPDATE downloads
-          SET state = 'cancelled',
-              finished_at = datetime('now')
-          WHERE id = ?`,
-      [id],
-    );
-  }
+  // Cancel always resets progress — spec requires bytes_done = 0.
+  await execute(
+    `UPDATE downloads
+        SET state = 'cancelled',
+            bytes_done = 0,
+            finished_at = datetime('now')
+        WHERE id = ?`,
+    [id],
+  );
 }
 
 export async function markPaused(
