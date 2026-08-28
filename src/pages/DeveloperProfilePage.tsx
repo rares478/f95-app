@@ -9,6 +9,8 @@ import { parseDeveloperProfileParam } from '../lib/developerProfilePath';
 import { useT } from '../lib/i18n';
 import { formatIpcError } from '../lib/ipcError';
 import { openThreadFromSearch } from '../lib/openThreadFromSearch';
+import { prefetchGameDetails, peekGameDetail } from '../lib/gameDetailCache';
+import type { GameDetail } from '../types/game';
 import type { ForumSearchHit } from '../types/forumSearch';
 
 type Status = 'idle' | 'loading' | 'ready' | 'error';
@@ -30,6 +32,9 @@ export function DeveloperProfilePage() {
   const [totalPages, setTotalPages] = useState<number | null>(null);
   const [status, setStatus] = useState<Status>('idle');
   const [errorMessage, setErrorMessage] = useState<string | null>(null);
+  const [detailsByThread, setDetailsByThread] = useState<Map<string, GameDetail>>(
+    () => new Map(),
+  );
   const loadGenRef = useRef(0);
 
   const searchReturnTo = `${location.pathname}${location.search}`;
@@ -76,6 +81,42 @@ export function DeveloperProfilePage() {
   useEffect(() => {
     void loadPage(1);
   }, [loadPage]);
+
+  useEffect(() => {
+    if (status !== 'ready' || results.length === 0) {
+      setDetailsByThread(new Map());
+      return;
+    }
+
+    const threadIds = results
+      .map((hit) => hit.threadId)
+      .filter((id): id is string => Boolean(id));
+    if (threadIds.length === 0) return;
+
+    let cancelled = false;
+    const seed = new Map<string, GameDetail>();
+    for (const id of threadIds) {
+      const cached = peekGameDetail(id);
+      if (cached) seed.set(id, cached);
+    }
+    setDetailsByThread(seed);
+
+    void prefetchGameDetails(threadIds, {
+      concurrency: 4,
+      onLoaded: (detail) => {
+        if (cancelled) return;
+        setDetailsByThread((prev) => {
+          const next = new Map(prev);
+          next.set(detail.threadId, detail);
+          return next;
+        });
+      },
+    });
+
+    return () => {
+      cancelled = true;
+    };
+  }, [status, results]);
 
   const pageLabel =
     totalPages && totalPages > 0
@@ -147,6 +188,7 @@ export function DeveloperProfilePage() {
                 <DeveloperGameCard
                   key={`${index}-${hit.threadId}-${hit.postId ?? 'thread'}`}
                   hit={hit}
+                  detail={hit.threadId ? detailsByThread.get(hit.threadId) : null}
                   onOpen={() =>
                     void openThreadFromSearch(hit, navigate, { searchReturnTo })
                   }

@@ -4,7 +4,7 @@ import { useParams, useNavigate, useSearchParams } from 'react-router-dom';
 import { parseSamCategory } from '../constants/samCategories';
 import DOMPurify from 'dompurify';
 import { openUrl } from '@tauri-apps/plugin-opener';
-import * as ipc from '../lib/ipc';
+import { loadGameDetail, peekGameDetail } from '../lib/gameDetailCache';
 import { dialog } from '../lib/dialog';
 import * as library from '../lib/library';
 import { saveLinksFromDetail } from '../lib/libraryDownloadLinks';
@@ -120,17 +120,23 @@ export function GameDetailPage() {
   useEffect(() => {
     if (!threadId) return;
     let cancelled = false;
-    setState({ kind: 'loading' });
-    ipc
-      .gameDetail(threadId)
-      .then((data) => {
-        if (cancelled) return;
-        setState({ kind: 'ready', data });
-      })
-      .catch((err) => {
-        if (cancelled) return;
-        setState({ kind: 'error', message: formatIpcError(err) });
-      });
+
+    const cached = peekGameDetail(threadId);
+    if (cached) {
+      setState({ kind: 'ready', data: cached });
+    } else {
+      setState({ kind: 'loading' });
+      loadGameDetail(threadId)
+        .then((data) => {
+          if (cancelled) return;
+          setState({ kind: 'ready', data });
+        })
+        .catch((err) => {
+          if (cancelled) return;
+          setState({ kind: 'error', message: formatIpcError(err) });
+        });
+    }
+
     library
       .isInLibrary(threadId)
       .then((v) => {

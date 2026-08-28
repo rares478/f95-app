@@ -47,6 +47,7 @@ function detail(over: Partial<GameDetail> = {}): GameDetail {
     prefixes: [],
     fields: {},
     tags: [],
+    rating: null,
     downloads: [],
     social: [],
     attachments: [],

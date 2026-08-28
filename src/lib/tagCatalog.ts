@@ -50,6 +50,22 @@ function normalizeTagKey(value: string): string {
 }
 
 /** Match a thread-page tag (name/slug) to a SAM catalog entry. */
+/** Resolve thread-page tags to SAM catalog IDs for store-style pills. */
+export function contentTagIdsFromDetail(
+  catalog: TagCatalog,
+  tags: { slug: string; name: string }[],
+): number[] {
+  const ids: number[] = [];
+  const seen = new Set<number>();
+  for (const tag of tags) {
+    const sam = findSamTagByNameOrSlug(catalog, tag);
+    if (!sam || seen.has(sam.id)) continue;
+    seen.add(sam.id);
+    ids.push(sam.id);
+  }
+  return ids;
+}
+
 export function findSamTagByNameOrSlug(
   catalog: TagCatalog,
   tag: { slug: string; name: string },

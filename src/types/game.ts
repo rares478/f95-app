@@ -50,6 +50,8 @@ export interface GameDetail {
   prefixes: GamePrefix[];
   fields: Record<string, string>;
   tags: GameTag[];
+  /** Thread BR rating (0–5), when present on the thread page. */
+  rating: number | null;
   downloads: GameDownload[];
   social: SocialLink[];
   attachments: PostAttachment[];

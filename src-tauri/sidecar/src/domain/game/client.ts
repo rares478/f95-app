@@ -66,6 +66,8 @@ export interface GameDetail {
   prefixes: GamePrefix[];
   fields: Record<string, string>;
   tags: GameTag[];
+  /** Thread BR rating (0–5), when present on the thread page. */
+  rating: number | null;
   downloads: GameDownload[];
   social: SocialLink[];
   /** File attachments from OP message chrome (outside bbWrapper). */
@@ -466,6 +468,7 @@ function parseThread(html: string, finalUrl: string): GameDetail {
 
   // -- Tags --
   const tags = collectTags($);
+  const rating = parseThreadRating($);
   // F95 sometimes also lists a Tags field inline in OP; merge unique by slug.
   const tagSlugs = new Set(tags.map((t) => t.slug));
   if (fields['Tags']) {
@@ -506,10 +509,34 @@ function parseThread(html: string, finalUrl: string): GameDetail {
     prefixes,
     fields,
     tags,
+    rating,
     downloads,
     social,
     attachments,
   };
+}
+
+function parseThreadRating($: cheerio.CheerioAPI): number | null {
+  const initial = $('select[name="rating"][data-initial-rating]')
+    .first()
+    .attr('data-initial-rating');
+  if (initial) {
+    const n = Number.parseFloat(initial);
+    if (Number.isFinite(n) && n > 0) return n;
+  }
+
+  const titleAttr = $('.p-title .ratingStars[title], .p-body .ratingStars[title]')
+    .first()
+    .attr('title');
+  if (titleAttr) {
+    const m = titleAttr.match(/([\d.]+)\s*star/i);
+    if (m) {
+      const n = Number.parseFloat(m[1]);
+      if (Number.isFinite(n) && n > 0) return n;
+    }
+  }
+
+  return null;
 }
 
 export function extractThreadId(url: string): string | null {
