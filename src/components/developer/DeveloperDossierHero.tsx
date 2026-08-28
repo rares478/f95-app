@@ -17,7 +17,8 @@ export function DeveloperDossierHero({
   socialLinks,
   heroBannerUrl,
   onBack,
-}: Props) {  const { t } = useT();
+}: Props) {
+  const { t } = useT();
 
   return (
     <header className="developer-dossier-hero">
