@@ -4,6 +4,7 @@ export type ForumSearchFilterSnapshot = {
   titleOnly: boolean;
   searchIn: ForumSearchIn;
   sort: ForumSearchSort;
+  threadId?: string;
 };
 
 export type ForumSearchAttemptSnapshot = ForumSearchFilterSnapshot & {
@@ -31,7 +32,8 @@ export function isSearchFiltersDirty(
   return (
     live.titleOnly !== active.titleOnly ||
     live.searchIn !== active.searchIn ||
-    live.sort !== active.sort
+    live.sort !== active.sort ||
+    (live.threadId ?? '') !== (active.threadId ?? '')
   );
 }
 
@@ -41,6 +43,14 @@ function parseSearchIn(raw: string | null): ForumSearchIn {
 
 function parseSort(raw: string | null): ForumSearchSort {
   return raw === 'date' ? 'date' : 'relevance';
+}
+
+function parseThreadId(raw: string | null): string | undefined {
+  if (!raw) return undefined;
+  const trimmed = raw.trim();
+  if (!/^\d+$/.test(trimmed)) return undefined;
+  const n = parseInt(trimmed, 10);
+  return n > 0 ? trimmed : undefined;
 }
 
 /** Restore an active search from `/search?...` when remounting (e.g. after Back). */
@@ -57,7 +67,8 @@ export function parseForumSearchSearchParams(
   const sort = parseSort(params.get('sort'));
   const pageRaw = parseInt(params.get('page') ?? '1', 10);
   const page = Number.isFinite(pageRaw) && pageRaw > 0 ? pageRaw : 1;
-  return { query, titleOnly, searchIn, sort, page };
+  const threadId = parseThreadId(params.get('thread'));
+  return { query, titleOnly, searchIn, sort, page, threadId };
 }
 
 /** Serialize search state into URL query params (omit defaults). */
@@ -70,5 +81,6 @@ export function forumSearchToSearchParams(
   if (state.searchIn !== 'posts') params.set('search_in', state.searchIn);
   if (state.sort !== 'relevance') params.set('sort', state.sort);
   if (state.page > 1) params.set('page', String(state.page));
+  if (state.threadId) params.set('thread', state.threadId);
   return params;
 }
