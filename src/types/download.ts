@@ -3,6 +3,7 @@ export type DownloadState =
   | 'resolving'
   | 'awaiting_choice'
   | 'downloading'
+  | 'paused'
   | 'extracting'
   | 'completed'
   | 'cancelled'
@@ -57,6 +58,8 @@ export function stateColor(s: DownloadState): string {
     case 'resolving':
     case 'pending':
     case 'awaiting_choice':
+      return 'var(--status-warning)';
+    case 'paused':
       return 'var(--status-warning)';
     case 'failed':
       return 'var(--accent-strong)';

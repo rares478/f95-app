@@ -272,7 +272,7 @@ export async function markError(
               error_message = ?,
               bytes_done = ?,
               finished_at = datetime('now')
-          WHERE id = ?`,
+          WHERE id = ? AND state NOT IN ('paused', 'cancelled')`,
       [message, bytesDone, id],
     );
   } else {
@@ -281,7 +281,7 @@ export async function markError(
           SET state = 'failed',
               error_message = ?,
               finished_at = datetime('now')
-          WHERE id = ?`,
+          WHERE id = ? AND state NOT IN ('paused', 'cancelled')`,
       [message, id],
     );
   }
@@ -311,8 +311,32 @@ export async function markCancelled(
   }
 }
 
+export async function markPaused(
+  id: number,
+  bytesDone?: number | null,
+): Promise<void> {
+  if (bytesDone != null && bytesDone > 0) {
+    await execute(
+      `UPDATE downloads
+          SET state = 'paused',
+              bytes_done = ?,
+              error_message = NULL
+          WHERE id = ?`,
+      [bytesDone, id],
+    );
+  } else {
+    await execute(
+      `UPDATE downloads
+          SET state = 'paused',
+              error_message = NULL
+          WHERE id = ?`,
+      [id],
+    );
+  }
+}
+
 /**
- * Flip a failed/cancelled row back to `pending` so the backend can resume.
+ * Flip a failed/cancelled/paused row back to `pending` so the backend can resume.
  * Preserves `bytes_done` (the .part file on disk is the source of truth) so
  * the UI shows the right starting position until the first progress event.
  */

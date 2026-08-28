@@ -40,7 +40,7 @@ describe('canPauseDownload', () => {
 
   it('blocks paused', () => {
     expect(
-      canPauseDownload(row({ state: 'paused' as DownloadRow['state'], host: 'gofile' })),
+      canPauseDownload(row({ state: 'paused', host: 'gofile' })),
     ).toBe(false);
   });
 });
