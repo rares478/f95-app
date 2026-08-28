@@ -19,7 +19,7 @@ import type {
   F95ConversationsListResult,
 } from '../types/conversations';
 import type { FollowedUser } from '../types/social';
-import type { F95WatchedThreadsResult } from '../types/watch';
+import type { F95WatchedThreadsResult, ThreadWatchStateResult } from '../types/watch';
 import type { RssFeed, RssFeedOptions } from '../types/rss';
 import type { RunningInfo } from '../types/session';
 import type {
@@ -169,6 +169,12 @@ export async function getWatchedThreads(options?: {
   return invoke<F95WatchedThreadsResult>('get_watched_threads', {
     page: options?.page,
   });
+}
+
+export async function getThreadWatchState(
+  threadId: string,
+): Promise<ThreadWatchStateResult> {
+  return invoke<ThreadWatchStateResult>('get_thread_watch_state', { threadId });
 }
 
 export async function getProfile(): Promise<ProfileDto> {

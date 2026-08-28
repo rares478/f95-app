@@ -12,3 +12,7 @@ export interface F95WatchedThreadsResult {
   page: number;
   hasMore: boolean;
 }
+
+export interface ThreadWatchStateResult {
+  watched: boolean;
+}

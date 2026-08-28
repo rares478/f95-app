@@ -1,6 +1,6 @@
 use super::state::{ensure_sidecar, AppState};
 use crate::error::AppError;
-use serde_json::Value;
+use serde_json::{json, Value};
 use tauri::State;
 
 #[tauri::command]
@@ -73,4 +73,15 @@ pub async fn get_watched_threads(
         params.insert("page".into(), Value::from(p));
     }
     client.get_watched_threads(params).await
+}
+
+#[tauri::command]
+pub async fn get_thread_watch_state(
+    state: State<'_, AppState>,
+    thread_id: String,
+) -> Result<Value, AppError> {
+    let client = ensure_sidecar(&state).await?;
+    client
+        .get_thread_watch_state(json!({ "threadId": thread_id }))
+        .await
 }

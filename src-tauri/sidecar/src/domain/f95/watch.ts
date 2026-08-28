@@ -22,11 +22,21 @@ export interface F95WatchedThreadsResult {
   hasMore: boolean;
 }
 
+export interface ThreadWatchState {
+  watched: boolean;
+  watchUrl: string | null;
+}
+
 export class WatchClient {
   constructor(private readonly http: BrowserClient) {}
 
   async getWatchedThreads(page = 1): Promise<F95WatchedThreadsResult> {
     return fetchWatchedThreads(this.http, page);
+  }
+
+  async getThreadWatchState(threadId: string): Promise<{ watched: boolean }> {
+    const state = await fetchThreadWatchState(this.http, threadId);
+    return { watched: state.watched };
   }
 }
 
@@ -50,6 +60,52 @@ export async function fetchWatchedThreads(
   const threads = parseWatchedThreads(res.body);
   const hasMore = detectHasMorePages(res.body, page);
   return { threads, page, hasMore };
+}
+
+export async function fetchThreadWatchState(
+  http: BrowserClient,
+  threadId: string,
+): Promise<ThreadWatchState> {
+  const id = String(threadId).trim();
+  if (!/^\d+$/.test(id)) {
+    throw new RpcError(RPC_ERROR.INVALID_PARAMS, 'threadId must be numeric');
+  }
+  const url = `${F95_BASE}/threads/${id}/`;
+  log(`[watch] GET ${url}`);
+  const res = await http.get(url, {
+    headers: { accept: 'text/html', referer: `${F95_BASE}/` },
+  });
+  assertNotCloudflareChallenge(res.body, res.headers);
+  if (res.url.includes('/login')) {
+    throw new RpcError(RPC_ERROR.NOT_INITIALIZED, 'not logged in');
+  }
+  if (res.status >= 400) {
+    throw new RpcError(RPC_ERROR.INTERNAL, `thread watch state HTTP ${res.status}`);
+  }
+  return parseThreadWatchState(res.body, id);
+}
+
+/** @internal Exported for unit tests. */
+export function parseThreadWatchState(html: string, _threadId?: string): ThreadWatchState {
+  if (!html.trim()) return { watched: false, watchUrl: null };
+  const $ = cheerio.load(html);
+
+  const $btn = $('a[data-sk-watch], a[data-sk-unwatch]')
+    .filter((_, el) => {
+      const href = $(el).attr('href') ?? '';
+      return href.includes('/watch') || href.includes('/unwatch');
+    })
+    .first();
+
+  if ($btn.length === 0) return { watched: false, watchUrl: null };
+
+  const href = $btn.attr('href');
+  const watchUrl = absoluteUrl(href);
+  const text = cleanText($btn.find('.button-text').text() || $btn.text());
+  const watched =
+    /^unwatch$/i.test(text) || (href?.includes('/unwatch') ?? false);
+
+  return { watched, watchUrl };
 }
 
 /** @internal Exported for unit tests. */

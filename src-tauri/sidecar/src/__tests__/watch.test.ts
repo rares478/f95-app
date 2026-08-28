@@ -3,12 +3,17 @@ import { join } from 'node:path';
 import { describe, expect, it } from 'vitest';
 import {
   detectHasMorePages,
+  fetchThreadWatchState,
   fetchWatchedThreads,
+  parseThreadWatchState,
   parseWatchedThreads,
 } from '../domain/f95/watch';
 
 const fix = (name: string) =>
   readFileSync(join(__dirname, '../__fixtures__', name), 'utf8');
+
+const sidecarHtml = (name: string) =>
+  readFileSync(join(__dirname, '../..', name), 'utf8');
 
 describe('parseWatchedThreads', () => {
   it('parses watched threads from fixture', () => {
@@ -98,5 +103,85 @@ describe('fetchWatchedThreads', () => {
 
     await fetchWatchedThreads(http as never, 3);
     expect(requestedUrl).toBe('https://f95zone.to/watched/threads?page=3');
+  });
+});
+
+describe('parseThreadWatchState', () => {
+  it('parses not-watched state from thread-93340.html', () => {
+    const html = sidecarHtml('thread-93340.html');
+    const state = parseThreadWatchState(html, '93340');
+
+    expect(state.watched).toBe(false);
+    expect(state.watchUrl).toBe(
+      'https://f95zone.to/threads/eternum-v0-9-5-public-caribdis.93340/watch',
+    );
+  });
+
+  it('parses not-watched state from thread-dmd-597.html', () => {
+    const html = sidecarHtml('thread-dmd-597.html');
+    const state = parseThreadWatchState(html, '597');
+
+    expect(state.watched).toBe(false);
+    expect(state.watchUrl).toBe(
+      'https://f95zone.to/threads/dating-my-daughter-ch-1-4-v1-01-mrdots-games.597/watch',
+    );
+  });
+
+  it('detects watched state from Unwatch button text', () => {
+    const html = `
+      <a href="/threads/sample.123/watch"
+         data-sk-watch="Watch"
+         data-sk-unwatch="Unwatch">
+        <span class="button-text">Unwatch</span>
+      </a>`;
+    const state = parseThreadWatchState(html, '123');
+
+    expect(state.watched).toBe(true);
+    expect(state.watchUrl).toBe('https://f95zone.to/threads/sample.123/watch');
+  });
+
+  it('detects watched state from /unwatch href', () => {
+    const html = `
+      <a href="/threads/sample.456/unwatch"
+         data-sk-watch="Watch"
+         data-sk-unwatch="Unwatch">
+        <span class="button-text">Watch</span>
+      </a>`;
+    const state = parseThreadWatchState(html, '456');
+
+    expect(state.watched).toBe(true);
+    expect(state.watchUrl).toBe('https://f95zone.to/threads/sample.456/unwatch');
+  });
+
+  it('returns defaults when watch button is absent', () => {
+    expect(parseThreadWatchState('<html></html>', '1')).toEqual({
+      watched: false,
+      watchUrl: null,
+    });
+  });
+});
+
+describe('fetchThreadWatchState', () => {
+  it('fetches thread page by numeric id and parses watch state', async () => {
+    const html = sidecarHtml('thread-93340.html');
+    let requestedUrl = '';
+    const http = {
+      get: async (url: string) => {
+        requestedUrl = url;
+        return {
+          status: 200,
+          url: 'https://f95zone.to/threads/eternum-v0-9-5-public-caribdis.93340/',
+          body: html,
+          headers: {},
+        };
+      },
+    };
+
+    const state = await fetchThreadWatchState(http as never, '93340');
+    expect(requestedUrl).toBe('https://f95zone.to/threads/93340/');
+    expect(state.watched).toBe(false);
+    expect(state.watchUrl).toBe(
+      'https://f95zone.to/threads/eternum-v0-9-5-public-caribdis.93340/watch',
+    );
   });
 });

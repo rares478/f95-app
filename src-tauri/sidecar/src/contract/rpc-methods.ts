@@ -80,6 +80,10 @@ export const RPC_METHODS = {
     params: { page: 'number?' },
     result: 'F95WatchedThreadsResult',
   },
+  getThreadWatchState: {
+    params: { threadId: 'string' },
+    result: { watched: 'boolean' },
+  },
   fetchRss: {
     params: { category: 'string?' },
     result: 'RssFeed',

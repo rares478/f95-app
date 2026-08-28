@@ -10,5 +10,12 @@ export function createWatchHandlers(ctx: AppContext): Record<string, RpcHandler>
       }
       return ctx.getWatch().getWatchedThreads(page);
     },
+    getThreadWatchState: async (p) => {
+      const threadId = String(p?.threadId ?? p?.thread_id ?? '').trim();
+      if (!threadId) {
+        throw new RpcError(RPC_ERROR.INVALID_PARAMS, 'threadId required');
+      }
+      return ctx.getWatch().getThreadWatchState(threadId);
+    },
   };
 }
