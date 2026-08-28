@@ -109,7 +109,8 @@ export async function remove(id: number): Promise<void> {
   await execute(`DELETE FROM downloads WHERE id = ?`, [id]);
 }
 
-/** Remove finished/cancelled/failed/needs_browser rows from history. */
+/** Remove finished/cancelled/failed/needs_browser rows from history.
+ *  Paused downloads are kept — they are active work, not history. */
 export async function clearFinished(): Promise<void> {
   const rows = await query<DbRow>(
     `SELECT * FROM downloads WHERE state IN ('completed','cancelled','failed','needs_browser')`,

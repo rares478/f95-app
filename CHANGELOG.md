@@ -16,6 +16,7 @@ together when cutting a release:
 ## [Unreleased]
 
 ### Added
+- Downloads: pause and resume in-progress downloads; partial `.part` files are kept on pause for byte-range resume.
 - Library game detail: Play menu **Install season** when the thread has multiple seasons (opens the install wizard on the season step).
 - Library game detail: collapsed Changelog section from the thread OP (heading + outer spoiler).
 - Settings → Install locations: expand a library to see installed games by disk usage (largest first) with Uninstall.
@@ -27,6 +28,7 @@ together when cutting a release:
 - Developer profiles at `/developers/:name` — Steam-style page listing game threads (title search in Games forum); linked from store cards and game detail.
 
 ### Fixed
+- Cancelling a download deletes the partial `.part` file on disk.
 - In-thread and scoped forum search no longer return hits from other threads (XF expects `constraints` JSON on POST, not bare `c[thread]`).
 - Settings → Startup: start with Windows and optional start hidden in tray (enables tray when hidden start is on).
 - Store home **Because you…** recommendations after tag panels: up to three daily feature cards from recently played games and weighted tags from recent views (intersection bias + denylist so generic tags do not always win).
