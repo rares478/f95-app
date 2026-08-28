@@ -2,6 +2,7 @@ import { readFileSync } from 'node:fs';
 import { join } from 'node:path';
 import { describe, expect, it } from 'vitest';
 import {
+  buildForumSearchPostBody,
   buildForumSearchUrl,
   fetchForumSearch,
   parseForumSearchPage,
@@ -95,6 +96,24 @@ describe('buildForumSearchUrl', () => {
     expect(url).toMatch(/c\[title_only\]=1|c%5Btitle_only%5D=1|title_only=1/);
     expect(url).toMatch(/[?&]o=date\b/);
     expect(url).toMatch(/[?&]page=2\b/);
+  });
+});
+
+describe('buildForumSearchUrl with threadId', () => {
+  it('includes c[thread] in query parts', () => {
+    const url = buildForumSearchUrl({ query: 'test', threadId: '25332' });
+    expect(url).toMatch(/c\[thread\]=25332/);
+  });
+});
+
+describe('buildForumSearchPostBody with threadId', () => {
+  it('includes c[thread] in POST body', () => {
+    const body = buildForumSearchPostBody({
+      query: 'test',
+      xfToken: 'tok',
+      threadId: '25332',
+    });
+    expect(body).toMatch(/c\[thread\]=25332/);
   });
 });
 

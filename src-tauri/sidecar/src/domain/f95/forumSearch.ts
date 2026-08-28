@@ -15,6 +15,7 @@ export interface ForumSearchParams {
   searchIn?: ForumSearchIn;
   sort?: ForumSearchSort;
   page?: number;
+  threadId?: string;
 }
 
 export interface ForumSearchPrefix {
@@ -69,6 +70,9 @@ export function buildForumSearchQueryParts(params: ForumSearchParams): string[] 
   if (params.titleOnly || params.searchIn === 'titles') {
     parts.push('c[title_only]=1');
   }
+  if (params.threadId?.trim()) {
+    parts.push(`c[thread]=${encodeURIComponent(params.threadId.trim())}`);
+  }
   parts.push(`o=${params.sort === 'date' ? 'date' : 'relevance'}`);
   if (params.page != null && params.page > 1) {
     parts.push(`page=${params.page}`);
@@ -95,6 +99,9 @@ export function buildForumSearchPostBody(
   ];
   if (params.titleOnly || params.searchIn === 'titles') {
     parts.push('c[title_only]=1');
+  }
+  if (params.threadId?.trim()) {
+    parts.push(`c[thread]=${encodeURIComponent(params.threadId.trim())}`);
   }
   return parts.join('&');
 }
