@@ -3,6 +3,7 @@ import {
   forumSearchToSearchParams,
   isSearchFiltersDirty,
   parseForumSearchSearchParams,
+  parseForumSearchThreadParam,
   shouldApplySearchResult,
   type ForumSearchFilterSnapshot,
 } from './forumSearchUi';
@@ -114,6 +115,23 @@ describe('parseForumSearchSearchParams / forumSearchToSearchParams', () => {
       threadId: '25332',
     });
     expect(params.get('thread')).toBe('25332');
+  });
+});
+
+describe('parseForumSearchThreadParam', () => {
+  it('parses thread without q', () => {
+    expect(parseForumSearchThreadParam(new URLSearchParams('thread=25332'))).toBe(
+      '25332',
+    );
+  });
+
+  it('returns undefined without thread', () => {
+    expect(parseForumSearchThreadParam(new URLSearchParams())).toBeUndefined();
+    expect(parseForumSearchThreadParam(new URLSearchParams('q=x'))).toBeUndefined();
+  });
+
+  it('ignores invalid thread', () => {
+    expect(parseForumSearchThreadParam(new URLSearchParams('thread=abc'))).toBeUndefined();
   });
 });
 

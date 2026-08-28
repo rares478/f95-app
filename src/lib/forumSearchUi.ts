@@ -53,6 +53,13 @@ function parseThreadId(raw: string | null): string | undefined {
   return n > 0 ? trimmed : undefined;
 }
 
+/** Read optional `?thread=` scope without requiring `q`. */
+export function parseForumSearchThreadParam(
+  params: URLSearchParams,
+): string | undefined {
+  return parseThreadId(params.get('thread'));
+}
+
 /** Restore an active search from `/search?...` when remounting (e.g. after Back). */
 export function parseForumSearchSearchParams(
   params: URLSearchParams,
@@ -67,7 +74,7 @@ export function parseForumSearchSearchParams(
   const sort = parseSort(params.get('sort'));
   const pageRaw = parseInt(params.get('page') ?? '1', 10);
   const page = Number.isFinite(pageRaw) && pageRaw > 0 ? pageRaw : 1;
-  const threadId = parseThreadId(params.get('thread'));
+  const threadId = parseForumSearchThreadParam(params);
   return { query, titleOnly, searchIn, sort, page, threadId };
 }
 

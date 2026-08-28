@@ -8,6 +8,7 @@ import {
   forumSearchToSearchParams,
   isSearchFiltersDirty,
   parseForumSearchSearchParams,
+  parseForumSearchThreadParam,
   shouldApplySearchResult,
   type ForumSearchAttemptSnapshot,
   type ForumSearchFilterSnapshot,
@@ -33,7 +34,12 @@ export function ForumSearchPage() {
     [],
   );
 
-  const urlThreadId = initialFromUrl?.threadId;
+  const urlThreadId = useMemo(
+    () => parseForumSearchThreadParam(searchParams),
+    // Only hydrate scope from the entry URL; later param writes come from us.
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+    [],
+  );
   const [scope, setScope] = useState<'all' | 'thread'>(urlThreadId ? 'thread' : 'all');
 
   const [query, setQuery] = useState(initialFromUrl?.query ?? '');
