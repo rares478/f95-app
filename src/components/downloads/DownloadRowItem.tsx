@@ -28,6 +28,8 @@ export interface DownloadCardProps {
   showAssign?: boolean;
   onAssign?: () => void;
   onCancel?: () => void;
+  onPause?: () => void;
+  onResume?: () => void;
   onRemove?: () => void;
   onReveal?: () => void;
   onRetry?: () => void;

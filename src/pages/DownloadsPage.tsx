@@ -43,6 +43,7 @@ import {
   canChangeDownloadProvider,
   recoverStatusAfterDownloadFailure,
 } from '../lib/downloadLibrarySync';
+import { canPauseDownload } from '../lib/downloadPause';
 import '../styles/install-plan.css';
 import '../styles/downloads.css';
 
@@ -128,7 +129,8 @@ export function DownloadsPage() {
           r.state === 'extracting' ||
           r.state === 'resolving' ||
           r.state === 'awaiting_choice' ||
-          r.state === 'pending',
+          r.state === 'pending' ||
+          r.state === 'paused',
       ),
     [rows],
   );
@@ -229,9 +231,8 @@ export function DownloadsPage() {
   }
 
   async function onCancel(row: DownloadRow) {
-    await ipc.downloadCancel(row.id);
-    const liveBytes = progress[row.id]?.bytes ?? row.bytesDone;
-    await downloads.markCancelled(row.id, liveBytes);
+    await ipc.downloadCancel(row.id, row.destPath);
+    await downloads.markCancelled(row.id, 0);
     const linkedJob =
       jobByDownloadId[row.id] ?? (await findJobByDownloadId(row.id));
     if (linkedJob) {
@@ -255,6 +256,14 @@ export function DownloadsPage() {
     } catch {
       /* not in library */
     }
+    await reload();
+  }
+
+  async function onPause(row: DownloadRow) {
+    if (!canPauseDownload(row)) return;
+    await ipc.downloadPause(row.id);
+    const liveBytes = progress[row.id]?.bytes ?? row.bytesDone;
+    await downloads.markPaused(row.id, liveBytes);
     await reload();
   }
 
@@ -295,7 +304,7 @@ export function DownloadsPage() {
     });
   }
 
-  async function onRetry(row: DownloadRow) {
+  async function restartDownload(row: DownloadRow) {
     if (isOffline) {
       await dialog.alert(t('offline.actionBlocked'), { kind: 'info' });
       return;
@@ -315,6 +324,14 @@ export function DownloadsPage() {
     await reload();
   }
 
+  async function onRetry(row: DownloadRow) {
+    await restartDownload(row);
+  }
+
+  async function onResume(row: DownloadRow) {
+    await restartDownload(row);
+  }
+
   async function onRemove(row: DownloadRow) {
     await downloads.remove(row.id);
     await reload();
@@ -332,7 +349,7 @@ export function DownloadsPage() {
       return;
     }
     try {
-      await ipc.downloadCancel(row.id);
+      await ipc.downloadCancel(row.id, row.destPath);
     } catch {
       /* row may already be idle */
     }
@@ -491,6 +508,8 @@ export function DownloadsPage() {
                     showAssign={needsAssign(r)}
                     onAssign={() => void onAssign(r)}
                     onCancel={() => onCancel(r)}
+                    onPause={() => onPause(r)}
+                    onResume={() => onResume(r)}
                     onContextMenu={(e) =>
                       openDownloadContextMenu(e, r, { onCancel: () => onCancel(r) })
                     }
