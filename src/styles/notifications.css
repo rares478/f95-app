@@ -585,6 +585,156 @@
   font-family: inherit;
 }
 
+/* ─── News: watched threads ─────────────────────────────────────────────── */
+
+.watched-section {
+  background: var(--bg-elevated);
+  border: 1px solid var(--border);
+  border-radius: 4px;
+  padding: 14px 16px;
+  margin-bottom: 18px;
+}
+
+.watched-section-title {
+  font-size: 12px;
+  font-weight: 700;
+  color: var(--text-muted);
+  text-transform: uppercase;
+  letter-spacing: 0.6px;
+  margin: 0 0 10px;
+}
+
+.watched-list {
+  list-style: none;
+  margin: 0;
+  padding: 0;
+  display: flex;
+  flex-direction: column;
+  gap: 8px;
+}
+
+.watched-row {
+  display: flex;
+  align-items: center;
+  gap: 10px;
+  padding: 8px 10px;
+  background: var(--bg-sunken);
+  border-radius: 3px;
+  color: var(--text-secondary);
+  text-decoration: none;
+  transition: background 0.1s ease;
+}
+
+.watched-row:hover {
+  background: var(--bg-hover);
+}
+
+.watched-row--xf-unread {
+  border-left: 2px solid color-mix(in srgb, var(--accent) 45%, transparent);
+  padding-left: 8px;
+}
+
+.watched-row-body {
+  flex: 1;
+  min-width: 0;
+}
+
+.watched-row-title {
+  font-size: 13px;
+  font-weight: 600;
+  white-space: nowrap;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  color: var(--text-primary);
+}
+
+.watched-row-meta {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  margin-top: 2px;
+  font-size: 12px;
+  color: var(--text-muted);
+  min-width: 0;
+}
+
+.watched-row-forum {
+  white-space: nowrap;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  max-width: 60%;
+}
+
+.watched-row-date {
+  flex-shrink: 0;
+  color: var(--text-faint);
+}
+
+.watched-row-date::before {
+  content: '·';
+  margin-right: 8px;
+  opacity: 0.6;
+}
+
+.watched-row-forum:empty + .watched-row-date::before,
+.watched-row-meta:not(:has(.watched-row-forum)) .watched-row-date::before {
+  display: none;
+}
+
+.watched-row-badge {
+  flex-shrink: 0;
+  background: var(--status-success);
+  color: #fff;
+  padding: 3px 8px;
+  border-radius: 3px;
+  font-size: 10px;
+  font-weight: 800;
+  text-transform: uppercase;
+  letter-spacing: 0.35px;
+}
+
+.watched-hint,
+.watched-empty,
+.watched-loading {
+  font-size: 12px;
+  color: var(--text-muted);
+}
+
+.watched-loading {
+  display: inline-flex;
+  align-items: center;
+  gap: 8px;
+}
+
+.watched-empty p {
+  margin: 0;
+}
+
+.watched-empty-hint {
+  margin-top: 6px !important;
+  color: var(--text-faint);
+}
+
+.watched-error {
+  font-size: 12px;
+  color: var(--status-danger-text);
+  display: flex;
+  align-items: center;
+  gap: 10px;
+  flex-wrap: wrap;
+}
+
+.watched-retry {
+  background: transparent;
+  border: 1px solid var(--border-strong);
+  color: var(--text-tertiary);
+  padding: 4px 10px;
+  border-radius: 4px;
+  font-size: 11px;
+  cursor: pointer;
+  font-family: inherit;
+}
+
 /* ─── Alerts page ───────────────────────────────────────────────────────── */
 
 .alerts-page {

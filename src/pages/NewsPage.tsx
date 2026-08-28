@@ -1,4 +1,4 @@
-import { useCallback, useEffect, useState } from 'react';
+import { useCallback, useEffect, useMemo, useState } from 'react';
 import { Link, useLocation, useNavigate } from 'react-router-dom';
 import * as ipc from '../lib/ipc';
 import * as library from '../lib/library';
@@ -6,11 +6,14 @@ import * as updates from '../lib/updates';
 import { dialog } from '../lib/dialog';
 import { useContextMenu } from '../components/contextMenu';
 import { useOffline } from '../contexts/Offline';
+import { useNotifications } from '../contexts/Notifications';
+import { unreadAlertThreadIds } from '../lib/watchAlerts';
 import { buildNewsActivityMenu } from '../lib/contextMenus/buildNewsMenu';
 import { openF95NotificationTarget } from '../lib/openF95NotificationTarget';
 import { useT } from '../lib/i18n';
 import { formatIpcError } from '../lib/ipcError';
 import { RssFeedSection } from '../components/news/RssFeedSection';
+import { WatchedThreadsSection } from '../components/news/WatchedThreadsSection';
 import { NewsPageSkeleton } from '../components/ui/NewsPageSkeleton';
 import { Spinner } from '../components/ui/Spinner';
 import type { LibraryGame } from '../types/library';
@@ -30,7 +33,9 @@ export function NewsPage() {
   const navigate = useNavigate();
   const location = useLocation();
   const { isOffline } = useOffline();
+  const { f95Alerts, refresh: refreshNotifications } = useNotifications();
   const { openContextMenu } = useContextMenu();
+  const unreadThreadIds = useMemo(() => unreadAlertThreadIds(f95Alerts), [f95Alerts]);
   const [checkingUpdates, setCheckingUpdates] = useState<{ done: number; total: number } | null>(
     null,
   );
@@ -43,9 +48,11 @@ export function NewsPage() {
     username: null,
   });
   const [refreshing, setRefreshing] = useState(false);
+  const [watchRefreshToken, setWatchRefreshToken] = useState(0);
 
   const reload = useCallback(async (forceRefetchProfile = false) => {
     setRefreshing(forceRefetchProfile);
+    setWatchRefreshToken((n) => n + 1);
     try {
       const [updateGames, games] = await Promise.all([
         library.listPendingUpdates({ sort: 'added' }),
@@ -75,6 +82,7 @@ export function NewsPage() {
         activity,
         username,
       });
+      void refreshNotifications();
     } catch (err) {
       setState((s) => ({
         ...s,
@@ -84,7 +92,7 @@ export function NewsPage() {
     } finally {
       setRefreshing(false);
     }
-  }, []);
+  }, [refreshNotifications]);
 
   useEffect(() => {
     if (location.pathname !== '/news') return;
@@ -163,6 +171,12 @@ export function NewsPage() {
             <h2 className="news-section-rss-title">{t('news.section.rss')}</h2>
             <RssFeedSection />
           </section>
+
+          <WatchedThreadsSection
+            isOffline={isOffline}
+            unreadThreadIds={unreadThreadIds}
+            refreshToken={watchRefreshToken}
+          />
 
           <section style={sectionStyle}>
             <div style={sectionHeadRow}>
