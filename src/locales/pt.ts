@@ -18,6 +18,11 @@ const pt: Record<string, string> = {
   'nav.sidebar.collapse': 'Recolher barra lateral',
   'nav.sidebar.expand': 'Expandir barra lateral',
 
+  // ─── Forum search ───────────────────────────────────────────────────────
+  'search.scope.all': 'Todos os fóruns',
+  'search.scope.thread': 'Este tópico',
+  'search.empty.noneInThread': 'Nenhuma postagem encontrada neste tópico.',
+
   // ─── Title bar ──────────────────────────────────────────────────────────
   'titlebar.minimize': 'Minimizar',
   'titlebar.maximize': 'Maximizar',

@@ -94,6 +94,15 @@
   align-items: center;
 }
 
+.forum-search-scope {
+  display: inline-flex;
+  gap: 12px;
+  align-items: center;
+  margin: 0;
+  padding: 0;
+  border: none;
+}
+
 .forum-search-check {
   display: inline-flex;
   align-items: center;

@@ -18,6 +18,11 @@ const ru: Record<string, string> = {
   'nav.sidebar.collapse': 'Свернуть панель',
   'nav.sidebar.expand': 'Развернуть панель',
 
+  // ─── Forum search ───────────────────────────────────────────────────────
+  'search.scope.all': 'Все форумы',
+  'search.scope.thread': 'Эта тема',
+  'search.empty.noneInThread': 'В этой теме ничего не найдено.',
+
   // ─── Title bar ──────────────────────────────────────────────────────────
   'titlebar.minimize': 'Свернуть',
   'titlebar.maximize': 'Развернуть',

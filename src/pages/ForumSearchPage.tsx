@@ -33,6 +33,9 @@ export function ForumSearchPage() {
     [],
   );
 
+  const urlThreadId = initialFromUrl?.threadId;
+  const [scope, setScope] = useState<'all' | 'thread'>(urlThreadId ? 'thread' : 'all');
+
   const [query, setQuery] = useState(initialFromUrl?.query ?? '');
   const [titleOnly, setTitleOnly] = useState(initialFromUrl?.titleOnly ?? false);
   const [searchIn, setSearchIn] = useState<ForumSearchIn>(
@@ -55,8 +58,20 @@ export function ForumSearchPage() {
   const searchGenRef = useRef(0);
   const didRestoreRef = useRef(false);
 
-  const liveFilters: ForumSearchFilterSnapshot = { titleOnly, searchIn, sort };
+  const effectiveThreadId = scope === 'thread' ? urlThreadId : undefined;
+  const liveFilters: ForumSearchFilterSnapshot = {
+    titleOnly,
+    searchIn,
+    sort,
+    threadId: effectiveThreadId,
+  };
   const filtersDirty = isSearchFiltersDirty(liveFilters, activeAttempt);
+
+  useEffect(() => {
+    if (scope === 'thread' && !urlThreadId) {
+      setScope('all');
+    }
+  }, [scope, urlThreadId]);
 
   const syncUrl = useCallback(
     (attempt: ForumSearchAttemptSnapshot, pageNum: number) => {
@@ -105,6 +120,7 @@ export function ForumSearchPage() {
         titleOnly: attempt.titleOnly,
         searchIn: attempt.searchIn,
         sort: attempt.sort,
+        threadId: attempt.threadId,
       };
       const generation = ++searchGenRef.current;
       setRequestedPage(pageNum);
@@ -120,6 +136,7 @@ export function ForumSearchPage() {
           searchIn: snapshot.searchIn,
           sort: snapshot.sort,
           page: pageNum,
+          threadId: snapshot.threadId,
         });
         if (!shouldApplySearchResult(generation, searchGenRef.current)) return;
         setResults(res.results);
@@ -152,7 +169,7 @@ export function ForumSearchPage() {
   const onSubmit = (e: FormEvent) => {
     e.preventDefault();
     if (status === 'loading') return;
-    void runSearch(1, { query, titleOnly, searchIn, sort });
+    void runSearch(1, { query, titleOnly, searchIn, sort, threadId: effectiveThreadId });
   };
 
   const searchReturnTo = `${location.pathname}${location.search}`;
@@ -164,6 +181,7 @@ export function ForumSearchPage() {
       titleOnly: activeAttempt?.titleOnly ?? titleOnly,
       searchIn: activeAttempt?.searchIn ?? searchIn,
       sort: activeAttempt?.sort ?? sort,
+      threadId: activeAttempt?.threadId ?? effectiveThreadId,
     } satisfies ForumSearchAttemptSnapshot);
 
   const showPagination =
@@ -239,6 +257,31 @@ export function ForumSearchPage() {
               <option value="date">{t('search.filter.date')}</option>
             </select>
           </label>
+
+          {urlThreadId && (
+            <fieldset className="forum-search-scope">
+              <label className="forum-search-check">
+                <input
+                  type="radio"
+                  name="forum-search-scope"
+                  checked={scope === 'all'}
+                  onChange={() => setScope('all')}
+                  disabled={isOffline}
+                />
+                {t('search.scope.all')}
+              </label>
+              <label className="forum-search-check">
+                <input
+                  type="radio"
+                  name="forum-search-scope"
+                  checked={scope === 'thread'}
+                  onChange={() => setScope('thread')}
+                  disabled={isOffline}
+                />
+                {t('search.scope.thread')}
+              </label>
+            </fieldset>
+          )}
         </div>
       </form>
 
@@ -273,7 +316,11 @@ export function ForumSearchPage() {
       {status === 'ready' && results.length === 0 && (
         <div className="forum-search-list-panel">
           <div className="forum-search-empty">
-            <p>{t('search.empty.none')}</p>
+            <p>
+              {activeAttempt?.threadId
+                ? t('search.empty.noneInThread')
+                : t('search.empty.none')}
+            </p>
           </div>
         </div>
       )}

@@ -18,6 +18,11 @@ const de: Record<string, string> = {
   'nav.sidebar.collapse': 'Seitenleiste einklappen',
   'nav.sidebar.expand': 'Seitenleiste ausklappen',
 
+  // ─── Forum search ───────────────────────────────────────────────────────
+  'search.scope.all': 'Alle Foren',
+  'search.scope.thread': 'Dieser Thread',
+  'search.empty.noneInThread': 'Keine Beiträge in diesem Thread gefunden.',
+
   // ─── Title bar ──────────────────────────────────────────────────────────
   'titlebar.minimize': 'Minimieren',
   'titlebar.maximize': 'Maximieren',
