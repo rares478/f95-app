@@ -63,6 +63,23 @@ function absUrl(href: string | undefined | null): string | null {
   return null;
 }
 
+/** Positive integer XenForo thread id, or null when invalid. */
+function parseThreadIdParam(raw: string | undefined): string | null {
+  const trimmed = raw?.trim();
+  if (!trimmed || !/^\d+$/.test(trimmed)) return null;
+  const n = parseInt(trimmed, 10);
+  return n > 0 ? trimmed : null;
+}
+
+/**
+ * XF quick search on thread pages POSTs `constraints` JSON (not bare `c[thread]`)
+ * to scope results to one thread — see captured thread HTML search forms.
+ */
+function buildThreadSearchConstraints(threadId: string): string {
+  const id = parseInt(threadId, 10);
+  return JSON.stringify({ search_type: 'post', c: { thread: id } });
+}
+
 /** GET query parts for result URLs (`/search/{id}/?q=…`) — XF uses `q`/`o` here. */
 export function buildForumSearchQueryParts(params: ForumSearchParams): string[] {
   // Keep `c[title_only]` brackets unencoded (URLSearchParams would use %5B/%5D).
@@ -70,8 +87,9 @@ export function buildForumSearchQueryParts(params: ForumSearchParams): string[] 
   if (params.titleOnly || params.searchIn === 'titles') {
     parts.push('c[title_only]=1');
   }
-  if (params.threadId?.trim()) {
-    parts.push(`c[thread]=${encodeURIComponent(params.threadId.trim())}`);
+  const threadId = parseThreadIdParam(params.threadId);
+  if (threadId) {
+    parts.push(`c[thread]=${encodeURIComponent(threadId)}`);
   }
   parts.push(`o=${params.sort === 'date' ? 'date' : 'relevance'}`);
   if (params.page != null && params.page > 1) {
@@ -100,10 +118,20 @@ export function buildForumSearchPostBody(
   if (params.titleOnly || params.searchIn === 'titles') {
     parts.push('c[title_only]=1');
   }
-  if (params.threadId?.trim()) {
-    parts.push(`c[thread]=${encodeURIComponent(params.threadId.trim())}`);
+  const threadId = parseThreadIdParam(params.threadId);
+  if (threadId) {
+    parts.push(`constraints=${encodeURIComponent(buildThreadSearchConstraints(threadId))}`);
   }
   return parts.join('&');
+}
+
+function filterResultsToThread(
+  page: ForumSearchPage,
+  threadId: string,
+): ForumSearchPage {
+  const filtered = page.results.filter((hit) => hit.threadId === threadId);
+  if (filtered.length === page.results.length) return page;
+  return { ...page, results: filtered };
 }
 
 /** Numeric search-result id from a final XF redirect URL (`/search/{id}/…`). */
@@ -335,9 +363,13 @@ export async function fetchForumSearch(
   }
 
   const xfToken = await loadXfToken(http);
-  const page = params.page ?? 1;
+  const pageNum = params.page ?? 1;
+  const scopedThreadId = parseThreadIdParam(params.threadId);
   const body = buildForumSearchPostBody({ ...params, query, xfToken });
-  log(`[forumSearch] POST ${F95_BASE}/search/search q=${JSON.stringify(query)} page=${page}`);
+  log(
+    `[forumSearch] POST ${F95_BASE}/search/search q=${JSON.stringify(query)} page=${pageNum}` +
+      (scopedThreadId ? ` thread=${scopedThreadId}` : ''),
+  );
   const res = await http.post(`${F95_BASE}/search/search`, {
     headers: {
       'content-type': 'application/x-www-form-urlencoded',
@@ -351,7 +383,7 @@ export async function fetchForumSearch(
   log(`[forumSearch] POST done status=${res.status} url=${res.url}`);
 
   const searchId = extractForumSearchId(res.url);
-  if (page > 1) {
+  if (pageNum > 1) {
     if (!searchId) {
       throw new RpcError(
         RPC_ERROR.INTERNAL,
@@ -361,7 +393,7 @@ export async function fetchForumSearch(
     const getUrl = `${F95_BASE}/search/${searchId}/?${buildForumSearchQueryParts({
       ...params,
       query,
-      page,
+      page: pageNum,
     }).join('&')}`;
     log(`[forumSearch] GET ${getUrl}`);
     const pageRes = await http.get(getUrl, {
@@ -371,9 +403,13 @@ export async function fetchForumSearch(
       },
     });
     assertForumSearchResponse(pageRes);
-    return parseForumSearchPage(pageRes.body, { page });
+    const parsed = parseForumSearchPage(pageRes.body, { page: pageNum });
+    return scopedThreadId
+      ? filterResultsToThread(parsed, scopedThreadId)
+      : parsed;
   }
 
   // If XF returns a search form / error page with zero rows, return empty (do not throw)
-  return parseForumSearchPage(res.body, { page });
+  const parsed = parseForumSearchPage(res.body, { page: pageNum });
+  return scopedThreadId ? filterResultsToThread(parsed, scopedThreadId) : parsed;
 }

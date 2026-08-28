@@ -107,13 +107,18 @@ describe('buildForumSearchUrl with threadId', () => {
 });
 
 describe('buildForumSearchPostBody with threadId', () => {
-  it('includes c[thread] in POST body', () => {
+  it('includes constraints JSON for thread scope (XF quick search)', () => {
     const body = buildForumSearchPostBody({
       query: 'test',
       xfToken: 'tok',
       threadId: '25332',
     });
-    expect(body).toMatch(/c\[thread\]=25332/);
+    expect(body).toMatch(/constraints=/);
+    const raw = body.match(/constraints=([^&]+)/)?.[1] ?? '';
+    expect(decodeURIComponent(raw)).toBe(
+      JSON.stringify({ search_type: 'post', c: { thread: 25332 } }),
+    );
+    expect(body).not.toMatch(/c\[thread\]=/);
   });
 });
 
@@ -190,6 +195,42 @@ describe('parseForumSearchPage', () => {
 
 describe('fetchForumSearch', () => {
   const okHeaders = { 'content-type': 'text/html' };
+
+  it('POSTs constraints when threadId is set', async () => {
+    const http = makeSearchHttp({
+      post: () => ({
+        status: 200,
+        url: 'https://f95zone.to/search/999/?q=save',
+        body: fix('forum-search-page-1.html'),
+        headers: okHeaders,
+      }),
+    });
+    await fetchForumSearch(http, {
+      query: 'save',
+      threadId: '25332',
+    });
+    expect(http.posts[0].body).toMatch(/constraints=/);
+    const raw = http.posts[0].body?.match(/constraints=([^&]+)/)?.[1] ?? '';
+    expect(decodeURIComponent(raw)).toBe(
+      JSON.stringify({ search_type: 'post', c: { thread: 25332 } }),
+    );
+  });
+
+  it('filters out hits from other threads when threadId is set', async () => {
+    const http = makeSearchHttp({
+      post: () => ({
+        status: 200,
+        url: 'https://f95zone.to/search/999/?q=save',
+        body: fix('forum-search-page-1.html'),
+        headers: okHeaders,
+      }),
+    });
+    const page = await fetchForumSearch(http, {
+      query: 'save',
+      threadId: '207960',
+    });
+    expect(page.results.every((hit) => hit.threadId === '207960')).toBe(true);
+  });
 
   it('POSTs /search/search with CSRF and parses redirected results', async () => {
     const http = makeSearchHttp({
