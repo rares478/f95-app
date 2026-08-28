@@ -450,7 +450,7 @@ export function detectHasMorePages(html: string, currentPage: number): boolean {
   return Number.isFinite(lastNum) && lastNum > currentPage;
 }
 
-function extractThreadId($row: cheerio.Cheerio<cheerio.Element>): string | null {
+function extractThreadId($row: cheerio.Cheerio<any>): string | null {
   const classes = ($row.attr('class') ?? '').split(/\s+/);
   for (const cls of classes) {
     const match = cls.match(/^js-threadListItem-(\d+)$/);
