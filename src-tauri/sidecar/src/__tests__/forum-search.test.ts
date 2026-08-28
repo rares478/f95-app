@@ -2,6 +2,7 @@ import { readFileSync } from 'node:fs';
 import { join } from 'node:path';
 import { describe, expect, it } from 'vitest';
 import {
+  appendForumSearchConstraints,
   buildForumSearchPostBody,
   buildForumSearchUrl,
   fetchForumSearch,
@@ -119,6 +120,48 @@ describe('buildForumSearchPostBody with threadId', () => {
       JSON.stringify({ search_type: 'post', c: { thread: 25332 } }),
     );
     expect(body).not.toMatch(/c\[thread\]=/);
+  });
+});
+
+describe('appendForumSearchConstraints', () => {
+  it('adds advanced XenForo c[…] params', () => {
+    const parts: string[] = [];
+    appendForumSearchConstraints(parts, {
+      query: 'x',
+      postedBy: 'alice,bob',
+      dateNewerThan: '2024-01-01',
+      dateOlderThan: '2024-12-31',
+      tags: 'vn',
+      withoutTags: 'spam',
+      minReplyCount: 3,
+      prefixIds: [1, 2],
+      forumNodeIds: [2],
+      searchSubforums: true,
+      containerOnly: true,
+      titleOnly: true,
+    });
+    expect(parts.join('&')).toMatch(/c\[users\]=alice/);
+    expect(parts.join('&')).toMatch(/c\[newer_than\]=2024-01-01/);
+    expect(parts.join('&')).toMatch(/c\[older_than\]=2024-12-31/);
+    expect(parts.join('&')).toMatch(/c\[tags\]=vn/);
+    expect(parts.join('&')).toMatch(/c\[excludeTags\]=spam/);
+    expect(parts.join('&')).toMatch(/c\[min_reply_count\]=3/);
+    expect(parts.join('&')).toMatch(/c\[prefixes\]\[\]=1/);
+    expect(parts.join('&')).toMatch(/c\[nodes\]\[\]=2/);
+    expect(parts.join('&')).toMatch(/c\[child_nodes\]=1/);
+    expect(parts.join('&')).toMatch(/c\[content\]=thread/);
+    expect(parts.join('&')).toMatch(/c\[title_only\]=1/);
+  });
+});
+
+describe('buildForumSearchPostBody', () => {
+  it('includes search_type=post for F95 thread search', () => {
+    const body = buildForumSearchPostBody({
+      query: 'test',
+      xfToken: 'token',
+    });
+    expect(body).toMatch(/search_type=post/);
+    expect(body).toMatch(/keywords=test/);
   });
 });
 

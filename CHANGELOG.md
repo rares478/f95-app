@@ -23,6 +23,7 @@ together when cutting a release:
 - Discussion, thread/game OP, and profile posts show non-image file attachments with in-app download to the Downloads folder.
 - Click avatar or username in discussions, thread author, forum search, and alerts to open that member's in-app profile.
 - Thread-scoped forum search (`?thread=` on Search page; XenForo `c[thread]`) and inline search in discussion views with jump-to-post.
+- Forum Search advanced filters: posted by, date range, tags, prefixes, forums, min replies, and title/first-post options.
 
 ### Fixed
 - In-thread and scoped forum search no longer return hits from other threads (XF expects `constraints` JSON on POST, not bare `c[thread]`).

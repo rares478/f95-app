@@ -162,28 +162,12 @@ impl SidecarClient {
             .await
     }
 
-    pub async fn forum_search(
-        &self,
-        query: &str,
-        title_only: bool,
-        search_in: &str,
-        sort: &str,
-        page: u32,
-        thread_id: Option<&str>,
-    ) -> Result<Value, AppError> {
-        self.inner
-            .call(
-                "forumSearch",
-                json!({
-                    "query": query,
-                    "titleOnly": title_only,
-                    "searchIn": search_in,
-                    "sort": sort,
-                    "page": page,
-                    "threadId": thread_id,
-                }),
-            )
-            .await
+    pub async fn forum_search(&self, params: Value) -> Result<Value, AppError> {
+        self.inner.call("forumSearch", params).await
+    }
+
+    pub async fn forum_search_form_options(&self) -> Result<Value, AppError> {
+        self.inner.call("forumSearchFormOptions", json!({})).await
     }
 
     pub async fn thread_reply(&self, thread_id: &str, message: &str) -> Result<Value, AppError> {

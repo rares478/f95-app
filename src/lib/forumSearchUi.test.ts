@@ -1,5 +1,6 @@
 import { describe, expect, it } from 'vitest';
 import {
+  EMPTY_FORUM_SEARCH_ADVANCED,
   forumSearchToSearchParams,
   isSearchFiltersDirty,
   parseForumSearchSearchParams,
@@ -12,6 +13,7 @@ const base: ForumSearchFilterSnapshot = {
   titleOnly: false,
   searchIn: 'posts',
   sort: 'relevance',
+  ...EMPTY_FORUM_SEARCH_ADVANCED,
 };
 
 describe('shouldApplySearchResult', () => {
@@ -35,6 +37,12 @@ describe('isSearchFiltersDirty', () => {
     expect(isSearchFiltersDirty({ ...base, searchIn: 'titles' }, base)).toBe(true);
     expect(isSearchFiltersDirty({ ...base, sort: 'date' }, base)).toBe(true);
   });
+
+  it('detects dirty postedBy', () => {
+    expect(
+      isSearchFiltersDirty({ ...base, postedBy: 'bob' }, { ...base, postedBy: '' }),
+    ).toBe(true);
+  });
 });
 
 describe('parseForumSearchSearchParams / forumSearchToSearchParams', () => {
@@ -50,6 +58,7 @@ describe('parseForumSearchSearchParams / forumSearchToSearchParams', () => {
       searchIn: 'posts',
       sort: 'relevance',
       page: 1,
+      ...EMPTY_FORUM_SEARCH_ADVANCED,
     });
   });
 
@@ -63,6 +72,23 @@ describe('parseForumSearchSearchParams / forumSearchToSearchParams', () => {
       searchIn: 'titles',
       sort: 'date',
       page: 3,
+      ...EMPTY_FORUM_SEARCH_ADVANCED,
+    });
+  });
+
+  it('parses advanced filters', () => {
+    const params = new URLSearchParams(
+      'q=x&posted_by=alice&newer=2024-01-01&tags=vn&min_replies=5&prefixes=1,2&forums=2&subforums=0',
+    );
+    expect(parseForumSearchSearchParams(params)).toMatchObject({
+      query: 'x',
+      postedBy: 'alice',
+      dateNewerThan: '2024-01-01',
+      tags: 'vn',
+      minReplyCount: 5,
+      prefixIds: [1, 2],
+      forumNodeIds: [2],
+      searchSubforums: false,
     });
   });
 
@@ -73,6 +99,10 @@ describe('parseForumSearchSearchParams / forumSearchToSearchParams', () => {
       searchIn: 'titles' as const,
       sort: 'date' as const,
       page: 2,
+      postedBy: 'bob',
+      tags: 'love',
+      prefixIds: [3],
+      ...EMPTY_FORUM_SEARCH_ADVANCED,
     };
     const parsed = parseForumSearchSearchParams(forumSearchToSearchParams(state));
     expect(parsed).toEqual(state);
@@ -85,6 +115,7 @@ describe('parseForumSearchSearchParams / forumSearchToSearchParams', () => {
       searchIn: 'posts',
       sort: 'relevance',
       page: 1,
+      ...EMPTY_FORUM_SEARCH_ADVANCED,
     });
     expect(params.toString()).toBe('q=x');
   });
@@ -97,6 +128,7 @@ describe('parseForumSearchSearchParams / forumSearchToSearchParams', () => {
       sort: 'relevance',
       page: 1,
       threadId: '25332',
+      ...EMPTY_FORUM_SEARCH_ADVANCED,
     });
   });
 
@@ -113,6 +145,7 @@ describe('parseForumSearchSearchParams / forumSearchToSearchParams', () => {
       sort: 'relevance',
       page: 1,
       threadId: '25332',
+      ...EMPTY_FORUM_SEARCH_ADVANCED,
     });
     expect(params.get('thread')).toBe('25332');
   });

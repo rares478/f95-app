@@ -6,16 +6,41 @@ import { F95_BASE } from '../../shared/constants';
 import { loadXfToken, type XfHttpGet, type XfHttpResponse } from './alerts';
 import { log } from '../../logger';
 
+/** F95 advanced thread search form (includes forum + prefix selects). */
+export const FORUM_SEARCH_FORM_PATH = '/search/?type=post';
+export const FORUM_SEARCH_FORM_URL = `${F95_BASE}${FORUM_SEARCH_FORM_PATH}`;
+
 export type ForumSearchSort = 'relevance' | 'date';
 export type ForumSearchIn = 'titles' | 'posts';
 
 export interface ForumSearchParams {
   query: string;
   titleOnly?: boolean;
+  containerOnly?: boolean;
   searchIn?: ForumSearchIn;
   sort?: ForumSearchSort;
   page?: number;
   threadId?: string;
+  postedBy?: string;
+  dateNewerThan?: string;
+  dateOlderThan?: string;
+  tags?: string;
+  withoutTags?: string;
+  minReplyCount?: number;
+  prefixIds?: number[];
+  forumNodeIds?: number[];
+  searchSubforums?: boolean;
+}
+
+export interface ForumSearchNodeOption {
+  id: number;
+  label: string;
+  /** XenForo search select indent level (each level = two nbsp). */
+  depth: number;
+}
+
+export interface ForumSearchFormOptions {
+  forums: ForumSearchNodeOption[];
 }
 
 export interface ForumSearchPrefix {
@@ -80,13 +105,215 @@ function buildThreadSearchConstraints(threadId: string): string {
   return JSON.stringify({ search_type: 'post', c: { thread: id } });
 }
 
+/** Shared XenForo `c[…]` constraint params for POST body and pagination GET. */
+export function appendForumSearchConstraints(
+  parts: string[],
+  params: ForumSearchParams,
+): void {
+  if (params.titleOnly || params.searchIn === 'titles') {
+    parts.push('c[title_only]=1');
+  }
+  if (params.containerOnly) {
+    parts.push('c[content]=thread');
+  }
+  const postedBy = params.postedBy?.trim();
+  if (postedBy) {
+    parts.push(`c[users]=${encodeURIComponent(postedBy)}`);
+  }
+  const newer = params.dateNewerThan?.trim();
+  if (newer) {
+    parts.push(`c[newer_than]=${encodeURIComponent(newer)}`);
+  }
+  const older = params.dateOlderThan?.trim();
+  if (older) {
+    parts.push(`c[older_than]=${encodeURIComponent(older)}`);
+  }
+  const tags = params.tags?.trim();
+  if (tags) {
+    parts.push(`c[tags]=${encodeURIComponent(tags)}`);
+  }
+  const withoutTags = params.withoutTags?.trim();
+  if (withoutTags) {
+    parts.push(`c[excludeTags]=${encodeURIComponent(withoutTags)}`);
+  }
+  if (params.minReplyCount != null && params.minReplyCount > 0) {
+    parts.push(`c[min_reply_count]=${Math.floor(params.minReplyCount)}`);
+  }
+  for (const id of params.prefixIds ?? []) {
+    if (Number.isInteger(id) && id > 0) {
+      parts.push(`c[prefixes][]=${id}`);
+    }
+  }
+  for (const id of params.forumNodeIds ?? []) {
+    if (Number.isInteger(id) && id > 0) {
+      parts.push(`c[nodes][]=${id}`);
+    }
+  }
+  if (
+    params.searchSubforums !== false &&
+    (params.forumNodeIds?.length ?? 0) > 0
+  ) {
+    parts.push('c[child_nodes]=1');
+  }
+}
+
+const FORUM_NODE_HREF_RE = /\/forums\/[^/?#]+\.(\d+)\/?(?:\?|#|$)/i;
+
+function normalizeForumNodeLabel(text: string): string {
+  return text.replace(/\u00a0/g, ' ').replace(/\s+/g, ' ').trim();
+}
+
+/** Count XenForo `&nbsp;&nbsp;` indent pairs from a search `<option>` inner HTML. */
+export function parseForumSearchOptionDepth(optionInnerHtml: string): number {
+  const leading = optionInnerHtml.match(/^((?:&nbsp;|\u00a0)+)/)?.[1] ?? '';
+  if (!leading) return 0;
+  const entityCount = (leading.match(/&nbsp;/g) ?? []).length;
+  const unicodeCount = (leading.replace(/&nbsp;/g, '').match(/\u00a0/g) ?? [])
+    .length;
+  return Math.floor((entityCount + unicodeCount) / 2);
+}
+
+function pushForumNodeOption(
+  forums: ForumSearchNodeOption[],
+  seen: Set<number>,
+  id: number,
+  label: string,
+  depth = 0,
+): void {
+  const clean = normalizeForumNodeLabel(label);
+  if (!Number.isFinite(id) || id <= 0 || !clean || seen.has(id)) return;
+  seen.add(id);
+  forums.push({ id, label: clean, depth: Math.max(0, depth) });
+}
+
+function forumNodeIdFromHref(href: string | undefined): number | null {
+  const raw = href?.match(FORUM_NODE_HREF_RE)?.[1];
+  if (!raw) return null;
+  const id = parseInt(raw, 10);
+  return Number.isFinite(id) && id > 0 ? id : null;
+}
+
+function xenforoListNodeDepth(className: string): number {
+  const match = className.match(/\bnode--depth(\d+)\b/);
+  if (!match) return 0;
+  return Math.max(0, parseInt(match[1], 10) - 1);
+}
+
+function isForumNodeSelectName(name: string): boolean {
+  return /^c\[nodes\]|^nodes\[\]$/.test(name);
+}
+
+/** Parse forum node options from XenForo advanced search HTML. */
+export function parseForumSearchFormOptions(html: string): ForumSearchFormOptions {
+  const $ = cheerio.load(html);
+  const forums: ForumSearchNodeOption[] = [];
+  const seen = new Set<number>();
+
+  $('select').each((_, selectEl) => {
+    const name = $(selectEl).attr('name') ?? '';
+    if (!isForumNodeSelectName(name)) return;
+    $(selectEl)
+      .find('option')
+      .each((_, el) => {
+        const raw = $(el).attr('value')?.trim() ?? '';
+        if (!raw || raw === '0') return;
+        const id = parseInt(raw, 10);
+        const depth = parseForumSearchOptionDepth($(el).html() ?? '');
+        pushForumNodeOption(forums, seen, id, $(el).text(), depth);
+      });
+  });
+
+  return { forums };
+}
+
+/** Parse searchable forum nodes from the F95 forums index page. */
+export function parseForumNodesFromForumsIndex(html: string): ForumSearchNodeOption[] {
+  const $ = cheerio.load(html);
+  const forums: ForumSearchNodeOption[] = [];
+  const seen = new Set<number>();
+
+  $('.uix_nodeList .block--category').each((_, catEl) => {
+    $(catEl)
+      .find('.block-body > .node--forum')
+      .each((_, nodeEl) => {
+        const $node = $(nodeEl);
+        const depth = xenforoListNodeDepth($node.attr('class') ?? '');
+        const $link = $node.find('.node-title a[href*="/forums/"]').first();
+        const label =
+          $link.text() || $node.find('a[href*="/forums/"]').first().text();
+        const idMatch = ($node.attr('class') ?? '').match(/\bnode--id(\d+)\b/);
+        const id =
+          (idMatch ? parseInt(idMatch[1], 10) : null) ??
+          forumNodeIdFromHref($link.attr('href')) ??
+          forumNodeIdFromHref(
+            $node.find('a[href*="/forums/"]').first().attr('href'),
+          );
+        if (id) pushForumNodeOption(forums, seen, id, label, depth);
+
+        $node
+          .find('a.subNodeLink--forum[href*="/forums/"]')
+          .each((_, subEl) => {
+            const $sub = $(subEl);
+            const subId = forumNodeIdFromHref($sub.attr('href'));
+            if (subId) {
+              pushForumNodeOption(forums, seen, subId, $sub.text(), depth + 1);
+            }
+          });
+      });
+  });
+
+  return forums;
+}
+
+async function fetchForumNodesFromForumsIndex(
+  http: XfHttpGet,
+): Promise<ForumSearchFormOptions> {
+  const res = await http.get(`${F95_BASE}/forums/`, {
+    headers: { accept: 'text/html', referer: `${F95_BASE}/` },
+  });
+  assertNotCloudflareChallenge(res.body, res.headers);
+  if (res.status >= 400) {
+    throw new RpcError(
+      RPC_ERROR.INTERNAL,
+      `forums index HTTP ${res.status}`,
+    );
+  }
+  return { forums: parseForumNodesFromForumsIndex(res.body) };
+}
+
+export async function fetchForumSearchFormOptions(
+  http: XfHttpGet,
+): Promise<ForumSearchFormOptions> {
+  const res = await http.get(FORUM_SEARCH_FORM_URL, {
+    headers: { accept: 'text/html', referer: `${F95_BASE}/` },
+  });
+  assertNotCloudflareChallenge(res.body, res.headers);
+  if (res.url.includes('/login')) {
+    return { forums: [] };
+  }
+  if (res.status >= 400) {
+    throw new RpcError(
+      RPC_ERROR.INTERNAL,
+      `forum search form HTTP ${res.status}`,
+    );
+  }
+
+  const fromForm = parseForumSearchFormOptions(res.body);
+  if (fromForm.forums.length > 0) {
+    return fromForm;
+  }
+
+  log(
+    '[forumSearchFormOptions] no nodes in search form HTML; loading from /forums/',
+  );
+  return fetchForumNodesFromForumsIndex(http);
+}
+
 /** GET query parts for result URLs (`/search/{id}/?q=…`) — XF uses `q`/`o` here. */
 export function buildForumSearchQueryParts(params: ForumSearchParams): string[] {
   // Keep `c[title_only]` brackets unencoded (URLSearchParams would use %5B/%5D).
   const parts: string[] = [`q=${encodeURIComponent(params.query)}`];
-  if (params.titleOnly || params.searchIn === 'titles') {
-    parts.push('c[title_only]=1');
-  }
+  appendForumSearchConstraints(parts, params);
   const threadId = parseThreadIdParam(params.threadId);
   if (threadId) {
     parts.push(`c[thread]=${encodeURIComponent(threadId)}`);
@@ -112,12 +339,11 @@ export function buildForumSearchPostBody(
 ): string {
   const parts: string[] = [
     `_xfToken=${encodeURIComponent(params.xfToken)}`,
+    'search_type=post',
     `keywords=${encodeURIComponent(params.query)}`,
     `order=${params.sort === 'date' ? 'date' : 'relevance'}`,
   ];
-  if (params.titleOnly || params.searchIn === 'titles') {
-    parts.push('c[title_only]=1');
-  }
+  appendForumSearchConstraints(parts, params);
   const threadId = parseThreadIdParam(params.threadId);
   if (threadId) {
     parts.push(`constraints=${encodeURIComponent(buildThreadSearchConstraints(threadId))}`);
@@ -373,7 +599,7 @@ export async function fetchForumSearch(
   const res = await http.post(`${F95_BASE}/search/search`, {
     headers: {
       'content-type': 'application/x-www-form-urlencoded',
-      referer: `${F95_BASE}/search/`,
+      referer: FORUM_SEARCH_FORM_URL,
       origin: F95_BASE,
       accept: 'text/html',
     },

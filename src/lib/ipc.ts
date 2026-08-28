@@ -3,7 +3,7 @@ import type { ProfileDto, PaginatedActivity, PaginatedProfilePosts } from '../ty
 import type { SamFilters, SamOptionsResult, SamPage } from '../types/sam';
 import type { SamCategory } from '../types/sam';
 import type { GameDetail } from '../types/game';
-import type { ForumSearchPage } from '../types/forumSearch';
+import type { ForumSearchPage, ForumSearchFormOptions } from '../types/forumSearch';
 import type {
   BbcodePreviewResult,
   ResolveF95UrlResult,
@@ -87,19 +87,43 @@ export async function gameDetail(threadId: string): Promise<GameDetail> {
 export async function forumSearch(params: {
   query: string;
   titleOnly?: boolean;
+  containerOnly?: boolean;
   searchIn?: 'titles' | 'posts';
   sort?: 'relevance' | 'date';
   page?: number;
   threadId?: string;
+  postedBy?: string;
+  dateNewerThan?: string;
+  dateOlderThan?: string;
+  tags?: string;
+  withoutTags?: string;
+  minReplyCount?: number;
+  prefixIds?: number[];
+  forumNodeIds?: number[];
+  searchSubforums?: boolean;
 }): Promise<ForumSearchPage> {
   return invoke<ForumSearchPage>('forum_search', {
     query: params.query,
     titleOnly: params.titleOnly ?? false,
+    containerOnly: params.containerOnly ?? false,
     searchIn: params.searchIn ?? 'posts',
     sort: params.sort ?? 'relevance',
     page: params.page ?? 1,
     threadId: params.threadId ?? null,
+    postedBy: params.postedBy ?? null,
+    dateNewerThan: params.dateNewerThan ?? null,
+    dateOlderThan: params.dateOlderThan ?? null,
+    tags: params.tags ?? null,
+    withoutTags: params.withoutTags ?? null,
+    minReplyCount: params.minReplyCount ?? null,
+    prefixIds: params.prefixIds ?? null,
+    forumNodeIds: params.forumNodeIds ?? null,
+    searchSubforums: params.searchSubforums ?? null,
   });
+}
+
+export async function forumSearchFormOptions(): Promise<ForumSearchFormOptions> {
+  return invoke<ForumSearchFormOptions>('forum_search_form_options');
 }
 
 export async function threadPosts(threadId: string, page = 1): Promise<ThreadPostsPage> {

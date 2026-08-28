@@ -21,6 +21,22 @@ const pt: Record<string, string> = {
   // ─── Forum search ───────────────────────────────────────────────────────
   'search.scope.all': 'Todos os fóruns',
   'search.scope.thread': 'Este tópico',
+  'search.scope.label': 'Escopo da busca',
+  'search.filter.containerOnly': 'Apenas títulos e primeiras postagens',
+  'search.advanced.postedBy': 'Publicado por',
+  'search.advanced.postedByPlaceholder': 'Membro',
+  'search.advanced.postedByHint': 'Você pode inserir vários nomes.',
+  'search.advanced.newerThan': 'Mais recente que',
+  'search.advanced.olderThan': 'Mais antigo que',
+  'search.advanced.tags': 'Tags',
+  'search.advanced.withoutTags': 'Sem tags',
+  'search.advanced.minReplies': 'Número mínimo de respostas',
+  'search.advanced.prefixes': 'Prefixos',
+  'search.advanced.prefixesEmpty': 'Lista de prefixos indisponível — abra a loja uma vez.',
+  'search.advanced.forums': 'Buscar nos fóruns',
+  'search.advanced.forumsEmpty': 'Lista de fóruns indisponível offline ou sem login.',
+  'search.advanced.subforums': 'Incluir subfóruns',
+  'search.advanced.toggle': 'Avançado',
   'search.empty.noneInThread': 'Nenhuma postagem encontrada neste tópico.',
 
   // ─── Title bar ──────────────────────────────────────────────────────────

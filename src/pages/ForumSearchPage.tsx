@@ -1,10 +1,13 @@
 import { useCallback, useEffect, useMemo, useRef, useState, type FormEvent } from 'react';
 import { useLocation, useNavigate, useSearchParams } from 'react-router-dom';
+import { ForumSearchAdvancedForm } from '../components/search/ForumSearchAdvancedForm';
 import { ForumSearchResultRow } from '../components/search/ForumSearchResultRow';
 import { Spinner } from '../components/ui/Spinner';
 import { useOffline } from '../contexts/Offline';
 import * as ipc from '../lib/ipc';
 import {
+  EMPTY_FORUM_SEARCH_ADVANCED,
+  forumSearchAttemptToIpc,
   forumSearchToSearchParams,
   isSearchFiltersDirty,
   parseForumSearchSearchParams,
@@ -16,9 +19,27 @@ import {
 import { useT } from '../lib/i18n';
 import { formatIpcError } from '../lib/ipcError';
 import { openThreadFromSearch } from '../lib/openThreadFromSearch';
-import type { ForumSearchHit, ForumSearchIn, ForumSearchSort } from '../types/forumSearch';
+import type { ForumSearchHit, ForumSearchNodeOption, ForumSearchSort } from '../types/forumSearch';
 
 type SearchStatus = 'idle' | 'loading' | 'ready' | 'error';
+
+function attemptFromControls(
+  query: string,
+  titleOnly: boolean,
+  searchIn: ForumSearchFilterSnapshot['searchIn'],
+  sort: ForumSearchSort,
+  advanced: typeof EMPTY_FORUM_SEARCH_ADVANCED,
+  threadId?: string,
+): ForumSearchAttemptSnapshot {
+  return {
+    query,
+    titleOnly,
+    searchIn,
+    sort,
+    threadId,
+    ...advanced,
+  };
+}
 
 export function ForumSearchPage() {
   const { t } = useT();
@@ -29,14 +50,12 @@ export function ForumSearchPage() {
 
   const initialFromUrl = useMemo(
     () => parseForumSearchSearchParams(searchParams),
-    // Only hydrate controls from the entry URL; later param writes come from us.
     // eslint-disable-next-line react-hooks/exhaustive-deps
     [],
   );
 
   const urlThreadId = useMemo(
     () => parseForumSearchThreadParam(searchParams),
-    // Only hydrate scope from the entry URL; later param writes come from us.
     // eslint-disable-next-line react-hooks/exhaustive-deps
     [],
   );
@@ -44,12 +63,29 @@ export function ForumSearchPage() {
 
   const [query, setQuery] = useState(initialFromUrl?.query ?? '');
   const [titleOnly, setTitleOnly] = useState(initialFromUrl?.titleOnly ?? false);
-  const [searchIn, setSearchIn] = useState<ForumSearchIn>(
-    initialFromUrl?.searchIn ?? 'posts',
+  const [searchIn] = useState(initialFromUrl?.searchIn ?? 'posts');
+  const [sort, setSort] = useState<ForumSearchSort>(initialFromUrl?.sort ?? 'relevance');
+  const [advanced, setAdvanced] = useState(() =>
+    initialFromUrl
+      ? {
+          containerOnly: initialFromUrl.containerOnly,
+          postedBy: initialFromUrl.postedBy,
+          dateNewerThan: initialFromUrl.dateNewerThan,
+          dateOlderThan: initialFromUrl.dateOlderThan,
+          tags: initialFromUrl.tags,
+          withoutTags: initialFromUrl.withoutTags,
+          minReplyCount: initialFromUrl.minReplyCount,
+          prefixIds: initialFromUrl.prefixIds,
+          forumNodeIds: initialFromUrl.forumNodeIds,
+          searchSubforums: initialFromUrl.searchSubforums,
+        }
+      : { ...EMPTY_FORUM_SEARCH_ADVANCED },
   );
-  const [sort, setSort] = useState<ForumSearchSort>(
-    initialFromUrl?.sort ?? 'relevance',
+  const [forumOptions, setForumOptions] = useState<ForumSearchNodeOption[]>([]);
+  const [advancedExpanded, setAdvancedExpanded] = useState(
+    () => !(initialFromUrl?.query.trim()),
   );
+
   const [page, setPage] = useState(initialFromUrl?.page ?? 1);
   const [requestedPage, setRequestedPage] = useState(initialFromUrl?.page ?? 1);
   const [results, setResults] = useState<ForumSearchHit[]>([]);
@@ -70,6 +106,7 @@ export function ForumSearchPage() {
     searchIn,
     sort,
     threadId: effectiveThreadId,
+    ...advanced,
   };
   const filtersDirty = isSearchFiltersDirty(liveFilters, activeAttempt);
 
@@ -78,6 +115,25 @@ export function ForumSearchPage() {
       setScope('all');
     }
   }, [scope, urlThreadId]);
+
+  useEffect(() => {
+    if (isOffline) {
+      setForumOptions([]);
+      return;
+    }
+    let cancelled = false;
+    void ipc
+      .forumSearchFormOptions()
+      .then((opts) => {
+        if (!cancelled) setForumOptions(opts.forums ?? []);
+      })
+      .catch(() => {
+        if (!cancelled) setForumOptions([]);
+      });
+    return () => {
+      cancelled = true;
+    };
+  }, [isOffline]);
 
   const syncUrl = useCallback(
     (attempt: ForumSearchAttemptSnapshot, pageNum: number) => {
@@ -108,6 +164,7 @@ export function ForumSearchPage() {
         setActiveAttempt(null);
         setLastAttempt(null);
         setErrorMessage(null);
+        setAdvancedExpanded(true);
         clearUrl();
         return;
       }
@@ -122,11 +179,8 @@ export function ForumSearchPage() {
       }
 
       const snapshot: ForumSearchAttemptSnapshot = {
+        ...attempt,
         query: trimmed,
-        titleOnly: attempt.titleOnly,
-        searchIn: attempt.searchIn,
-        sort: attempt.sort,
-        threadId: attempt.threadId,
       };
       const generation = ++searchGenRef.current;
       setRequestedPage(pageNum);
@@ -136,14 +190,7 @@ export function ForumSearchPage() {
       syncUrl(snapshot, pageNum);
 
       try {
-        const res = await ipc.forumSearch({
-          query: snapshot.query,
-          titleOnly: snapshot.titleOnly,
-          searchIn: snapshot.searchIn,
-          sort: snapshot.sort,
-          page: pageNum,
-          threadId: snapshot.threadId,
-        });
+        const res = await ipc.forumSearch(forumSearchAttemptToIpc(snapshot, pageNum));
         if (!shouldApplySearchResult(generation, searchGenRef.current)) return;
         setResults(res.results);
         setHasMore(res.hasMore);
@@ -172,23 +219,23 @@ export function ForumSearchPage() {
     void runSearch(initialFromUrl.page, initialFromUrl);
   }, [initialFromUrl, runSearch]);
 
+  const buildAttempt = (): ForumSearchAttemptSnapshot =>
+    attemptFromControls(query, titleOnly, searchIn, sort, advanced, effectiveThreadId);
+
   const onSubmit = (e: FormEvent) => {
     e.preventDefault();
     if (status === 'loading') return;
-    void runSearch(1, { query, titleOnly, searchIn, sort, threadId: effectiveThreadId });
+    const trimmed = query.trim();
+    if (trimmed) setAdvancedExpanded(false);
+    else setAdvancedExpanded(true);
+    void runSearch(1, buildAttempt());
   };
 
   const searchReturnTo = `${location.pathname}${location.search}`;
 
   const retryAttempt =
     lastAttempt ??
-    ({
-      query: activeAttempt?.query || query,
-      titleOnly: activeAttempt?.titleOnly ?? titleOnly,
-      searchIn: activeAttempt?.searchIn ?? searchIn,
-      sort: activeAttempt?.sort ?? sort,
-      threadId: activeAttempt?.threadId ?? effectiveThreadId,
-    } satisfies ForumSearchAttemptSnapshot);
+    buildAttempt();
 
   const showPagination =
     status === 'ready' && !filtersDirty && (page > 1 || hasMore);
@@ -221,6 +268,19 @@ export function ForumSearchPage() {
             autoComplete="off"
           />
           <button
+            type="button"
+            className={`forum-search-btn forum-search-advanced-toggle${
+              advancedExpanded ? ' forum-search-advanced-toggle--open' : ''
+            }`}
+            onClick={() => setAdvancedExpanded((open) => !open)}
+            disabled={isOffline}
+            aria-expanded={advancedExpanded}
+            aria-controls="forum-search-advanced-panel"
+          >
+            {t('search.advanced.toggle')}
+            <span className="forum-search-advanced-chevron" aria-hidden />
+          </button>
+          <button
             type="submit"
             className="forum-search-btn forum-search-btn--primary"
             disabled={isOffline || !query.trim() || status === 'loading'}
@@ -229,7 +289,23 @@ export function ForumSearchPage() {
           </button>
         </div>
 
-        <div className="forum-search-filter-bar">
+        {advancedExpanded && (
+          <div
+            id="forum-search-advanced-panel"
+            className="forum-search-advanced-panel"
+          >
+        <div className="forum-search-keyword-options">
+          <label className="forum-search-check">
+            <input
+              type="checkbox"
+              checked={advanced.containerOnly}
+              onChange={(e) =>
+                setAdvanced((a) => ({ ...a, containerOnly: e.target.checked }))
+              }
+              disabled={isOffline}
+            />
+            {t('search.filter.containerOnly')}
+          </label>
           <label className="forum-search-check">
             <input
               type="checkbox"
@@ -239,33 +315,43 @@ export function ForumSearchPage() {
             />
             {t('search.filter.titleOnly')}
           </label>
+        </div>
 
-          <label className="forum-search-field">
-            <span>{t('search.filter.searchIn')}</span>
-            <select
-              value={searchIn}
-              onChange={(e) => setSearchIn(e.target.value as ForumSearchIn)}
-              disabled={isOffline}
-            >
-              <option value="titles">{t('search.filter.titles')}</option>
-              <option value="posts">{t('search.filter.posts')}</option>
-            </select>
-          </label>
+        <ForumSearchAdvancedForm
+          value={advanced}
+          onChange={setAdvanced}
+          forums={forumOptions}
+          disabled={isOffline}
+        />
 
-          <label className="forum-search-field">
-            <span>{t('search.filter.sort')}</span>
-            <select
-              value={sort}
-              onChange={(e) => setSort(e.target.value as ForumSearchSort)}
-              disabled={isOffline}
-            >
-              <option value="relevance">{t('search.filter.relevance')}</option>
-              <option value="date">{t('search.filter.date')}</option>
-            </select>
-          </label>
+        <div className="forum-search-filter-bar forum-search-filter-bar--footer">
+          <fieldset className="forum-search-order">
+            <legend>{t('search.filter.sort')}</legend>
+            <label className="forum-search-check">
+              <input
+                type="radio"
+                name="forum-search-sort"
+                checked={sort === 'relevance'}
+                onChange={() => setSort('relevance')}
+                disabled={isOffline}
+              />
+              {t('search.filter.relevance')}
+            </label>
+            <label className="forum-search-check">
+              <input
+                type="radio"
+                name="forum-search-sort"
+                checked={sort === 'date'}
+                onChange={() => setSort('date')}
+                disabled={isOffline}
+              />
+              {t('search.filter.date')}
+            </label>
+          </fieldset>
 
           {urlThreadId && (
             <fieldset className="forum-search-scope">
+              <legend>{t('search.scope.label')}</legend>
               <label className="forum-search-check">
                 <input
                   type="radio"
@@ -289,6 +375,8 @@ export function ForumSearchPage() {
             </fieldset>
           )}
         </div>
+          </div>
+        )}
       </form>
 
       {status === 'error' && errorMessage && (

@@ -38,14 +38,44 @@ describe('forumSearch handler', () => {
     });
 
     expect(fetchForumSearchMock).toHaveBeenCalledOnce();
-    expect(fetchForumSearchMock).toHaveBeenCalledWith(http, {
+    expect(fetchForumSearchMock).toHaveBeenCalledWith(
+      http,
+      expect.objectContaining({
+        query: 'test',
+        titleOnly: false,
+        searchIn: 'posts',
+        sort: 'relevance',
+        page: 1,
+        threadId: '25332',
+      }),
+    );
+  });
+
+  it('passes advanced filters to fetchForumSearch', async () => {
+    const ctx = new AppContext();
+    const http = {} as F95Client['http'];
+    ctx.client = { http } as F95Client;
+
+    const handlers = createForumHandlers(ctx);
+    await handlers.forumSearch({
       query: 'test',
-      titleOnly: false,
-      searchIn: 'posts',
-      sort: 'relevance',
-      page: 1,
-      threadId: '25332',
+      postedBy: 'alice',
+      tags: 'vn',
+      prefixIds: [1, 2],
+      forumNodeIds: [2],
+      minReplyCount: 5,
     });
+
+    expect(fetchForumSearchMock).toHaveBeenCalledWith(
+      http,
+      expect.objectContaining({
+        postedBy: 'alice',
+        tags: 'vn',
+        prefixIds: [1, 2],
+        forumNodeIds: [2],
+        minReplyCount: 5,
+      }),
+    );
   });
 
   it('omits threadId when empty or non-string', async () => {

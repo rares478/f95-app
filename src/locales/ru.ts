@@ -21,6 +21,22 @@ const ru: Record<string, string> = {
   // ─── Forum search ───────────────────────────────────────────────────────
   'search.scope.all': 'Все форумы',
   'search.scope.thread': 'Эта тема',
+  'search.scope.label': 'Область поиска',
+  'search.filter.containerOnly': 'Только заголовки и первые сообщения',
+  'search.advanced.postedBy': 'Автор',
+  'search.advanced.postedByPlaceholder': 'Участник',
+  'search.advanced.postedByHint': 'Можно указать несколько имён.',
+  'search.advanced.newerThan': 'Новее чем',
+  'search.advanced.olderThan': 'Старше чем',
+  'search.advanced.tags': 'Теги',
+  'search.advanced.withoutTags': 'Без тегов',
+  'search.advanced.minReplies': 'Минимум ответов',
+  'search.advanced.prefixes': 'Префиксы',
+  'search.advanced.prefixesEmpty': 'Список префиксов недоступен — откройте магазин один раз.',
+  'search.advanced.forums': 'Искать в разделах',
+  'search.advanced.forumsEmpty': 'Список разделов недоступен офлайн или без входа.',
+  'search.advanced.subforums': 'Искать в подразделах',
+  'search.advanced.toggle': 'Дополнительно',
   'search.empty.noneInThread': 'В этой теме ничего не найдено.',
 
   // ─── Title bar ──────────────────────────────────────────────────────────

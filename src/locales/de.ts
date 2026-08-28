@@ -21,6 +21,22 @@ const de: Record<string, string> = {
   // ─── Forum search ───────────────────────────────────────────────────────
   'search.scope.all': 'Alle Foren',
   'search.scope.thread': 'Dieser Thread',
+  'search.scope.label': 'Suchbereich',
+  'search.filter.containerOnly': 'Nur Titel und Erstbeiträge',
+  'search.advanced.postedBy': 'Verfasst von',
+  'search.advanced.postedByPlaceholder': 'Mitglied',
+  'search.advanced.postedByHint': 'Mehrere Namen möglich.',
+  'search.advanced.newerThan': 'Neuer als',
+  'search.advanced.olderThan': 'Älter als',
+  'search.advanced.tags': 'Tags',
+  'search.advanced.withoutTags': 'Ohne Tags',
+  'search.advanced.minReplies': 'Mindestanzahl Antworten',
+  'search.advanced.prefixes': 'Präfixe',
+  'search.advanced.prefixesEmpty': 'Präfixliste nicht verfügbar — Store einmal öffnen.',
+  'search.advanced.forums': 'In Foren suchen',
+  'search.advanced.forumsEmpty': 'Forumliste offline oder nicht angemeldet.',
+  'search.advanced.subforums': 'Unterforen einbeziehen',
+  'search.advanced.toggle': 'Erweitert',
   'search.empty.noneInThread': 'Keine Beiträge in diesem Thread gefunden.',
 
   // ─── Title bar ──────────────────────────────────────────────────────────

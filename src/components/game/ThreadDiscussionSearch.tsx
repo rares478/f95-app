@@ -5,14 +5,12 @@ import * as ipc from '../../lib/ipc';
 import { shouldApplySearchResult } from '../../lib/forumSearchUi';
 import { useT } from '../../lib/i18n';
 import { formatIpcError } from '../../lib/ipcError';
-import type { ForumSearchHit, ForumSearchSort } from '../../types/forumSearch';
+import type { ForumSearchHit } from '../../types/forumSearch';
 
 type SearchStatus = 'idle' | 'loading' | 'ready' | 'error';
 
 type AttemptSnapshot = {
   query: string;
-  titleOnly: boolean;
-  sort: ForumSearchSort;
 };
 
 interface Props {
@@ -23,8 +21,6 @@ interface Props {
 export function ThreadDiscussionSearch({ threadId, onFocusPost }: Props) {
   const { t } = useT();
   const [query, setQuery] = useState('');
-  const [titleOnly, setTitleOnly] = useState(false);
-  const [sort, setSort] = useState<ForumSearchSort>('relevance');
   const [status, setStatus] = useState<SearchStatus>('idle');
   const [loadingMore, setLoadingMore] = useState(false);
   const [results, setResults] = useState<ForumSearchHit[]>([]);
@@ -49,11 +45,7 @@ export function ThreadDiscussionSearch({ threadId, onFocusPost }: Props) {
         return;
       }
 
-      const snapshot: AttemptSnapshot = {
-        query: trimmed,
-        titleOnly: attempt.titleOnly,
-        sort: attempt.sort,
-      };
+      const snapshot: AttemptSnapshot = { query: trimmed };
       const generation = ++searchGenRef.current;
       if (append) {
         setLoadingMore(true);
@@ -65,9 +57,7 @@ export function ThreadDiscussionSearch({ threadId, onFocusPost }: Props) {
       try {
         const res = await ipc.forumSearch({
           query: snapshot.query,
-          titleOnly: snapshot.titleOnly,
           searchIn: 'posts',
-          sort: snapshot.sort,
           page: pageNum,
           threadId,
         });
@@ -99,7 +89,7 @@ export function ThreadDiscussionSearch({ threadId, onFocusPost }: Props) {
   const onSubmit = (e: FormEvent) => {
     e.preventDefault();
     if (status === 'loading') return;
-    void runSearch(1, { query, titleOnly, sort }, false);
+    void runSearch(1, { query }, false);
   };
 
   const onLoadMore = () => {
@@ -130,28 +120,6 @@ export function ThreadDiscussionSearch({ threadId, onFocusPost }: Props) {
           >
             {t('gamedetail.discussion.search.submit')}
           </button>
-        </div>
-
-        <div className="thread-discussion-search-filters">
-          <label className="thread-discussion-search-check">
-            <input
-              type="checkbox"
-              checked={titleOnly}
-              onChange={(e) => setTitleOnly(e.target.checked)}
-            />
-            {t('search.filter.titleOnly')}
-          </label>
-
-          <label className="thread-discussion-search-field">
-            <span>{t('search.filter.sort')}</span>
-            <select
-              value={sort}
-              onChange={(e) => setSort(e.target.value as ForumSearchSort)}
-            >
-              <option value="relevance">{t('search.filter.relevance')}</option>
-              <option value="date">{t('search.filter.date')}</option>
-            </select>
-          </label>
         </div>
       </form>
 
