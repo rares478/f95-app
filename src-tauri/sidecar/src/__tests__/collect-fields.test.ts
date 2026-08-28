@@ -42,4 +42,18 @@ describe('collectFields — Developer with links', () => {
     );
     expect(fields.Developer).toBe('MrDots Games');
   });
+
+  it('does not append unrecognized store links after the developer name', () => {
+    const fields = fieldsFrom(
+      `<b>Developer</b>: kaninoawa <a href="https://www.dlsite.com/maniax/circle/profile/=/maker_id/RG54829.html" target="_blank" rel="noreferrer noopener">DLsite</a><br />`,
+    );
+    expect(fields.Developer).toBe('kaninoawa');
+  });
+
+  it('does not treat a lone DLsite button as the developer name', () => {
+    const fields = fieldsFrom(
+      `<b>Developer</b>: <a href="https://www.dlsite.com/maniax/circle/profile/=/maker_id/RG54829.html">DLsite</a><br />`,
+    );
+    expect(fields.Developer).toBeUndefined();
+  });
 });

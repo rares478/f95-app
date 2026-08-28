@@ -666,6 +666,10 @@ function isSocialPlatformLabel(text: string): boolean {
   );
 }
 
+function isStorePlatformLabel(text: string): boolean {
+  return /^(dlsite|fanbox|ci-?en|gumroad|boosty|steam|itch\.?io)$/i.test(text.trim());
+}
+
 /** Strip leading colon and trailing " - " / "|" separators left by skipped links. */
 function cleanFieldValue(raw: string): string {
   return cleanText(raw)
@@ -691,14 +695,25 @@ function readSiblingsUntilBreak(
         const href = hrefRaw ? absoluteUrl(hrefRaw) : '';
         const info = href ? classifyHost(href) : null;
         const linkText = cleanText($(n).text());
+        const haveName = cleanFieldValue(parts.join('')).length > 0;
+
         if (info?.category === 'social') {
-          const haveName = cleanFieldValue(parts.join('')).length > 0;
           if (!haveName && linkText && !isSocialPlatformLabel(linkText)) {
             parts.push(linkText);
           }
           break;
         }
-        if (linkText && !isGenericDevLinkLabel(linkText)) {
+
+        if (haveName) {
+          // Trailing store/social links after the name — do not append their labels.
+          break;
+        }
+
+        if (
+          linkText &&
+          !isGenericDevLinkLabel(linkText) &&
+          !isStorePlatformLabel(linkText)
+        ) {
           parts.push(linkText);
         }
         n = n.next ?? null;
