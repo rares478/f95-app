@@ -2,6 +2,7 @@ import { describe, expect, it } from 'vitest';
 import {
   KNOWN_SOCIAL_HOSTS,
   dedupeSocialLinks,
+  dedupeSocialLinksByHost,
   socialLinkLabel,
 } from './socialLinks';
 import type { SocialLink } from '../types/game';
@@ -19,6 +20,20 @@ describe('dedupeSocialLinks', () => {
     ]);
     expect(out).toEqual([
       link({ host: 'patreon', url: 'https://patreon.com/a', text: 'Patreon' }),
+      link({ host: 'discord', url: 'https://discord.gg/x', text: 'Discord' }),
+    ]);
+  });
+});
+
+describe('dedupeSocialLinksByHost', () => {
+  it('keeps first occurrence per host even when URLs differ', () => {
+    const out = dedupeSocialLinksByHost([
+      link({ host: 'patreon', url: 'https://www.patreon.com/a', text: 'Patreon' }),
+      link({ host: 'patreon', url: 'https://patreon.com/a/posts', text: 'Posts' }),
+      link({ host: 'discord', url: 'https://discord.gg/x', text: 'Discord' }),
+    ]);
+    expect(out).toEqual([
+      link({ host: 'patreon', url: 'https://www.patreon.com/a', text: 'Patreon' }),
       link({ host: 'discord', url: 'https://discord.gg/x', text: 'Discord' }),
     ]);
   });

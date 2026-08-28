@@ -34,6 +34,20 @@ export function dedupeSocialLinks(links: SocialLink[]): SocialLink[] {
   return out;
 }
 
+/** One link per platform/host — for developer profiles spanning many games. */
+export function dedupeSocialLinksByHost(links: SocialLink[]): SocialLink[] {
+  const seen = new Set<string>();
+  const out: SocialLink[] = [];
+  for (const link of links) {
+    const host = link.host.trim().toLowerCase();
+    const key = host || link.url.trim();
+    if (!key || seen.has(key)) continue;
+    seen.add(key);
+    out.push(link);
+  }
+  return out;
+}
+
 export function socialLinkLabel(link: SocialLink): string {
   const host = link.host.trim().toLowerCase();
   const hostLabel =

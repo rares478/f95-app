@@ -1,15 +1,31 @@
-import { useCallback, useEffect, useMemo, useRef, useState } from 'react';
+import { useCallback, useEffect, useMemo, useRef, useState, useSyncExternalStore } from 'react';
 import { useLocation, useNavigate, useParams } from 'react-router-dom';
+import { DeveloperDossierHero } from '../components/developer/DeveloperDossierHero';
 import { DeveloperGameCard } from '../components/developer/DeveloperGameCard';
+import { DeveloperCatalogCapsule } from '../components/developer/DeveloperCatalogCapsule';
 import { OfflineGate } from '../components/OfflineGate';
 import { Spinner } from '../components/ui/Spinner';
 import { useOffline } from '../contexts/Offline';
 import { searchDeveloperGames } from '../lib/developerSearch';
+import {
+  buildDeveloperCatalogEntries,
+  buildDeveloperProfileStats,
+  collectDeveloperSocialLinks,
+  developerCatalogLayout,
+  pickHeroBannerUrl,
+  sortDeveloperCatalog,
+} from '../lib/developerProfileModel';
 import { parseDeveloperProfileParam } from '../lib/developerProfilePath';
+import { prefetchGameDetails, peekGameDetail } from '../lib/gameDetailCache';
 import { useT } from '../lib/i18n';
 import { formatIpcError } from '../lib/ipcError';
+import {
+  getLibraryMembershipRevision,
+  getLibraryThreadIds,
+  loadLibraryMembership,
+  subscribeLibraryMembership,
+} from '../lib/libraryMembership';
 import { openThreadFromSearch } from '../lib/openThreadFromSearch';
-import { prefetchGameDetails, peekGameDetail } from '../lib/gameDetailCache';
 import type { GameDetail } from '../types/game';
 import type { ForumSearchHit } from '../types/forumSearch';
 
@@ -36,6 +52,14 @@ export function DeveloperProfilePage() {
     () => new Map(),
   );
   const loadGenRef = useRef(0);
+
+  const libraryRevision = useSyncExternalStore(
+    subscribeLibraryMembership,
+    getLibraryMembershipRevision,
+  );
+  useEffect(() => {
+    void loadLibraryMembership();
+  }, []);
 
   const searchReturnTo = `${location.pathname}${location.search}`;
 
@@ -118,36 +142,53 @@ export function DeveloperProfilePage() {
     };
   }, [status, results]);
 
+  const catalogEntries = useMemo(
+    () => sortDeveloperCatalog(buildDeveloperCatalogEntries(results, detailsByThread)),
+    [results, detailsByThread],
+  );
+
+  const stats = useMemo(
+    () =>
+      status === 'ready' && catalogEntries.length > 0
+        ? buildDeveloperProfileStats(catalogEntries, getLibraryThreadIds())
+        : null,
+    [catalogEntries, status, libraryRevision],
+  );
+
+  const heroBannerUrl = useMemo(
+    () => pickHeroBannerUrl(catalogEntries),
+    [catalogEntries],
+  );
+
+  const socialLinks = useMemo(
+    () => collectDeveloperSocialLinks(catalogEntries),
+    [catalogEntries],
+  );
+
+  const layout = developerCatalogLayout(catalogEntries.length);
+
   const pageLabel =
     totalPages && totalPages > 0
       ? t('search.pagination.page', { page: `${page} / ${totalPages}` })
       : t('search.pagination.page', { page });
 
-  const gameCountLabel =
-    status === 'ready'
-      ? t('developer.gameCount', { count: results.length })
-      : null;
+  const openHit = useCallback(
+    (hit: ForumSearchHit) => {
+      void openThreadFromSearch(hit, navigate, { searchReturnTo });
+    },
+    [navigate, searchReturnTo],
+  );
 
   return (
     <OfflineGate>
-      <div className="developer-profile-page">
-        <header className="developer-profile-hero">
-          <button
-            type="button"
-            className="developer-profile-back"
-            onClick={() => navigate(-1)}
-          >
-            {t('common.back')}
-          </button>
-          <div className="developer-profile-hero-main">
-            <p className="developer-profile-kicker">{t('developer.kicker')}</p>
-            <h1 className="developer-profile-name">{developerName || '—'}</h1>
-            <p className="developer-profile-blurb">{t('developer.blurb')}</p>
-            {gameCountLabel && (
-              <p className="developer-profile-stat">{gameCountLabel}</p>
-            )}
-          </div>
-        </header>
+      <div className="developer-dossier-page">
+        <DeveloperDossierHero
+          developerName={developerName}
+          stats={stats}
+          socialLinks={socialLinks}
+          heroBannerUrl={heroBannerUrl}
+          onBack={() => navigate(-1)}
+        />
 
         {isOffline && (
           <div className="offline-banner" role="status">
@@ -156,13 +197,13 @@ export function DeveloperProfilePage() {
         )}
 
         {status === 'loading' && (
-          <div className="developer-profile-loading">
+          <div className="developer-dossier-loading">
             <Spinner />
           </div>
         )}
 
         {status === 'error' && errorMessage && (
-          <div className="developer-profile-error">
+          <div className="developer-dossier-empty">
             <p>{errorMessage}</p>
             <button
               type="button"
@@ -176,48 +217,74 @@ export function DeveloperProfilePage() {
         )}
 
         {status === 'ready' && results.length === 0 && (
-          <div className="developer-profile-empty">
+          <div className="developer-dossier-empty">
             <p>{t('developer.empty')}</p>
           </div>
         )}
 
         {status === 'ready' && results.length > 0 && (
-          <>
-            <div className="developer-profile-grid">
-              {results.map((hit, index) => (
-                <DeveloperGameCard
-                  key={`${index}-${hit.threadId}-${hit.postId ?? 'thread'}`}
-                  hit={hit}
-                  detail={hit.threadId ? detailsByThread.get(hit.threadId) : null}
-                  onOpen={() =>
-                    void openThreadFromSearch(hit, navigate, { searchReturnTo })
-                  }
-                />
-              ))}
-            </div>
-
-            {(page > 1 || hasMore) && (
-              <div className="developer-profile-pagination">
-                <button
-                  type="button"
-                  className="forum-search-btn"
-                  disabled={page <= 1 || isOffline}
-                  onClick={() => void loadPage(page - 1)}
-                >
-                  {t('search.pagination.prev')}
-                </button>
-                <span className="forum-search-page-label">{pageLabel}</span>
-                <button
-                  type="button"
-                  className="forum-search-btn forum-search-btn--primary"
-                  disabled={!hasMore || isOffline}
-                  onClick={() => void loadPage(page + 1)}
-                >
-                  {t('search.pagination.next')}
-                </button>
+          <div className="developer-dossier-body">
+            <section className="developer-dossier-section developer-dossier-catalog">
+              <div className="developer-dossier-section-head">
+                <h2 className="developer-dossier-section-title">
+                  {t('developer.catalogHeading')}
+                </h2>
+                {stats && (
+                  <span className="developer-dossier-section-meta">
+                    {t('developer.gameCount', { count: stats.gameCount })}
+                  </span>
+                )}
               </div>
-            )}
-          </>
+
+              {layout === 'timeline' ? (
+                <div
+                  className={`developer-catalog-stack${catalogEntries.length === 1 ? ' developer-catalog-stack--solo' : ''}`}
+                >
+                  {catalogEntries.map((entry, index) => (
+                    <DeveloperCatalogCapsule
+                      key={`${index}-${entry.hit.threadId}-${entry.hit.postId ?? 'thread'}`}
+                      entry={entry}
+                      featured={catalogEntries.length === 1}
+                      onOpen={() => openHit(entry.hit)}
+                    />
+                  ))}
+                </div>
+              ) : (
+                <div className="developer-profile-grid">
+                  {catalogEntries.map((entry, index) => (
+                    <DeveloperGameCard
+                      key={`${index}-${entry.hit.threadId}-${entry.hit.postId ?? 'thread'}`}
+                      hit={entry.hit}
+                      detail={entry.detail}
+                      onOpen={() => openHit(entry.hit)}
+                    />
+                  ))}
+                </div>
+              )}
+
+              {(page > 1 || hasMore) && (
+                <div className="developer-dossier-pagination">
+                  <button
+                    type="button"
+                    className="forum-search-btn"
+                    disabled={page <= 1 || isOffline}
+                    onClick={() => void loadPage(page - 1)}
+                  >
+                    {t('search.pagination.prev')}
+                  </button>
+                  <span className="forum-search-page-label">{pageLabel}</span>
+                  <button
+                    type="button"
+                    className="forum-search-btn forum-search-btn--primary"
+                    disabled={!hasMore || isOffline}
+                    onClick={() => void loadPage(page + 1)}
+                  >
+                    {t('search.pagination.next')}
+                  </button>
+                </div>
+              )}
+            </section>
+          </div>
         )}
       </div>
     </OfflineGate>

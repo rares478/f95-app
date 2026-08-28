@@ -1,4 +1,5 @@
 import { ContentTagPills } from '../store/ContentTagPills';
+import { useIsInLibrary } from '../../lib/libraryMembership';
 import { usePrefixCatalog } from '../../contexts/PrefixCatalogContext';
 import { useTagCatalog } from '../../contexts/TagCatalogContext';
 import { prefixPillColor } from '../../lib/prefixCatalog';
@@ -17,8 +18,10 @@ type Props = {
 export function DeveloperGameCard({ hit, detail, onOpen }: Props) {
   const { t } = useT();
   const { catalog: tagCatalog } = useTagCatalog();
+  const inLibrary = useIsInLibrary(hit.threadId);
   const title = detail?.title || hit.title || t('search.result.untitled');
   const initial = title.trim().slice(0, 1).toUpperCase() || '?';
+  const loading = Boolean(hit.threadId && !detail);
   const bannerUrl = detail?.bannerUrl ?? null;
   const version = detail?.version ?? null;
   const rating = detail?.rating ?? null;
@@ -30,7 +33,7 @@ export function DeveloperGameCard({ hit, detail, onOpen }: Props) {
   return (
     <button
       type="button"
-      className="developer-game-card"
+      className={`developer-game-card${loading ? ' is-loading' : ''}`}
       onClick={onOpen}
     >
       <div className="developer-game-card-thumb">
@@ -48,6 +51,11 @@ export function DeveloperGameCard({ hit, detail, onOpen }: Props) {
           <div className="developer-game-card-fallback" aria-hidden>
             {initial}
           </div>
+        )}
+        {inLibrary && (
+          <span className="developer-game-card-library" title={t('store.badge.inLibrary')}>
+            {t('store.badge.inLibrary')}
+          </span>
         )}
         {version && <span className="developer-game-card-version">{version}</span>}
         {rating !== null && (
