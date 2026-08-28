@@ -70,8 +70,9 @@ export function DownloadsProvider({ children }: { children: ReactNode }) {
         files={fileChoice?.files ?? []}
         onCancel={async () => {
           if (fileChoice) {
-            await ipc.downloadCancel(fileChoice.downloadId);
-            await downloads.markCancelled(fileChoice.downloadId);
+            const row = await downloads.get(fileChoice.downloadId);
+            await ipc.downloadCancel(fileChoice.downloadId, row?.destPath ?? null);
+            await downloads.markCancelled(fileChoice.downloadId, 0);
             try {
               const linkedJob = await findJobByDownloadId(fileChoice.downloadId);
               if (linkedJob) {

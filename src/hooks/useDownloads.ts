@@ -399,7 +399,7 @@ export async function runExtraction(
     if (isExtractCancelled(err)) {
       try {
         if (resolvedDownloadId != null) {
-          await downloads.markCancelled(resolvedDownloadId);
+          await downloads.markCancelled(resolvedDownloadId, 0);
         }
       } catch {
         /* ignore */
