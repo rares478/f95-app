@@ -90,6 +90,7 @@ export async function forumSearch(params: {
   searchIn?: 'titles' | 'posts';
   sort?: 'relevance' | 'date';
   page?: number;
+  threadId?: string;
 }): Promise<ForumSearchPage> {
   return invoke<ForumSearchPage>('forum_search', {
     query: params.query,
@@ -97,6 +98,7 @@ export async function forumSearch(params: {
     searchIn: params.searchIn ?? 'posts',
     sort: params.sort ?? 'relevance',
     page: params.page ?? 1,
+    threadId: params.threadId ?? null,
   });
 }
 

@@ -7,6 +7,7 @@ export interface ForumSearchParams {
   searchIn?: ForumSearchIn;
   sort?: ForumSearchSort;
   page?: number;
+  threadId?: string;
 }
 
 export interface ForumSearchPrefix {

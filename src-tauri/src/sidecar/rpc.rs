@@ -169,6 +169,7 @@ impl SidecarClient {
         search_in: &str,
         sort: &str,
         page: u32,
+        thread_id: Option<&str>,
     ) -> Result<Value, AppError> {
         self.inner
             .call(
@@ -179,6 +180,7 @@ impl SidecarClient {
                     "searchIn": search_in,
                     "sort": sort,
                     "page": page,
+                    "threadId": thread_id,
                 }),
             )
             .await
