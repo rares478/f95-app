@@ -6,7 +6,7 @@ pub(crate) mod host;
 mod manager;
 mod platform;
 mod resolvers;
-mod stream;
+pub(crate) mod stream;
 mod types;
 mod util;
 
