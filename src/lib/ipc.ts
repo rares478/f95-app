@@ -280,8 +280,18 @@ export async function downloadContinueChoice(args: {
   return invoke('download_continue_choice', { ...args, libraryPath });
 }
 
-export async function downloadCancel(id: number): Promise<void> {
-  return invoke('download_cancel', { id });
+export async function downloadPause(id: number): Promise<void> {
+  return invoke('download_pause', { id });
+}
+
+export async function downloadCancel(
+  id: number,
+  destPath?: string | null,
+): Promise<void> {
+  return invoke('download_cancel', {
+    id,
+    destPath: destPath ?? null,
+  });
 }
 
 export async function downloadPostAttachment(args: {
