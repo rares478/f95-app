@@ -16,6 +16,7 @@ together when cutting a release:
 ## [Unreleased]
 
 ### Added
+- Library game detail (Windows): optional **Japanese locale (Locale Emulator)** toggle in Actions; bundles Locale Emulator v2.5.0.1 for per-game ja-JP launches.
 - Watch/unwatch threads from game detail.
 - Watched threads section on News with new-activity badges from F95 alerts.
 - Downloads: pause and resume in-progress downloads; partial `.part` files are kept on pause for byte-range resume.

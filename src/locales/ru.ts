@@ -950,6 +950,10 @@ const ru: Record<string, string> = {
   'libdetail.location.folder': 'Папка',
   'libdetail.location.added': 'Добавлено',
   'libdetail.section.actions': 'Действия',
+  'localeEmulator.toggle': 'Японская локаль (Locale Emulator)',
+  'localeEmulator.hint':
+    'Запускать игру с японской системной локалью, чтобы исправить кракозябры.',
+  'localeEmulator.disabledNoExe': 'Сначала укажите файл запуска.',
   'libdetail.action.viewStore': 'Открыть в Магазине',
   'libdetail.action.openThread': 'Открыть тред на F95Zone',
   'libdetail.action.move': 'Переместить в другую библиотеку…',
@@ -1422,6 +1426,8 @@ const ru: Record<string, string> = {
   'error.launch.alreadyRunning': 'Игра уже запущена.',
   'error.launch.notRunning': 'Игра не запущена.',
   'error.launch.spawnFailed': 'Не удалось запустить игру: {detail}',
+  'error.launch.localeEmulatorMissing':
+    'Файлы Locale Emulator отсутствуют. Переустановите приложение.',
   'error.overlay.windowMissing': 'Окно оверлея не найдено. Перезапустите F95 App.',
   'error.overlay.openFailed':
     'Не удалось открыть окно оверлея. Закройте и снова откройте F95 App.',

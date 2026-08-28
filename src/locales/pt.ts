@@ -955,6 +955,10 @@ const pt: Record<string, string> = {
   'libdetail.location.folder': 'Pasta',
   'libdetail.location.added': 'Adicionado',
   'libdetail.section.actions': 'Ações',
+  'localeEmulator.toggle': 'Locale japonês (Locale Emulator)',
+  'localeEmulator.hint':
+    'Executar o jogo com locale japonesa do sistema para corrigir texto corrompido.',
+  'localeEmulator.disabledNoExe': 'Defina um arquivo de inicialização primeiro.',
   'libdetail.action.viewStore': 'Ver na Loja',
   'libdetail.action.openThread': 'Abrir thread no F95Zone',
   'libdetail.action.move': 'Mover para outra biblioteca…',
@@ -1427,6 +1431,8 @@ const pt: Record<string, string> = {
   'error.launch.alreadyRunning': 'O jogo já está em execução.',
   'error.launch.notRunning': 'O jogo não está em execução.',
   'error.launch.spawnFailed': 'Falha ao iniciar o jogo: {detail}',
+  'error.launch.localeEmulatorMissing':
+    'Arquivos do Locale Emulator ausentes. Reinstale o app.',
   'error.overlay.windowMissing': 'Janela do overlay não encontrada. Reinicie o F95 App.',
   'error.overlay.openFailed':
     'Não foi possível abrir a janela do overlay. Feche e reabra o F95 App.',

@@ -950,6 +950,10 @@ const de: Record<string, string> = {
   'libdetail.location.folder': 'Ordner',
   'libdetail.location.added': 'Hinzugefügt',
   'libdetail.section.actions': 'Aktionen',
+  'localeEmulator.toggle': 'Japanisches Locale (Locale Emulator)',
+  'localeEmulator.hint':
+    'Spiel mit japanischem System-Locale starten, um kaputte Zeichen zu beheben.',
+  'localeEmulator.disabledNoExe': 'Zuerst eine Startdatei zuweisen.',
   'libdetail.action.viewStore': 'Im Shop anzeigen',
   'libdetail.action.openThread': 'Thread auf F95Zone öffnen',
   'libdetail.action.move': 'In andere Bibliothek verschieben…',
@@ -1422,6 +1426,8 @@ const de: Record<string, string> = {
   'error.launch.alreadyRunning': 'Spiel läuft bereits.',
   'error.launch.notRunning': 'Spiel läuft nicht.',
   'error.launch.spawnFailed': 'Spiel konnte nicht gestartet werden: {detail}',
+  'error.launch.localeEmulatorMissing':
+    'Locale-Emulator-Dateien fehlen. App neu installieren.',
   'error.overlay.windowMissing': 'Overlay-Fenster nicht gefunden. Starte F95 App neu.',
   'error.overlay.openFailed':
     'Overlay-Fenster konnte nicht geöffnet werden. Schließe und öffne F95 App erneut.',
