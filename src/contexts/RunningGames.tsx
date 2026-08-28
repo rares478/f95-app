@@ -146,6 +146,7 @@ export function RunningGamesProvider({ children }: { children: ReactNode }) {
           title: game.title,
           exePath,
           sessionId,
+          localeEmulator: game.localeEmulatorEnabled,
         });
         try {
           if (opts?.exeId) {

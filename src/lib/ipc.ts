@@ -435,6 +435,7 @@ export async function launchGame(args: {
   title: string;
   exePath: string;
   sessionId: number;
+  localeEmulator?: boolean;
 }): Promise<number> {
   return invoke<number>('launch_game', args);
 }
