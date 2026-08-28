@@ -1,7 +1,7 @@
 import { openUrl } from '@tauri-apps/plugin-opener';
 import type { NavigateFunction } from 'react-router-dom';
 import { pathForForumSearchHit } from './catalogForums';
-import { parseF95ContentTarget } from './f95ThreadUrls';
+import { conversationAppPath, parseF95ContentTarget } from './f95ThreadUrls';
 import { resolveF95Url } from './ipc';
 
 const F95_ORIGIN = 'https://f95zone.to';
@@ -40,6 +40,11 @@ export async function openF95InAppLink(
 
   if (target.kind === 'external') {
     await openUrl(target.url);
+    return;
+  }
+
+  if (target.kind === 'conversation') {
+    navigate(conversationAppPath(target.conversationPath));
     return;
   }
 

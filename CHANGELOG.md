@@ -15,6 +15,11 @@ together when cutting a release:
 
 ## [Unreleased]
 
+## [1.8.1] - 2026-08-28
+
+### Fixed
+- Release build: fix TypeScript errors in `openF95InAppLink` by handling conversation targets before accessing `postId`.
+
 ## [1.8.0] - 2026-08-28
 
 ### Added
