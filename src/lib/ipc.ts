@@ -19,6 +19,7 @@ import type {
   F95ConversationsListResult,
 } from '../types/conversations';
 import type { FollowedUser } from '../types/social';
+import type { F95WatchedThreadsResult } from '../types/watch';
 import type { RssFeed, RssFeedOptions } from '../types/rss';
 import type { RunningInfo } from '../types/session';
 import type {
@@ -160,6 +161,14 @@ export async function resolveF95Url(url: string): Promise<ResolveF95UrlResult> {
 
 export async function getFollowing(): Promise<FollowedUser[]> {
   return invoke<FollowedUser[]>('get_following');
+}
+
+export async function getWatchedThreads(options?: {
+  page?: number;
+}): Promise<F95WatchedThreadsResult> {
+  return invoke<F95WatchedThreadsResult>('get_watched_threads', {
+    page: options?.page,
+  });
 }
 
 export async function getProfile(): Promise<ProfileDto> {

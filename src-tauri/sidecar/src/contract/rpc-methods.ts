@@ -76,6 +76,10 @@ export const RPC_METHODS = {
     params: {},
     result: 'unknown',
   },
+  getWatchedThreads: {
+    params: { page: 'number?' },
+    result: 'F95WatchedThreadsResult',
+  },
   fetchRss: {
     params: { category: 'string?' },
     result: 'RssFeed',

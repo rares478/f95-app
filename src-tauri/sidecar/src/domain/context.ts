@@ -2,6 +2,7 @@ import { F95Client } from './f95/client';
 import { SamClient } from './sam/client';
 import { GameClient } from './game/client';
 import { SocialClient } from './social/client';
+import { WatchClient } from './f95/watch';
 import { RPC_ERROR, RpcError } from '../rpc';
 
 export class AppContext {
@@ -9,6 +10,7 @@ export class AppContext {
   private sam: SamClient | null = null;
   private game: GameClient | null = null;
   private social: SocialClient | null = null;
+  private watch: WatchClient | null = null;
 
   requireClient(): F95Client {
     if (!this.client) {
@@ -21,6 +23,7 @@ export class AppContext {
     this.sam = null;
     this.game = null;
     this.social = null;
+    this.watch = null;
   }
 
   getSam(): SamClient {
@@ -39,5 +42,11 @@ export class AppContext {
     const c = this.requireClient();
     if (!this.social) this.social = new SocialClient(c.http);
     return this.social;
+  }
+
+  getWatch(): WatchClient {
+    const c = this.requireClient();
+    if (!this.watch) this.watch = new WatchClient(c.http);
+    return this.watch;
   }
 }

@@ -1,5 +1,11 @@
+import { BrowserClient } from 'browser-rest-api';
 import * as cheerio from 'cheerio';
+import { log } from '../../logger';
+import { RPC_ERROR, RpcError } from '../../rpc';
+import { assertNotCloudflareChallenge } from '../../shared/cloudflare';
 import { F95_BASE } from '../../shared/constants';
+
+const WATCHED_THREADS_PAGE = `${F95_BASE}/watched/threads`;
 
 export interface WatchedThread {
   threadId: string;
@@ -8,6 +14,42 @@ export interface WatchedThread {
   forumName: string | null;
   lastActivityAt: string | null;
   isUnreadOnF95: boolean;
+}
+
+export interface F95WatchedThreadsResult {
+  threads: WatchedThread[];
+  page: number;
+  hasMore: boolean;
+}
+
+export class WatchClient {
+  constructor(private readonly http: BrowserClient) {}
+
+  async getWatchedThreads(page = 1): Promise<F95WatchedThreadsResult> {
+    return fetchWatchedThreads(this.http, page);
+  }
+}
+
+export async function fetchWatchedThreads(
+  http: BrowserClient,
+  page = 1,
+): Promise<F95WatchedThreadsResult> {
+  const url = page > 1 ? `${WATCHED_THREADS_PAGE}?page=${page}` : WATCHED_THREADS_PAGE;
+  log(`[watch] GET ${url}`);
+  const res = await http.get(url, {
+    headers: { accept: 'text/html', referer: `${F95_BASE}/` },
+  });
+  assertNotCloudflareChallenge(res.body, res.headers);
+  if (res.url.includes('/login')) {
+    throw new RpcError(RPC_ERROR.NOT_INITIALIZED, 'not logged in');
+  }
+  if (res.status >= 400) {
+    throw new RpcError(RPC_ERROR.INTERNAL, `watched threads HTTP ${res.status}`);
+  }
+
+  const threads = parseWatchedThreads(res.body);
+  const hasMore = detectHasMorePages(res.body, page);
+  return { threads, page, hasMore };
 }
 
 /** @internal Exported for unit tests. */
@@ -49,6 +91,17 @@ export function parseWatchedThreads(html: string): WatchedThread[] {
   });
 
   return threads;
+}
+
+/** @internal Exported for unit tests. */
+export function detectHasMorePages(html: string, currentPage: number): boolean {
+  const $ = cheerio.load(html);
+  if ($('.pageNav').length === 0) return false;
+  const nextLink = $('.pageNav-page--later, .pageNav-jump--next, a[rel="next"]');
+  if (nextLink.length > 0) return true;
+  const lastPage = $('.pageNav-page:last-child a').text().trim();
+  const lastNum = parseInt(lastPage, 10);
+  return Number.isFinite(lastNum) && lastNum > currentPage;
 }
 
 function extractThreadId($row: cheerio.Cheerio<cheerio.Element>): string | null {

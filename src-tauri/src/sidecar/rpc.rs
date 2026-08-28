@@ -208,6 +208,13 @@ impl SidecarClient {
         self.inner.call("getFollowing", json!({})).await
     }
 
+    pub async fn get_watched_threads(
+        &self,
+        params: serde_json::Map<String, Value>,
+    ) -> Result<Value, AppError> {
+        self.inner.call("getWatchedThreads", Value::Object(params)).await
+    }
+
     pub async fn fetch_rss(&self, params: serde_json::Map<String, Value>) -> Result<Value, AppError> {
         self.inner.call("fetchRss", Value::Object(params)).await
     }

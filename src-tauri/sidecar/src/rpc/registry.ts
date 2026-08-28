@@ -7,6 +7,7 @@ import { createResolverHandlers } from './handlers/resolvers';
 import { createAlertsHandlers } from './handlers/alerts';
 import { createConversationsHandlers } from './handlers/conversations';
 import { createForumHandlers } from './handlers/forum';
+import { createWatchHandlers } from './handlers/watch';
 
 export function createHandlerRegistry(ctx: AppContext): Record<string, RpcHandler> {
   return {
@@ -17,6 +18,7 @@ export function createHandlerRegistry(ctx: AppContext): Record<string, RpcHandle
     ...createAlertsHandlers(ctx),
     ...createConversationsHandlers(ctx),
     ...createForumHandlers(ctx),
+    ...createWatchHandlers(ctx),
     ...createResolverHandlers(ctx),
   };
 }

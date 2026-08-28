@@ -61,3 +61,16 @@ pub async fn get_following(state: State<'_, AppState>) -> Result<Value, AppError
     let client = ensure_sidecar(&state).await?;
     client.get_following().await
 }
+
+#[tauri::command]
+pub async fn get_watched_threads(
+    state: State<'_, AppState>,
+    page: Option<u32>,
+) -> Result<Value, AppError> {
+    let client = ensure_sidecar(&state).await?;
+    let mut params = serde_json::Map::new();
+    if let Some(p) = page {
+        params.insert("page".into(), Value::from(p));
+    }
+    client.get_watched_threads(params).await
+}
