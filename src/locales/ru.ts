@@ -1153,6 +1153,16 @@ const ru: Record<string, string> = {
   'news.rss.scrollLeft': 'Прокрутить влево',
   'news.rss.scrollRight': 'Прокрутить вправо',
 
+  // ─── Thread watch ───────────────────────────────────────────────────────
+  'watch.action.watch': 'Следить',
+  'watch.action.unwatch': 'Не следить',
+  'watch.action.watching': 'Следим…',
+  'watch.news.section': 'Отслеживаемые темы',
+  'watch.news.empty': 'Вы пока не отслеживаете темы.',
+  'watch.news.emptyHint': 'Откройте игру и нажмите «Следить», чтобы получать обновления здесь.',
+  'watch.news.new': 'Новое',
+  'watch.error.login': 'Войдите, чтобы отслеживать темы.',
+
   'conversations.title': 'Сообщения',
   'conversations.unreadCount': '{count} непрочитанных',
   'conversations.empty': 'Пока нет переписок.',

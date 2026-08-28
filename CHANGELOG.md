@@ -16,6 +16,8 @@ together when cutting a release:
 ## [Unreleased]
 
 ### Added
+- Watch/unwatch threads from game detail.
+- Watched threads section on News with new-activity badges from F95 alerts.
 - Downloads: pause and resume in-progress downloads; partial `.part` files are kept on pause for byte-range resume.
 - Library game detail: Play menu **Install season** when the thread has multiple seasons (opens the install wizard on the season step).
 - Library game detail: collapsed Changelog section from the thread OP (heading + outer spoiler).

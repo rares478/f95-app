@@ -1153,6 +1153,16 @@ const de: Record<string, string> = {
   'news.rss.scrollLeft': 'Nach links scrollen',
   'news.rss.scrollRight': 'Nach rechts scrollen',
 
+  // ─── Thread watch ───────────────────────────────────────────────────────
+  'watch.action.watch': 'Beobachten',
+  'watch.action.unwatch': 'Nicht beobachten',
+  'watch.action.watching': 'Wird beobachtet…',
+  'watch.news.section': 'Beobachtete Threads',
+  'watch.news.empty': 'Du beobachtest noch keine Threads.',
+  'watch.news.emptyHint': 'Öffne ein Spiel und tippe auf Beobachten, um Updates hier zu verfolgen.',
+  'watch.news.new': 'Neu',
+  'watch.error.login': 'Melde dich an, um Threads zu beobachten.',
+
   'conversations.title': 'Nachrichten',
   'conversations.unreadCount': '{count} ungelesen',
   'conversations.empty': 'Noch keine Unterhaltungen.',

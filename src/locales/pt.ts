@@ -1158,6 +1158,16 @@ const pt: Record<string, string> = {
   'news.rss.scrollLeft': 'Rolar para a esquerda',
   'news.rss.scrollRight': 'Rolar para a direita',
 
+  // ─── Thread watch ───────────────────────────────────────────────────────
+  'watch.action.watch': 'Seguir',
+  'watch.action.unwatch': 'Deixar de seguir',
+  'watch.action.watching': 'Seguindo…',
+  'watch.news.section': 'Threads seguidos',
+  'watch.news.empty': 'Você ainda não segue nenhum thread.',
+  'watch.news.emptyHint': 'Abra um jogo e toque em Seguir para acompanhar atualizações aqui.',
+  'watch.news.new': 'Novo',
+  'watch.error.login': 'Entre para seguir threads.',
+
   'conversations.title': 'Mensagens',
   'conversations.unreadCount': '{count} não lidas',
   'conversations.empty': 'Ainda não há conversas.',
