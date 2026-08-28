@@ -100,16 +100,13 @@ impl LauncherManager {
             .map(|p| p.to_path_buf())
             .unwrap_or_else(|| PathBuf::from("."));
 
-        let mut child = if locale_emulator {
-            #[cfg(windows)]
-            {
-                crate::locale_emulator::spawn_leproc(&app, &exe).await?
-            }
-            #[cfg(not(windows))]
-            {
-                let _ = locale_emulator;
-                return Err(AppError::keyed("error.launch.localeEmulatorMissing"));
-            }
+        #[cfg(windows)]
+        let use_locale_emulator = locale_emulator;
+        #[cfg(not(windows))]
+        let use_locale_emulator = false;
+
+        let mut child = if use_locale_emulator {
+            crate::locale_emulator::spawn_leproc(&app, &exe).await?
         } else {
             let mut cmd = Command::new(&exe);
             cmd.current_dir(&cwd)

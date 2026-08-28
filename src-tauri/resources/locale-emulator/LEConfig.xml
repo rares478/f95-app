@@ -7,7 +7,7 @@
       <Timezone>Tokyo Standard Time</Timezone>
       <RunAsAdmin>False</RunAsAdmin>
       <RedirectRegistry>True</RedirectRegistry>
-      <IsAdvancedRedirection>False</IsAdvancedRedirection>
+      <IsAdvancedRedirection>True</IsAdvancedRedirection>
       <RunWithSuspend>False</RunWithSuspend>
     </Profile>
   </Profiles>
