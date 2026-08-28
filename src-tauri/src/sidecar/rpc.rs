@@ -219,6 +219,18 @@ impl SidecarClient {
         self.inner.call("getThreadWatchState", params).await
     }
 
+    pub async fn watch_thread(&self, thread_id: &str) -> Result<Value, AppError> {
+        self.inner
+            .call("watchThread", json!({ "threadId": thread_id }))
+            .await
+    }
+
+    pub async fn unwatch_thread(&self, thread_id: &str) -> Result<Value, AppError> {
+        self.inner
+            .call("unwatchThread", json!({ "threadId": thread_id }))
+            .await
+    }
+
     pub async fn fetch_rss(&self, params: serde_json::Map<String, Value>) -> Result<Value, AppError> {
         self.inner.call("fetchRss", Value::Object(params)).await
     }

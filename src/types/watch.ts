@@ -16,3 +16,7 @@ export interface F95WatchedThreadsResult {
 export interface ThreadWatchStateResult {
   watched: boolean;
 }
+
+export interface ThreadWatchMutationResult {
+  ok: boolean;
+}

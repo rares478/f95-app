@@ -84,6 +84,14 @@ export const RPC_METHODS = {
     params: { threadId: 'string' },
     result: { watched: 'boolean' },
   },
+  watchThread: {
+    params: { threadId: 'string' },
+    result: { ok: 'boolean' },
+  },
+  unwatchThread: {
+    params: { threadId: 'string' },
+    result: { ok: 'boolean' },
+  },
   fetchRss: {
     params: { category: 'string?' },
     result: 'RssFeed',

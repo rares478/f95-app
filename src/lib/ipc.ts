@@ -19,7 +19,7 @@ import type {
   F95ConversationsListResult,
 } from '../types/conversations';
 import type { FollowedUser } from '../types/social';
-import type { F95WatchedThreadsResult, ThreadWatchStateResult } from '../types/watch';
+import type { F95WatchedThreadsResult, ThreadWatchMutationResult, ThreadWatchStateResult } from '../types/watch';
 import type { RssFeed, RssFeedOptions } from '../types/rss';
 import type { RunningInfo } from '../types/session';
 import type {
@@ -175,6 +175,18 @@ export async function getThreadWatchState(
   threadId: string,
 ): Promise<ThreadWatchStateResult> {
   return invoke<ThreadWatchStateResult>('get_thread_watch_state', { threadId });
+}
+
+export async function watchThread(
+  threadId: string,
+): Promise<ThreadWatchMutationResult> {
+  return invoke<ThreadWatchMutationResult>('watch_thread', { threadId });
+}
+
+export async function unwatchThread(
+  threadId: string,
+): Promise<ThreadWatchMutationResult> {
+  return invoke<ThreadWatchMutationResult>('unwatch_thread', { threadId });
 }
 
 export async function getProfile(): Promise<ProfileDto> {

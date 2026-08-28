@@ -85,3 +85,21 @@ pub async fn get_thread_watch_state(
         .get_thread_watch_state(json!({ "threadId": thread_id }))
         .await
 }
+
+#[tauri::command]
+pub async fn watch_thread(
+    state: State<'_, AppState>,
+    thread_id: String,
+) -> Result<Value, AppError> {
+    let client = ensure_sidecar(&state).await?;
+    client.watch_thread(&thread_id).await
+}
+
+#[tauri::command]
+pub async fn unwatch_thread(
+    state: State<'_, AppState>,
+    thread_id: String,
+) -> Result<Value, AppError> {
+    let client = ensure_sidecar(&state).await?;
+    client.unwatch_thread(&thread_id).await
+}
