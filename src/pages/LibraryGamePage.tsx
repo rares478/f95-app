@@ -59,6 +59,7 @@ import type { InstallLibraryWithDisk } from '../types/install-library';
 import { formatPlaytime, statusColor, statusKey } from '../types/library';
 import type { SamCategory } from '../types/sam';
 import { shouldShowSaveEditor } from '../lib/saveEditorGate';
+import { detectInstallPlatform } from '../lib/installSections';
 
 function categoryLabelKey(cat: SamCategory): string {
   return `libdetail.category.${cat}`;
@@ -260,6 +261,8 @@ export function LibraryGamePage() {
     ? exes.filter((e) => e.id !== resolvedExe.id)
     : exes;
   const playDisabled = (!g.exePath && !resolvedExe) || launching;
+  const isWindows = detectInstallPlatform() === 'windows';
+  const hasLaunchExe = Boolean(g.exePath || resolvedExe);
 
   async function onPickExe() {
     if (downloadInFlight) return;
@@ -279,6 +282,11 @@ export function LibraryGamePage() {
   async function onSaveNotes() {
     if (notesDraft === g.notes) return;
     await library.setNotes(g.threadId, notesDraft);
+    await reload();
+  }
+
+  async function onLocaleEmulatorChange(enabled: boolean) {
+    await library.updateLocaleEmulatorEnabled(g.threadId, enabled);
     await reload();
   }
 
@@ -857,6 +865,24 @@ export function LibraryGamePage() {
           </GameDetailSection>
 
           <GameDetailSection title={t('libdetail.section.actions')}>
+            {isWindows && (
+              <div className="game-detail-locale-emulator">
+                <label className="settings-check-row">
+                  <input
+                    type="checkbox"
+                    checked={g.localeEmulatorEnabled}
+                    disabled={!hasLaunchExe}
+                    onChange={(e) => void onLocaleEmulatorChange(e.target.checked)}
+                  />
+                  <span>{t('localeEmulator.toggle')}</span>
+                </label>
+                <p className="settings-card-hint">
+                  {!hasLaunchExe
+                    ? t('localeEmulator.disabledNoExe')
+                    : t('localeEmulator.hint')}
+                </p>
+              </div>
+            )}
             <GameDetailActionList>
               <GameDetailActionItem to={`/store/game/${g.threadId}?cat=${g.category}`}>
                 {t('libdetail.action.viewStore')}
