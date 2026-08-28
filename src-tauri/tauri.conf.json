@@ -104,7 +104,8 @@
       "sidecar/dist/node.exe": "sidecar/node.exe",
       "sidecar/dist/node_modules/": "sidecar/node_modules/",
       "sidecar/dist/ms-playwright/": "sidecar/ms-playwright/",
-      "resources/7zip/": "7zip/"
+      "resources/7zip/": "7zip/",
+      "resources/locale-emulator/": "locale-emulator/"
     },
     "icon": [
       "icons/32x32.png",

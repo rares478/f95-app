@@ -1,0 +1,14 @@
+<?xml version="1.0" encoding="utf-8"?>
+<LEConfig>
+  <Profiles>
+    <Profile Name="Run in Japanese" Guid="7c4e9a21-5b3d-4f8e-9c12-6d8f0a2b1e34" MainMenu="False">
+      <Parameter></Parameter>
+      <Location>ja-JP</Location>
+      <Timezone>Tokyo Standard Time</Timezone>
+      <RunAsAdmin>False</RunAsAdmin>
+      <RedirectRegistry>True</RedirectRegistry>
+      <IsAdvancedRedirection>False</IsAdvancedRedirection>
+      <RunWithSuspend>False</RunWithSuspend>
+    </Profile>
+  </Profiles>
+</LEConfig>
