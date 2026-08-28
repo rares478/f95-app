@@ -51,6 +51,7 @@ impl LauncherManager {
         title: String,
         exe_path: String,
         session_id: i64,
+        locale_emulator: bool,
     ) -> Result<u32, AppError> {
         // Guard against double-launch.
         if self.inner.lock().await.contains_key(&thread_id) {
@@ -99,21 +100,32 @@ impl LauncherManager {
             .map(|p| p.to_path_buf())
             .unwrap_or_else(|| PathBuf::from("."));
 
-        let mut cmd = Command::new(&exe);
-        cmd.current_dir(&cwd)
-            .stdin(std::process::Stdio::null())
-            .stdout(std::process::Stdio::null())
-            .stderr(std::process::Stdio::null())
-            // We intentionally do NOT set kill_on_drop — the user keeps playing
-            // even if our app crashes or is closed.
-            .kill_on_drop(false);
-
-        let mut child = cmd.spawn().map_err(|e| {
-            AppError::keyed_vars(
-                "error.launch.spawnFailed",
-                json!({ "detail": e.to_string() }),
-            )
-        })?;
+        let mut child = if locale_emulator {
+            #[cfg(windows)]
+            {
+                crate::locale_emulator::spawn_leproc(&app, &exe).await?
+            }
+            #[cfg(not(windows))]
+            {
+                let _ = locale_emulator;
+                return Err(AppError::keyed("error.launch.localeEmulatorMissing"));
+            }
+        } else {
+            let mut cmd = Command::new(&exe);
+            cmd.current_dir(&cwd)
+                .stdin(std::process::Stdio::null())
+                .stdout(std::process::Stdio::null())
+                .stderr(std::process::Stdio::null())
+                // We intentionally do NOT set kill_on_drop — the user keeps playing
+                // even if our app crashes or is closed.
+                .kill_on_drop(false);
+            cmd.spawn().map_err(|e| {
+                AppError::keyed_vars(
+                    "error.launch.spawnFailed",
+                    json!({ "detail": e.to_string() }),
+                )
+            })?
+        };
         let pid = child.id().unwrap_or(0);
         let started = Instant::now();
         let install_dir = cwd.clone();

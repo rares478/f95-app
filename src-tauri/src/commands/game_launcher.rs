@@ -13,10 +13,18 @@ pub async fn launch_game(
     title: String,
     exe_path: String,
     session_id: i64,
+    locale_emulator: Option<bool>,
 ) -> Result<u32, AppError> {
     state
         .launcher
-        .launch(app, thread_id, title, exe_path, session_id)
+        .launch(
+            app,
+            thread_id,
+            title,
+            exe_path,
+            session_id,
+            locale_emulator.unwrap_or(false),
+        )
         .await
 }
 

@@ -10,6 +10,7 @@ mod extraction;
 mod game_window;
 mod gdrive;
 mod launcher;
+mod locale_emulator;
 mod media_preview;
 mod media_scan;
 mod mega;
