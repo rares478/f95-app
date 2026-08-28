@@ -95,6 +95,7 @@ export const RPC_METHODS = {
       searchIn: 'string?',
       sort: 'string?',
       page: 'number?',
+      threadId: 'string?',
     },
     result: 'ForumSearchPage',
   },

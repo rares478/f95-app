@@ -18,12 +18,18 @@ export function createForumHandlers(ctx: AppContext): Record<string, RpcHandler>
       const searchIn = (p?.searchIn === 'titles' ? 'titles' : 'posts') as ForumSearchIn;
       const sort = (p?.sort === 'date' ? 'date' : 'relevance') as ForumSearchSort;
       const titleOnly = Boolean(p?.titleOnly);
+      const threadIdRaw = p?.threadId;
+      const threadId =
+        typeof threadIdRaw === 'string' && threadIdRaw.trim()
+          ? threadIdRaw.trim()
+          : undefined;
       return fetchForumSearch(ctx.requireClient().http, {
         query,
         titleOnly,
         searchIn,
         sort,
         page,
+        threadId,
       });
     },
   };
