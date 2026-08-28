@@ -4,6 +4,7 @@ import type { NavigateFunction } from 'react-router-dom';
 import { isArchivePath } from '../archives';
 import type { DownloadRow } from '../../types/download';
 import type { TranslateFn } from '../libraryGameActions';
+import { canPauseDownload } from '../downloadPause';
 import { item, offlineTitle, sep } from './helpers';
 
 function supportsCaptchaWindow(host: string): boolean {
@@ -13,6 +14,8 @@ function supportsCaptchaWindow(host: string): boolean {
 
 export interface DownloadMenuCallbacks {
   onCancel?: () => void | Promise<void>;
+  onPause?: () => void | Promise<void>;
+  onResume?: () => void | Promise<void>;
   onRetry?: () => void | Promise<void>;
   onReveal?: () => void | Promise<void>;
   onExtract?: () => void | Promise<void>;
@@ -43,6 +46,24 @@ export function buildDownloadMenu(
       navigate(`/store/game/${row.threadId}`);
     }),
   ];
+
+  if (canPauseDownload(row) && callbacks.onPause) {
+    items.push(
+      item('pause', t('contextMenu.pauseDownload'), callbacks.onPause, {
+        disabled: isOffline,
+        title: off,
+      }),
+    );
+  }
+
+  if (row.state === 'paused' && callbacks.onResume) {
+    items.push(
+      item('resume', t('contextMenu.resumeDownload'), callbacks.onResume, {
+        disabled: isOffline,
+        title: off,
+      }),
+    );
+  }
 
   if (
     row.state === 'pending' ||

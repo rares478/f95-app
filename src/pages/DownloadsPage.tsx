@@ -511,7 +511,11 @@ export function DownloadsPage() {
                     onPause={() => onPause(r)}
                     onResume={() => onResume(r)}
                     onContextMenu={(e) =>
-                      openDownloadContextMenu(e, r, { onCancel: () => onCancel(r) })
+                      openDownloadContextMenu(e, r, {
+                        onCancel: () => onCancel(r),
+                        onPause: () => onPause(r),
+                        onResume: () => onResume(r),
+                      })
                     }
                   />
                 ))}
