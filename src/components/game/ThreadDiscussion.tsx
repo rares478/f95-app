@@ -3,6 +3,7 @@ import DOMPurify from 'dompurify';
 import { openUrl } from '@tauri-apps/plugin-opener';
 import { useSearchParams } from 'react-router-dom';
 import { DiscussionComposer } from './DiscussionComposer';
+import { ThreadDiscussionSearch } from './ThreadDiscussionSearch';
 import { GameDescription } from './GameDescription';
 import { PostAttachments } from '../PostAttachments';
 import { UserChip } from '../UserChip';
@@ -587,6 +588,26 @@ export function ThreadDiscussion({ threadId, offline = false }: Props) {
               {t('gamedetail.discussion.latest')}
             </button>
           </div>
+
+          <ThreadDiscussionSearch
+            key={threadId}
+            threadId={threadId}
+            onFocusPost={(postId) => {
+              if (!postId) {
+                void goToPage(1);
+                return;
+              }
+              setSearchParams(
+                (prev) => {
+                  const next = new URLSearchParams(prev);
+                  next.set('post', postId);
+                  next.delete('page');
+                  return next;
+                },
+                { replace: true },
+              );
+            }}
+          />
 
           {loading && (
             <div className="thread-discussion-status thread-discussion-status--muted">
