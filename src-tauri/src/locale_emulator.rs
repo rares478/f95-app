@@ -1,9 +1,8 @@
 use std::path::{Path, PathBuf};
 
-pub const JP_PROFILE_GUID: &str = "7c4e9a21-5b3d-4f8e-9c12-6d8f0a2b1e34";
-
 const REQUIRED_FILES: &[&str] = &[
     "LEProc.exe",
+    "LECommonLibrary.dll",
     "LoaderDll.dll",
     "LocaleEmulator.dll",
     "LEConfig.xml",
@@ -11,6 +10,27 @@ const REQUIRED_FILES: &[&str] = &[
 
 pub fn bundle_dir(resource_root: &Path) -> PathBuf {
     resource_root.join("locale-emulator")
+}
+
+pub fn resolve_bundle_dir(resource_root: Option<&Path>) -> Result<PathBuf, crate::error::AppError> {
+    if let Some(root) = resource_root {
+        let bundled = bundle_dir(root);
+        if validate_bundle(&bundled).is_ok() {
+            return Ok(bundled);
+        }
+    }
+
+    #[cfg(debug_assertions)]
+    {
+        let dev = PathBuf::from(env!("CARGO_MANIFEST_DIR")).join("resources/locale-emulator");
+        if validate_bundle(&dev).is_ok() {
+            return Ok(dev);
+        }
+    }
+
+    Err(crate::error::AppError::keyed(
+        "error.launch.localeEmulatorMissing",
+    ))
 }
 
 pub fn validate_bundle(dir: &Path) -> Result<(), crate::error::AppError> {
@@ -31,34 +51,31 @@ pub async fn spawn_leproc(
 ) -> Result<tokio::process::Child, crate::error::AppError> {
     use tauri::Manager;
 
-    let resource_root = app.path().resource_dir().map_err(|_| {
-        crate::error::AppError::keyed("error.launch.localeEmulatorMissing")
-    })?;
-    let le_dir = bundle_dir(&resource_root);
-    validate_bundle(&le_dir)?;
+    let resource_root = app.path().resource_dir().ok();
+    let le_dir = resolve_bundle_dir(resource_root.as_deref())?;
 
     let leproc = le_dir.join("LEProc.exe");
     let abs_exe_str = abs_exe.to_string_lossy().into_owned();
 
+    // Match drag-and-drop onto LEProc: use the first global profile in LEConfig.xml.
     crate::app_log::info(
         "locale_emulator",
-        format!(
-            "{} -runas {} {}",
-            leproc.display(),
-            JP_PROFILE_GUID,
-            abs_exe_str
-        ),
+        format!("{} \"{}\"", leproc.display(), abs_exe_str),
     );
 
     let mut cmd = tokio::process::Command::new(&leproc);
     cmd.current_dir(&le_dir)
-        .arg("-runas")
-        .arg(JP_PROFILE_GUID)
         .arg(&abs_exe_str)
         .stdin(std::process::Stdio::null())
         .stdout(std::process::Stdio::null())
         .stderr(std::process::Stdio::null())
         .kill_on_drop(false);
+
+    #[cfg(windows)]
+    {
+        const CREATE_NO_WINDOW: u32 = 0x0800_0000;
+        cmd.creation_flags(CREATE_NO_WINDOW);
+    }
 
     cmd.spawn().map_err(|e| {
         crate::error::AppError::keyed_vars(
