@@ -22,6 +22,7 @@ together when cutting a release:
 - Settings → Install locations: segmented drive usage bar (library / other / free) and per-game share bars.
 - Discussion, thread/game OP, and profile posts show non-image file attachments with in-app download to the Downloads folder.
 - Click avatar or username in discussions, thread author, forum search, and alerts to open that member's in-app profile.
+- Thread-scoped forum search (`?thread=` on Search page; XenForo `c[thread]`) and inline search in discussion views with jump-to-post.
 - Settings → Startup: start with Windows and optional start hidden in tray (enables tray when hidden start is on).
 - Store home **Because you…** recommendations after tag panels: up to three daily feature cards from recently played games and weighted tags from recent views (intersection bias + denylist so generic tags do not always win).
 - Game detail **More like this** uses the same discovery carousel as the store (chevrons, snap scroll, under-arrow treatment).
