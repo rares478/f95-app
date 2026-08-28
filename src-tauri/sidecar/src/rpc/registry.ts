@@ -5,6 +5,7 @@ import { createGameHandlers, createSamHandlers } from './handlers/game';
 import { createLifecycleHandlers } from './handlers/lifecycle';
 import { createResolverHandlers } from './handlers/resolvers';
 import { createAlertsHandlers } from './handlers/alerts';
+import { createConversationsHandlers } from './handlers/conversations';
 import { createForumHandlers } from './handlers/forum';
 
 export function createHandlerRegistry(ctx: AppContext): Record<string, RpcHandler> {
@@ -14,6 +15,7 @@ export function createHandlerRegistry(ctx: AppContext): Record<string, RpcHandle
     ...createSamHandlers(ctx),
     ...createGameHandlers(ctx),
     ...createAlertsHandlers(ctx),
+    ...createConversationsHandlers(ctx),
     ...createForumHandlers(ctx),
     ...createResolverHandlers(ctx),
   };

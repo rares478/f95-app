@@ -3,6 +3,9 @@ import {
   extractPostIdFromUrl,
   extractThreadIdFromUrl,
   extractThreadPageFromUrl,
+  extractConversationPathFromUrl,
+  extractConversationIdFromPath,
+  conversationAppPath,
   parseF95ContentTarget,
 } from './f95ThreadUrls';
 
@@ -66,11 +69,18 @@ describe('parseF95ContentTarget', () => {
     });
   });
 
-  it('classifies conversations as external', () => {
-    expect(parseF95ContentTarget('https://f95zone.to/conversations/1/')).toEqual({
-      kind: 'external',
-      url: 'https://f95zone.to/conversations/1/',
+  it('classifies conversations for in-app navigation', () => {
+    expect(parseF95ContentTarget('https://f95zone.to/conversations/hello.123/')).toEqual({
+      kind: 'conversation',
+      conversationPath: 'hello.123',
+      conversationId: '123',
     });
+  });
+
+  it('extracts conversation path helper', () => {
+    expect(extractConversationPathFromUrl('https://f95zone.to/conversations/a-b.9/')).toBe('a-b.9');
+    expect(extractConversationIdFromPath('a-b.9')).toBe('9');
+    expect(conversationAppPath('a-b.9')).toBe('/conversations/a-b.9');
   });
 
   it('returns none for null', () => {

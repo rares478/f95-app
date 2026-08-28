@@ -42,6 +42,7 @@ const NAV_SECTIONS: NavSection[] = [
     titleKey: 'nav.section.account',
     items: [
       { to: '/profile', key: 'nav.profile', icon: <IconProfile /> },
+      { to: '/conversations', key: 'nav.conversations', icon: <IconConversations /> },
       { to: '/alerts', key: 'nav.alerts', icon: <IconAlerts /> },
       { to: '/settings', key: 'nav.settings', icon: <IconSettings /> },
     ],
@@ -214,6 +215,15 @@ function IconFriends() {
       <path d="M2 21c0-3.5 3-6 7-6s7 2.5 7 6" />
       <circle cx="17" cy="6" r="2.5" />
       <path d="M17 11c2.5 0 5 1.5 5 4.5" />
+    </svg>
+  );
+}
+
+function IconConversations() {
+  return (
+    <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2">
+      <path d="M4 4h16v12H4z" />
+      <path d="M4 7l8 6 8-6" />
     </svg>
   );
 }

@@ -1,4 +1,5 @@
 mod alerts;
+mod conversations;
 mod app_log_cmd;
 mod attachments;
 mod auth;
@@ -17,6 +18,7 @@ mod state;
 mod window;
 
 pub use alerts::*;
+pub use conversations::*;
 pub use app_log_cmd::*;
 pub use attachments::*;
 pub use auth::*;

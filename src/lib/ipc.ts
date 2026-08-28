@@ -13,6 +13,11 @@ import type {
 } from '../types/threadPosts';
 import type { CbzPreviewResult, InstallMediaIndex } from '../types/media';
 import type { F95AlertsListResult, F95AlertsPopupResult } from '../types/alerts';
+import type {
+  ConversationReplyResult,
+  F95ConversationDetail,
+  F95ConversationsListResult,
+} from '../types/conversations';
 import type { FollowedUser } from '../types/social';
 import type { RssFeed, RssFeedOptions } from '../types/rss';
 import type { RunningInfo } from '../types/session';
@@ -191,6 +196,42 @@ export async function fetchAlertsPopup(): Promise<F95AlertsPopupResult> {
 
 export async function fetchAlertsList(page = 1): Promise<F95AlertsListResult> {
   return invoke<F95AlertsListResult>('fetch_alerts_list', { page });
+}
+
+export async function fetchConversationsList(
+  page = 1,
+): Promise<F95ConversationsListResult> {
+  return invoke<F95ConversationsListResult>('fetch_conversations_list', { page });
+}
+
+export async function fetchConversation(
+  conversationPath: string,
+  page = 1,
+): Promise<F95ConversationDetail> {
+  return invoke<F95ConversationDetail>('fetch_conversation', {
+    conversationPath,
+    page,
+  });
+}
+
+export async function conversationReply(
+  conversationPath: string,
+  message: string,
+): Promise<ConversationReplyResult> {
+  return invoke<ConversationReplyResult>('conversation_reply', {
+    conversationPath,
+    message,
+  });
+}
+
+export async function conversationBbcodePreview(
+  conversationPath: string,
+  bbCode: string,
+): Promise<BbcodePreviewResult> {
+  return invoke<BbcodePreviewResult>('conversation_bbcode_preview', {
+    conversationPath,
+    bbCode,
+  });
 }
 
 async function ensureUploadhavenSession(): Promise<void> {

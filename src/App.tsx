@@ -36,6 +36,7 @@ import './styles/top-nav.css';
 import './styles/offline.css';
 import './styles/context-menu.css';
 import './styles/notifications.css';
+import './styles/conversations.css';
 import './styles/forum-search.css';
 import './styles/developer-profile.css';
 import './styles/thread-detail.css';

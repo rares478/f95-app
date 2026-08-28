@@ -17,6 +17,8 @@ import { NewsPage } from './pages/NewsPage';
 import { FriendsPage } from './pages/FriendsPage';
 import { MemberProfilePage } from './pages/MemberProfilePage';
 import { AlertsPage } from './pages/AlertsPage';
+import { ConversationsPage } from './pages/ConversationsPage';
+import { ConversationPage } from './pages/ConversationPage';
 import { DeveloperProfilePage } from './pages/DeveloperProfilePage';
 import { ForumSearchPage } from './pages/ForumSearchPage';
 import { ThreadDetailPage } from './pages/ThreadDetailPage';
@@ -58,6 +60,8 @@ export function buildRouter({ profile, onLoggedOut }: BuildOpts) {
         { path: 'members/:userId', element: <MemberProfilePage /> },
         { path: 'profile', element: <ProfilePage /> },
         { path: 'alerts', element: <AlertsPage /> },
+        { path: 'conversations', element: <ConversationsPage /> },
+        { path: 'conversations/:conversationPath', element: <ConversationPage /> },
         { path: 'settings', element: <SettingsPage onLoggedOut={onLoggedOut} /> },
         { path: '*', element: <Navigate to="/store" replace /> },
       ],

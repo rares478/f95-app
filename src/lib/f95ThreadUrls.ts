@@ -3,6 +3,7 @@ const POSTS_PATH_RE = /\/posts\/(\d+)/;
 const POST_ANCHOR_RE = /(?:#post-|\/post-)(\d+)/i;
 const THREAD_PAGE_RE = /\/page-(\d+)/i;
 const QUERY_PAGE_RE = /[?&]page=(\d+)/i;
+const CONVERSATION_PATH_RE = /\/conversations\/([^/?#]+?\.\d+)(?:\/|$|\?|#)/i;
 
 export function extractThreadIdFromUrl(url: string | null): string | null {
   if (!url) return null;
@@ -33,15 +34,42 @@ export function extractThreadPageFromUrl(url: string | null): number | null {
   return null;
 }
 
+/** Slug.id segment from a conversation URL, e.g. `hello-world.12345`. */
+export function extractConversationPathFromUrl(url: string | null): string | null {
+  if (!url) return null;
+  const m = url.match(CONVERSATION_PATH_RE);
+  return m ? decodeURIComponent(m[1]!) : null;
+}
+
+export function extractConversationIdFromPath(conversationPath: string): string {
+  const m = conversationPath.match(/\.(\d+)$/);
+  return m ? m[1]! : conversationPath.replace(/\D/g, '') || conversationPath;
+}
+
+export function conversationAppPath(conversationPath: string): string {
+  return `/conversations/${encodeURIComponent(conversationPath)}`;
+}
+
 export type F95ContentTarget =
   | { kind: 'thread'; threadId: string; postId: string | null; page: number | null }
   | { kind: 'post'; postId: string }
+  | { kind: 'conversation'; conversationPath: string; conversationId: string }
   | { kind: 'external'; url: string }
   | { kind: 'none' };
 
 export function parseF95ContentTarget(url: string | null): F95ContentTarget {
   if (!url) return { kind: 'none' };
-  if (/\/conversations\//i.test(url) || /\/account\//i.test(url)) {
+
+  const conversationPath = extractConversationPathFromUrl(url);
+  if (conversationPath) {
+    return {
+      kind: 'conversation',
+      conversationPath,
+      conversationId: extractConversationIdFromPath(conversationPath),
+    };
+  }
+
+  if (/\/account\//i.test(url)) {
     return { kind: 'external', url };
   }
   const threadId = extractThreadIdFromUrl(url);

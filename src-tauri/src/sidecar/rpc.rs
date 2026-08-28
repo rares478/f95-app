@@ -223,6 +223,42 @@ impl SidecarClient {
         self.inner.call("fetchAlertsList", Value::Object(params)).await
     }
 
+    pub async fn fetch_conversations_list(
+        &self,
+        params: serde_json::Map<String, Value>,
+    ) -> Result<Value, AppError> {
+        self.inner
+            .call("fetchConversationsList", Value::Object(params))
+            .await
+    }
+
+    pub async fn fetch_conversation(
+        &self,
+        params: serde_json::Map<String, Value>,
+    ) -> Result<Value, AppError> {
+        self.inner.call("fetchConversation", Value::Object(params)).await
+    }
+
+    pub async fn conversation_reply(&self, params: Value) -> Result<Value, AppError> {
+        self.inner.call("conversationReply", params).await
+    }
+
+    pub async fn conversation_bbcode_preview(
+        &self,
+        conversation_path: &str,
+        bb_code: &str,
+    ) -> Result<Value, AppError> {
+        self.inner
+            .call(
+                "conversationBbcodePreview",
+                json!({
+                    "conversationPath": conversation_path,
+                    "bbCode": bb_code,
+                }),
+            )
+            .await
+    }
+
     pub async fn unmask_url(&self, url: &str) -> Result<UnmaskResult, AppError> {
         let value = self.inner.call("unmaskUrl", json!({ "url": url })).await?;
         Ok(serde_json::from_value(value)?)

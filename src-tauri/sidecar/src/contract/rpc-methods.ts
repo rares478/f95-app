@@ -88,6 +88,22 @@ export const RPC_METHODS = {
     params: { page: 'number?' },
     result: 'F95AlertsListResult',
   },
+  fetchConversationsList: {
+    params: { page: 'number?' },
+    result: 'F95ConversationsListResult',
+  },
+  fetchConversation: {
+    params: { conversationPath: 'string', page: 'number?' },
+    result: 'F95ConversationDetail',
+  },
+  conversationReply: {
+    params: { conversationPath: 'string', message: 'string' },
+    result: { conversationPath: 'string', messageId: 'string|null' },
+  },
+  conversationBbcodePreview: {
+    params: { conversationPath: 'string', bbCode: 'string' },
+    result: { html: 'string' },
+  },
   forumSearch: {
     params: {
       query: 'string',

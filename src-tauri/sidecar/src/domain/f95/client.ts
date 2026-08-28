@@ -18,8 +18,22 @@ import {
   type F95AlertsListResult,
   type F95AlertsPopupResult,
 } from './alerts';
+import {
+  fetchConversationDetail,
+  fetchConversationsList,
+  previewConversationBbcode,
+  sendConversationReply,
+  type ConversationReplyResult,
+  type F95ConversationDetail,
+  type F95ConversationsListResult,
+} from './conversations';
 
 export type { F95Alert, F95AlertsListResult, F95AlertsPopupResult };
+export type {
+  ConversationReplyResult,
+  F95ConversationDetail,
+  F95ConversationsListResult,
+};
 export type { PostAttachment };
 
 const BASE = F95_BASE;
@@ -341,6 +355,31 @@ export class F95Client {
 
   async fetchAlertsList(page = 1): Promise<F95AlertsListResult> {
     return fetchAlertsList(this.client, page);
+  }
+
+  async fetchConversationsList(page = 1): Promise<F95ConversationsListResult> {
+    return fetchConversationsList(this.client, page);
+  }
+
+  async fetchConversation(
+    conversationPath: string,
+    page = 1,
+  ): Promise<F95ConversationDetail> {
+    return fetchConversationDetail(this.client, conversationPath, page);
+  }
+
+  async sendConversationReply(
+    conversationPath: string,
+    message: string,
+  ): Promise<ConversationReplyResult> {
+    return sendConversationReply(this.client, conversationPath, message);
+  }
+
+  async previewConversationBbcode(
+    conversationPath: string,
+    bbCode: string,
+  ): Promise<import('../game/bbcodePreview').BbcodePreviewResult> {
+    return previewConversationBbcode(this.client, conversationPath, bbCode);
   }
 
   async isLoggedIn(): Promise<boolean> {

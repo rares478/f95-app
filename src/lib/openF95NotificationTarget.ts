@@ -1,7 +1,7 @@
 import { openUrl } from '@tauri-apps/plugin-opener';
 import type { NavigateFunction } from 'react-router-dom';
 import { resolvePost } from './ipc';
-import { parseF95ContentTarget, type F95ContentTarget } from './f95ThreadUrls';
+import { conversationAppPath, parseF95ContentTarget, type F95ContentTarget } from './f95ThreadUrls';
 
 export function storePathForContentTarget(
   target: Extract<F95ContentTarget, { kind: 'thread' }>,
@@ -35,6 +35,11 @@ export async function openF95NotificationTarget(
       return;
     }
     navigate(storePathForContentTarget(target, cat));
+    return;
+  }
+
+  if (target.kind === 'conversation') {
+    navigate(conversationAppPath(target.conversationPath));
     return;
   }
 

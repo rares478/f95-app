@@ -2,7 +2,7 @@ import { useCallback, useEffect, useMemo, useRef, useState, type FormEvent } fro
 import DOMPurify from 'dompurify';
 import { openUrl } from '@tauri-apps/plugin-opener';
 import { useSearchParams } from 'react-router-dom';
-import { DiscussionComposer } from './DiscussionComposer';
+import { ReplyComposer } from '../ReplyComposer';
 import { ThreadDiscussionSearch } from './ThreadDiscussionSearch';
 import { GameDescription } from './GameDescription';
 import { PostAttachments } from '../PostAttachments';
@@ -735,8 +735,8 @@ export function ThreadDiscussion({ threadId, offline = false }: Props) {
           )}
 
           {visible && !offline && (
-            <DiscussionComposer
-              threadId={threadId}
+            <ReplyComposer
+              previewTarget={{ kind: 'thread', threadId }}
               draft={draft}
               onDraftChange={setDraft}
               replyBusy={replyBusy}
