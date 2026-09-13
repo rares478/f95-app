@@ -54,6 +54,9 @@ describe('isChangelogHeader', () => {
     expect(
       isChangelogHeader('Ep1 - Part 1b (Bug fix)', { fromBold: true }).ok,
     ).toBe(true);
+    expect(isChangelogHeader('EP5.1').ok).toBe(true);
+    expect(isChangelogHeader('EP5.0-12.12').ok).toBe(true);
+    expect(isChangelogHeader('EP5').ok).toBe(false);
     expect(isChangelogHeader("Emma's Solo Ending", { fromBold: true }).ok).toBe(
       true,
     );

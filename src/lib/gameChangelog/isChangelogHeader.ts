@@ -23,6 +23,8 @@ const RE_CHAPTER_EPISODE =
 const RE_EPISODE_SOFT = /^episode\s+\d+[a-z]?\b/i;
 /** Bold "Ep1 - Part 2" / "Ep1 - Part 1b (Bug fix)". */
 const RE_EP_PART_SOFT = /^ep\s*\.?\s*\d+[a-z]?\s*[-–—]\s*part\s+\d+/i;
+/** "EP5.1" / "EP5.0-12.12" (Steps of Debauchery). */
+const RE_EP_DOTTED = /^ep\s*\d+(?:\.\d+)+(?:[-–—]\d+(?:\.\d+)*)?$/i;
 /** Bold standalone ending releases (e.g. "Emma's Solo Ending"); case-sensitive to skip list bullets. */
 const RE_SOLO_ENDING_SOFT = /^[\w'’\s]{1,40}Solo Ending$/;
 const RE_SEASON = new RegExp(String.raw`^season\s+\d+\b.*${VERSION_CORE}`, 'i');
@@ -96,6 +98,9 @@ export function isChangelogHeader(
     return { ok: true, kind: 'chapter' };
   }
   if (opts?.fromBold && RE_EP_PART_SOFT.test(trimmed)) {
+    return { ok: true, kind: 'chapter' };
+  }
+  if (RE_EP_DOTTED.test(trimmed)) {
     return { ok: true, kind: 'chapter' };
   }
   if (opts?.fromBold && RE_SOLO_ENDING_SOFT.test(trimmed)) {

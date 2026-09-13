@@ -304,4 +304,27 @@ describe('parseChangelogHtml', () => {
     ]);
     expect(r.preambleHtml.trim()).toBe('');
   });
+
+  it('splits unbolded EP dotted stamps (Steps of Debauchery)', () => {
+    const html = [
+      '<div class="bbCodeBlock-content">EP5.1<br>',
+      '7 new main scenes<br>',
+      'EP5.0-12.12<br>',
+      'Christmas special<br>',
+      '<b>Episode 5.0-1108</b><br>',
+      'Bugfix<br>',
+      '<b>Episode 5.0</b><br>',
+      '2200 new renders',
+    ].join('');
+    const r = parseChangelogHtml(html);
+    expect(r.ok).toBe(true);
+    if (!r.ok) return;
+    expect(r.entries.map((e) => e.title)).toEqual([
+      'EP5.1',
+      'EP5.0-12.12',
+      'Episode 5.0-1108',
+      'Episode 5.0',
+    ]);
+    expect(r.preambleHtml.trim()).toBe('');
+  });
 });
