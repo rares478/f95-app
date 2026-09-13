@@ -1,18 +1,22 @@
 use crate::error::AppError;
 use crate::save_editor::{
-    list_backups, list_for_install, probe_renpy_install, read, restore, write, ExtraSaveRoot,
-    RpgmProbeResult, RenpyProbeResult, RenpySaveBackup, RenpySavePatch, RenpySaveSlot, RenpyVarNode,
-    UnityMeta, UnityProbeResult, UnitySaveReadResult, UnitySaveSlot, WolfProbeResult,
+    delete_all_for_install as renpy_delete_all_for_install, delete_thread_backups, list_backups,
+    list_for_install, probe_renpy_install, read, restore, write, ExtraSaveRoot, RpgmProbeResult,
+    RenpyProbeResult, RenpySaveBackup, RenpySavePatch, RenpySaveSlot, RenpyVarNode, UnityMeta,
+    UnityProbeResult, UnitySaveReadResult, UnitySaveSlot, WolfProbeResult,
 };
 use crate::save_editor::rpgm::{
+    delete_all_for_install as rpgm_delete_all_for_install,
     list_for_install as rpgm_list_for_install, probe_rpgm_install, read as rpgm_read,
     restore as rpgm_restore, write as rpgm_write,
 };
 use crate::save_editor::unity::{
+    delete_all_for_install as unity_delete_all_for_install,
     list_for_install as unity_list_for_install, probe_unity_install, read as unity_read,
     restore as unity_restore, write as unity_write,
 };
 use crate::save_editor::wolf::{
+    delete_all_for_install as wolf_delete_all_for_install,
     list_for_install as wolf_list_for_install, probe_wolf_install, read as wolf_read,
     restore as wolf_restore, write as wolf_write,
 };
@@ -129,6 +133,18 @@ pub async fn renpy_save_backup_restore(
 }
 
 #[tauri::command]
+pub async fn renpy_saves_delete_all(
+    install_path: String,
+    extra_roots: Option<Vec<ExtraSaveRoot>>,
+) -> Result<u32, AppError> {
+    let install = PathBuf::from(install_path);
+    let roots = extra_roots_or_empty(extra_roots);
+    tokio::task::spawn_blocking(move || renpy_delete_all_for_install(&install, &roots))
+        .await
+        .map_err(|e| AppError::Other(format!("renpy_saves_delete_all join: {e}")))?
+}
+
+#[tauri::command]
 pub async fn rpgm_saves_probe(install_path: String) -> Result<RpgmProbeResult, AppError> {
     let install = PathBuf::from(install_path);
     tokio::task::spawn_blocking(move || probe_rpgm_install(&install))
@@ -223,6 +239,18 @@ pub async fn rpgm_save_backup_restore(
     })
     .await
     .map_err(|e| AppError::Other(format!("rpgm_save_backup_restore join: {e}")))?
+}
+
+#[tauri::command]
+pub async fn rpgm_saves_delete_all(
+    install_path: String,
+    extra_roots: Option<Vec<ExtraSaveRoot>>,
+) -> Result<u32, AppError> {
+    let install = PathBuf::from(install_path);
+    let roots = extra_roots_or_empty(extra_roots);
+    tokio::task::spawn_blocking(move || rpgm_delete_all_for_install(&install, &roots))
+        .await
+        .map_err(|e| AppError::Other(format!("rpgm_saves_delete_all join: {e}")))?
 }
 
 #[tauri::command]
@@ -353,6 +381,21 @@ pub async fn unity_save_backup_restore(
 }
 
 #[tauri::command]
+pub async fn unity_saves_delete_all(
+    install_path: String,
+    developer: Option<String>,
+    title: Option<String>,
+    extra_roots: Option<Vec<ExtraSaveRoot>>,
+) -> Result<u32, AppError> {
+    let install = PathBuf::from(install_path);
+    let meta = unity_meta(developer, title);
+    let roots = extra_roots_or_empty(extra_roots);
+    tokio::task::spawn_blocking(move || unity_delete_all_for_install(&install, &meta, &roots))
+        .await
+        .map_err(|e| AppError::Other(format!("unity_saves_delete_all join: {e}")))?
+}
+
+#[tauri::command]
 pub async fn wolf_saves_probe(install_path: String) -> Result<WolfProbeResult, AppError> {
     let install = PathBuf::from(install_path);
     tokio::task::spawn_blocking(move || probe_wolf_install(&install))
@@ -447,6 +490,29 @@ pub async fn wolf_save_backup_restore(
     })
     .await
     .map_err(|e| AppError::Other(format!("wolf_save_backup_restore join: {e}")))?
+}
+
+#[tauri::command]
+pub async fn wolf_saves_delete_all(
+    install_path: String,
+    extra_roots: Option<Vec<ExtraSaveRoot>>,
+) -> Result<u32, AppError> {
+    let install = PathBuf::from(install_path);
+    let roots = extra_roots_or_empty(extra_roots);
+    tokio::task::spawn_blocking(move || wolf_delete_all_for_install(&install, &roots))
+        .await
+        .map_err(|e| AppError::Other(format!("wolf_saves_delete_all join: {e}")))?
+}
+
+#[tauri::command]
+pub async fn save_editor_backups_delete_all(
+    app: AppHandle,
+    thread_id: String,
+) -> Result<bool, AppError> {
+    let backups = backups_root(&app)?;
+    tokio::task::spawn_blocking(move || delete_thread_backups(&backups, &thread_id))
+        .await
+        .map_err(|e| AppError::Other(format!("save_editor_backups_delete_all join: {e}")))?
 }
 
 fn unity_meta(developer: Option<String>, title: Option<String>) -> UnityMeta {

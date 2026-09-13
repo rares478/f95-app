@@ -22,7 +22,6 @@ import {
   GameDetailBody,
   GameDetailBtnPrimary,
   GameDetailBtnSecondary,
-  GameDetailChip,
   GameDetailError,
   GameDetailHero,
   GameDetailLoading,
@@ -30,6 +29,7 @@ import {
   GameDetailShell,
   GameDetailSection,
   GameDetailAside,
+  GameDetailStat,
 } from '../components/game/GameDetailLayout';
 import { ThreadDiscussion } from '../components/game/ThreadDiscussion';
 import { useLibraryGameActions } from '../hooks/useLibraryGameActions';
@@ -100,11 +100,7 @@ export function LibraryGamePage() {
   const bannerRemote = readyGame
     ? storeDetail?.bannerUrl ?? readyGame.thumbnailUrl
     : null;
-  const coverRemote = readyGame
-    ? readyGame.thumbnailUrl ?? storeDetail?.bannerUrl
-    : null;
   const cachedBannerUrl = useCachedImageUrl(bannerRemote, 0);
-  const cachedCoverUrl = useCachedImageUrl(coverRemote, 0);
 
   const reload = useCallback(async () => {
     if (!threadId) return;
@@ -493,8 +489,9 @@ export function LibraryGamePage() {
       }
     >
       <GameDetailHero
+        className="game-detail-hero--library"
         bannerUrl={cachedBannerUrl}
-        coverUrl={cachedCoverUrl}
+        showCover={false}
         badges={
           <span
             className="game-detail-prefix"
@@ -504,35 +501,6 @@ export function LibraryGamePage() {
           </span>
         }
         title={g.title}
-        meta={
-          <>
-            {g.currentVersion && (
-              <GameDetailChip accent title={t('libdetail.location.version')}>
-                {g.currentVersion}
-              </GameDetailChip>
-            )}
-            {g.availableVersion && g.availableVersion !== g.currentVersion && (
-              <GameDetailChip title={t('libdetail.location.available')}>
-                → {g.availableVersion}
-              </GameDetailChip>
-            )}
-            {isGame && (
-              <>
-                <GameDetailChip>{formatPlaytime(g.totalPlaytimeSeconds)}</GameDetailChip>
-                <GameDetailChip>
-                  {t('libdetail.chip.sessions', { count: sessionCount })}
-                </GameDetailChip>
-                {g.lastPlayedAt && (
-                  <GameDetailChip>
-                    {t('libdetail.lastPlayed', {
-                      when: new Date(g.lastPlayedAt).toLocaleString(),
-                    })}
-                  </GameDetailChip>
-                )}
-              </>
-            )}
-          </>
-        }
         actions={
           isGame ? (
             <>
@@ -666,6 +634,41 @@ export function LibraryGamePage() {
         </GameDetailMain>
 
         <GameDetailAside>
+          <div
+            className={`library-detail-aside-stats${isGame ? '' : ' library-detail-aside-stats--solo'}`}
+          >
+            <GameDetailStat
+              label={t('libdetail.location.version')}
+              value={
+                g.availableVersion && g.availableVersion !== g.currentVersion
+                  ? (
+                      <>
+                        {g.currentVersion ?? '—'}
+                        <span className="library-detail-aside-stat-update">
+                          {' '}
+                          → {g.availableVersion}
+                        </span>
+                      </>
+                    )
+                  : (g.currentVersion ?? '—')
+              }
+              highlight={
+                !!g.availableVersion && g.availableVersion !== g.currentVersion
+              }
+            />
+            {isGame ? (
+              <>
+                <GameDetailStat
+                  label={t('libdetail.stats.playtime')}
+                  value={formatPlaytime(g.totalPlaytimeSeconds)}
+                />
+                <GameDetailStat
+                  label={t('libdetail.stats.sessions')}
+                  value={sessionCount}
+                />
+              </>
+            ) : null}
+          </div>
           <GameDetailSection title={t('libdetail.section.notes')}>
             <textarea
               value={notesDraft}

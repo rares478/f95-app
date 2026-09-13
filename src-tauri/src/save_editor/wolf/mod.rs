@@ -95,6 +95,30 @@ pub fn restore(
     )
 }
 
+/// Delete every discovered Wolf save under the install (and extras).
+/// Does not touch editor backups. Returns how many files were removed.
+pub fn delete_all_for_install(
+    install: &Path,
+    extra_roots: &[ExtraSaveRoot],
+) -> Result<u32, AppError> {
+    let slots = list_for_install(install, extra_roots)?;
+    let mut deleted = 0u32;
+    for slot in slots {
+        let (live, _) = resolve_live_save(install, &slot.key, extra_roots)?;
+        if !live.is_file() {
+            continue;
+        }
+        std::fs::remove_file(&live).map_err(|e| {
+            AppError::Io(format!(
+                "failed to delete save {}: {e}",
+                live.display()
+            ))
+        })?;
+        deleted += 1;
+    }
+    Ok(deleted)
+}
+
 fn resolve_live_save(
     install: &Path,
     slot_key: &str,

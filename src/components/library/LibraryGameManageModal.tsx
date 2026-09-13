@@ -15,9 +15,18 @@ import {
   libraryManageSectionsFor,
   type LibraryManageSectionId,
 } from '../../lib/libraryGameManageNav';
+import {
+  deleteAllLibraryGameSaves,
+  summarizeLibraryGameSaves,
+  type LibraryGameSavesSummary,
+} from '../../lib/libraryGameSaves';
 import type { LibraryGameActionsDeps } from '../../lib/libraryGameActions';
+import { dialog } from '../../lib/dialog';
+import { formatIpcError } from '../../lib/ipcError';
+import * as ipc from '../../lib/ipc';
 import { useT } from '../../lib/i18n';
 import { formatPlaytime, type LibraryGame } from '../../types/library';
+import { formatBytes } from '../../types/download';
 import type { LibraryGameExe } from '../../lib/libraryExes';
 import type { PlaySession } from '../../types/session';
 
@@ -55,18 +64,18 @@ export function LibraryGameManageModal(
   props: LibraryGameManageModalProps,
 ): React.ReactElement | null {
   const { t } = useT();
-  const { open, game, onClose } = props;
-  const sections = libraryManageSectionsFor(game.category);
+  const { open, game, onClose, showSaveEditor } = props;
+  const sections = libraryManageSectionsFor(game.category, { showSaveEditor });
   const [section, setSection] = useState<LibraryManageSectionId>(() =>
-    defaultLibraryManageSection(game.category),
+    defaultLibraryManageSection(game.category, { showSaveEditor }),
   );
   const [tagDraft, setTagDraft] = useState('');
 
   useEffect(() => {
     if (!open) return;
-    setSection(defaultLibraryManageSection(game.category));
+    setSection(defaultLibraryManageSection(game.category, { showSaveEditor }));
     setTagDraft('');
-  }, [open, game.category, game.threadId]);
+  }, [open, game.category, game.threadId, showSaveEditor]);
 
   useEffect(() => {
     if (!open) return;
@@ -144,6 +153,7 @@ export function LibraryGameManageModal(
                 isRunning={props.isRunning}
               />
             )}
+            {section === 'saves' && <SavesPanel {...props} />}
             {section === 'tags' && (
               <TagsPanel
                 game={game}
@@ -232,6 +242,32 @@ function FilesPanel({
   onUninstall,
 }: LibraryGameManageModalProps) {
   const { t } = useT();
+  const [sizeLabel, setSizeLabel] = useState<string>(() =>
+    game.installPath ? '…' : '—',
+  );
+
+  useEffect(() => {
+    const path = game.installPath;
+    if (!path) {
+      setSizeLabel('—');
+      return;
+    }
+    let cancelled = false;
+    setSizeLabel('…');
+    void ipc
+      .directorySize(path)
+      .then((info) => {
+        if (cancelled) return;
+        setSizeLabel(info.available ? formatBytes(info.usedBytes) : '—');
+      })
+      .catch(() => {
+        if (!cancelled) setSizeLabel('—');
+      });
+    return () => {
+      cancelled = true;
+    };
+  }, [game.installPath]);
+
   return (
     <>
       <h3 className="game-detail-section-title">{t('libdetail.manage.nav.files')}</h3>
@@ -242,6 +278,7 @@ function FilesPanel({
           actionLabel={game.installPath ? t('common.open') : undefined}
           onAction={onOpenInstallFolder}
         />
+        <GameDetailField label={t('libdetail.location.size')} value={sizeLabel} />
       </GameDetailFields>
 
       <div style={{ marginTop: 14 }}>
@@ -399,21 +436,125 @@ function TagsPanel({
   );
 }
 
-function ToolsPanel({
+function SavesPanel({
   game,
-  showSaveEditor,
-  onRemove,
+  isRunning,
 }: LibraryGameManageModalProps) {
+  const { t } = useT();
+  const [summary, setSummary] = useState<LibraryGameSavesSummary | null>(null);
+  const [loading, setLoading] = useState(true);
+  const [deleting, setDeleting] = useState(false);
+  const [error, setError] = useState<string | null>(null);
+  const [reloadKey, setReloadKey] = useState(0);
+
+  useEffect(() => {
+    let cancelled = false;
+    setLoading(true);
+    setError(null);
+    void summarizeLibraryGameSaves(game)
+      .then((next) => {
+        if (!cancelled) setSummary(next);
+      })
+      .catch((err) => {
+        if (!cancelled) {
+          setSummary(null);
+          setError(formatIpcError(err));
+        }
+      })
+      .finally(() => {
+        if (!cancelled) setLoading(false);
+      });
+    return () => {
+      cancelled = true;
+    };
+    // eslint-disable-next-line react-hooks/exhaustive-deps -- refresh on identity/install, not every game field churn
+  }, [game.threadId, game.installPath, game.installStatus, reloadKey]);
+
+  async function onDeleteAll() {
+    if (!summary || summary.deletableCount <= 0 || isRunning || deleting) return;
+    const result = await dialog.confirmChecked(
+      t('libdetail.saves.deleteAllConfirm', { count: summary.deletableCount }),
+      {
+        title: t('libdetail.saves.deleteAllTitle'),
+        kind: 'warning',
+        confirmLabel: t('libdetail.saves.deleteAll'),
+        checks: [
+          {
+            id: 'backups',
+            label: t('libdetail.saves.deleteAllAlsoBackups'),
+            defaultChecked: false,
+          },
+        ],
+      },
+    );
+    if (!result.ok) return;
+    setDeleting(true);
+    setError(null);
+    try {
+      await deleteAllLibraryGameSaves(game, summary.engine, {
+        deleteBackups: Boolean(result.checks.backups),
+      });
+      setReloadKey((k) => k + 1);
+    } catch (err) {
+      setError(formatIpcError(err));
+    } finally {
+      setDeleting(false);
+    }
+  }
+
+  const countLabel = loading
+    ? '…'
+    : summary
+      ? String(summary.totalCount)
+      : '—';
+
+  return (
+    <>
+      <h3 className="game-detail-section-title">{t('libdetail.manage.nav.saves')}</h3>
+      <GameDetailFields>
+        <GameDetailField label={t('libdetail.saves.count')} value={countLabel} />
+      </GameDetailFields>
+      {error && <p className="game-detail-uninstall-hint">{error}</p>}
+      <div style={{ marginTop: 14 }}>
+        <GameDetailActionList>
+          <GameDetailActionItem to={`/library/game/${game.threadId}/saves`}>
+            {t('libdetail.action.saveEditor')}
+          </GameDetailActionItem>
+        </GameDetailActionList>
+      </div>
+      <div className="game-detail-uninstall-block">
+        <GameDetailBtnDanger
+          onClick={() => void onDeleteAll()}
+          disabled={
+            loading ||
+            deleting ||
+            isRunning ||
+            !summary ||
+            summary.deletableCount <= 0
+          }
+          title={
+            isRunning
+              ? t('libdetail.saves.deleteAllRunning')
+              : summary && summary.deletableCount <= 0
+                ? t('libdetail.saves.deleteAllEmpty')
+                : t('libdetail.saves.deleteAllTitle')
+          }
+        >
+          {deleting
+            ? t('libdetail.saves.deletingAll')
+            : t('libdetail.saves.deleteAll')}
+        </GameDetailBtnDanger>
+      </div>
+    </>
+  );
+}
+
+function ToolsPanel({ onRemove }: LibraryGameManageModalProps) {
   const { t } = useT();
   return (
     <>
       <h3 className="game-detail-section-title">{t('libdetail.manage.nav.tools')}</h3>
       <GameDetailActionList>
-        {showSaveEditor && (
-          <GameDetailActionItem to={`/library/game/${game.threadId}/saves`}>
-            {t('libdetail.action.saveEditor')}
-          </GameDetailActionItem>
-        )}
         <GameDetailActionItem onClick={() => void onRemove()} danger>
           {t('libdetail.action.removeFromLibrary')}
         </GameDetailActionItem>

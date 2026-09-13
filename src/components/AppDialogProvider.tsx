@@ -1,7 +1,18 @@
 import { useCallback, useEffect, useRef, useState } from 'react';
 import { getName } from '@tauri-apps/api/app';
-import { registerDialogHost, type DialogKind, type DialogRequest } from '../lib/dialog';
+import {
+  registerDialogHost,
+  type ConfirmCheck,
+  type DialogKind,
+  type DialogRequest,
+} from '../lib/dialog';
 import { useT } from '../lib/i18n';
+
+function initialCheckState(checks: ConfirmCheck[]): Record<string, boolean> {
+  const out: Record<string, boolean> = {};
+  for (const c of checks) out[c.id] = Boolean(c.defaultChecked);
+  return out;
+}
 
 export function AppDialogProvider({ children }: { children: React.ReactNode }) {
   const { t } = useT();
@@ -9,6 +20,7 @@ export function AppDialogProvider({ children }: { children: React.ReactNode }) {
   const [appTitle, setAppTitle] = useState('F95 App');
   const inputRef = useRef<HTMLInputElement>(null);
   const [promptValue, setPromptValue] = useState('');
+  const [checkState, setCheckState] = useState<Record<string, boolean>>({});
 
   const current = queue[0] ?? null;
 
@@ -27,9 +39,18 @@ export function AppDialogProvider({ children }: { children: React.ReactNode }) {
     if (req.type === 'prompt') {
       setPromptValue(req.options?.defaultValue ?? '');
     }
+    if (req.type === 'confirmChecked') {
+      setCheckState(initialCheckState(req.options.checks));
+    }
   }, []);
 
   useEffect(() => registerDialogHost(enqueue), [enqueue]);
+
+  useEffect(() => {
+    if (current?.type === 'confirmChecked') {
+      setCheckState(initialCheckState(current.options.checks));
+    }
+  }, [current]);
 
   useEffect(() => {
     if (current?.type !== 'prompt') return;
@@ -51,6 +72,9 @@ export function AppDialogProvider({ children }: { children: React.ReactNode }) {
         } else if (current.type === 'confirm') {
           current.resolve(false);
           dequeue();
+        } else if (current.type === 'confirmChecked') {
+          current.resolve({ ok: false, checks: checkState });
+          dequeue();
         } else {
           current.resolve(null);
           dequeue();
@@ -59,7 +83,7 @@ export function AppDialogProvider({ children }: { children: React.ReactNode }) {
     }
     window.addEventListener('keydown', onKey);
     return () => window.removeEventListener('keydown', onKey);
-  }, [current, dequeue]);
+  }, [current, dequeue, checkState]);
 
   function finishAlert() {
     if (current?.type !== 'alert') return;
@@ -70,6 +94,12 @@ export function AppDialogProvider({ children }: { children: React.ReactNode }) {
   function finishConfirm(ok: boolean) {
     if (current?.type !== 'confirm') return;
     current.resolve(ok);
+    dequeue();
+  }
+
+  function finishConfirmChecked(ok: boolean) {
+    if (current?.type !== 'confirmChecked') return;
+    current.resolve({ ok, checks: { ...checkState } });
     dequeue();
   }
 
@@ -84,38 +114,44 @@ export function AppDialogProvider({ children }: { children: React.ReactNode }) {
   const kind: DialogKind =
     current?.type === 'alert'
       ? (current.options?.kind ?? 'info')
-      : current?.type === 'confirm'
+      : current?.type === 'confirm' || current?.type === 'confirmChecked'
         ? (current.options?.kind ?? 'warning')
         : 'info';
 
   const title =
     (current?.type === 'alert'
       ? current.options?.title
-      : current?.type === 'confirm'
+      : current?.type === 'confirm' || current?.type === 'confirmChecked'
         ? current.options?.title
         : current?.type === 'prompt'
           ? current.options?.title
           : undefined) ?? appTitle;
 
   const message =
-    current?.type === 'alert' || current?.type === 'confirm' || current?.type === 'prompt'
+    current?.type === 'alert' ||
+    current?.type === 'confirm' ||
+    current?.type === 'confirmChecked' ||
+    current?.type === 'prompt'
       ? current.message
       : '';
 
   const okLabel = t('common.ok');
   const cancelLabel = t('common.cancel');
   const confirmLabel = t('common.confirm');
+  const checks =
+    current?.type === 'confirmChecked' ? current.options.checks : undefined;
 
   return (
     <>
       {children}
       {current && (
         <div
-          className="app-dialog-overlay"
+          className="app-dialog-overlay app-dialog-overlay--host"
           role="presentation"
           onClick={() => {
             if (current.type === 'alert') finishAlert();
             else if (current.type === 'confirm') finishConfirm(false);
+            else if (current.type === 'confirmChecked') finishConfirmChecked(false);
             else finishPrompt(false);
           }}
         >
@@ -131,6 +167,7 @@ export function AppDialogProvider({ children }: { children: React.ReactNode }) {
               e.preventDefault();
               if (current.type === 'alert') finishAlert();
               else if (current.type === 'confirm') finishConfirm(true);
+              else if (current.type === 'confirmChecked') finishConfirmChecked(true);
               else finishPrompt(true);
             }}
           >
@@ -151,6 +188,7 @@ export function AppDialogProvider({ children }: { children: React.ReactNode }) {
                 onClick={() => {
                   if (current.type === 'alert') finishAlert();
                   else if (current.type === 'confirm') finishConfirm(false);
+                  else if (current.type === 'confirmChecked') finishConfirmChecked(false);
                   else finishPrompt(false);
                 }}
               >
@@ -162,6 +200,23 @@ export function AppDialogProvider({ children }: { children: React.ReactNode }) {
               <p id="app-dialog-message" className="app-dialog-message">
                 {message}
               </p>
+            )}
+
+            {checks && checks.length > 0 && (
+              <div className="app-dialog-checks">
+                {checks.map((c) => (
+                  <label key={c.id} className="app-dialog-check">
+                    <input
+                      type="checkbox"
+                      checked={Boolean(checkState[c.id])}
+                      onChange={(e) =>
+                        setCheckState((prev) => ({ ...prev, [c.id]: e.target.checked }))
+                      }
+                    />
+                    <span>{c.label}</span>
+                  </label>
+                ))}
+              </div>
             )}
 
             {current.type === 'prompt' && (
@@ -186,12 +241,16 @@ export function AppDialogProvider({ children }: { children: React.ReactNode }) {
                   {current.options?.okLabel ?? okLabel}
                 </button>
               )}
-              {current.type === 'confirm' && (
+              {(current.type === 'confirm' || current.type === 'confirmChecked') && (
                 <>
                   <button
                     type="button"
                     className="app-dialog-btn"
-                    onClick={() => finishConfirm(false)}
+                    onClick={() =>
+                      current.type === 'confirm'
+                        ? finishConfirm(false)
+                        : finishConfirmChecked(false)
+                    }
                   >
                     {current.options?.cancelLabel ?? cancelLabel}
                   </button>
@@ -201,7 +260,11 @@ export function AppDialogProvider({ children }: { children: React.ReactNode }) {
                       kind === 'warning' || kind === 'error' ? ' app-dialog-btn-danger' : ''
                     }`}
                     autoFocus
-                    onClick={() => finishConfirm(true)}
+                    onClick={() =>
+                      current.type === 'confirm'
+                        ? finishConfirm(true)
+                        : finishConfirmChecked(true)
+                    }
                   >
                     {current.options?.confirmLabel ?? confirmLabel}
                   </button>

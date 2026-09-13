@@ -16,6 +16,24 @@ describe('libraryManageSectionsFor', () => {
     ]);
   });
 
+  it('inserts saves when save editor is available', () => {
+    expect(libraryManageSectionsFor('games', { showSaveEditor: true })).toEqual([
+      'general',
+      'files',
+      'sessions',
+      'saves',
+      'tags',
+      'tools',
+    ]);
+    expect(libraryManageSectionsFor('mods', { showSaveEditor: true })).toEqual([
+      'general',
+      'files',
+      'saves',
+      'tags',
+      'tools',
+    ]);
+  });
+
   it('omits sessions for non-games', () => {
     expect(libraryManageSectionsFor('mods')).toEqual([
       'general',
@@ -37,5 +55,6 @@ describe('defaultLibraryManageSection', () => {
 describe('libraryManageSectionLabelKey', () => {
   it('returns i18n key', () => {
     expect(libraryManageSectionLabelKey('files')).toBe('libdetail.manage.nav.files');
+    expect(libraryManageSectionLabelKey('saves')).toBe('libdetail.manage.nav.saves');
   });
 });

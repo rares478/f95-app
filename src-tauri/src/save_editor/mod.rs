@@ -11,8 +11,8 @@ pub mod wolf;
 mod zip_save;
 
 pub use backup::{
-    backup_before_write, backup_bytes_before_write, ensure_under_root, list_backups,
-    resolve_backup_path, restore_backup, RenpySaveBackup,
+    backup_before_write, backup_bytes_before_write, delete_thread_backups, ensure_under_root,
+    list_backups, resolve_backup_path, restore_backup, RenpySaveBackup,
 };
 pub use discover::{list_slots, probe_renpy_install, resolve_saves_dir};
 pub use extra_roots::{parse_extra_rel, resolve_extra_live};
@@ -125,6 +125,30 @@ pub fn restore(
     )
 }
 
+/// Delete every discovered save slot file under the install (and extras).
+/// Does not touch editor backups. Returns how many files were removed.
+pub fn delete_all_for_install(
+    install_path: &Path,
+    extra_roots: &[ExtraSaveRoot],
+) -> Result<u32, AppError> {
+    let slots = list_for_install(install_path, extra_roots)?;
+    let mut deleted = 0u32;
+    for slot in slots {
+        let (live, _) = resolve_live_save(install_path, &slot.key, extra_roots)?;
+        if !live.is_file() {
+            continue;
+        }
+        std::fs::remove_file(&live).map_err(|e| {
+            AppError::Io(format!(
+                "failed to delete save {}: {e}",
+                live.display()
+            ))
+        })?;
+        deleted += 1;
+    }
+    Ok(deleted)
+}
+
 fn resolve_live_save(
     install_path: &Path,
     slot_key: &str,
@@ -232,6 +256,30 @@ mod tests {
 
         let err = read(&install, "..", &[]).unwrap_err();
         assert_eq!(err.to_string(), "error.saveEditor.pathEscape");
+    }
+
+    #[test]
+    fn delete_all_removes_listed_slots_and_keeps_backups_untouched() {
+        let root = tempfile_root("delete-all");
+        // Ren'Py list requires zip magic (PK…).
+        let zipish = b"PK\x03\x04dummy";
+        let install = install_with_save(&root, "1-1.save", zipish);
+        let saves = install.join("game").join("saves");
+        fs::write(saves.join("2-1.save"), zipish).unwrap();
+        fs::write(saves.join("notes.txt"), b"keep").unwrap();
+
+        let backups = root.join("save_backups");
+        let backup_slot = backups.join("thread1").join("1-1.save");
+        fs::create_dir_all(&backup_slot).unwrap();
+        fs::write(backup_slot.join("original.save"), b"backup").unwrap();
+
+        let deleted = delete_all_for_install(&install, &[]).unwrap();
+        assert_eq!(deleted, 2);
+        assert!(!saves.join("1-1.save").exists());
+        assert!(!saves.join("2-1.save").exists());
+        assert!(saves.join("notes.txt").exists());
+        assert!(backup_slot.join("original.save").exists());
+        assert!(list_for_install(&install, &[]).unwrap().is_empty());
     }
 }
 

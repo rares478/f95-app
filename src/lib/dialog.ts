@@ -14,11 +14,19 @@ export interface AlertOptions {
   okLabel?: string;
 }
 
+export type ConfirmCheck = {
+  id: string;
+  label: string;
+  defaultChecked?: boolean;
+};
+
 export interface ConfirmOptions {
   title?: string;
   kind?: DialogKind;
   confirmLabel?: string;
   cancelLabel?: string;
+  /** Optional checkboxes shown under the message. */
+  checks?: ConfirmCheck[];
 }
 
 export interface PromptOptions {
@@ -28,6 +36,12 @@ export interface PromptOptions {
   confirmLabel?: string;
   cancelLabel?: string;
 }
+
+/** Result when `confirm` is called with `checks`. */
+export type ConfirmCheckedResult = {
+  ok: boolean;
+  checks: Record<string, boolean>;
+};
 
 export type DialogRequest =
   | {
@@ -41,6 +55,12 @@ export type DialogRequest =
       message: string;
       options?: ConfirmOptions;
       resolve: (value: boolean) => void;
+    }
+  | {
+      type: 'confirmChecked';
+      message: string;
+      options: ConfirmOptions & { checks: ConfirmCheck[] };
+      resolve: (value: ConfirmCheckedResult) => void;
     }
   | {
       type: 'prompt';
@@ -66,6 +86,10 @@ function show(req: DialogRequest): void {
       req.resolve();
     } else if (req.type === 'confirm') {
       req.resolve(false);
+    } else if (req.type === 'confirmChecked') {
+      const checks: Record<string, boolean> = {};
+      for (const c of req.options.checks) checks[c.id] = false;
+      req.resolve({ ok: false, checks });
     } else {
       req.resolve(null);
     }
@@ -86,6 +110,16 @@ export function confirm(message: string, options?: ConfirmOptions): Promise<bool
   });
 }
 
+/** Confirm dialog that also returns checkbox values. */
+export function confirmChecked(
+  message: string,
+  options: ConfirmOptions & { checks: ConfirmCheck[] },
+): Promise<ConfirmCheckedResult> {
+  return new Promise((resolve) => {
+    show({ type: 'confirmChecked', message, options, resolve });
+  });
+}
+
 /** Same as `confirm` — replaces Tauri `ask`. */
 export function ask(message: string, options?: ConfirmOptions): Promise<boolean> {
   return confirm(message, options);
@@ -97,4 +131,4 @@ export function prompt(message: string, options?: PromptOptions): Promise<string
   });
 }
 
-export const dialog = { alert, confirm, ask, prompt };
+export const dialog = { alert, confirm, confirmChecked, ask, prompt };

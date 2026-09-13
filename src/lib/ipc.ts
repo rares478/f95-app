@@ -480,6 +480,16 @@ export async function renpySavesList(
   });
 }
 
+export async function renpySavesDeleteAll(
+  installPath: string,
+  extraRoots?: ExtraSaveRoot[],
+): Promise<number> {
+  return invoke<number>('renpy_saves_delete_all', {
+    installPath,
+    extraRoots: extraRoots ?? null,
+  });
+}
+
 export async function renpySaveRead(args: {
   installPath: string;
   slotKey: string;
@@ -538,6 +548,16 @@ export async function rpgmSavesList(
   });
 }
 
+export async function rpgmSavesDeleteAll(
+  installPath: string,
+  extraRoots?: ExtraSaveRoot[],
+): Promise<number> {
+  return invoke<number>('rpgm_saves_delete_all', {
+    installPath,
+    extraRoots: extraRoots ?? null,
+  });
+}
+
 export async function rpgmSaveRead(args: {
   installPath: string;
   slotKey: string;
@@ -591,6 +611,16 @@ export async function wolfSavesList(
   extraRoots?: ExtraSaveRoot[],
 ): Promise<RenpySaveSlot[]> {
   return invoke<RenpySaveSlot[]>('wolf_saves_list', {
+    installPath,
+    extraRoots: extraRoots ?? null,
+  });
+}
+
+export async function wolfSavesDeleteAll(
+  installPath: string,
+  extraRoots?: ExtraSaveRoot[],
+): Promise<number> {
+  return invoke<number>('wolf_saves_delete_all', {
     installPath,
     extraRoots: extraRoots ?? null,
   });
@@ -667,6 +697,22 @@ export async function unitySavesList(
     title: opts?.title ?? null,
     extraRoots: opts?.extraRoots ?? null,
   });
+}
+
+export async function unitySavesDeleteAll(
+  installPath: string,
+  opts?: UnitySaveMetaOpts,
+): Promise<number> {
+  return invoke<number>('unity_saves_delete_all', {
+    installPath,
+    developer: opts?.developer ?? null,
+    title: opts?.title ?? null,
+    extraRoots: opts?.extraRoots ?? null,
+  });
+}
+
+export async function saveEditorBackupsDeleteAll(threadId: string): Promise<boolean> {
+  return invoke<boolean>('save_editor_backups_delete_all', { threadId });
 }
 
 export async function unitySaveRead(args: {

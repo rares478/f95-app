@@ -76,6 +76,34 @@ pub fn list_for_install(
     Ok(slots)
 }
 
+/// Delete every file-backed Unity save slot under the install (and extras).
+/// Skips registry slots. Does not touch editor backups. Returns files removed.
+pub fn delete_all_for_install(
+    install: &Path,
+    meta: &UnityMeta,
+    extra_roots: &[ExtraSaveRoot],
+) -> Result<u32, AppError> {
+    let slots = list_for_install(install, meta, extra_roots)?;
+    let mut deleted = 0u32;
+    for slot in slots {
+        if slot.source == "registry" {
+            continue;
+        }
+        let (live, _) = resolve_live_save(install, meta, &slot.key, extra_roots)?;
+        if !live.is_file() {
+            continue;
+        }
+        fs::remove_file(&live).map_err(|e| {
+            AppError::Io(format!(
+                "failed to delete save {}: {e}",
+                live.display()
+            ))
+        })?;
+        deleted += 1;
+    }
+    Ok(deleted)
+}
+
 /// Read a slot into a tree; encrypted slots need a password to unlock.
 pub fn read(
     install: &Path,

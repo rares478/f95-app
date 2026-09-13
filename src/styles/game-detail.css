@@ -206,3 +206,57 @@
 .game-detail-locale-emulator {
   margin-bottom: 12px;
 }
+
+/* Library game detail: taller banner, no overlapping cover */
+.game-detail-hero--library .game-detail-hero-banner {
+  height: 300px;
+}
+
+.game-detail-hero--library .game-detail-hero-body {
+  margin-top: -56px;
+}
+
+.library-detail-aside-stats {
+  display: grid;
+  grid-template-columns: repeat(3, minmax(0, 1fr));
+  gap: 8px;
+  margin-bottom: 14px;
+}
+
+.library-detail-aside-stats--solo {
+  grid-template-columns: 1fr;
+}
+
+.library-detail-aside-stats .game-detail-stat {
+  text-align: center;
+  padding: 8px 6px;
+  min-width: 0;
+}
+
+.library-detail-aside-stats .game-detail-stat-label {
+  margin-bottom: 4px;
+  letter-spacing: 0.05em;
+}
+
+.library-detail-aside-stats .game-detail-stat-value {
+  font-size: 13px;
+  line-height: 1.25;
+}
+
+.library-detail-aside-stats .game-detail-stat-highlight .game-detail-stat-value {
+  color: var(--accent);
+}
+
+.library-detail-aside-stat-update {
+  font-size: 11px;
+  font-weight: 500;
+  color: var(--text-secondary);
+}
+
+@media (max-width: 1100px) {
+  .library-detail-aside-stats {
+    grid-template-columns: 1fr;
+  }
+}
+
+

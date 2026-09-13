@@ -35,6 +35,9 @@ export function GameDetailBackBar({
 interface HeroProps {
   bannerUrl: string | null;
   coverUrl?: string | null;
+  /** When false, skip the overlapping portrait cover (library page). Default true. */
+  showCover?: boolean;
+  className?: string;
   badges?: React.ReactNode;
   title: string;
   meta?: React.ReactNode;
@@ -46,6 +49,8 @@ interface HeroProps {
 export function GameDetailHero({
   bannerUrl,
   coverUrl,
+  showCover = true,
+  className,
   badges,
   title,
   meta,
@@ -53,8 +58,9 @@ export function GameDetailHero({
   actions,
 }: HeroProps) {
   const art = coverUrl ?? bannerUrl;
+  const rootClass = className ? `game-detail-hero ${className}` : 'game-detail-hero';
   return (
-    <div className="game-detail-hero">
+    <div className={rootClass}>
       <div className="game-detail-hero-banner">
         {bannerUrl ? (
           <img
@@ -72,7 +78,7 @@ export function GameDetailHero({
 
       <div className="game-detail-hero-body">
         <div className="game-detail-hero-main">
-          {art && (
+          {showCover && art && (
             <div className="game-detail-cover">
               <img
                 src={art}

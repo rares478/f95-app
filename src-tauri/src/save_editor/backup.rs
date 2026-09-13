@@ -300,6 +300,27 @@ fn prune_slot_backups(dir: &Path) -> Result<(), AppError> {
     Ok(())
 }
 
+/// Delete all editor backups for one library thread under `save_backups/{thread_id}`.
+/// Missing thread folder is a no-op (`Ok(false)`). Returns `true` when a folder was removed.
+pub fn delete_thread_backups(backups_root: &Path, thread_id: &str) -> Result<bool, AppError> {
+    reject_path_component(thread_id)?;
+    let thread_root = backups_root.join(thread_id);
+    if !thread_root.exists() {
+        return Ok(false);
+    }
+    if !backups_root.is_dir() {
+        return Ok(false);
+    }
+    ensure_under_root(&thread_root, backups_root)?;
+    fs::remove_dir_all(&thread_root).map_err(|e| {
+        AppError::Io(format!(
+            "failed to delete save backups {}: {e}",
+            thread_root.display()
+        ))
+    })?;
+    Ok(true)
+}
+
 #[cfg(test)]
 mod tests {
     use super::*;
@@ -596,5 +617,31 @@ mod tests {
 
         // Simple Ren'Py keys remain readable directory names.
         assert_eq!(sanitize_slot_key("1-1.save"), "1-1.save");
+    }
+
+    #[test]
+    fn delete_thread_backups_removes_only_that_thread() {
+        let root = tempfile_root("delete-thread");
+        let backups_root = root.join("save_backups");
+        let t1 = backups_root.join("thread1").join("1-1.save");
+        let t2 = backups_root.join("thread2").join("1-1.save");
+        fs::create_dir_all(&t1).unwrap();
+        fs::create_dir_all(&t2).unwrap();
+        write_file(&t1.join("original.save"), b"a");
+        write_file(&t2.join("original.save"), b"b");
+
+        assert!(delete_thread_backups(&backups_root, "thread1").unwrap());
+        assert!(!backups_root.join("thread1").exists());
+        assert!(t2.join("original.save").exists());
+        assert!(!delete_thread_backups(&backups_root, "thread1").unwrap());
+    }
+
+    #[test]
+    fn delete_thread_backups_rejects_path_escape() {
+        let root = tempfile_root("delete-escape");
+        let backups_root = root.join("save_backups");
+        fs::create_dir_all(&backups_root).unwrap();
+        let err = delete_thread_backups(&backups_root, "..").unwrap_err();
+        assert_eq!(err.to_string(), "error.saveEditor.pathEscape");
     }
 }
