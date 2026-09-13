@@ -1,4 +1,4 @@
-import { useMemo, useState, type CSSProperties } from 'react';
+import { useEffect, useMemo, useState, type CSSProperties } from 'react';
 import DOMPurify from 'dompurify';
 import { GameDescription } from '../game/GameDescription';
 import { parseChangelogHtml } from '../../lib/gameChangelog/parseChangelogHtml';
@@ -32,6 +32,18 @@ export function LibraryChangelogTimeline({
   const { t } = useT();
   const parsed = useMemo(() => parseChangelogHtml(html), [html]);
   const [selectedIdx, setSelectedIdx] = useState<number | null>(null);
+
+  useEffect(() => {
+    if (selectedIdx == null) return;
+    function onKey(e: KeyboardEvent) {
+      if (e.key === 'Escape') {
+        e.preventDefault();
+        setSelectedIdx(null);
+      }
+    }
+    window.addEventListener('keydown', onKey);
+    return () => window.removeEventListener('keydown', onKey);
+  }, [selectedIdx]);
 
   if (!parsed.ok) {
     return (
@@ -89,9 +101,54 @@ export function LibraryChangelogTimeline({
           </button>
         );
       })}
-      {/* Task 3: modal when selected != null */}
-      {selected ? null : null}
-      {selectedInstalled ? null : null}
+      {selected ? (
+        <div
+          className="app-dialog-overlay"
+          role="presentation"
+          onClick={() => setSelectedIdx(null)}
+        >
+          <div
+            className="app-dialog library-changelog-entry-dialog"
+            role="dialog"
+            aria-modal="true"
+            aria-labelledby="library-changelog-entry-title"
+            onClick={(e) => e.stopPropagation()}
+          >
+            <header className="app-dialog-header">
+              <div className="app-dialog-header-text">
+                <h2
+                  id="library-changelog-entry-title"
+                  className="app-dialog-title"
+                >
+                  {selected.title}
+                </h2>
+                {selectedInstalled ? (
+                  <p className="library-changelog-entry-dialog-installed">
+                    {t('libdetail.changelog.installed')}
+                  </p>
+                ) : null}
+              </div>
+              <button
+                type="button"
+                className="app-dialog-close"
+                aria-label={t('common.close')}
+                onClick={() => setSelectedIdx(null)}
+              >
+                ×
+              </button>
+            </header>
+            <div className="library-changelog-entry-dialog-body">
+              {selected.bodyHtml.trim() ? (
+                <GameDescription
+                  html={DOMPurify.sanitize(selected.bodyHtml, PURIFY)}
+                  className="libdetail-changelog-body"
+                  style={BODY_STYLE}
+                />
+              ) : null}
+            </div>
+          </div>
+        </div>
+      ) : null}
     </div>
   );
 }
