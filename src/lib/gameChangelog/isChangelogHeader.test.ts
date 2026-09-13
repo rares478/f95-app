@@ -65,6 +65,11 @@ describe('isChangelogHeader', () => {
   it('accepts soft season only when bold', () => {
     expect(isChangelogHeader('Season 1 Redux', { fromBold: true }).ok).toBe(true);
     expect(isChangelogHeader('Season 1 Redux', { fromBold: false }).ok).toBe(false);
+    expect(isChangelogHeader('Season 3 Episode 4', { fromBold: true }).ok).toBe(
+      true,
+    );
+    // Bare "Season 3" is a Lust Theory prefix before a separate bold version.
+    expect(isChangelogHeader('Season 3', { fromBold: true }).ok).toBe(false);
   });
 
   it('accepts soft release labels only when bold', () => {
@@ -83,6 +88,14 @@ describe('isChangelogHeader', () => {
     expect(isChangelogHeader('Changelog (wip.7944)', { fromBold: false }).ok).toBe(
       false,
     );
+  });
+
+  it('accepts Changelog + version stamps', () => {
+    expect(isChangelogHeader('Changelog 0.42.0:').ok).toBe(true);
+    expect(isChangelogHeader('Changelog 0.34.0 - Endgame Part 4 - Epilogue').ok).toBe(
+      true,
+    );
+    expect(isChangelogHeader('Changelog:').ok).toBe(false);
   });
 
   it('accepts bare wip.N version cores', () => {

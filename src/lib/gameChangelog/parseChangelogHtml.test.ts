@@ -107,6 +107,51 @@ describe('parseChangelogHtml', () => {
     expect(r.preambleHtml.trim()).toBe('');
   });
 
+  it('splits Changelog + version headers (Long Live the Princess)', () => {
+    const html = [
+      '<div class="bbCodeBlock-content"><b>v1.0.0</b><br>',
+      '<ul><li>Final</li></ul>',
+      '<b>Changelog 0.42.0:</b><br>',
+      '<ul><li>NG+ scenes</li></ul>',
+      '<b>Changelog 0.34.0 - Endgame Part 4 - Epilogue:</b><br>',
+      '<ul><li>Epilogue</li></ul>',
+      '<b>v0.33.0 - Endgame Part 3</b><br>',
+      '- Older notes',
+    ].join('');
+    const r = parseChangelogHtml(html);
+    expect(r.ok).toBe(true);
+    if (!r.ok) return;
+    expect(r.entries.map((e) => e.title)).toEqual([
+      'v1.0.0',
+      'Changelog 0.42.0',
+      'Changelog 0.34.0 - Endgame Part 4 - Epilogue',
+      'v0.33.0 - Endgame Part 3',
+    ]);
+  });
+
+  it('does not treat bare Season N as a header before a version (Lust Theory)', () => {
+    const html = [
+      '<div class="bbCodeBlock-content"><b>Season 3 - v0.6.0</b><br>',
+      'Renders - 940+<br>',
+      '<b>Season 3</b> - <b>v0.5.2</b><br>',
+      'Renders - 440+<br>',
+      '<b>Season 3</b> - <b>v0.5.1</b><br>',
+      'Renders - 780+<br>',
+      '<b>Season 3 Episode 4</b><br>',
+      'Renders - 1250+',
+    ].join('');
+    const r = parseChangelogHtml(html);
+    expect(r.ok).toBe(true);
+    if (!r.ok) return;
+    expect(r.entries.map((e) => e.title)).toEqual([
+      'Season 3 - v0.6.0',
+      'v0.5.2',
+      'v0.5.1',
+      'Season 3 Episode 4',
+    ]);
+    expect(r.entries.every((e) => e.title !== 'Season 3')).toBe(true);
+  });
+
   it('splits slash dates and Demo labels; ignores version-like body lines', () => {
     const html = [
       '<div class="bbCodeBlock-content"><b>26/06/2024</b><br>',

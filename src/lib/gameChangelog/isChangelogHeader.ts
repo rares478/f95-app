@@ -26,7 +26,8 @@ const RE_EP_PART_SOFT = /^ep\s*\.?\s*\d+[a-z]?\s*[-–—]\s*part\s+\d+/i;
 /** Bold standalone ending releases (e.g. "Emma's Solo Ending"); case-sensitive to skip list bullets. */
 const RE_SOLO_ENDING_SOFT = /^[\w'’\s]{1,40}Solo Ending$/;
 const RE_SEASON = new RegExp(String.raw`^season\s+\d+\b.*${VERSION_CORE}`, 'i');
-const RE_SEASON_SOFT = /^season\s+\d+/i;
+/** Bold "Season 1 Redux" / "Season 3 Episode 4" — require text after the number (not bare "Season 3"). */
+const RE_SEASON_SOFT = /^season\s+\d+\s*\S/i;
 const RE_RELEASE_SOFT = /^(final|latest|release|current)$/i;
 /** Wicked Choices-style: V15/10/18 (0.6.1.0) */
 const RE_V_SLASH_DATE = /^v\s*\d{1,2}\/\d{1,2}\/\d{2,4}\b/i;
@@ -34,6 +35,8 @@ const RE_V_SLASH_DATE = /^v\s*\d{1,2}\/\d{1,2}\/\d{2,4}\b/i;
 const RE_REMASTER_VER = /^re-?master(?:ed)?\s+v?\s*\.?\s*\d/i;
 /** Bold "Changelog (wip.7944):" style labels (Summertime Saga). */
 const RE_CHANGELOG_WIP = /^changelog\s*\(\s*wip\.\d+\s*\)/i;
+/** "Changelog 0.42.0:" / "Changelog 0.34.0 - Endgame Part 4" (Long Live the Princess). */
+const RE_CHANGELOG_VER = new RegExp(String.raw`^changelog\s+${VERSION_CORE}`, 'i');
 
 /** Unbolded short suffixes allowed after a version core (DeLuca "Bugfix"). */
 const RE_UNBOLD_VERSION_SUFFIX =
@@ -108,6 +111,9 @@ export function isChangelogHeader(
     return { ok: true, kind: 'version' };
   }
   if (isVersionTitle(trimmed, !!opts?.fromBold)) {
+    return { ok: true, kind: 'version' };
+  }
+  if (RE_CHANGELOG_VER.test(trimmed)) {
     return { ok: true, kind: 'version' };
   }
   if (opts?.fromBold && RE_CHANGELOG_WIP.test(trimmed)) {
