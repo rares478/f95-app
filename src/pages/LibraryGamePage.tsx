@@ -49,6 +49,7 @@ import { resolvePlayExe, type LibraryGameExe } from '../lib/libraryExes';
 import { SplitPlayButton } from '../components/library/SplitPlayButton';
 import { catalogHasMultipleSeasons } from '../lib/installCatalog';
 import { LibraryExesSection } from '../components/library/LibraryExesSection';
+import { LibraryGameManageModal } from '../components/library/LibraryGameManageModal';
 import { useT } from '../lib/i18n';
 import { translateBackendMessage } from '../lib/backendMessage';
 import { formatIpcError } from '../lib/ipcError';
@@ -85,6 +86,7 @@ export function LibraryGamePage() {
   const [exes, setExes] = useState<LibraryGameExe[]>([]);
   const [uninstalling, setUninstalling] = useState(false);
   const [movePickerOpen, setMovePickerOpen] = useState(false);
+  const [manageOpen, setManageOpen] = useState(false);
   const [currentLibId, setCurrentLibId] = useState<number | undefined>(undefined);
   const [moveInFlight, setMoveInFlight] = useState<{
     destPath: string;
@@ -624,6 +626,9 @@ export function LibraryGamePage() {
               <GameDetailBtnSecondary onClick={onCheckUpdate}>
                 {t('libdetail.action.checkUpdate')}
               </GameDetailBtnSecondary>
+              <GameDetailBtnSecondary onClick={() => setManageOpen(true)}>
+                {t('libdetail.action.manage')}
+              </GameDetailBtnSecondary>
             </>
           ) : (
             <>
@@ -650,6 +655,9 @@ export function LibraryGamePage() {
               )}
               <GameDetailBtnSecondary onClick={onOpenInstallFolder}>
                 {t('common.open')}
+              </GameDetailBtnSecondary>
+              <GameDetailBtnSecondary onClick={() => setManageOpen(true)}>
+                {t('libdetail.action.manage')}
               </GameDetailBtnSecondary>
             </>
           )
@@ -915,6 +923,42 @@ export function LibraryGamePage() {
           </GameDetailSection>
         </GameDetailAside>
       </GameDetailBody>
+
+      <LibraryGameManageModal
+        open={manageOpen}
+        game={g}
+        exes={exes}
+        recentSessions={recentSessions}
+        resolvedExeId={resolvedExe?.id ?? null}
+        isRunning={isRunning}
+        downloadInFlight={downloadInFlight}
+        launching={launching}
+        uninstalling={uninstalling}
+        showSaveEditor={showSaveEditor}
+        isWindows={isWindows}
+        hasLaunchExe={hasLaunchExe}
+        hasInstallFiles={hasInstallFiles}
+        canUninstall={canUninstall}
+        libraryActionDeps={libraryActionDeps}
+        onClose={() => setManageOpen(false)}
+        onCheckUpdate={onCheckUpdate}
+        onOpenInstallFolder={onOpenInstallFolder}
+        onOpenThread={() => void openUrl(g.threadUrl)}
+        onLocaleEmulatorChange={onLocaleEmulatorChange}
+        onMove={() => setMovePickerOpen(true)}
+        onUninstall={onUninstall}
+        onRemove={onRemove}
+        onPlayExe={(exe) => void onPlayExe(exe)}
+        onExesChanged={reload}
+        onAddTag={async (tag) => {
+          const trimmed = tag.trim();
+          if (!trimmed) return;
+          if (g.customTags.includes(trimmed)) return;
+          await library.setCustomTags(g.threadId, [...g.customTags, trimmed]);
+          await reload();
+        }}
+        onRemoveTag={onRemoveTag}
+      />
 
       <InstallLocationModal
         open={movePickerOpen}

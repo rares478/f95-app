@@ -48,6 +48,7 @@ import './styles/nav-accent.css';
 import './styles/custom-video-fullscreen.css';
 import './styles/collections.css';
 import './styles/library-filters.css';
+import './styles/library-manage-modal.css';
 import './styles/user-chip.css';
 import './styles/post-attachments.css';
 
