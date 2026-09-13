@@ -70,6 +70,8 @@ export function LibraryGamePage() {
   const navigate = useNavigate();
   const [state, setState] = useState<State>({ kind: 'loading' });
   const [storeDetail, setStoreDetail] = useState<GameDetail | null>(null);
+  const [storeDetailReady, setStoreDetailReady] = useState(false);
+  const [changelogParsed, setChangelogParsed] = useState(false);
   const [notesDraft, setNotesDraft] = useState('');
   const [recentSessions, setRecentSessions] = useState<PlaySession[]>([]);
   const [sessionCount, setSessionCount] = useState(0);
@@ -100,6 +102,12 @@ export function LibraryGamePage() {
     ? storeDetail?.bannerUrl ?? readyGame.thumbnailUrl
     : null;
   const cachedBannerUrl = useCachedImageUrl(bannerRemote, 0);
+
+  const markChangelogParsed = useCallback(() => {
+    setChangelogParsed(true);
+  }, []);
+
+  const postsLazyEnabled = storeDetailReady && changelogParsed;
 
   const reload = useCallback(async () => {
     if (!threadId) return;
@@ -165,13 +173,24 @@ export function LibraryGamePage() {
   useEffect(() => {
     if (!threadId || state.kind !== 'ready') return;
     let cancelled = false;
+    setStoreDetail(null);
+    setStoreDetailReady(false);
+    setChangelogParsed(false);
     ipc
       .gameDetail(threadId)
       .then((detail) => {
-        if (!cancelled) setStoreDetail(detail);
+        if (cancelled) return;
+        setStoreDetail(detail);
+        // No changelog section → discussion can observe immediately after paint
+        if (!detail?.changelogHtml) setChangelogParsed(true);
       })
       .catch(() => {
-        if (!cancelled) setStoreDetail(null);
+        if (cancelled) return;
+        setStoreDetail(null);
+        setChangelogParsed(true);
+      })
+      .finally(() => {
+        if (!cancelled) setStoreDetailReady(true);
       });
     return () => {
       cancelled = true;
@@ -623,12 +642,17 @@ export function LibraryGamePage() {
                   displayStatus === 'installed' ||
                   displayStatus === 'update_available'
                 }
+                onParsed={markChangelogParsed}
               />
             </GameDetailSection>
           ) : null}
 
           <GameDetailSection title={t('gamedetail.section.discussion')}>
-            <ThreadDiscussion threadId={g.threadId} offline={isOffline} />
+            <ThreadDiscussion
+              threadId={g.threadId}
+              offline={isOffline}
+              lazyEnabled={postsLazyEnabled}
+            />
           </GameDetailSection>
         </GameDetailMain>
 

@@ -28,6 +28,12 @@ type FocusStatus = 'idle' | 'seeking' | 'found' | 'missing';
 interface Props {
   threadId: string;
   offline?: boolean;
+  /**
+   * When false, do not observe / fetch until true (e.g. wait for library
+   * changelog to parse so the discussion sentinel is not falsely near-viewport).
+   * Deep-links (?post= / ?page=) still load immediately.
+   */
+  lazyEnabled?: boolean;
 }
 
 function sanitizePostHtml(html: string): string {
@@ -175,7 +181,11 @@ function buildPageItems(
 }
 
 /** Lazy read-only thread replies with F95-style page navigation. */
-export function ThreadDiscussion({ threadId, offline = false }: Props) {
+export function ThreadDiscussion({
+  threadId,
+  offline = false,
+  lazyEnabled = true,
+}: Props) {
   const { t, locale } = useT();
   const { settings: discussionSettings } = useDiscussionSettings();
   const [searchParams, setSearchParams] = useSearchParams();
@@ -346,7 +356,7 @@ export function ThreadDiscussion({ threadId, offline = false }: Props) {
   }, [wantLatest, threadId, offline]);
 
   useEffect(() => {
-    if (offline || visible) return;
+    if (offline || visible || !lazyEnabled) return;
     const el = sentinelRef.current;
     if (!el) return;
     const root = document.querySelector('.app-main');
@@ -356,13 +366,14 @@ export function ThreadDiscussion({ threadId, offline = false }: Props) {
       },
       {
         root: root instanceof Element ? root : null,
-        rootMargin: '280px 0px',
+        // Prefetch only when the section is nearly on-screen
+        rootMargin: '96px 0px',
         threshold: 0,
       },
     );
     io.observe(el);
     return () => io.disconnect();
-  }, [visible, threadId, offline]);
+  }, [visible, threadId, offline, lazyEnabled]);
 
   // Initial page load once visible.
   // Post deep-links prefer XF resolvePost (direct page) over walking from the end.

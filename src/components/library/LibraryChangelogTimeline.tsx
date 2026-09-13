@@ -1,4 +1,4 @@
-import { useEffect, useMemo, useState, type CSSProperties } from 'react';
+import { useEffect, useLayoutEffect, useMemo, useState, type CSSProperties } from 'react';
 import DOMPurify from 'dompurify';
 import { GameDescription } from '../game/GameDescription';
 import { parseChangelogHtml } from '../../lib/gameChangelog/parseChangelogHtml';
@@ -28,15 +28,22 @@ export function LibraryChangelogTimeline({
   html,
   currentVersion,
   isInstalled,
+  onParsed,
 }: {
   html: string;
   currentVersion: string | null;
   isInstalled: boolean;
+  /** Fires after parse + layout so callers can defer below-fold fetches. */
+  onParsed?: () => void;
 }) {
   const { t } = useT();
   const flatHtml = useMemo(() => unwrapChangelogSpoilers(html), [html]);
   const parsed = useMemo(() => parseChangelogHtml(flatHtml), [flatHtml]);
   const [selectedIdx, setSelectedIdx] = useState<number | null>(null);
+
+  useLayoutEffect(() => {
+    onParsed?.();
+  }, [parsed, onParsed]);
 
   useEffect(() => {
     if (selectedIdx == null) return;
