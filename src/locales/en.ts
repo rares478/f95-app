@@ -967,6 +967,7 @@ const en: Record<string, string> = {
   'libdetail.section.notes': 'Notes',
   'libdetail.section.changelog': 'Changelog',
   'libdetail.changelog.show': 'Show changelog',
+  'libdetail.changelog.installed': 'Installed',
   'libdetail.notes.placeholder': 'Personal notes, save locations, hints…',
   'libdetail.section.sessions': 'Recent sessions',
   'libdetail.sessions.empty': 'No sessions yet. Click Play to start.',
