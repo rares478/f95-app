@@ -47,6 +47,10 @@ describe('parseChangelogHtml', () => {
     if (!r.ok) return;
     expect(r.entries.length).toBeGreaterThanOrEqual(5);
     expect(r.entries.some((e) => /0\.09\.5/i.test(e.title))).toBe(true);
+    // Bold mid-header "Bug Fixes" must NOT become its own entry
+    expect(r.entries.every((e) => !/^bug fixes$/i.test(e.title.trim()))).toBe(
+      true,
+    );
   });
 
   it('returns ok:false when fewer than 2 headers', () => {
