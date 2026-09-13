@@ -20,14 +20,17 @@ const BODY_STYLE: CSSProperties = {
 /**
  * Steam-style changelog timeline for library game detail.
  * Falls back to a single sanitized blob when parsing is not confident.
- * Highlights the installed version when it fuzzy-matches an entry (no auto-scroll).
+ * Installed games: highlight the matched version with an Installed chip.
+ * Not installed: highlight the newest entry as Latest (no Installed label).
  */
 export function LibraryChangelogTimeline({
   html,
   currentVersion,
+  isInstalled,
 }: {
   html: string;
   currentVersion: string | null;
+  isInstalled: boolean;
 }) {
   const { t } = useT();
   const parsed = useMemo(() => parseChangelogHtml(html), [html]);
@@ -55,11 +58,18 @@ export function LibraryChangelogTimeline({
     );
   }
 
-  const installedIdx = matchInstalledVersion(parsed.entries, currentVersion);
+  const installedIdx = isInstalled
+    ? matchInstalledVersion(parsed.entries, currentVersion)
+    : -1;
+  const latestIdx = !isInstalled && parsed.entries.length > 0 ? 0 : -1;
   const selected =
     selectedIdx != null ? parsed.entries[selectedIdx] ?? null : null;
-  const selectedInstalled =
-    selectedIdx != null && selectedIdx === installedIdx;
+  const selectedBadge =
+    selectedIdx != null && selectedIdx === installedIdx
+      ? ('installed' as const)
+      : selectedIdx != null && selectedIdx === latestIdx
+        ? ('latest' as const)
+        : null;
 
   return (
     <div className="library-changelog-timeline">
@@ -72,14 +82,16 @@ export function LibraryChangelogTimeline({
       ) : null}
       {parsed.entries.map((entry, i) => {
         const installed = i === installedIdx;
+        const latest = i === latestIdx;
+        const featured = installed || latest;
         const snippet = snippetFromHtml(entry.bodyHtml);
         return (
           <button
             key={`${entry.title}-${i}`}
             type="button"
             className={
-              installed
-                ? 'library-changelog-card library-changelog-card--installed'
+              featured
+                ? 'library-changelog-card library-changelog-card--featured'
                 : 'library-changelog-card'
             }
             onClick={() => setSelectedIdx(i)}
@@ -90,8 +102,12 @@ export function LibraryChangelogTimeline({
             <span className="library-changelog-card-title-row">
               <span className="library-changelog-card-title">{entry.title}</span>
               {installed ? (
-                <span className="library-changelog-installed">
+                <span className="library-changelog-badge">
                   {t('libdetail.changelog.installed')}
+                </span>
+              ) : latest ? (
+                <span className="library-changelog-badge">
+                  {t('libdetail.changelog.latest')}
                 </span>
               ) : null}
             </span>
@@ -122,9 +138,13 @@ export function LibraryChangelogTimeline({
                 >
                   {selected.title}
                 </h2>
-                {selectedInstalled ? (
-                  <p className="library-changelog-entry-dialog-installed">
+                {selectedBadge === 'installed' ? (
+                  <p className="library-changelog-entry-dialog-badge">
                     {t('libdetail.changelog.installed')}
+                  </p>
+                ) : selectedBadge === 'latest' ? (
+                  <p className="library-changelog-entry-dialog-badge">
+                    {t('libdetail.changelog.latest')}
                   </p>
                 ) : null}
               </div>

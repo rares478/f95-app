@@ -939,6 +939,7 @@ const pt: Record<string, string> = {
   'libdetail.section.changelog': 'Changelog',
   'libdetail.changelog.show': 'Mostrar changelog',
   'libdetail.changelog.installed': 'Instalado',
+  'libdetail.changelog.latest': 'Mais recente',
   'libdetail.changelog.updateLabel': 'Atualização',
   'libdetail.notes.placeholder': 'Anotações pessoais, save locations, dicas…',
   'libdetail.section.sessions': 'Sessões recentes',

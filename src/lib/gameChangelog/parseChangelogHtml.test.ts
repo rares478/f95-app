@@ -63,4 +63,28 @@ describe('parseChangelogHtml', () => {
       ok: false,
     });
   });
+
+  it('peels Final soft header and versions glued after </details>', () => {
+    const html = [
+      '<div class="bbCodeBlock-content"><b>Final</b><br>',
+      '- Ending scene<br>',
+      '<b>v2.65</b><br>',
+      '- New scene<br>',
+      '<details class="x-spoiler"><summary>Spoiler</summary>',
+      '<div class="bbCodeBlock-content">- Hidden</div>',
+      '</div></details>v2.60<br>',
+      '- Evelyn scene<br>',
+      '</details>v2.55<br>',
+      '- Potion scenes',
+    ].join('');
+    const r = parseChangelogHtml(html);
+    expect(r.ok).toBe(true);
+    if (!r.ok) return;
+    const titles = r.entries.map((e) => e.title);
+    expect(titles[0]).toBe('Final');
+    expect(titles).toContain('v2.65');
+    expect(titles).toContain('v2.60');
+    expect(titles).toContain('v2.55');
+    expect(r.preambleHtml.trim()).toBe('');
+  });
 });

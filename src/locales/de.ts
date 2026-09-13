@@ -934,6 +934,7 @@ const de: Record<string, string> = {
   'libdetail.section.changelog': 'Änderungsprotokoll',
   'libdetail.changelog.show': 'Änderungsprotokoll anzeigen',
   'libdetail.changelog.installed': 'Installiert',
+  'libdetail.changelog.latest': 'Aktuell',
   'libdetail.changelog.updateLabel': 'Update',
   'libdetail.notes.placeholder': 'Persönliche Notizen, Speicherorte, Hinweise…',
   'libdetail.section.sessions': 'Letzte Sitzungen',

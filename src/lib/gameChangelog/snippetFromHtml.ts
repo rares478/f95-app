@@ -1,16 +1,21 @@
 const DEFAULT_MAX = 180;
 
 function stripToText(html: string): string {
-  return html
+  let out = html
+    // Drop spoiler labels; keep the body content
+    .replace(/<summary\b[^>]*>[\s\S]*?<\/summary>/gi, ' ')
     .replace(/<[^>]+>/g, ' ')
     .replace(/&nbsp;/gi, ' ')
     .replace(/&amp;/gi, '&')
     .replace(/&lt;/gi, '<')
     .replace(/&gt;/gi, '>')
     .replace(/&quot;/gi, '"')
-    .replace(/&#39;/g, "'")
-    .replace(/\s+/g, ' ')
-    .trim();
+    .replace(/&#39;/g, "'");
+  // Escaped tags become real <> after decode — strip once more
+  out = out.replace(/<[^>]+>/g, ' ');
+  // Authors often write `Features>` / `&lt;Features&gt;` as section markers
+  out = out.replace(/<\/?Features\s*>/gi, ' ').replace(/\bFeatures\s*>/gi, ' ');
+  return out.replace(/\s+/g, ' ').trim();
 }
 
 /**

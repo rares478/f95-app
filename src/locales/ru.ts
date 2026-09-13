@@ -934,6 +934,7 @@ const ru: Record<string, string> = {
   'libdetail.section.changelog': 'Список изменений',
   'libdetail.changelog.show': 'Показать список изменений',
   'libdetail.changelog.installed': 'Установлено',
+  'libdetail.changelog.latest': 'Последняя',
   'libdetail.changelog.updateLabel': 'Обновление',
   'libdetail.notes.placeholder': 'Личные заметки, расположение сейвов, подсказки…',
   'libdetail.section.sessions': 'Последние сессии',

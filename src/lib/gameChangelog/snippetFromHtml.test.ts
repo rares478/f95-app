@@ -22,4 +22,14 @@ describe('snippetFromHtml', () => {
   it('does not ellipsize when under maxLen', () => {
     expect(snippetFromHtml('Short note')).toBe('Short note');
   });
+
+  it('drops spoiler summary and escaped feature tags', () => {
+    const html =
+      '<details class="x-spoiler"><summary>Spoiler</summary>' +
+      '<div>&lt;Features&gt;<br>- New scene</div></details>';
+    expect(snippetFromHtml(html)).toBe('- New scene');
+    expect(snippetFromHtml('Features&gt;<br>- New booty call')).toBe(
+      '- New booty call',
+    );
+  });
 });

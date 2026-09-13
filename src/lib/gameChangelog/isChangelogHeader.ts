@@ -10,6 +10,7 @@ const RE_CHAPTER = new RegExp(String.raw`^chapter\s+\d+\b.*${VERSION_CORE}`, 'i'
 const RE_SEASON = new RegExp(String.raw`^season\s+\d+\b.*${VERSION_CORE}`, 'i');
 const RE_VERSION = new RegExp(String.raw`^${VERSION_CORE}(?:\s.*)?$`);
 const RE_SEASON_SOFT = /^season\s+\d+/i;
+const RE_RELEASE_SOFT = /^(final|latest|release|current)$/i;
 
 export function isChangelogHeader(
   text: string,
@@ -39,6 +40,9 @@ export function isChangelogHeader(
   }
   if (opts?.fromBold && RE_SEASON_SOFT.test(trimmed)) {
     return { ok: true, kind: 'seasonSoft' };
+  }
+  if (opts?.fromBold && RE_RELEASE_SOFT.test(trimmed)) {
+    return { ok: true, kind: 'releaseSoft' };
   }
 
   return { ok: false };

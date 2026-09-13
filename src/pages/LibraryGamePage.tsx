@@ -619,6 +619,10 @@ export function LibraryGamePage() {
               <LibraryChangelogTimeline
                 html={storeDetail.changelogHtml}
                 currentVersion={g.currentVersion}
+                isInstalled={
+                  displayStatus === 'installed' ||
+                  displayStatus === 'update_available'
+                }
               />
             </GameDetailSection>
           ) : null}

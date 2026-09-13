@@ -24,6 +24,40 @@ function displayTitle(text: string): string {
 }
 
 /**
+ * Versions often sit after closing spoiler markup on the same <br> segment
+ * (e.g. `</details>v2.60`). Peel a trailing header after the last `>`.
+ */
+function peelTrailingHeader(
+  html: string,
+  fromBold?: boolean,
+): { bodyHtml: string; title: string } | null {
+  const lastGt = html.lastIndexOf('>');
+  if (lastGt === -1) return null;
+  const after = html.slice(lastGt + 1).trim();
+  if (!after) return null;
+  if (!isChangelogHeader(after, fromBold ? { fromBold: true } : undefined).ok) {
+    return null;
+  }
+  return { bodyHtml: html.slice(0, lastGt + 1), title: displayTitle(after) };
+}
+
+function pushHtmlOrTrailingHeader(
+  pieces: Piece[],
+  html: string,
+  fromBold?: boolean,
+): void {
+  const peeled = peelTrailingHeader(html, fromBold);
+  if (peeled) {
+    if (peeled.bodyHtml.length > 0) {
+      pieces.push({ kind: 'html', html: peeled.bodyHtml });
+    }
+    pieces.push({ kind: 'header', title: peeled.title });
+    return;
+  }
+  if (html.length > 0) pieces.push({ kind: 'html', html });
+}
+
+/**
  * Split one <br>-delimited segment into header / html pieces.
  * Tracks unclosed <b>/<strong> across segments (DeLuca / Harmony multi-line bold).
  */
@@ -42,8 +76,8 @@ function splitSegment(
         const text = stripTags(remaining);
         if (text && isChangelogHeader(text, { fromBold: true }).ok) {
           pieces.push({ kind: 'header', title: displayTitle(text) });
-        } else if (remaining.length > 0) {
-          pieces.push({ kind: 'html', html: remaining });
+        } else {
+          pushHtmlOrTrailingHeader(pieces, remaining, true);
         }
         return { pieces, boldOpen: true };
       }
@@ -56,7 +90,18 @@ function splitSegment(
       if (text && isChangelogHeader(text, { fromBold: true }).ok) {
         pieces.push({ kind: 'header', title: displayTitle(text) });
       } else {
-        pieces.push({ kind: 'html', html: beforeClose + closeTag });
+        // beforeClose may end with `</details>v1.90` before the bold close
+        const peeled = peelTrailingHeader(beforeClose, true);
+        if (peeled) {
+          if (peeled.bodyHtml.length > 0) {
+            pieces.push({ kind: 'html', html: peeled.bodyHtml + closeTag });
+          } else {
+            pieces.push({ kind: 'html', html: closeTag });
+          }
+          pieces.push({ kind: 'header', title: peeled.title });
+        } else {
+          pieces.push({ kind: 'html', html: beforeClose + closeTag });
+        }
       }
       open = false;
       remaining = afterClose;
@@ -75,13 +120,13 @@ function splitSegment(
 
     const openMatch = remaining.match(/<(b|strong)(?:\s[^>]*)?>/i);
     if (!openMatch || openMatch.index === undefined) {
-      if (remaining.length > 0) pieces.push({ kind: 'html', html: remaining });
+      pushHtmlOrTrailingHeader(pieces, remaining);
       return { pieces, boldOpen: false };
     }
 
     if (openMatch.index > 0) {
       const before = remaining.slice(0, openMatch.index);
-      if (before.length > 0) pieces.push({ kind: 'html', html: before });
+      if (before.length > 0) pushHtmlOrTrailingHeader(pieces, before);
     }
 
     const openTag = openMatch[0];
@@ -95,7 +140,7 @@ function splitSegment(
       if (text && isChangelogHeader(text, { fromBold: true }).ok) {
         pieces.push({ kind: 'header', title: displayTitle(text) });
       } else {
-        pieces.push({ kind: 'html', html: openTag + afterOpen });
+        pushHtmlOrTrailingHeader(pieces, openTag + afterOpen, true);
       }
       return { pieces, boldOpen: true };
     }

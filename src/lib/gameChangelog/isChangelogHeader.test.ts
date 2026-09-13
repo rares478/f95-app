@@ -29,6 +29,12 @@ describe('isChangelogHeader', () => {
     expect(isChangelogHeader('Season 1 Redux', { fromBold: false }).ok).toBe(false);
   });
 
+  it('accepts soft release labels only when bold', () => {
+    expect(isChangelogHeader('Final', { fromBold: true }).ok).toBe(true);
+    expect(isChangelogHeader('Final', { fromBold: false }).ok).toBe(false);
+    expect(isChangelogHeader('Latest', { fromBold: true }).ok).toBe(true);
+  });
+
   it('rejects long prose', () => {
     expect(
       isChangelogHeader(
