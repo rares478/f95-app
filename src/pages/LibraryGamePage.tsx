@@ -945,7 +945,10 @@ export function LibraryGamePage() {
         onOpenInstallFolder={onOpenInstallFolder}
         onOpenThread={() => void openUrl(g.threadUrl)}
         onLocaleEmulatorChange={onLocaleEmulatorChange}
-        onMove={() => setMovePickerOpen(true)}
+        onMove={() => {
+          setManageOpen(false);
+          setMovePickerOpen(true);
+        }}
         onUninstall={onUninstall}
         onRemove={onRemove}
         onPlayExe={(exe) => void onPlayExe(exe)}
