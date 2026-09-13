@@ -13,6 +13,18 @@ const RE_CHAPTER = new RegExp(String.raw`^chapter\s+\d+\b.*${VERSION_CORE}`, 'i'
 const RE_CHAPTER_SOFT = /^chapter\s+\d+\b/i;
 /** Bold "Part 16" / "Part 8 BugFix" (A Mother's Love). */
 const RE_PART_SOFT = /^part\s+\d+\b/i;
+/**
+ * Game acronym + Chapter/Episode stamps, bold or not
+ * (My Bully Is My Lover: "MBML (Chapter 2 - Episode 2)").
+ */
+const RE_CHAPTER_EPISODE =
+  /^(?:[A-Z]{2,10}\s+)?(?:\(\s*)?Chapter\s+\d+\s*[-–—]\s*Episode\s+\d+/i;
+/** Bold "Episode 7b" / "Episode 6". */
+const RE_EPISODE_SOFT = /^episode\s+\d+[a-z]?\b/i;
+/** Bold "Ep1 - Part 2" / "Ep1 - Part 1b (Bug fix)". */
+const RE_EP_PART_SOFT = /^ep\s*\.?\s*\d+[a-z]?\s*[-–—]\s*part\s+\d+/i;
+/** Bold standalone ending releases (e.g. "Emma's Solo Ending"); case-sensitive to skip list bullets. */
+const RE_SOLO_ENDING_SOFT = /^[\w'’\s]{1,40}Solo Ending$/;
 const RE_SEASON = new RegExp(String.raw`^season\s+\d+\b.*${VERSION_CORE}`, 'i');
 const RE_SEASON_SOFT = /^season\s+\d+/i;
 const RE_RELEASE_SOFT = /^(final|latest|release|current)$/i;
@@ -73,6 +85,18 @@ export function isChangelogHeader(
   }
   if (opts?.fromBold && RE_PART_SOFT.test(trimmed)) {
     return { ok: true, kind: 'chapter' };
+  }
+  if (RE_CHAPTER_EPISODE.test(trimmed)) {
+    return { ok: true, kind: 'chapter' };
+  }
+  if (opts?.fromBold && RE_EPISODE_SOFT.test(trimmed)) {
+    return { ok: true, kind: 'chapter' };
+  }
+  if (opts?.fromBold && RE_EP_PART_SOFT.test(trimmed)) {
+    return { ok: true, kind: 'chapter' };
+  }
+  if (opts?.fromBold && RE_SOLO_ENDING_SOFT.test(trimmed)) {
+    return { ok: true, kind: 'releaseSoft' };
   }
   if (RE_SEASON.test(trimmed)) {
     return { ok: true, kind: 'season' };

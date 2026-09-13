@@ -42,6 +42,26 @@ describe('isChangelogHeader', () => {
     expect(isChangelogHeader('Part 16').ok).toBe(false);
   });
 
+  it('accepts Chapter-Episode stamps with optional game acronym', () => {
+    expect(isChangelogHeader('MBML (Chapter 2 - Episode 2)').ok).toBe(true);
+    expect(
+      isChangelogHeader('MBML (Chapter 1 - Episode 4) - Compliant Version:').ok,
+    ).toBe(true);
+    expect(isChangelogHeader('Chapter 2 - Episode 1').ok).toBe(true);
+    expect(isChangelogHeader('Episode 7b', { fromBold: true }).ok).toBe(true);
+    expect(isChangelogHeader('Episode 7b').ok).toBe(false);
+    expect(isChangelogHeader('Ep1 - Part 2', { fromBold: true }).ok).toBe(true);
+    expect(
+      isChangelogHeader('Ep1 - Part 1b (Bug fix)', { fromBold: true }).ok,
+    ).toBe(true);
+    expect(isChangelogHeader("Emma's Solo Ending", { fromBold: true }).ok).toBe(
+      true,
+    );
+    expect(isChangelogHeader("Emma's solo ending", { fromBold: true }).ok).toBe(
+      false,
+    );
+  });
+
   it('accepts soft season only when bold', () => {
     expect(isChangelogHeader('Season 1 Redux', { fromBold: true }).ok).toBe(true);
     expect(isChangelogHeader('Season 1 Redux', { fromBold: false }).ok).toBe(false);

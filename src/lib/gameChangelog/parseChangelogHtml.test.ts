@@ -236,4 +236,27 @@ describe('parseChangelogHtml', () => {
     ]);
     expect(r.preambleHtml.trim()).toBe('');
   });
+
+  it('splits MBML Chapter-Episode and Episode/Ep Part headers', () => {
+    const html = [
+      '<div class="bbCodeBlock-content">MBML (Chapter 2 - Episode 2)<br>',
+      '<ul><li>1515+ images</li></ul>',
+      'MBML (Chapter 2 - Episode 1)<br>',
+      '<ul><li>1073+ images</li></ul>',
+      '<b>Episode 7b</b>:<br>',
+      '<ul><li>686+ images</li></ul>',
+      '<b>Ep1 - Part 1</b><br>',
+      '<ul><li>Initial release</li></ul>',
+    ].join('');
+    const r = parseChangelogHtml(html);
+    expect(r.ok).toBe(true);
+    if (!r.ok) return;
+    expect(r.entries.map((e) => e.title)).toEqual([
+      'MBML (Chapter 2 - Episode 2)',
+      'MBML (Chapter 2 - Episode 1)',
+      'Episode 7b',
+      'Ep1 - Part 1',
+    ]);
+    expect(r.preambleHtml.trim()).toBe('');
+  });
 });
