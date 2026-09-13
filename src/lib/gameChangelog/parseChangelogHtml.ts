@@ -26,7 +26,7 @@ function trimEntryHtml(html: string): string {
 }
 
 function displayTitle(text: string): string {
-  let t = text.trim();
+  let t = stripTags(text);
   if (t.endsWith(':')) t = t.slice(0, -1).trimEnd();
   return t;
 }

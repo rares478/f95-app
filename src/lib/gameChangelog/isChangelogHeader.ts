@@ -10,11 +10,17 @@ const RE_DATE_ISO = /^\d{4}-\d{2}-\d{2}$/;
 /** Common forum dates: 26/06/2024 or 3/4/2024 */
 const RE_DATE_SLASH = /^\d{1,2}\/\d{1,2}\/\d{4}$/;
 const RE_CHAPTER = new RegExp(String.raw`^chapter\s+\d+\b.*${VERSION_CORE}`, 'i');
+const RE_CHAPTER_SOFT = /^chapter\s+\d+\b/i;
 const RE_SEASON = new RegExp(String.raw`^season\s+\d+\b.*${VERSION_CORE}`, 'i');
 const RE_SEASON_SOFT = /^season\s+\d+/i;
 const RE_RELEASE_SOFT = /^(final|latest|release|current)$/i;
+/** Wicked Choices-style: V15/10/18 (0.6.1.0) */
+const RE_V_SLASH_DATE = /^v\s*\d{1,2}\/\d{1,2}\/\d{2,4}\b/i;
+/** Remaster / Remastered immediately followed by a version token. */
+const RE_REMASTER_VER = /^re-?master(?:ed)?\s+v?\s*\.?\s*\d/i;
 /** Bold "Changelog (wip.7944):" style labels (Summertime Saga). */
 const RE_CHANGELOG_WIP = /^changelog\s*\(\s*wip\.\d+\s*\)/i;
+
 /** Unbolded short suffixes allowed after a version core (DeLuca "Bugfix"). */
 const RE_UNBOLD_VERSION_SUFFIX =
   /^(?:[-–—:]\s*.+|(?:bug\s*fixes?|remake|redux|hotfix|patch)(?:\s+\S+){0,2})$/i;
@@ -60,8 +66,17 @@ export function isChangelogHeader(
   if (RE_CHAPTER.test(trimmed)) {
     return { ok: true, kind: 'chapter' };
   }
+  if (opts?.fromBold && RE_CHAPTER_SOFT.test(trimmed)) {
+    return { ok: true, kind: 'chapter' };
+  }
   if (RE_SEASON.test(trimmed)) {
     return { ok: true, kind: 'season' };
+  }
+  if (RE_V_SLASH_DATE.test(trimmed)) {
+    return { ok: true, kind: 'version' };
+  }
+  if (RE_REMASTER_VER.test(trimmed)) {
+    return { ok: true, kind: 'version' };
   }
   if (isVersionTitle(trimmed, !!opts?.fromBold)) {
     return { ok: true, kind: 'version' };

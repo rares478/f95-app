@@ -163,4 +163,54 @@ describe('parseChangelogHtml', () => {
     expect(r.entries[1].bodyHtml).toBe('- 1800 new renders');
     expect(r.entries[2].bodyHtml).toBe('- Older notes');
   });
+
+  it('splits Wicked Choices Vdd/mm/yy and Remaster headers', () => {
+    const html = [
+      '<div class="bbCodeBlock-content">Remastered v1.0.1 - 2024-01-25<br>',
+      'N/A<br>',
+      'Remaster v1.0.1<br>',
+      'Fix for rare visual bug<br>',
+      'V06/12/18 (Mac &amp; Android v1.1)<br>',
+      '<ul><li>Android fix</li></ul>',
+      '<b>V15/10/18 (0.6.1.0)</b><br>',
+      'Added Chapter Six<br>',
+      '<b>v16/09/17:</b><br>',
+      'Prologue released.',
+    ].join('');
+    const r = parseChangelogHtml(html);
+    expect(r.ok).toBe(true);
+    if (!r.ok) return;
+    const titles = r.entries.map((e) => e.title);
+    expect(titles[0]).toMatch(/Remastered v1\.0\.1/i);
+    expect(titles.some((t) => /Remaster v1\.0\.1/i.test(t))).toBe(true);
+    expect(titles.some((t) => /V06\/12\/18.*Android/i.test(t))).toBe(true);
+    expect(titles.some((t) => t.includes('&amp;'))).toBe(false);
+    expect(titles.some((t) => /V15\/10\/18/i.test(t))).toBe(true);
+    expect(titles.some((t) => /v16\/09\/17/i.test(t))).toBe(true);
+  });
+
+  it('splits bold chapter labels without a version core', () => {
+    const html = [
+      '<div class="bbCodeBlock-content"><b>Chapter 4</b><br>',
+      'Achievements and bug fixes.<br>',
+      '<b>Chapter 4 Beta</b><br>',
+      '<ul><li>16 scenes</li></ul>',
+      '<b>Chapter 3</b><br>',
+      'Walkthrough DLC added<br>',
+      '<b>Chapter 3 (V0.25)</b><br>',
+      '- 13 scenes<br>',
+      '<b>v0.1.1</b><br>',
+      'Cursor fix',
+    ].join('');
+    const r = parseChangelogHtml(html);
+    expect(r.ok).toBe(true);
+    if (!r.ok) return;
+    const titles = r.entries.map((e) => e.title);
+    expect(titles[0]).toBe('Chapter 4');
+    expect(titles).toContain('Chapter 4 Beta');
+    expect(titles).toContain('Chapter 3');
+    expect(titles).toContain('Chapter 3 (V0.25)');
+    expect(titles).toContain('v0.1.1');
+    expect(r.preambleHtml.trim()).toBe('');
+  });
 });

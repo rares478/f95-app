@@ -27,6 +27,15 @@ describe('isChangelogHeader', () => {
     expect(isChangelogHeader('3/4/2024', { fromBold: true }).ok).toBe(true);
   });
 
+  it('accepts soft chapter labels only when bold', () => {
+    expect(isChangelogHeader('Chapter 4', { fromBold: true }).ok).toBe(true);
+    expect(isChangelogHeader('Chapter 4 Beta', { fromBold: true }).ok).toBe(true);
+    expect(isChangelogHeader('Chapter 4').ok).toBe(false);
+    expect(isChangelogHeader('Chapter 3 (V0.25)', { fromBold: true }).ok).toBe(
+      true,
+    );
+  });
+
   it('accepts soft season only when bold', () => {
     expect(isChangelogHeader('Season 1 Redux', { fromBold: true }).ok).toBe(true);
     expect(isChangelogHeader('Season 1 Redux', { fromBold: false }).ok).toBe(false);
@@ -70,6 +79,22 @@ describe('isChangelogHeader', () => {
       isChangelogHeader('Demo 2.0, Translation V0.4', { fromBold: true }).ok,
     ).toBe(true);
     expect(isChangelogHeader('Demo Translation V0.1').ok).toBe(false);
+  });
+
+  it('accepts Vdd/mm/yy release stamps and Remastered vN titles', () => {
+    expect(isChangelogHeader('V15/10/18 (0.6.1.0)').ok).toBe(true);
+    expect(isChangelogHeader('v21/10/17:').ok).toBe(true);
+    expect(
+      isChangelogHeader('V04/12/18 (Wicked Choices: Book One v1.0)').ok,
+    ).toBe(true);
+    expect(isChangelogHeader('Remastered v1.0.1 - 2024-01-25').ok).toBe(true);
+    expect(isChangelogHeader('Remaster v1.0.1').ok).toBe(true);
+    expect(isChangelogHeader('REMASTERED v1.0').ok).toBe(true);
+    expect(
+      isChangelogHeader(
+        'Remastered almost ALL scenes of the previous double update (v.0.95.7)',
+      ).ok,
+    ).toBe(false);
   });
 
   it('rejects long prose', () => {
