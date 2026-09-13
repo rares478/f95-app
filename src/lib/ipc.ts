@@ -70,8 +70,13 @@ export interface NetworkStatus {
   f95Reachable: boolean;
 }
 
-export async function checkNetwork(): Promise<NetworkStatus> {
-  return invoke<NetworkStatus>('check_network');
+export async function checkNetwork(opts?: {
+  /** When false, skip the F95 HEAD (internet only). Default true. */
+  probeF95?: boolean;
+}): Promise<NetworkStatus> {
+  return invoke<NetworkStatus>('check_network', {
+    probeF95: opts?.probeF95,
+  });
 }
 
 export async function logout(): Promise<void> {

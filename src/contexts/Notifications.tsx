@@ -57,7 +57,14 @@ interface Props {
 }
 
 export function NotificationsProvider({ children, initialF95Unread = 0 }: Props) {
-  const { isOffline } = useOffline();
+  const { isOffline, offlineReason, manualOffline, reportF95Reachability } = useOffline();
+  /** Keep trying alerts when F95 is marked down — that poll is the recovery signal. */
+  const allowF95Poll =
+    offlineReason === null ||
+    offlineReason === 'f95' ||
+    // Before the first internet probe settles, still allow alerts (optimistic).
+    (offlineReason === 'network' && !isOffline && !manualOffline);
+  const allowRssPoll = !isOffline;
   const [f95Alerts, setF95Alerts] = useState<F95Alert[]>([]);
   const [f95UnreadCount, setF95UnreadCount] = useState(initialF95Unread);
   const [localNotifications, setLocalNotifications] = useState<AppNotification[]>([]);
@@ -76,26 +83,28 @@ export function NotificationsProvider({ children, initialF95Unread = 0 }: Props)
   }, []);
 
   const refreshF95 = useCallback(async () => {
-    if (isOffline) return;
+    if (!allowF95Poll) return;
     try {
       const popup = await ipc.fetchAlertsPopup();
+      reportF95Reachability(true);
       if (!mounted.current) return;
       setF95Alerts(popup.alerts);
       setF95UnreadCount(popup.unreadCount);
     } catch (err) {
+      reportF95Reachability(false);
       console.warn('[notifications] alerts popup failed', err);
     }
-  }, [isOffline]);
+  }, [allowF95Poll, reportF95Reachability]);
 
   const refreshRss = useCallback(async () => {
-    if (isOffline) return;
+    if (!allowRssPoll) return;
     try {
       await pollRssLibraryUpdates();
       await reloadLocal();
     } catch (err) {
       console.warn('[notifications] rss poll failed', err);
     }
-  }, [isOffline, reloadLocal]);
+  }, [allowRssPoll, reloadLocal]);
 
   const refresh = useCallback(async () => {
     setLoading(true);
@@ -109,24 +118,26 @@ export function NotificationsProvider({ children, initialF95Unread = 0 }: Props)
   useEffect(() => {
     mounted.current = true;
     void reloadLocal();
-    if (!isOffline) {
-      void refreshF95();
-      void refreshRss();
-    }
+    if (allowF95Poll) void refreshF95();
+    if (allowRssPoll) void refreshRss();
     return () => {
       mounted.current = false;
     };
-  }, [isOffline, reloadLocal, refreshF95, refreshRss]);
+  }, [allowF95Poll, allowRssPoll, reloadLocal, refreshF95, refreshRss]);
 
   useEffect(() => {
-    if (isOffline) return;
-    const alertsTimer = setInterval(() => void refreshF95(), ALERTS_POLL_MS);
-    const rssTimer = setInterval(() => void refreshRss(), RSS_POLL_MS);
+    if (!allowF95Poll && !allowRssPoll) return;
+    const alertsTimer = allowF95Poll
+      ? setInterval(() => void refreshF95(), ALERTS_POLL_MS)
+      : null;
+    const rssTimer = allowRssPoll
+      ? setInterval(() => void refreshRss(), RSS_POLL_MS)
+      : null;
     return () => {
-      clearInterval(alertsTimer);
-      clearInterval(rssTimer);
+      if (alertsTimer) clearInterval(alertsTimer);
+      if (rssTimer) clearInterval(rssTimer);
     };
-  }, [isOffline, refreshF95, refreshRss]);
+  }, [allowF95Poll, allowRssPoll, refreshF95, refreshRss]);
 
   const markRead = useCallback(
     async (id: string, kind: 'f95' | 'local') => {

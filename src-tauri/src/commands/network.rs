@@ -45,15 +45,27 @@ async fn probe_reachable(client: &Client, url: &str) -> bool {
     }
 }
 
+/// When `probe_f95` is `Some(false)`, only the internet endpoint is checked and
+/// `f95_reachable` is left as `true` (caller should preserve prior F95 state).
+/// Default / `true` probes both — used for login and interactive retry.
 #[tauri::command]
-pub async fn check_network() -> Result<NetworkStatus, AppError> {
+pub async fn check_network(probe_f95: Option<bool>) -> Result<NetworkStatus, AppError> {
     let client = probe_client()?;
-    let (internet, f95) = tokio::join!(
-        probe_reachable(&client, INTERNET_PROBE),
-        probe_reachable(&client, F95_BASE),
-    );
+    let include_f95 = probe_f95.unwrap_or(true);
+    if include_f95 {
+        let (internet, f95) = tokio::join!(
+            probe_reachable(&client, INTERNET_PROBE),
+            probe_reachable(&client, F95_BASE),
+        );
+        return Ok(NetworkStatus {
+            internet,
+            f95_reachable: f95,
+        });
+    }
+    let internet = probe_reachable(&client, INTERNET_PROBE).await;
     Ok(NetworkStatus {
         internet,
-        f95_reachable: f95,
+        // Placeholder — OfflineProvider merges the previous F95 bit.
+        f95_reachable: true,
     })
 }

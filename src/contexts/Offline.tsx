@@ -19,14 +19,22 @@ export interface OfflineContextValue {
   manualOffline: boolean;
   setManualOffline: (value: boolean) => Promise<void>;
   refreshConnectivity: () => Promise<void>;
+  /**
+   * Alerts (and similar F95 session traffic) report reachability here so we
+   * do not need a periodic F95 HEAD while the main app is running.
+   */
+  reportF95Reachability: (ok: boolean) => void;
   lastCheckedAt: number | null;
   probing: boolean;
 }
 
 const OfflineContext = createContext<OfflineContextValue | null>(null);
 
-const PROBE_INTERVAL_MS = 60_000;
+/** Internet-only background probe — F95 up/down comes from alerts. */
+const INTERNET_PROBE_INTERVAL_MS = 5 * 60_000;
 const DEBOUNCE_MS = 400;
+/** Consecutive alerts failures before flipping to F95-offline. */
+const F95_FAIL_STREAK_BEFORE_DOWN = 2;
 
 function reasonFromStatus(
   manual: boolean,
@@ -67,27 +75,84 @@ export function OfflineProvider({ children }: { children: ReactNode }) {
   const debounceRef = useRef<ReturnType<typeof setTimeout> | null>(null);
   const networkStatusRef = useRef<ipc.NetworkStatus | null>(null);
   networkStatusRef.current = networkStatus;
+  const f95FailStreakRef = useRef(0);
 
   const applyProbeResult = useCallback((status: ipc.NetworkStatus, interactive: boolean) => {
     const same = statusEqual(networkStatusRef.current, status);
     if (!same) setNetworkStatus(status);
-    // Background polls should not re-render the whole app every minute.
+    // Background polls should not re-render the whole app on every tick.
     if (interactive || !same) setLastCheckedAt(Date.now());
   }, []);
 
-  const refreshConnectivity = useCallback(async (opts?: { interactive?: boolean }) => {
+  const reportF95Reachability = useCallback((ok: boolean) => {
+    if (ok) {
+      f95FailStreakRef.current = 0;
+      const prev = networkStatusRef.current;
+      if (prev?.f95Reachable === true) return;
+      applyProbeResult(
+        {
+          internet: prev?.internet ?? true,
+          f95Reachable: true,
+        },
+        false,
+      );
+      return;
+    }
+    f95FailStreakRef.current += 1;
+    if (f95FailStreakRef.current < F95_FAIL_STREAK_BEFORE_DOWN) return;
+    const prev = networkStatusRef.current;
+    if (prev?.f95Reachable === false) return;
+    applyProbeResult(
+      {
+        internet: prev?.internet ?? true,
+        f95Reachable: false,
+      },
+      false,
+    );
+  }, [applyProbeResult]);
+
+  const refreshConnectivity = useCallback(async (opts?: {
+    interactive?: boolean;
+    /** When omitted: true for interactive, false for background. */
+    probeF95?: boolean;
+  }) => {
     const interactive = opts?.interactive ?? true;
+    const probeF95 = opts?.probeF95 ?? interactive;
     if (interactive) setProbing(true);
     try {
-      let status = await ipc.checkNetwork();
-      // Confirm a failed probe once — F95/HEAD probes flap and used to remount pages.
+      let status = await ipc.checkNetwork({ probeF95 });
+      if (!probeF95) {
+        status = {
+          internet: status.internet,
+          f95Reachable: networkStatusRef.current?.f95Reachable ?? true,
+        };
+      } else if (status.f95Reachable) {
+        f95FailStreakRef.current = 0;
+      }
+      // Confirm a failed probe once — probes flap and used to remount pages.
       if (!isReachable(status)) {
         await new Promise((r) => setTimeout(r, DEBOUNCE_MS));
-        status = await ipc.checkNetwork();
+        status = await ipc.checkNetwork({ probeF95 });
+        if (!probeF95) {
+          status = {
+            internet: status.internet,
+            f95Reachable: networkStatusRef.current?.f95Reachable ?? true,
+          };
+        } else if (status.f95Reachable) {
+          f95FailStreakRef.current = 0;
+        }
       }
       applyProbeResult(status, interactive);
     } catch {
-      applyProbeResult({ internet: false, f95Reachable: false }, interactive);
+      applyProbeResult(
+        {
+          internet: false,
+          f95Reachable: probeF95
+            ? false
+            : (networkStatusRef.current?.f95Reachable ?? false),
+        },
+        interactive,
+      );
     } finally {
       if (interactive) setProbing(false);
     }
@@ -110,10 +175,10 @@ export function OfflineProvider({ children }: { children: ReactNode }) {
   }, []);
 
   useEffect(() => {
-    void refreshConnectivity({ interactive: false });
+    void refreshConnectivity({ interactive: false, probeF95: false });
     const id = window.setInterval(
-      () => void refreshConnectivity({ interactive: false }),
-      PROBE_INTERVAL_MS,
+      () => void refreshConnectivity({ interactive: false, probeF95: false }),
+      INTERNET_PROBE_INTERVAL_MS,
     );
     return () => window.clearInterval(id);
   }, [refreshConnectivity]);
@@ -122,8 +187,9 @@ export function OfflineProvider({ children }: { children: ReactNode }) {
     const onOnline = () => {
       setBrowserOffline(false);
       if (debounceRef.current) clearTimeout(debounceRef.current);
+      // Full probe on OS online — includes F95 HEAD for a clean recovery.
       debounceRef.current = setTimeout(
-        () => void refreshConnectivity({ interactive: false }),
+        () => void refreshConnectivity({ interactive: false, probeF95: true }),
         DEBOUNCE_MS,
       );
     };
@@ -153,7 +219,8 @@ export function OfflineProvider({ children }: { children: ReactNode }) {
       offlineReason,
       manualOffline,
       setManualOffline,
-      refreshConnectivity: () => refreshConnectivity({ interactive: true }),
+      refreshConnectivity: () => refreshConnectivity({ interactive: true, probeF95: true }),
+      reportF95Reachability,
       lastCheckedAt,
       probing,
     }),
@@ -163,6 +230,7 @@ export function OfflineProvider({ children }: { children: ReactNode }) {
       manualOffline,
       setManualOffline,
       refreshConnectivity,
+      reportF95Reachability,
       lastCheckedAt,
       probing,
     ],
@@ -203,7 +271,7 @@ function withTimeout<T>(promise: Promise<T>, ms: number, label: string): Promise
   });
 }
 
-/** For login window (no OfflineProvider): quick offline probe. */
+/** For login window (no OfflineProvider): quick offline probe (internet + F95). */
 export async function probeOfflineQuick(): Promise<boolean> {
   const manual = await settings.getBool(settings.KEY_OFFLINE_MODE_MANUAL, false);
   if (manual) return true;
@@ -212,7 +280,7 @@ export async function probeOfflineQuick(): Promise<boolean> {
     // Frontend deadline in case the host command never settles (seen as a
     // permanent "Loading session…" hang with only "login window ready" logged).
     const status = await withTimeout(
-      ipc.checkNetwork(),
+      ipc.checkNetwork({ probeF95: true }),
       QUICK_PROBE_TIMEOUT_MS,
       'checkNetwork',
     );
