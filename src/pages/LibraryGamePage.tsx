@@ -1,9 +1,8 @@
 import { useCallback, useEffect, useMemo, useState } from 'react';
 import { useNavigate, useParams } from 'react-router-dom';
-import DOMPurify from 'dompurify';
 import { dialog } from '../lib/dialog';
 import * as ipc from '../lib/ipc';
-import { GameDescription } from '../components/game/GameDescription';
+import { LibraryChangelogTimeline } from '../components/library/LibraryChangelogTimeline';
 import * as library from '../lib/library';
 import * as libraries from '../lib/libraries';
 import * as sessions from '../lib/sessions';
@@ -617,13 +616,9 @@ export function LibraryGamePage() {
         <GameDetailMain>
           {storeDetail?.changelogHtml ? (
             <GameDetailSection title={t('libdetail.section.changelog')}>
-              <GameDescription
-                html={DOMPurify.sanitize(storeDetail.changelogHtml, {
-                  ADD_TAGS: ['details', 'summary', 'button'],
-                  ADD_ATTR: ['target', 'rel', 'loading', 'type', 'hidden'],
-                })}
-                className="libdetail-changelog-body"
-                style={{ fontSize: 13.5, lineHeight: 1.65, wordBreak: 'break-word' }}
+              <LibraryChangelogTimeline
+                html={storeDetail.changelogHtml}
+                currentVersion={g.currentVersion}
               />
             </GameDetailSection>
           ) : null}
