@@ -901,6 +901,7 @@ const de: Record<string, string> = {
   'libdetail.action.pickExeTitle': 'Wähle die ausführbare Datei von "{title}"',
   'libdetail.action.playMenu': 'Ausführbare Datei wählen',
   'libdetail.action.installSeason': 'Season installieren',
+  'libdetail.action.installMenu': 'Weitere Installationsoptionen',
   'libdetail.exe.section': 'Ausführbare Dateien',
   'libdetail.exe.add': '.exe hinzufügen',
   'libdetail.exe.setDefault': 'Als Standard',

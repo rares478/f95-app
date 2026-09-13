@@ -39,6 +39,7 @@ import { useDownloads } from '../contexts/Downloads';
 import { inFlightLibraryStatus } from '../lib/downloadLibrarySync';
 import { pickExeFor } from '../lib/libraryGameActions';
 import { resolvePlayExe, type LibraryGameExe } from '../lib/libraryExes';
+import { SplitInstallButton } from '../components/library/SplitInstallButton';
 import { SplitPlayButton } from '../components/library/SplitPlayButton';
 import { catalogHasMultipleSeasons } from '../lib/installCatalog';
 import { LibraryGameManageModal } from '../components/library/LibraryGameManageModal';
@@ -550,13 +551,13 @@ export function LibraryGamePage() {
                     : t('libcard.cta.downloading')}
                 </GameDetailBtnPrimary>
               ) : displayStatus === 'not_installed' ? (
-                <GameDetailBtnPrimary
-                  onClick={() => void installFlow.beginInstallOrUpdate(g)}
-                  disabled={installFlow.busy}
+                <SplitInstallButton
+                  busy={installFlow.busy}
+                  disabled={downloadInFlight}
+                  onInstall={() => void installFlow.beginInstallOrUpdate(g)}
+                  onAddExe={() => void onPickExe()}
                   title={t('libcard.cta.install.title')}
-                >
-                  {t('libcard.cta.install')}
-                </GameDetailBtnPrimary>
+                />
               ) : displayStatus === 'update_available' ? (
                 <GameDetailBtnPrimary
                   onClick={() => void installFlow.beginInstallOrUpdate(g)}
@@ -596,11 +597,6 @@ export function LibraryGamePage() {
                         : t('libdetail.action.play.title')
                   }
                 />
-              )}
-              {exes.length === 0 && (
-                <GameDetailBtnSecondary onClick={onPickExe} disabled={downloadInFlight}>
-                  {t('libdetail.exe.add')}
-                </GameDetailBtnSecondary>
               )}
               <GameDetailBtnSecondary
                 onClick={() => navigate(`/store/game/${g.threadId}?cat=${g.category}`)}

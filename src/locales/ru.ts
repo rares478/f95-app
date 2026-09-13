@@ -901,6 +901,7 @@ const ru: Record<string, string> = {
   'libdetail.action.pickExeTitle': 'Выберите исполняемый файл для «{title}»',
   'libdetail.action.playMenu': 'Выбрать исполняемый файл',
   'libdetail.action.installSeason': 'Установить сезон',
+  'libdetail.action.installMenu': 'Дополнительные варианты установки',
   'libdetail.exe.section': 'Исполняемые файлы',
   'libdetail.exe.add': 'Добавить .exe',
   'libdetail.exe.setDefault': 'Сделать основным',

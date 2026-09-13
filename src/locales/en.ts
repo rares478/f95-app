@@ -935,6 +935,7 @@ const en: Record<string, string> = {
   'libdetail.action.pickExeTitle': 'Select the executable for "{title}"',
   'libdetail.action.playMenu': 'Choose executable',
   'libdetail.action.installSeason': 'Install season',
+  'libdetail.action.installMenu': 'More install options',
   'libdetail.exe.section': 'Executables',
   'libdetail.exe.add': 'Add .exe',
   'libdetail.exe.setDefault': 'Set default',
