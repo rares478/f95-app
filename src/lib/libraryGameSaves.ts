@@ -1,11 +1,11 @@
 import * as ipc from './ipc';
-import type { ExtraSaveRoot } from './ipc';
 import * as library from './library';
 import {
   resolveSaveEditorEngine,
   type SaveEditorEngine,
 } from './saveEditorGate';
 import type { LibraryGame } from '../types/library';
+import type { ExtraSaveRoot } from '../types/renpySave';
 
 export type LibraryGameSavesSummary = {
   engine: SaveEditorEngine;

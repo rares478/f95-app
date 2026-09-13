@@ -10,7 +10,7 @@ import { useT } from '../../lib/i18n';
 const PURIFY = {
   ADD_TAGS: ['button'],
   ADD_ATTR: ['target', 'rel', 'loading', 'type', 'hidden'],
-} as const;
+};
 
 const BODY_STYLE: CSSProperties = {
   fontSize: 13.5,
