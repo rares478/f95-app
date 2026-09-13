@@ -15,6 +15,18 @@ together when cutting a release:
 
 ## [Unreleased]
 
+## [1.9.0] - 2026-09-13
+
+### Added
+- Library game detail: Steam-style changelog cards with snippets, Installed/Latest badges, and a fixed-size modal for full patch notes (newer/older navigation).
+- Changelog HTML parser for common F95 forum formats (versions, chapters/parts/episodes, seasons, dates, Changelog stamps, spoilers).
+- Library Manage modal and Steam-like library game detail polish (Install split menu, session chips, saves/files).
+
+### Fixed
+- Defer thread posts until changelog layout is ready and near scroll.
+- Launch long install paths via junctions so CreateProcess succeeds on Windows.
+- Empty / N/A patch-note bodies show the empty-notes copy instead of a blank card.
+
 ## [1.8.1] - 2026-08-28
 
 ### Fixed
