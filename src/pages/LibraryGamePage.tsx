@@ -19,27 +19,20 @@ import { clearLibraryPreviewCache } from '../lib/libraryPreviewQueue';
 import { clearGridPreviewCache } from '../lib/gridPreviewQueue';
 import { clearRemoteImageQueue } from '../lib/remoteImageQueue';
 import {
-  GameDetailActionItem,
-  GameDetailActionList,
   GameDetailBackBar,
   GameDetailBody,
   GameDetailBtnPrimary,
   GameDetailBtnSecondary,
-  GameDetailBtnDanger,
   GameDetailChip,
   GameDetailError,
-  GameDetailField,
-  GameDetailFields,
   GameDetailHero,
   GameDetailLoading,
   GameDetailMain,
   GameDetailShell,
   GameDetailSection,
-  GameDetailStat,
-  GameDetailStatGrid,
   GameDetailAside,
-  GameDetailTag,
 } from '../components/game/GameDetailLayout';
+import { ThreadDiscussion } from '../components/game/ThreadDiscussion';
 import { useLibraryGameActions } from '../hooks/useLibraryGameActions';
 import { useLibraryInstallFlow } from '../hooks/useLibraryInstallFlow';
 import { useDownloads } from '../contexts/Downloads';
@@ -48,7 +41,6 @@ import { pickExeFor } from '../lib/libraryGameActions';
 import { resolvePlayExe, type LibraryGameExe } from '../lib/libraryExes';
 import { SplitPlayButton } from '../components/library/SplitPlayButton';
 import { catalogHasMultipleSeasons } from '../lib/installCatalog';
-import { LibraryExesSection } from '../components/library/LibraryExesSection';
 import { LibraryGameManageModal } from '../components/library/LibraryGameManageModal';
 import { useT } from '../lib/i18n';
 import { translateBackendMessage } from '../lib/backendMessage';
@@ -57,7 +49,7 @@ import type { GameDetail } from '../types/game';
 import type { LibraryGame } from '../types/library';
 import type { PlaySession } from '../types/session';
 import type { InstallLibraryWithDisk } from '../types/install-library';
-import { formatPlaytime, statusColor, statusKey } from '../types/library';
+import { formatPlaytime } from '../types/library';
 import type { SamCategory } from '../types/sam';
 import { shouldShowSaveEditor } from '../lib/saveEditorGate';
 import { detectInstallPlatform } from '../lib/installSections';
@@ -80,7 +72,6 @@ export function LibraryGamePage() {
   const [state, setState] = useState<State>({ kind: 'loading' });
   const [storeDetail, setStoreDetail] = useState<GameDetail | null>(null);
   const [notesDraft, setNotesDraft] = useState('');
-  const [tagDraft, setTagDraft] = useState('');
   const [recentSessions, setRecentSessions] = useState<PlaySession[]>([]);
   const [launching, setLaunching] = useState(false);
   const [exes, setExes] = useState<LibraryGameExe[]>([]);
@@ -292,18 +283,6 @@ export function LibraryGamePage() {
     await reload();
   }
 
-  async function onAddTag() {
-    const tag = tagDraft.trim();
-    if (!tag) return;
-    if (g.customTags.includes(tag)) {
-      setTagDraft('');
-      return;
-    }
-    await library.setCustomTags(g.threadId, [...g.customTags, tag]);
-    setTagDraft('');
-    await reload();
-  }
-
   async function onRemoveTag(tag: string) {
     await library.setCustomTags(
       g.threadId,
@@ -498,8 +477,6 @@ export function LibraryGamePage() {
     }
   }
 
-  const statusBg = isRunning ? 'var(--status-success)' : statusColor(displayStatus);
-
   return (
     <Shell
       onContextMenu={(e) =>
@@ -512,20 +489,12 @@ export function LibraryGamePage() {
         bannerUrl={cachedBannerUrl}
         coverUrl={cachedCoverUrl}
         badges={
-          <>
-            <span
-              className="game-detail-prefix"
-              style={{ background: 'var(--border-strong)' }}
-            >
-              {t(categoryLabelKey(g.category))}
-            </span>
-            <span
-              className="game-detail-prefix"
-              style={{ background: statusBg }}
-            >
-              {isRunning ? t('libdetail.running') : t(statusKey(displayStatus))}
-            </span>
-          </>
+          <span
+            className="game-detail-prefix"
+            style={{ background: 'var(--border-strong)' }}
+          >
+            {t(categoryLabelKey(g.category))}
+          </span>
         }
         title={g.title}
         meta={
@@ -543,6 +512,9 @@ export function LibraryGamePage() {
             {isGame && (
               <>
                 <GameDetailChip>{formatPlaytime(g.totalPlaytimeSeconds)}</GameDetailChip>
+                <GameDetailChip>
+                  {t('libdetail.chip.sessions', { count: recentSessions.length })}
+                </GameDetailChip>
                 {g.lastPlayedAt && (
                   <GameDetailChip>
                     {t('libdetail.lastPlayed', {
@@ -623,8 +595,10 @@ export function LibraryGamePage() {
                   {t('libdetail.exe.add')}
                 </GameDetailBtnSecondary>
               )}
-              <GameDetailBtnSecondary onClick={onCheckUpdate}>
-                {t('libdetail.action.checkUpdate')}
+              <GameDetailBtnSecondary
+                onClick={() => navigate(`/store/game/${g.threadId}?cat=${g.category}`)}
+              >
+                {t('libdetail.action.storePage')}
               </GameDetailBtnSecondary>
               <GameDetailBtnSecondary onClick={() => setManageOpen(true)}>
                 {t('libdetail.action.manage')}
@@ -656,6 +630,11 @@ export function LibraryGamePage() {
               <GameDetailBtnSecondary onClick={onOpenInstallFolder}>
                 {t('common.open')}
               </GameDetailBtnSecondary>
+              <GameDetailBtnSecondary
+                onClick={() => navigate(`/store/game/${g.threadId}?cat=${g.category}`)}
+              >
+                {t('libdetail.action.storePage')}
+              </GameDetailBtnSecondary>
               <GameDetailBtnSecondary onClick={() => setManageOpen(true)}>
                 {t('libdetail.action.manage')}
               </GameDetailBtnSecondary>
@@ -664,262 +643,36 @@ export function LibraryGamePage() {
         }
       />
 
-      <GameDetailStatGrid>
-        <GameDetailStat
-          label={t('libdetail.location.status')}
-          value={isRunning ? t('libdetail.running') : t(statusKey(displayStatus))}
-          highlight={isRunning}
-        />
-        {isGame && (
-          <GameDetailStat
-            label={t('libdetail.stats.playtime')}
-            value={formatPlaytime(g.totalPlaytimeSeconds)}
-          />
-        )}
-        <GameDetailStat
-          label={t('libdetail.location.version')}
-          value={g.currentVersion ?? '—'}
-          highlight={!!g.availableVersion && g.availableVersion !== g.currentVersion}
-        />
-        {isGame && (
-          <>
-            <GameDetailStat
-              label={t('libdetail.stats.sessions')}
-              value={recentSessions.length}
-            />
-            {g.lastPlayedAt && (
-              <GameDetailStat
-                label={t('libdetail.stats.lastPlayed')}
-                value={new Date(g.lastPlayedAt).toLocaleDateString()}
-              />
-            )}
-          </>
-        )}
-      </GameDetailStatGrid>
-
       <GameDetailBody>
         <GameDetailMain>
           {storeDetail?.changelogHtml ? (
             <GameDetailSection title={t('libdetail.section.changelog')}>
-              <details className="libdetail-changelog">
-                <summary>{t('libdetail.changelog.show')}</summary>
-                <GameDescription
-                  html={DOMPurify.sanitize(storeDetail.changelogHtml, {
-                    ADD_TAGS: ['details', 'summary', 'button'],
-                    ADD_ATTR: ['target', 'rel', 'loading', 'type', 'hidden'],
-                  })}
-                  className="libdetail-changelog-body"
-                  style={{ fontSize: 13.5, lineHeight: 1.65, wordBreak: 'break-word' }}
-                />
-              </details>
+              <GameDescription
+                html={DOMPurify.sanitize(storeDetail.changelogHtml, {
+                  ADD_TAGS: ['details', 'summary', 'button'],
+                  ADD_ATTR: ['target', 'rel', 'loading', 'type', 'hidden'],
+                })}
+                className="libdetail-changelog-body"
+                style={{ fontSize: 13.5, lineHeight: 1.65, wordBreak: 'break-word' }}
+              />
             </GameDetailSection>
           ) : null}
 
+          <GameDetailSection title={t('gamedetail.section.discussion')}>
+            <ThreadDiscussion threadId={g.threadId} offline={isOffline} />
+          </GameDetailSection>
+        </GameDetailMain>
+
+        <GameDetailAside>
           <GameDetailSection title={t('libdetail.section.notes')}>
             <textarea
               value={notesDraft}
               onChange={(e) => setNotesDraft(e.target.value)}
               onBlur={onSaveNotes}
               placeholder={t('libdetail.notes.placeholder')}
-              rows={6}
+              rows={10}
               className="game-detail-notes"
             />
-          </GameDetailSection>
-
-          {isGame && (
-          <GameDetailSection title={t('libdetail.section.sessions')}>
-            {recentSessions.length === 0 ? (
-              <div className="game-detail-empty-hint">{t('libdetail.sessions.empty')}</div>
-            ) : (
-              <ul className="game-detail-session-list">
-                {recentSessions.map((s) => (
-                  <li key={s.id} className="game-detail-session-row">
-                    <span className="game-detail-session-when">
-                      {new Date(s.startedAt).toLocaleString()}
-                    </span>
-                    <span className="game-detail-session-dur">
-                      {s.endedAt
-                        ? formatPlaytime(s.durationSeconds ?? 0)
-                        : isRunning
-                          ? t('libdetail.sessions.running')
-                          : t('libdetail.sessions.interrupted')}
-                    </span>
-                  </li>
-                ))}
-              </ul>
-            )}
-          </GameDetailSection>
-          )}
-
-          <GameDetailSection title={t('libdetail.section.storeTags')}>
-            <div className="game-detail-tags">
-              {g.storeTags.length === 0 && (
-                <span className="game-detail-empty-hint">
-                  {t('libdetail.storeTags.empty')}
-                </span>
-              )}
-              {g.storeTags.map((tag) => (
-                <GameDetailTag key={tag}>{tag}</GameDetailTag>
-              ))}
-            </div>
-          </GameDetailSection>
-
-          <GameDetailSection title={t('libdetail.section.tags')}>
-            <div className="game-detail-tags">
-              {g.customTags.length === 0 && (
-                <span className="game-detail-empty-hint">{t('libdetail.tags.empty')}</span>
-              )}
-              {g.customTags.map((tag) => (
-                <span key={tag} className="game-detail-custom-tag">
-                  {tag}
-                  <button
-                    type="button"
-                    onClick={() => onRemoveTag(tag)}
-                    className="game-detail-tag-remove"
-                    aria-label={t('common.remove')}
-                  >
-                    ×
-                  </button>
-                </span>
-              ))}
-            </div>
-            <div className="game-detail-tag-input-row">
-              <input
-                type="text"
-                value={tagDraft}
-                onChange={(e) => setTagDraft(e.target.value)}
-                onKeyDown={(e) => {
-                  if (e.key === 'Enter') onAddTag();
-                }}
-                placeholder={t('libdetail.tags.input')}
-                className="game-detail-tag-input"
-              />
-              <button type="button" onClick={onAddTag} className="game-detail-tag-add">
-                {t('common.add')}
-              </button>
-            </div>
-          </GameDetailSection>
-        </GameDetailMain>
-
-        <GameDetailAside>
-          <GameDetailSection title={t('libdetail.section.location')}>
-            <GameDetailFields>
-              <GameDetailField
-                label={t('libdetail.location.status')}
-                value={t(statusKey(displayStatus))}
-              />
-              <GameDetailField
-                label={t('libdetail.location.version')}
-                value={g.currentVersion ?? '—'}
-              />
-              {g.availableVersion && g.availableVersion !== g.currentVersion && (
-                <GameDetailField
-                  label={t('libdetail.location.available')}
-                  value={g.availableVersion}
-                />
-              )}
-              <GameDetailField
-                label={t('libdetail.location.folder')}
-                value={g.installPath ?? '—'}
-                actionLabel={g.installPath ? t('common.open') : undefined}
-                onAction={onOpenInstallFolder}
-              />
-              <GameDetailField
-                label={t('libdetail.location.added')}
-                value={new Date(g.addedAt).toLocaleString()}
-              />
-            </GameDetailFields>
-
-            <div style={{ marginTop: 14 }}>
-              <h3
-                className="game-detail-section-title"
-                style={{ marginTop: 0, marginBottom: 10, borderBottom: 'none', paddingBottom: 0 }}
-              >
-                {t('libdetail.exe.section')}
-              </h3>
-              <LibraryExesSection
-                game={g}
-                exes={exes}
-                resolvedId={resolvedExe?.id ?? null}
-                onChanged={reload}
-                onPlayExe={onPlayExe}
-                deps={libraryActionDeps}
-                disabled={downloadInFlight || isRunning || launching}
-              />
-            </div>
-
-            {hasInstallFiles && (
-              <div className="game-detail-uninstall-block">
-                <p className="game-detail-uninstall-hint">
-                  {t('libdetail.uninstall.hint')}
-                </p>
-                <GameDetailBtnDanger
-                  onClick={onUninstall}
-                  disabled={!canUninstall || uninstalling}
-                  title={
-                    isRunning
-                      ? t('libdetail.uninstall.notRunning')
-                      : g.installStatus === 'downloading' || g.installStatus === 'extracting' || downloadInFlight
-                        ? t('libdetail.uninstall.waitDownload')
-                        : t('libdetail.action.uninstall.title')
-                  }
-                >
-                  {uninstalling
-                    ? t('libdetail.action.uninstalling')
-                    : t('libdetail.action.uninstall')}
-                </GameDetailBtnDanger>
-              </div>
-            )}
-          </GameDetailSection>
-
-          <GameDetailSection title={t('libdetail.section.actions')}>
-            {isWindows && (
-              <div className="game-detail-locale-emulator">
-                <label className="settings-check-row">
-                  <input
-                    type="checkbox"
-                    checked={g.localeEmulatorEnabled}
-                    disabled={!hasLaunchExe}
-                    onChange={(e) => void onLocaleEmulatorChange(e.target.checked)}
-                  />
-                  <span>{t('localeEmulator.toggle')}</span>
-                </label>
-                <p className="settings-card-hint">
-                  {!hasLaunchExe
-                    ? t('localeEmulator.disabledNoExe')
-                    : t('localeEmulator.hint')}
-                </p>
-              </div>
-            )}
-            <GameDetailActionList>
-              <GameDetailActionItem to={`/store/game/${g.threadId}?cat=${g.category}`}>
-                {t('libdetail.action.viewStore')}
-              </GameDetailActionItem>
-              <GameDetailActionItem onClick={() => openUrl(g.threadUrl)}>
-                {t('libdetail.action.openThread')}
-              </GameDetailActionItem>
-              {showSaveEditor && (
-                <GameDetailActionItem to={`/library/game/${g.threadId}/saves`}>
-                  {t('libdetail.action.saveEditor')}
-                </GameDetailActionItem>
-              )}
-              {g.installPath && (
-                <GameDetailActionItem
-                  disabled={isRunning}
-                  title={
-                    isRunning
-                      ? t('libdetail.action.move.disabledTitle')
-                      : t('libdetail.action.move.title')
-                  }
-                  onClick={() => setMovePickerOpen(true)}
-                >
-                  {t('libdetail.action.move')}
-                </GameDetailActionItem>
-              )}
-              <GameDetailActionItem onClick={onRemove} danger>
-                {t('libdetail.action.removeFromLibrary')}
-              </GameDetailActionItem>
-            </GameDetailActionList>
           </GameDetailSection>
         </GameDetailAside>
       </GameDetailBody>
