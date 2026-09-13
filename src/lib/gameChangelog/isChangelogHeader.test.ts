@@ -36,6 +36,12 @@ describe('isChangelogHeader', () => {
     );
   });
 
+  it('accepts soft Part N labels only when bold', () => {
+    expect(isChangelogHeader('Part 16', { fromBold: true }).ok).toBe(true);
+    expect(isChangelogHeader('Part 8 BugFix', { fromBold: true }).ok).toBe(true);
+    expect(isChangelogHeader('Part 16').ok).toBe(false);
+  });
+
   it('accepts soft season only when bold', () => {
     expect(isChangelogHeader('Season 1 Redux', { fromBold: true }).ok).toBe(true);
     expect(isChangelogHeader('Season 1 Redux', { fromBold: false }).ok).toBe(false);

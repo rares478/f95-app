@@ -11,6 +11,8 @@ const RE_DATE_ISO = /^\d{4}-\d{2}-\d{2}$/;
 const RE_DATE_SLASH = /^\d{1,2}\/\d{1,2}\/\d{4}$/;
 const RE_CHAPTER = new RegExp(String.raw`^chapter\s+\d+\b.*${VERSION_CORE}`, 'i');
 const RE_CHAPTER_SOFT = /^chapter\s+\d+\b/i;
+/** Bold "Part 16" / "Part 8 BugFix" (A Mother's Love). */
+const RE_PART_SOFT = /^part\s+\d+\b/i;
 const RE_SEASON = new RegExp(String.raw`^season\s+\d+\b.*${VERSION_CORE}`, 'i');
 const RE_SEASON_SOFT = /^season\s+\d+/i;
 const RE_RELEASE_SOFT = /^(final|latest|release|current)$/i;
@@ -67,6 +69,9 @@ export function isChangelogHeader(
     return { ok: true, kind: 'chapter' };
   }
   if (opts?.fromBold && RE_CHAPTER_SOFT.test(trimmed)) {
+    return { ok: true, kind: 'chapter' };
+  }
+  if (opts?.fromBold && RE_PART_SOFT.test(trimmed)) {
     return { ok: true, kind: 'chapter' };
   }
   if (RE_SEASON.test(trimmed)) {

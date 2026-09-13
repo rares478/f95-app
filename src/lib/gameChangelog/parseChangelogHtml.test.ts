@@ -213,4 +213,27 @@ describe('parseChangelogHtml', () => {
     expect(titles).toContain('v0.1.1');
     expect(r.preambleHtml.trim()).toBe('');
   });
+
+  it('splits bold Part N labels (A Mother\'s Love)', () => {
+    const html = [
+      '<div class="bbCodeBlock-content"><b>Part 16</b><br>',
+      '<details class="x-spoiler"><summary>Spoiler</summary>',
+      '<div class="bbCodeBlock-content">• Fix a variable.</div></details><br>',
+      '<b>Part 8 BugFix</b><br>',
+      '<details class="x-spoiler"><summary>Spoiler</summary>',
+      '<div class="bbCodeBlock-content">Resolve bug.</div></details><br>',
+      '<b>Part 8</b><br>',
+      '<details class="x-spoiler"><summary>Spoiler</summary>',
+      '<div class="bbCodeBlock-content">• Added part eight.</div></details>',
+    ].join('');
+    const r = parseChangelogHtml(html);
+    expect(r.ok).toBe(true);
+    if (!r.ok) return;
+    expect(r.entries.map((e) => e.title)).toEqual([
+      'Part 16',
+      'Part 8 BugFix',
+      'Part 8',
+    ]);
+    expect(r.preambleHtml.trim()).toBe('');
+  });
 });
