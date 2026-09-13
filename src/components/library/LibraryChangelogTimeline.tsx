@@ -1,4 +1,4 @@
-import { useEffect, useLayoutEffect, useMemo, useState, type CSSProperties } from 'react';
+import { useEffect, useLayoutEffect, useMemo, useRef, useState, type CSSProperties } from 'react';
 import DOMPurify from 'dompurify';
 import { GameDescription } from '../game/GameDescription';
 import { parseChangelogHtml } from '../../lib/gameChangelog/parseChangelogHtml';
@@ -40,22 +40,39 @@ export function LibraryChangelogTimeline({
   const flatHtml = useMemo(() => unwrapChangelogSpoilers(html), [html]);
   const parsed = useMemo(() => parseChangelogHtml(flatHtml), [flatHtml]);
   const [selectedIdx, setSelectedIdx] = useState<number | null>(null);
+  const dialogBodyRef = useRef<HTMLDivElement>(null);
 
   useLayoutEffect(() => {
     onParsed?.();
   }, [parsed, onParsed]);
 
-  useEffect(() => {
+  useLayoutEffect(() => {
     if (selectedIdx == null) return;
+    dialogBodyRef.current?.scrollTo({ top: 0 });
+  }, [selectedIdx]);
+
+  useEffect(() => {
+    if (selectedIdx == null || !parsed.ok) return;
+    const last = parsed.entries.length - 1;
     function onKey(e: KeyboardEvent) {
       if (e.key === 'Escape') {
         e.preventDefault();
         setSelectedIdx(null);
+        return;
+      }
+      if (e.key === 'ArrowLeft' || e.key === 'ArrowUp') {
+        e.preventDefault();
+        setSelectedIdx((i) => (i != null && i > 0 ? i - 1 : i));
+        return;
+      }
+      if (e.key === 'ArrowRight' || e.key === 'ArrowDown') {
+        e.preventDefault();
+        setSelectedIdx((i) => (i != null && i < last ? i + 1 : i));
       }
     }
     window.addEventListener('keydown', onKey);
     return () => window.removeEventListener('keydown', onKey);
-  }, [selectedIdx]);
+  }, [selectedIdx, parsed]);
 
   if (!parsed.ok) {
     return (
@@ -173,7 +190,10 @@ export function LibraryChangelogTimeline({
                 ×
               </button>
             </header>
-            <div className="library-changelog-entry-dialog-body">
+            <div
+              ref={dialogBodyRef}
+              className="library-changelog-entry-dialog-body"
+            >
               {snippetFromHtml(selected.bodyHtml) ? (
                 <GameDescription
                   html={DOMPurify.sanitize(selected.bodyHtml, PURIFY)}
@@ -186,6 +206,40 @@ export function LibraryChangelogTimeline({
                 </p>
               )}
             </div>
+            {selectedIdx != null && parsed.entries.length > 1 ? (
+              <footer className="library-changelog-entry-nav">
+                <button
+                  type="button"
+                  className="library-changelog-entry-nav-btn"
+                  disabled={selectedIdx <= 0}
+                  onClick={() => setSelectedIdx(selectedIdx - 1)}
+                >
+                  <span className="library-changelog-entry-nav-dir">
+                    {t('libdetail.changelog.newer')}
+                  </span>
+                  {selectedIdx > 0 ? (
+                    <span className="library-changelog-entry-nav-title">
+                      {parsed.entries[selectedIdx - 1].title}
+                    </span>
+                  ) : null}
+                </button>
+                <button
+                  type="button"
+                  className="library-changelog-entry-nav-btn library-changelog-entry-nav-btn--next"
+                  disabled={selectedIdx >= parsed.entries.length - 1}
+                  onClick={() => setSelectedIdx(selectedIdx + 1)}
+                >
+                  <span className="library-changelog-entry-nav-dir">
+                    {t('libdetail.changelog.older')}
+                  </span>
+                  {selectedIdx < parsed.entries.length - 1 ? (
+                    <span className="library-changelog-entry-nav-title">
+                      {parsed.entries[selectedIdx + 1].title}
+                    </span>
+                  ) : null}
+                </button>
+              </footer>
+            ) : null}
           </div>
         </div>
       ) : null}

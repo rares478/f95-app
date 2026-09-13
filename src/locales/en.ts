@@ -971,6 +971,8 @@ const en: Record<string, string> = {
   'libdetail.changelog.latest': 'Latest',
   'libdetail.changelog.updateLabel': 'Update',
   'libdetail.changelog.emptyNotes': 'No patch notes for this version.',
+  'libdetail.changelog.newer': 'Newer',
+  'libdetail.changelog.older': 'Older',
   'libdetail.notes.placeholder': 'Personal notes, save locations, hints…',
   'libdetail.section.sessions': 'Recent sessions',
   'libdetail.sessions.empty': 'No sessions yet. Click Play to start.',
