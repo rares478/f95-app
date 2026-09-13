@@ -939,6 +939,7 @@ const pt: Record<string, string> = {
   'libdetail.section.changelog': 'Changelog',
   'libdetail.changelog.show': 'Mostrar changelog',
   'libdetail.changelog.installed': 'Instalado',
+  'libdetail.changelog.updateLabel': 'Atualização',
   'libdetail.notes.placeholder': 'Anotações pessoais, save locations, dicas…',
   'libdetail.section.sessions': 'Sessões recentes',
   'libdetail.sessions.empty': 'Nenhuma sessão ainda. Clique em Jogar pra começar.',

@@ -1,8 +1,9 @@
-import { useMemo, type CSSProperties } from 'react';
+import { useMemo, useState, type CSSProperties } from 'react';
 import DOMPurify from 'dompurify';
 import { GameDescription } from '../game/GameDescription';
 import { parseChangelogHtml } from '../../lib/gameChangelog/parseChangelogHtml';
 import { matchInstalledVersion } from '../../lib/gameChangelog/matchInstalledVersion';
+import { snippetFromHtml } from '../../lib/gameChangelog/snippetFromHtml';
 import { useT } from '../../lib/i18n';
 
 const PURIFY = {
@@ -30,6 +31,7 @@ export function LibraryChangelogTimeline({
 }) {
   const { t } = useT();
   const parsed = useMemo(() => parseChangelogHtml(html), [html]);
+  const [selectedIdx, setSelectedIdx] = useState<number | null>(null);
 
   if (!parsed.ok) {
     return (
@@ -42,6 +44,10 @@ export function LibraryChangelogTimeline({
   }
 
   const installedIdx = matchInstalledVersion(parsed.entries, currentVersion);
+  const selected =
+    selectedIdx != null ? parsed.entries[selectedIdx] ?? null : null;
+  const selectedInstalled =
+    selectedIdx != null && selectedIdx === installedIdx;
 
   return (
     <div className="library-changelog-timeline">
@@ -54,33 +60,38 @@ export function LibraryChangelogTimeline({
       ) : null}
       {parsed.entries.map((entry, i) => {
         const installed = i === installedIdx;
+        const snippet = snippetFromHtml(entry.bodyHtml);
         return (
-          <article
+          <button
             key={`${entry.title}-${i}`}
+            type="button"
             className={
               installed
-                ? 'library-changelog-entry library-changelog-entry--installed'
-                : 'library-changelog-entry'
+                ? 'library-changelog-card library-changelog-card--installed'
+                : 'library-changelog-card'
             }
+            onClick={() => setSelectedIdx(i)}
           >
-            <header className="library-changelog-entry-head">
-              <h4 className="library-changelog-entry-title">{entry.title}</h4>
+            <span className="library-changelog-card-label">
+              {t('libdetail.changelog.updateLabel')}
+            </span>
+            <span className="library-changelog-card-title-row">
+              <span className="library-changelog-card-title">{entry.title}</span>
               {installed ? (
                 <span className="library-changelog-installed">
                   {t('libdetail.changelog.installed')}
                 </span>
               ) : null}
-            </header>
-            {entry.bodyHtml.trim() ? (
-              <GameDescription
-                html={DOMPurify.sanitize(entry.bodyHtml, PURIFY)}
-                className="library-changelog-entry-body libdetail-changelog-body"
-                style={BODY_STYLE}
-              />
+            </span>
+            {snippet ? (
+              <span className="library-changelog-card-snippet">{snippet}</span>
             ) : null}
-          </article>
+          </button>
         );
       })}
+      {/* Task 3: modal when selected != null */}
+      {selected ? null : null}
+      {selectedInstalled ? null : null}
     </div>
   );
 }
