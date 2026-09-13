@@ -18,6 +18,13 @@ function stripTags(html: string): string {
     .trim();
 }
 
+/** Drop leading/trailing breaks and whitespace (bodies often end in `<br>\\r\\n`). */
+function trimEntryHtml(html: string): string {
+  return html
+    .replace(/^(?:(?:\s|<br\s*\/?>)+)/i, '')
+    .replace(/(?:(?:\s|<br\s*\/?>)+)$/i, '');
+}
+
 function displayTitle(text: string): string {
   let t = text.trim();
   if (t.endsWith(':')) t = t.slice(0, -1).trimEnd();
@@ -219,7 +226,7 @@ export function parseChangelogHtml(html: string): GameChangelogParseResult {
   if (current) entries.push(current);
 
   // Drop trailing <br> noise on preamble
-  preamble.html = preamble.html.replace(/(?:<br\s*\/?>)+$/i, '');
+  preamble.html = trimEntryHtml(preamble.html);
   // Wrapper-only open tags (e.g. <div class="bbCodeBlock-content">) are not preamble
   if (stripTags(preamble.html).length === 0) {
     preamble.html = '';
@@ -232,7 +239,7 @@ export function parseChangelogHtml(html: string): GameChangelogParseResult {
     preambleHtml: preamble.html,
     entries: entries.map((e) => ({
       title: e.title,
-      bodyHtml: e.bodyHtml.replace(/^(?:<br\s*\/?>)+/i, '').replace(/(?:<br\s*\/?>)+$/i, ''),
+      bodyHtml: trimEntryHtml(e.bodyHtml),
     })),
   };
 }

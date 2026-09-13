@@ -150,4 +150,17 @@ describe('parseChangelogHtml', () => {
     expect(r.entries[1].bodyHtml).toContain('Mid notes');
     expect(r.entries.every((e) => !/<details/i.test(e.bodyHtml))).toBe(true);
   });
+
+  it('strips trailing br + CRLF padding between version entries', () => {
+    const html =
+      '<b>v0.6.1</b><br>\r\nBugfix<br>\r\n<br>\r\n' +
+      '<b>v0.6</b><br>\r\n- 1800 new renders<br>\r\n<br>\r\n' +
+      '<b>v0.5</b><br>\r\n- Older notes\r\n';
+    const r = parseChangelogHtml(html);
+    expect(r.ok).toBe(true);
+    if (!r.ok) return;
+    expect(r.entries[0].bodyHtml).toBe('Bugfix');
+    expect(r.entries[1].bodyHtml).toBe('- 1800 new renders');
+    expect(r.entries[2].bodyHtml).toBe('- Older notes');
+  });
 });
