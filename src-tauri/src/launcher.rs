@@ -95,10 +95,15 @@ impl LauncherManager {
         }
 
         // Most games look for resources relative to their own folder.
-        let cwd = exe
-            .parent()
-            .map(|p| p.to_path_buf())
-            .unwrap_or_else(|| PathBuf::from("."));
+        // Windows CreateProcess rejects paths ≳260 chars (ERROR_DIRECTORY /
+        // filename too long); prepare_launch may junction onto a short temp path.
+        let prepared = crate::launch_path::prepare_launch(&exe).map_err(|detail| {
+            AppError::keyed_vars("error.launch.spawnFailed", json!({ "detail": detail }))
+        })?;
+        let launch_exe = prepared.exe.clone();
+        let launch_cwd = prepared.cwd.clone();
+        let install_dir = prepared.real_cwd.clone();
+        let junction_guard = prepared.junction;
 
         #[cfg(windows)]
         let use_locale_emulator = locale_emulator;
@@ -106,10 +111,10 @@ impl LauncherManager {
         let use_locale_emulator = false;
 
         let mut child = if use_locale_emulator {
-            crate::locale_emulator::spawn_leproc(&app, &exe).await?
+            crate::locale_emulator::spawn_leproc(&app, &launch_exe).await?
         } else {
-            let mut cmd = Command::new(&exe);
-            cmd.current_dir(&cwd)
+            let mut cmd = Command::new(&launch_exe);
+            cmd.current_dir(&launch_cwd)
                 .stdin(std::process::Stdio::null())
                 .stdout(std::process::Stdio::null())
                 .stderr(std::process::Stdio::null())
@@ -125,7 +130,6 @@ impl LauncherManager {
         };
         let pid = child.id().unwrap_or(0);
         let started = Instant::now();
-        let install_dir = cwd.clone();
 
         let (kill_tx, kill_rx) = oneshot::channel::<()>();
         let inner_clone = self.inner.clone();
@@ -179,6 +183,8 @@ impl LauncherManager {
             );
 
             inner_clone.lock().await.remove(&tid_for_task);
+            // Drop junction after the process tree is done so relative assets keep working.
+            drop(junction_guard);
         });
 
         let pid_refresh = tokio::spawn({

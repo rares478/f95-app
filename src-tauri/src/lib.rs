@@ -9,6 +9,7 @@ mod extract_jobs;
 mod extraction;
 mod game_window;
 mod gdrive;
+mod launch_path;
 mod launcher;
 mod locale_emulator;
 mod media_preview;
