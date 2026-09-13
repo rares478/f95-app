@@ -1,6 +1,6 @@
 import type { GameChangelogEntry } from './types';
 
-const VERSION_CORE = /\d+(?:\.\d+)+[a-z]?/i;
+const VERSION_CORE = /wip\.\d+|\d+(?:\.\d+)+[a-z]?/i;
 
 const SOFT_TRAILING =
   /(?:\s*[-–—:]?\s*(?:remake|redux|bug\s*fixes?|build\s+\d+|chapter\s+\d+))+$/i;

@@ -22,6 +22,9 @@ describe('isChangelogHeader', () => {
     expect(isChangelogHeader('Chapter 4 v1.0 Build 2').ok).toBe(true);
     expect(isChangelogHeader('Season 1 - v1.1.55 - Redux').ok).toBe(true);
     expect(isChangelogHeader('2026-05-28').ok).toBe(true);
+    expect(isChangelogHeader('26/06/2024', { fromBold: true }).ok).toBe(true);
+    expect(isChangelogHeader('26/06/2024').ok).toBe(false);
+    expect(isChangelogHeader('3/4/2024', { fromBold: true }).ok).toBe(true);
   });
 
   it('accepts soft season only when bold', () => {
@@ -33,6 +36,40 @@ describe('isChangelogHeader', () => {
     expect(isChangelogHeader('Final', { fromBold: true }).ok).toBe(true);
     expect(isChangelogHeader('Final', { fromBold: false }).ok).toBe(false);
     expect(isChangelogHeader('Latest', { fromBold: true }).ok).toBe(true);
+  });
+
+  it('accepts Changelog (wip.N) labels when bold', () => {
+    expect(isChangelogHeader('Changelog (wip.7944):', { fromBold: true }).ok).toBe(
+      true,
+    );
+    expect(isChangelogHeader('Changelog (wip.7944)', { fromBold: true }).ok).toBe(
+      true,
+    );
+    expect(isChangelogHeader('Changelog (wip.7944)', { fromBold: false }).ok).toBe(
+      false,
+    );
+  });
+
+  it('accepts bare wip.N version cores', () => {
+    expect(isChangelogHeader('wip.7944').ok).toBe(true);
+    expect(isChangelogHeader('wip.7712 - hotfix').ok).toBe(true);
+  });
+
+  it('rejects unbolded version-like body sentences', () => {
+    expect(isChangelogHeader('V0.2 translation transferred').ok).toBe(false);
+    expect(
+      isChangelogHeader('V0.2 translation transferred', { fromBold: true }).ok,
+    ).toBe(true);
+  });
+
+  it('accepts bold Demo release labels with a version token', () => {
+    expect(
+      isChangelogHeader('Demo Translation V0.1', { fromBold: true }).ok,
+    ).toBe(true);
+    expect(
+      isChangelogHeader('Demo 2.0, Translation V0.4', { fromBold: true }).ok,
+    ).toBe(true);
+    expect(isChangelogHeader('Demo Translation V0.1').ok).toBe(false);
   });
 
   it('rejects long prose', () => {

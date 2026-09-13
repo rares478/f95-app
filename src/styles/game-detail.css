@@ -286,6 +286,13 @@
   overflow: hidden;
 }
 
+.library-changelog-card-snippet--empty {
+  font-style: italic;
+  color: var(--text-muted);
+  display: block;
+  -webkit-line-clamp: unset;
+}
+
 .library-changelog-entry-dialog {
   width: min(640px, calc(100vw - 32px));
   max-height: min(80vh, 720px);
@@ -308,6 +315,14 @@
   min-height: 0;
   overflow: auto;
   padding: 0 18px 16px;
+}
+
+.library-changelog-empty-notes {
+  margin: 0;
+  font-size: 13.5px;
+  line-height: 1.65;
+  font-style: italic;
+  color: var(--text-muted);
 }
 
 .game-detail-locale-emulator {

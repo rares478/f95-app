@@ -936,6 +936,7 @@ const de: Record<string, string> = {
   'libdetail.changelog.installed': 'Installiert',
   'libdetail.changelog.latest': 'Aktuell',
   'libdetail.changelog.updateLabel': 'Update',
+  'libdetail.changelog.emptyNotes': 'Keine Patchnotes für diese Version.',
   'libdetail.notes.placeholder': 'Persönliche Notizen, Speicherorte, Hinweise…',
   'libdetail.section.sessions': 'Letzte Sitzungen',
   'libdetail.sessions.empty': 'Noch keine Sitzungen. Klicke auf Spielen, um zu beginnen.',

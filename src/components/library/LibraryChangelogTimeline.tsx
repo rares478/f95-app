@@ -4,10 +4,11 @@ import { GameDescription } from '../game/GameDescription';
 import { parseChangelogHtml } from '../../lib/gameChangelog/parseChangelogHtml';
 import { matchInstalledVersion } from '../../lib/gameChangelog/matchInstalledVersion';
 import { snippetFromHtml } from '../../lib/gameChangelog/snippetFromHtml';
+import { unwrapChangelogSpoilers } from '../../lib/gameChangelog/unwrapChangelogSpoilers';
 import { useT } from '../../lib/i18n';
 
 const PURIFY = {
-  ADD_TAGS: ['details', 'summary', 'button'],
+  ADD_TAGS: ['button'],
   ADD_ATTR: ['target', 'rel', 'loading', 'type', 'hidden'],
 } as const;
 
@@ -33,7 +34,8 @@ export function LibraryChangelogTimeline({
   isInstalled: boolean;
 }) {
   const { t } = useT();
-  const parsed = useMemo(() => parseChangelogHtml(html), [html]);
+  const flatHtml = useMemo(() => unwrapChangelogSpoilers(html), [html]);
+  const parsed = useMemo(() => parseChangelogHtml(flatHtml), [flatHtml]);
   const [selectedIdx, setSelectedIdx] = useState<number | null>(null);
 
   useEffect(() => {
@@ -51,7 +53,7 @@ export function LibraryChangelogTimeline({
   if (!parsed.ok) {
     return (
       <GameDescription
-        html={DOMPurify.sanitize(html, PURIFY)}
+        html={DOMPurify.sanitize(flatHtml, PURIFY)}
         className="libdetail-changelog-body"
         style={BODY_STYLE}
       />
@@ -85,6 +87,7 @@ export function LibraryChangelogTimeline({
         const latest = i === latestIdx;
         const featured = installed || latest;
         const snippet = snippetFromHtml(entry.bodyHtml);
+        const emptyNotes = !snippet;
         return (
           <button
             key={`${entry.title}-${i}`}
@@ -111,9 +114,15 @@ export function LibraryChangelogTimeline({
                 </span>
               ) : null}
             </span>
-            {snippet ? (
-              <span className="library-changelog-card-snippet">{snippet}</span>
-            ) : null}
+            <span
+              className={
+                emptyNotes
+                  ? 'library-changelog-card-snippet library-changelog-card-snippet--empty'
+                  : 'library-changelog-card-snippet'
+              }
+            >
+              {emptyNotes ? t('libdetail.changelog.emptyNotes') : snippet}
+            </span>
           </button>
         );
       })}
@@ -158,13 +167,17 @@ export function LibraryChangelogTimeline({
               </button>
             </header>
             <div className="library-changelog-entry-dialog-body">
-              {selected.bodyHtml.trim() ? (
+              {snippetFromHtml(selected.bodyHtml) ? (
                 <GameDescription
                   html={DOMPurify.sanitize(selected.bodyHtml, PURIFY)}
                   className="libdetail-changelog-body"
                   style={BODY_STYLE}
                 />
-              ) : null}
+              ) : (
+                <p className="library-changelog-empty-notes">
+                  {t('libdetail.changelog.emptyNotes')}
+                </p>
+              )}
             </div>
           </div>
         </div>

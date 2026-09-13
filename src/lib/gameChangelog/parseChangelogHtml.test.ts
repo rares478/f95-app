@@ -87,4 +87,67 @@ describe('parseChangelogHtml', () => {
     expect(titles).toContain('v2.55');
     expect(r.preambleHtml.trim()).toBe('');
   });
+
+  it('splits Summertime-style Changelog (wip.N) bold headers', () => {
+    const html = [
+      '<div class="bbCodeBlock-content"><b><u>Changelog (wip.7944):</u></b><br>',
+      '<ul><li>New Maria event</li></ul>',
+      '<b><u>Changelog (wip.7712):</u></b><br>',
+      '<ul><li>Resumed main story</li></ul>',
+      '<b>v0.20.15 (Pre-tech - Part 5):</b><br>',
+      '- Older notes',
+    ].join('');
+    const r = parseChangelogHtml(html);
+    expect(r.ok).toBe(true);
+    if (!r.ok) return;
+    const titles = r.entries.map((e) => e.title);
+    expect(titles[0]).toMatch(/wip\.7944/i);
+    expect(titles.some((t) => /wip\.7712/i.test(t))).toBe(true);
+    expect(titles.some((t) => /0\.20\.15/i.test(t))).toBe(true);
+    expect(r.preambleHtml.trim()).toBe('');
+  });
+
+  it('splits slash dates and Demo labels; ignores version-like body lines', () => {
+    const html = [
+      '<div class="bbCodeBlock-content"><b>26/06/2024</b><br>',
+      'First version of DLC Translation release!<br>',
+      '<b>03/04/2024</b><br>',
+      'Steam Version updated to 1.04<br>',
+      '<b>2024-03-23</b><br>',
+      'Steam version added<br>',
+      '<b>v1.4.3 Translation φ</b><br>',
+      'Updated To Imouto Fantasy 1.4.3!<br>',
+      'V0.2 translation transferred<br>',
+      '<b>Demo Translation V0.1</b><br>',
+      'Initial Release!',
+    ].join('');
+    const r = parseChangelogHtml(html);
+    expect(r.ok).toBe(true);
+    if (!r.ok) return;
+    const titles = r.entries.map((e) => e.title);
+    expect(titles[0]).toBe('26/06/2024');
+    expect(titles).toContain('03/04/2024');
+    expect(titles).toContain('2024-03-23');
+    expect(titles).toContain('v1.4.3 Translation φ');
+    expect(titles).toContain('Demo Translation V0.1');
+    expect(titles.every((t) => !/translation transferred/i.test(t))).toBe(true);
+    expect(r.preambleHtml.trim()).toBe('');
+  });
+
+  it('surfaces version headers that were compressed inside spoilers', () => {
+    const html = [
+      '<b>v2.0</b><br>- Latest notes<br>',
+      '<details class="x-spoiler"><summary>Spoiler</summary>',
+      '<b>v1.5</b><br>- Mid notes<br>',
+      '<b>v1.0</b><br>- Old notes',
+      '</details>',
+    ].join('');
+    const r = parseChangelogHtml(html);
+    expect(r.ok).toBe(true);
+    if (!r.ok) return;
+    const titles = r.entries.map((e) => e.title);
+    expect(titles).toEqual(['v2.0', 'v1.5', 'v1.0']);
+    expect(r.entries[1].bodyHtml).toContain('Mid notes');
+    expect(r.entries.every((e) => !/<details/i.test(e.bodyHtml))).toBe(true);
+  });
 });

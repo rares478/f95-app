@@ -936,6 +936,7 @@ const ru: Record<string, string> = {
   'libdetail.changelog.installed': 'Установлено',
   'libdetail.changelog.latest': 'Последняя',
   'libdetail.changelog.updateLabel': 'Обновление',
+  'libdetail.changelog.emptyNotes': 'Нет описания изменений для этой версии.',
   'libdetail.notes.placeholder': 'Личные заметки, расположение сейвов, подсказки…',
   'libdetail.section.sessions': 'Последние сессии',
   'libdetail.sessions.empty': 'Пока нет сессий. Нажмите «Играть», чтобы начать.',

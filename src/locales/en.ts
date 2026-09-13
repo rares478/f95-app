@@ -970,6 +970,7 @@ const en: Record<string, string> = {
   'libdetail.changelog.installed': 'Installed',
   'libdetail.changelog.latest': 'Latest',
   'libdetail.changelog.updateLabel': 'Update',
+  'libdetail.changelog.emptyNotes': 'No patch notes for this version.',
   'libdetail.notes.placeholder': 'Personal notes, save locations, hints…',
   'libdetail.section.sessions': 'Recent sessions',
   'libdetail.sessions.empty': 'No sessions yet. Click Play to start.',

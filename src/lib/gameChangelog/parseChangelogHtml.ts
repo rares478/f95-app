@@ -1,4 +1,5 @@
 import { isChangelogHeader } from './isChangelogHeader';
+import { unwrapChangelogSpoilers } from './unwrapChangelogSpoilers';
 import type { GameChangelogEntry, GameChangelogParseResult } from './types';
 
 type Piece =
@@ -162,7 +163,7 @@ function splitSegment(
 }
 
 export function parseChangelogHtml(html: string): GameChangelogParseResult {
-  const normalized = html ?? '';
+  const normalized = unwrapChangelogSpoilers(html ?? '');
   const segments = normalized.split(/<br\s*\/?>/i);
 
   let boldOpen = false;
