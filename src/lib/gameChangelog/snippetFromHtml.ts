@@ -21,10 +21,13 @@ function stripToText(html: string): string {
 /**
  * Plain-text preview for changelog cards. Truncates to maxLen at a word
  * boundary when possible and appends an ellipsis character.
+ * Empty / "N/A" bodies yield '' so the UI can show the empty-notes copy.
  */
 export function snippetFromHtml(html: string, maxLen: number = DEFAULT_MAX): string {
   const text = stripToText(html);
   if (!text) return '';
+  // Devs often put N/A when there are no notes for that release.
+  if (/^n\s*\/\s*a\.?$/i.test(text) || /^n\.?\s*a\.?$/i.test(text)) return '';
   if (text.length <= maxLen) return text;
 
   const slice = text.slice(0, maxLen);

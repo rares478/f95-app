@@ -7,6 +7,14 @@ describe('snippetFromHtml', () => {
     expect(snippetFromHtml('<br><div></div>')).toBe('');
   });
 
+  it('returns empty for N/A placeholder notes', () => {
+    expect(snippetFromHtml('N/A')).toBe('');
+    expect(snippetFromHtml('<p>n/a</p>')).toBe('');
+    expect(snippetFromHtml('N/A.')).toBe('');
+    expect(snippetFromHtml('NA')).toBe('');
+    expect(snippetFromHtml('Not N/A notes')).not.toBe('');
+  });
+
   it('strips tags and collapses whitespace', () => {
     expect(snippetFromHtml('<b>Bug</b>  fix<br>- item')).toBe('Bug fix - item');
   });
