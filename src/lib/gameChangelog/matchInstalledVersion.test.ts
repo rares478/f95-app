@@ -26,4 +26,11 @@ describe('matchInstalledVersion', () => {
     expect(matchInstalledVersion(entries, '9.9.9')).toBe(-1);
     expect(matchInstalledVersion(entries, null)).toBe(-1);
   });
+
+  it('does not treat a shorter core as a prefix match', () => {
+    // Only v0.6.1 present — installed 0.6 must not highlight it
+    expect(matchInstalledVersion([{ title: 'v0.6.1', bodyHtml: '' }], '0.6')).toBe(
+      -1,
+    );
+  });
 });

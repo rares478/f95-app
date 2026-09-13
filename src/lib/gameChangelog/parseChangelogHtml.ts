@@ -174,6 +174,10 @@ export function parseChangelogHtml(html: string): GameChangelogParseResult {
 
   // Drop trailing <br> noise on preamble
   preamble.html = preamble.html.replace(/(?:<br\s*\/?>)+$/i, '');
+  // Wrapper-only open tags (e.g. <div class="bbCodeBlock-content">) are not preamble
+  if (stripTags(preamble.html).length === 0) {
+    preamble.html = '';
+  }
 
   if (entries.length < 2) return { ok: false };
 

@@ -16,6 +16,8 @@ describe('parseChangelogHtml', () => {
     expect(r.entries.length).toBeGreaterThanOrEqual(5);
     expect(r.entries[0].title.toLowerCase()).toContain('0.6.1');
     expect(r.entries.some((e) => /0\.2\.2/i.test(e.title))).toBe(true);
+    // Outer bbCode wrapper alone must not become a visible preamble
+    expect(r.preambleHtml.trim()).toBe('');
   });
 
   it('handles Living with Vicky preamble and V 0.1', () => {
@@ -47,6 +49,9 @@ describe('parseChangelogHtml', () => {
     if (!r.ok) return;
     expect(r.entries.length).toBeGreaterThanOrEqual(5);
     expect(r.entries.some((e) => /0\.09\.5/i.test(e.title))).toBe(true);
+    // Unprefixed dotted versions must still split as headers
+    expect(r.entries.some((e) => /^0\.06\.6$/i.test(e.title.trim()))).toBe(true);
+    expect(r.entries.some((e) => /^0\.06\.5$/i.test(e.title.trim()))).toBe(true);
     // Bold mid-header "Bug Fixes" must NOT become its own entry
     expect(r.entries.every((e) => !/^bug fixes$/i.test(e.title.trim()))).toBe(
       true,

@@ -11,6 +11,8 @@ describe('isChangelogHeader', () => {
       'v0.09.0:',
       'v0.2.2 - Chapter 02',
       'v2.0 Remake',
+      '0.06.6',
+      '0.06.5',
     ]) {
       expect(isChangelogHeader(t).ok, t).toBe(true);
     }

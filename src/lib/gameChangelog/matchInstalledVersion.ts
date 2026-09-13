@@ -51,10 +51,8 @@ export function matchInstalledVersion(
     const titleNorm = normalizeChangelogVersion(entries[i].title);
     const titleCore =
       extractVersionCore(titleNorm) ?? extractVersionCore(entries[i].title);
+    // Exact core only — avoid `0.6` matching `v0.6.1` via naive includes.
     if (titleCore === installedCore) {
-      return i;
-    }
-    if (titleNorm.includes(installedCore)) {
       return i;
     }
   }

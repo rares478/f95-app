@@ -2,8 +2,8 @@ import type { HeaderKind } from './types';
 
 const MAX_HEADER_LEN = 100;
 
-/** Optional v/V/. prefix + dotted numeric core (e.g. 0.6.1, 1.07.3c). */
-const VERSION_CORE = String.raw`[vV]\s*\.?\s*\d+(?:\.\d+)+[a-zA-Z]?`;
+/** Optional v/V/. prefix + dotted numeric core (e.g. 0.6.1, 0.06.5, 1.07.3c). */
+const VERSION_CORE = String.raw`(?:[vV]\s*)?\.?\s*\d+(?:\.\d+)+[a-zA-Z]?`;
 
 const RE_DATE = /^\d{4}-\d{2}-\d{2}$/;
 const RE_CHAPTER = new RegExp(String.raw`^chapter\s+\d+\b.*${VERSION_CORE}`, 'i');
