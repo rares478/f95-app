@@ -73,6 +73,7 @@ export function LibraryGamePage() {
   const [storeDetail, setStoreDetail] = useState<GameDetail | null>(null);
   const [notesDraft, setNotesDraft] = useState('');
   const [recentSessions, setRecentSessions] = useState<PlaySession[]>([]);
+  const [sessionCount, setSessionCount] = useState(0);
   const [launching, setLaunching] = useState(false);
   const [exes, setExes] = useState<LibraryGameExe[]>([]);
   const [uninstalling, setUninstalling] = useState(false);
@@ -115,8 +116,12 @@ export function LibraryGamePage() {
         return;
       }
       setNotesDraft(game.notes);
-      const recs = await sessions.recent(threadId, 12);
+      const [recs, count] = await Promise.all([
+        sessions.recent(threadId, 12),
+        sessions.countForThread(threadId),
+      ]);
       setRecentSessions(recs);
+      setSessionCount(count);
       const exeRows = await library.listExes(threadId);
       setExes(exeRows);
       setState({ kind: 'ready', game });
@@ -263,6 +268,7 @@ export function LibraryGamePage() {
   }
 
   async function onRemove() {
+    setManageOpen(false);
     const ok = await dialog.confirm(t('libdetail.confirmRemove', { title: g.title }), {
       title: t('libdetail.confirmRemoveTitle'),
       kind: 'warning',
@@ -444,6 +450,7 @@ export function LibraryGamePage() {
       await dialog.alert(t('libdetail.uninstall.waitDownload'));
       return;
     }
+    setManageOpen(false);
     const ok = await dialog.confirm(t('libdetail.confirmUninstall', { title: g.title }), {
       title: t('libdetail.confirmUninstallTitle'),
       kind: 'warning',
@@ -513,7 +520,7 @@ export function LibraryGamePage() {
               <>
                 <GameDetailChip>{formatPlaytime(g.totalPlaytimeSeconds)}</GameDetailChip>
                 <GameDetailChip>
-                  {t('libdetail.chip.sessions', { count: recentSessions.length })}
+                  {t('libdetail.chip.sessions', { count: sessionCount })}
                 </GameDetailChip>
                 {g.lastPlayedAt && (
                   <GameDetailChip>

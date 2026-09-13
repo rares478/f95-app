@@ -63,3 +63,12 @@ export async function recent(threadId: string, limit = 20): Promise<PlaySession[
   );
   return rows.map(rowToSession);
 }
+
+/** Lifetime play-session count for a thread (not capped like `recent`). */
+export async function countForThread(threadId: string): Promise<number> {
+  const rows = await query<{ n: number }>(
+    `SELECT COUNT(*) AS n FROM play_sessions WHERE thread_id = ?`,
+    [threadId],
+  );
+  return rows[0]?.n ?? 0;
+}
