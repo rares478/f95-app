@@ -41,7 +41,6 @@ export type LibraryGameManageModalProps = {
   onClose: () => void;
   onCheckUpdate: () => void | Promise<void>;
   onOpenInstallFolder: () => void;
-  onOpenThread: () => void;
   onLocaleEmulatorChange: (enabled: boolean) => void | Promise<void>;
   onMove: () => void;
   onUninstall: () => void | Promise<void>;
@@ -169,7 +168,6 @@ function GeneralPanel({
   hasLaunchExe,
   onCheckUpdate,
   onLocaleEmulatorChange,
-  onOpenThread,
 }: LibraryGameManageModalProps) {
   const { t } = useT();
   return (
@@ -212,14 +210,6 @@ function GeneralPanel({
           </p>
         </div>
       )}
-
-      <div style={{ marginTop: 16 }}>
-        <GameDetailActionList>
-          <GameDetailActionItem onClick={onOpenThread}>
-            {t('libdetail.action.openThread')}
-          </GameDetailActionItem>
-        </GameDetailActionList>
-      </div>
     </>
   );
 }

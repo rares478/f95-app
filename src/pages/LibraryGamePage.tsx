@@ -2,7 +2,6 @@ import { useCallback, useEffect, useMemo, useState } from 'react';
 import { useNavigate, useParams } from 'react-router-dom';
 import DOMPurify from 'dompurify';
 import { dialog } from '../lib/dialog';
-import { openUrl } from '@tauri-apps/plugin-opener';
 import * as ipc from '../lib/ipc';
 import { GameDescription } from '../components/game/GameDescription';
 import * as library from '../lib/library';
@@ -699,7 +698,6 @@ export function LibraryGamePage() {
         onClose={() => setManageOpen(false)}
         onCheckUpdate={onCheckUpdate}
         onOpenInstallFolder={onOpenInstallFolder}
-        onOpenThread={() => void openUrl(g.threadUrl)}
         onLocaleEmulatorChange={onLocaleEmulatorChange}
         onMove={() => {
           setManageOpen(false);
