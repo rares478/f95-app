@@ -35,3 +35,7 @@ gdrive-docs.bin
 # Local agent scratch
 .superpowers/
 
+
+# Local reference samples (not for commit / CI)
+local/changelog-samples/
+
