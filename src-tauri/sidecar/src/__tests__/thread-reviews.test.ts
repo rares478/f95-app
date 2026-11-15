@@ -40,40 +40,52 @@ describe('buildThreadReviewsUrl', () => {
 });
 
 describe('parseThreadReviewsPage', () => {
-  it('parses Bad Teacher sample stats and cards', () => {
-    const page = parseThreadReviewsPage(fix('thread-reviews-bad-teacher.html'), {
-      threadId: '46657',
+  it('parses Desert Stalker sample stats, score lines, and cards', () => {
+    const page = parseThreadReviewsPage(fix('thread-reviews-desert-stalker.html'), {
+      threadId: '68105',
       page: 1,
     });
-    expect(page.threadId).toBe('46657');
-    expect(page.stats?.average).toBe(4.5);
-    expect(page.stats?.count).toBe(63);
-    expect(page.stats?.starBars.find((b) => b.stars === 5)?.count).toBe(41);
+    expect(page.threadId).toBe('68105');
+    expect(page.stats?.average).toBe(4.8);
+    expect(page.stats?.count).toBe(862);
+    expect(page.stats?.starBars.find((b) => b.stars === 5)?.count).toBe(749);
     expect(page.stats?.parts.some((p) => /visuals/i.test(p.label))).toBe(true);
-    expect(page.stats?.mentions.some((m) => m.key === 'story')).toBe(true);
+    expect(page.stats?.mentions.length).toBeGreaterThan(0);
     expect(page.stats?.monthlyAverage.length).toBeGreaterThan(0);
     expect(page.stats?.perMonth.length).toBeGreaterThan(0);
+    expect(page.stats?.releases.length).toBeGreaterThanOrEqual(2);
+    expect(page.stats?.releases[0]?.label).toMatch(/v0\.21\.4/i);
+    expect(page.stats?.releases[1]?.label).toMatch(/v0\.22\.0/i);
+    expect(page.stats?.scoreLines.some((l) => l.recent)).toBe(true);
+    expect(page.stats?.scoreLines.some((l) => l.versionId === '3')).toBe(true);
+    expect(page.pendingNote).toMatch(/pending approval/i);
+    expect(page.currentGroup?.kind).toMatch(/this version/i);
+    expect(page.currentGroup?.name).toMatch(/v0\.22\.0/i);
+    expect(page.olderFolds.length).toBeGreaterThanOrEqual(2);
+    expect(page.olderFolds.some((f) => f.versionId === 'none')).toBe(true);
+    expect(page.versions.some((v) => v.id === 'none')).toBe(true);
     expect(page.versions.length).toBeGreaterThanOrEqual(1);
-    expect(page.reviews.length).toBeGreaterThanOrEqual(1);
+    expect(page.reviews.length).toBe(5);
     const first = page.reviews[0];
-    expect(first.reviewId).toBe('359162');
-    expect(first.author).toBe('Richard47687');
-    expect(first.rating).toBe(4.5);
+    expect(first.reviewId).toBe('386394');
+    expect(first.author).toBe('Gari Fuze');
+    expect(first.versionLabel).toMatch(/v0\.22\.0/i);
+    expect(first.isOlderVersion).toBe(false);
+    expect(page.reviews.some((r) => /mods/i.test(r.modsLabel ?? ''))).toBe(true);
     expect(first.bodyHtml.length).toBeGreaterThan(20);
-    expect(page.rangeLabel).toMatch(/1/);
-    expect(page.reviewsUrl).toContain('/threads/46657/reviews');
+    expect(page.rangeLabel).toMatch(/862\s+reviews/i);
+    expect(page.reviewsUrl).toContain('/threads/68105/reviews');
   });
 
-  it('derives hasMore/totalPages from rangeLabel when pageNav is absent', () => {
-    const page = parseThreadReviewsPage(fix('thread-reviews-bad-teacher.html'), {
-      threadId: '46657',
+  it('does not invent classic paging from a Latest-style range label', () => {
+    const page = parseThreadReviewsPage(fix('thread-reviews-desert-stalker.html'), {
+      threadId: '68105',
       page: 1,
     });
-    expect(page.rangeLabel).toMatch(/1\s*[–—−-]\s*20\s+of\s+63/i);
-    expect(page.reviews.length).toBe(20);
-    // No .pageNav in fixture — must fall back to "1–20 of 63"
-    expect(page.totalPages).toBe(Math.ceil(63 / 20));
-    expect(page.hasMore).toBe(true);
+    // Latest chrome is `862 reviews`, not `1–20 of N` — no fake pageNav.
+    expect(page.rangeLabel).not.toMatch(/\d+\s*[–—−-]\s*\d+\s+of\s+\d+/i);
+    expect(page.totalPages).toBeNull();
+    expect(page.hasMore).toBe(false);
   });
 
   it('returns empty cards without throwing on empty fixture', () => {
@@ -83,5 +95,8 @@ describe('parseThreadReviewsPage', () => {
     });
     expect(page.reviews).toEqual([]);
     expect(page.stats).toBeNull();
+    expect(page.olderFolds).toEqual([]);
+    expect(page.currentGroup).toBeNull();
+    expect(page.pendingNote).toBeNull();
   });
 });

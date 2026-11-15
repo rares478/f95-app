@@ -15,10 +15,21 @@ export type ThreadReviewsQuery = {
   recent?: boolean;
 };
 
+export type ReviewScoreLine = {
+  key: string;
+  label: string;
+  score: number | null;
+  href: string | null;
+  versionId: string | null;
+  recent: boolean;
+  active: boolean;
+};
+
 export type ReviewStats = {
   average: number | null;
   count: number | null;
   countLabel: string | null;
+  scoreLines: ReviewScoreLine[];
   starBars: { stars: number; count: number; percent: number }[];
   parts: { label: string; average: number; countHint: string | null }[];
   mentions: { key: string; label: string; count: number }[];
@@ -29,6 +40,8 @@ export type ReviewStats = {
     leftPct: number;
     widthPct: number;
   }[];
+  /** New-version markers on the monthly chart (diamond + dotted line). */
+  releases: { leftPct: number; label: string }[];
   perMonth: {
     label: string;
     positive: number;
@@ -56,6 +69,19 @@ export type ReviewVersionOption = {
   selected: boolean;
 };
 
+export type ReviewCurrentGroup = {
+  kind: string;
+  name: string | null;
+  line: string | null;
+};
+
+export type ReviewOlderFold = {
+  versionId: string | null;
+  name: string;
+  dateLabel: string | null;
+  statLabel: string | null;
+};
+
 export type ReviewCard = {
   reviewId: string;
   author: string;
@@ -63,6 +89,11 @@ export type ReviewCard = {
   authorAvatarUrl: string | null;
   rating: number | null;
   platformLabel: string | null;
+  versionLabel: string | null;
+  /** e.g. "No mods" / "With mods" from `.f95rv-card-mods`. */
+  modsLabel: string | null;
+  /** True when the card marks this review as for an older game version. */
+  isOlderVersion: boolean;
   postedAt: string | null;
   edited: boolean;
   parts: { label: string; score: number }[];
@@ -89,6 +120,9 @@ export type ThreadReviewsPage = {
   stats: ReviewStats | null;
   highlights: ReviewHighlight[];
   versions: ReviewVersionOption[];
+  currentGroup: ReviewCurrentGroup | null;
+  olderFolds: ReviewOlderFold[];
+  pendingNote: string | null;
   reviews: ReviewCard[];
   reviewsUrl: string;
 };

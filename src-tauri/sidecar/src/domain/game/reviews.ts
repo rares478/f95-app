@@ -20,10 +20,21 @@ export type ThreadReviewsQuery = {
   recent?: boolean;
 };
 
+export type ReviewScoreLine = {
+  key: string;
+  label: string;
+  score: number | null;
+  href: string | null;
+  versionId: string | null;
+  recent: boolean;
+  active: boolean;
+};
+
 export type ReviewStats = {
   average: number | null;
   count: number | null;
   countLabel: string | null;
+  scoreLines: ReviewScoreLine[];
   starBars: { stars: number; count: number; percent: number }[];
   parts: { label: string; average: number; countHint: string | null }[];
   mentions: { key: string; label: string; count: number }[];
@@ -34,6 +45,8 @@ export type ReviewStats = {
     leftPct: number;
     widthPct: number;
   }[];
+  /** New-version markers on the monthly chart (diamond + dotted line). */
+  releases: { leftPct: number; label: string }[];
   perMonth: {
     label: string;
     positive: number;
@@ -61,6 +74,19 @@ export type ReviewVersionOption = {
   selected: boolean;
 };
 
+export type ReviewCurrentGroup = {
+  kind: string;
+  name: string | null;
+  line: string | null;
+};
+
+export type ReviewOlderFold = {
+  versionId: string | null;
+  name: string;
+  dateLabel: string | null;
+  statLabel: string | null;
+};
+
 export type ReviewCard = {
   reviewId: string;
   author: string;
@@ -68,6 +94,11 @@ export type ReviewCard = {
   authorAvatarUrl: string | null;
   rating: number | null;
   platformLabel: string | null;
+  versionLabel: string | null;
+  /** e.g. "No mods" / "With mods" from `.f95rv-card-mods`. */
+  modsLabel: string | null;
+  /** True when the card marks this review as for an older game version. */
+  isOlderVersion: boolean;
   postedAt: string | null;
   edited: boolean;
   parts: { label: string; score: number }[];
@@ -94,6 +125,9 @@ export type ThreadReviewsPage = {
   stats: ReviewStats | null;
   highlights: ReviewHighlight[];
   versions: ReviewVersionOption[];
+  currentGroup: ReviewCurrentGroup | null;
+  olderFolds: ReviewOlderFold[];
+  pendingNote: string | null;
   reviews: ReviewCard[];
   reviewsUrl: string;
 };
@@ -206,6 +240,45 @@ function totalPagesFromRange(
   return Math.ceil(range.total / pageSize);
 }
 
+function scoreLineKey(label: string, versionId: string | null, recent: boolean): string {
+  if (recent) return 'recent';
+  if (versionId) return `version:${versionId}`;
+  const slug = label.toLowerCase().replace(/\s+/g, '-').replace(/[^a-z0-9-]/g, '');
+  return slug || 'score';
+}
+
+function parseScoreLines(
+  $: cheerio.CheerioAPI,
+  $root: cheerio.Cheerio<Element>,
+): ReviewScoreLine[] {
+  const out: ReviewScoreLine[] = [];
+  $root.find('a.f95rv-scoreLine').each((_, el) => {
+    const $line = $(el);
+    const hrefRaw = $line.attr('href') ?? '';
+    const href = absUrl(hrefRaw);
+    const versionId = queryParam(hrefRaw, 'version');
+    const recent = queryParam(hrefRaw, 'recent') === '1';
+    const label =
+      $line.find('span').first().text().replace(/\s+/g, ' ').trim() ||
+      $line.attr('title')?.trim() ||
+      '';
+    const score = parseNumber($line.find('strong').first().text());
+    const active =
+      $line.attr('aria-pressed') === 'true' || $line.hasClass('is-active');
+    if (!label && score == null) return;
+    out.push({
+      key: scoreLineKey(label, versionId, recent),
+      label: label || (recent ? 'Recent' : 'This version'),
+      score,
+      href,
+      versionId,
+      recent,
+      active,
+    });
+  });
+  return out;
+}
+
 function parseStats($: cheerio.CheerioAPI): ReviewStats | null {
   const $stats = $('.f95rv-stats').first();
   if ($stats.length === 0) return null;
@@ -221,6 +294,7 @@ function parseStats($: cheerio.CheerioAPI): ReviewStats | null {
     .trim();
   const countLabel = countLabelRaw || null;
   const count = parseNumber(countLabelRaw);
+  const scoreLines = parseScoreLines($, $stats);
 
   const starBars: ReviewStats['starBars'] = [];
   $stats.find('.f95rv-stats-dist .f95rv-bar').each((_, el) => {
@@ -283,6 +357,26 @@ function parseStats($: cheerio.CheerioAPI): ReviewStats | null {
     });
   });
 
+  const releases: ReviewStats['releases'] = [];
+  $stats.find('.f95rv-chart-release').each((_, el) => {
+    const $rel = $(el);
+    const left = parseLeftFromStyle($rel.attr('style'));
+    if (!Number.isFinite(left)) return;
+    const label =
+      ($rel.attr('aria-label') || $rel.attr('data-original-title') || '')
+        .replace(/\s+/g, ' ')
+        .trim() || 'New version';
+    releases.push({ leftPct: left, label });
+  });
+  // Fallback: dotted lines alone (no diamond / tooltip markup).
+  if (releases.length === 0) {
+    $stats.find('.f95rv-chart-releaseLine').each((_, el) => {
+      const left = parseLeftFromStyle($(el).attr('style'));
+      if (!Number.isFinite(left)) return;
+      releases.push({ leftPct: left, label: 'New version' });
+    });
+  }
+
   const perMonth: ReviewStats['perMonth'] = [];
   $stats.find('.f95rv-pm').each((_, el) => {
     const $pm = $(el);
@@ -303,10 +397,12 @@ function parseStats($: cheerio.CheerioAPI): ReviewStats | null {
     average,
     count,
     countLabel,
+    scoreLines,
     starBars,
     parts,
     mentions,
     monthlyAverage,
+    releases,
     perMonth,
   };
 }
@@ -344,6 +440,7 @@ function parseHighlights($: cheerio.CheerioAPI): ReviewHighlight[] {
 
 function parseVersions($: cheerio.CheerioAPI): ReviewVersionOption[] {
   const out: ReviewVersionOption[] = [];
+  const seen = new Set<string>();
   $('.f95rv-versionRow').each((_, el) => {
     const $row = $(el);
     const href = $row.attr('href') ?? '';
@@ -353,6 +450,9 @@ function parseVersions($: cheerio.CheerioAPI): ReviewVersionOption[] {
     const name = $name.text().replace(/\s+/g, ' ').trim();
     const dateRaw = $row.find('.f95rv-versionRow-date').first().text().replace(/\s+/g, ' ').trim();
     const statRaw = $row.find('.f95rv-versionRow-stat').first().text().replace(/\s+/g, ' ').trim();
+    const key = versionId ?? `__all__:${name}`;
+    if (seen.has(key)) return;
+    seen.add(key);
     out.push({
       id: versionId,
       name: name || 'All versions',
@@ -363,6 +463,80 @@ function parseVersions($: cheerio.CheerioAPI): ReviewVersionOption[] {
     });
   });
   return out;
+}
+
+function parseCurrentGroup($: cheerio.CheerioAPI): ReviewCurrentGroup | null {
+  // Prefer the first "This version" / current group head; skip "Older versions".
+  let found: ReviewCurrentGroup | null = null;
+  $('.f95rv-groupHead').each((_, el) => {
+    if (found) return;
+    const $head = $(el);
+    const kind = $head
+      .find('.f95rv-groupHead-kind')
+      .first()
+      .text()
+      .replace(/\s+/g, ' ')
+      .trim();
+    if (/older/i.test(kind)) return;
+    const name =
+      $head.find('.f95rv-groupHead-name').first().text().replace(/\s+/g, ' ').trim() ||
+      null;
+    const line =
+      $head.find('.f95rv-groupHead-line').first().text().replace(/\s+/g, ' ').trim() ||
+      null;
+    if (!kind && !name) return;
+    found = { kind: kind || 'This version', name, line };
+  });
+  return found;
+}
+
+function parseOlderFolds($: cheerio.CheerioAPI): ReviewOlderFold[] {
+  const out: ReviewOlderFold[] = [];
+  $('.f95rv-foldRow').each((_, el) => {
+    const $row = $(el);
+    const href = $row.attr('href') ?? '';
+    const versionId = queryParam(href, 'version');
+    const name =
+      $row.find('.f95rv-foldRow-name').first().text().replace(/\s+/g, ' ').trim() ||
+      'Version';
+    const dateLabel =
+      $row.find('.f95rv-foldRow-date').first().text().replace(/\s+/g, ' ').trim() ||
+      null;
+    const statLabel =
+      $row.find('.f95rv-foldRow-stat').first().text().replace(/\s+/g, ' ').trim() ||
+      null;
+    out.push({ versionId, name, dateLabel, statLabel });
+  });
+  return out;
+}
+
+function parsePendingNote($: cheerio.CheerioAPI): string | null {
+  const $note = $('.f95rv-pending').first();
+  if (!$note.length) return null;
+  const text = $note
+    .clone()
+    .children('i, svg')
+    .remove()
+    .end()
+    .text()
+    .replace(/\s+/g, ' ')
+    .trim();
+  return text || null;
+}
+
+function parseRangeLabelText($: cheerio.CheerioAPI): string | null {
+  const $count = $('.f95rv-sortBar-count').first();
+  if (!$count.length) return null;
+  const spanText = $count
+    .children('span')
+    .first()
+    .text()
+    .replace(/\s+/g, ' ')
+    .trim();
+  if (spanText) return spanText;
+  const clone = $count.clone();
+  clone.find('a').remove();
+  return clone.text().replace(/\s+/g, ' ').trim() || null;
 }
 
 function parseReviewId($el: cheerio.Cheerio<Element>): string | null {
@@ -431,6 +605,23 @@ function parseReviews($: cheerio.CheerioAPI): ReviewCard[] {
       platformLabel = text || $platform.attr('title')?.trim() || null;
     }
 
+    const versionLabel =
+      $card.find('.f95rv-versionPill').first().text().replace(/\s+/g, ' ').trim() ||
+      null;
+
+    const $mods = $card.find('.f95rv-card-mods').first();
+    let modsLabel: string | null = null;
+    if ($mods.length) {
+      const text = $mods.text().replace(/\s+/g, ' ').trim();
+      modsLabel = text || $mods.attr('title')?.trim() || null;
+    }
+
+    const $meta = $card.find('.f95rv-card-meta').first();
+    const metaText = $meta.text().replace(/\s+/g, ' ');
+    const isOlderVersion =
+      $meta.find('.f95rv-olderVersion, .f95rv-card-older').length > 0 ||
+      /\bolder version\b/i.test(metaText);
+
     const postedAt =
       $card.find('time[datetime]').first().attr('datetime')?.trim() || null;
     const edited = $card.find('.f95rv-card-edited').length > 0;
@@ -464,6 +655,9 @@ function parseReviews($: cheerio.CheerioAPI): ReviewCard[] {
       authorAvatarUrl,
       rating,
       platformLabel,
+      versionLabel,
+      modsLabel,
+      isOlderVersion,
       postedAt,
       edited,
       parts: parseCardParts($, $card),
@@ -488,12 +682,12 @@ export function parseThreadReviewsPage(
     page: opts.page,
   });
 
-  const rangeLabel =
-    $('.f95rv-sortBar-count').first().text().replace(/\s+/g, ' ').trim() || null;
+  const rangeLabel = parseRangeLabelText($);
   const range = parseRangeLabel(rangeLabel);
 
   // Prefer XF pageNav when present; F95 Reviews often omit it and only show
-  // `.f95rv-sortBar-count` (`1–20 of 63`).
+  // `.f95rv-sortBar-count` (`1–20 of 63`). Latest view may only show
+  // `862 reviews` with older-version folds instead of classic paging.
   let totalPages = detectTotalPages($);
   if (totalPages == null && range) {
     totalPages = totalPagesFromRange(range);
@@ -503,6 +697,23 @@ export function parseThreadReviewsPage(
     hasNextJump ||
     (totalPages != null ? opts.page < totalPages : false) ||
     (range != null && range.end < range.total);
+
+  const versions = parseVersions($);
+  const olderFolds = parseOlderFolds($);
+  // Ensure fold-only versions (e.g. version=none) appear in the selector.
+  const versionIds = new Set(versions.map((v) => v.id).filter(Boolean));
+  for (const fold of olderFolds) {
+    if (!fold.versionId || versionIds.has(fold.versionId)) continue;
+    versionIds.add(fold.versionId);
+    versions.push({
+      id: fold.versionId,
+      name: fold.name,
+      dateLabel: fold.dateLabel,
+      statLabel: fold.statLabel,
+      isCurrent: false,
+      selected: query?.version === fold.versionId,
+    });
+  }
 
   return {
     threadId: opts.threadId,
@@ -519,7 +730,10 @@ export function parseThreadReviewsPage(
     },
     stats: parseStats($),
     highlights: parseHighlights($),
-    versions: parseVersions($),
+    versions,
+    currentGroup: parseCurrentGroup($),
+    olderFolds,
+    pendingNote: parsePendingNote($),
     reviews: parseReviews($),
     reviewsUrl,
   };

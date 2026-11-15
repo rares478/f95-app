@@ -10,7 +10,10 @@ import { useOffline } from '../../contexts/Offline';
 import { useT } from '../../lib/i18n';
 import type {
   ReviewCard,
+  ReviewCurrentGroup,
   ReviewHighlight,
+  ReviewOlderFold,
+  ReviewScoreLine,
   ReviewSort,
   ReviewStats,
   ThreadReviewsPage,
@@ -46,6 +49,75 @@ function reviewsFallbackUrl(threadId: string): string {
 function formatScore(n: number | null | undefined): string {
   if (n == null || !Number.isFinite(n)) return '—';
   return Number.isInteger(n) ? String(n) : n.toFixed(1);
+}
+
+/** Map ★ average (1–5) onto the padded plot (keeps 5★ dots inside the frame). */
+function monthlyAverageTopPct(average: number): number {
+  const clamped = Math.max(1, Math.min(5, average));
+  // 8% inset top/bottom so markers at 5★ / 1★ are not clipped.
+  return 8 + ((5 - clamped) / 4) * 84;
+}
+
+function splitMonthLabel(label: string): { month: string; year: string | null } {
+  const parts = label.trim().split(/\s+/);
+  if (parts.length >= 2 && /^\d{4}$/.test(parts[parts.length - 1]!)) {
+    return {
+      month: parts.slice(0, -1).join(' '),
+      year: parts[parts.length - 1]!,
+    };
+  }
+  return { month: label, year: null };
+}
+
+function PerMonthBars({ rows }: { rows: ReviewStats['perMonth'] }) {
+  const { t } = useT();
+  const maxCount = Math.max(
+    1,
+    ...rows.map((r) => Math.max(r.positive, r.negative)),
+  );
+  const barMaxPx = 56;
+
+  return (
+    <div className="game-reviews-per-month">
+      <div className="game-reviews-per-month-key">
+        <span className="game-reviews-per-month-key-up">
+          {t('gamedetail.reviews.perMonthKeyUp')}
+        </span>
+        <span className="game-reviews-per-month-key-down">
+          {t('gamedetail.reviews.perMonthKeyDown')}
+        </span>
+      </div>
+      <div className="game-reviews-per-month-bars" role="group" aria-label="Per month">
+        {rows.map((row) => {
+          const { month, year } = splitMonthLabel(row.label);
+          const upH = Math.round((row.positive / maxCount) * barMaxPx);
+          const downH = Math.round((row.negative / maxCount) * barMaxPx);
+          const tip = `${row.label}: ${row.positive} positive, ${row.negative} negative, ${row.inBetween} in between`;
+          return (
+            <span
+              key={row.label}
+              className="game-reviews-pm"
+              tabIndex={0}
+              title={tip}
+              aria-label={tip}
+            >
+              <span className="game-reviews-pm-up">
+                <span style={{ height: `${upH}px` }} />
+              </span>
+              <span className="game-reviews-pm-axis" />
+              <span className="game-reviews-pm-down">
+                <span style={{ height: `${downH}px` }} />
+              </span>
+              <span className="game-reviews-pm-label" aria-hidden="true">
+                <span>{month}</span>
+                {year ? <span>{year}</span> : null}
+              </span>
+            </span>
+          );
+        })}
+      </div>
+    </div>
+  );
 }
 
 function ReviewBody({ html }: { html: string }) {
@@ -126,8 +198,19 @@ function ReviewCardItem({
                 {formatScore(review.rating)}★
               </span>
             )}
+            {review.versionLabel ? (
+              <span className="game-review-version-pill">{review.versionLabel}</span>
+            ) : null}
+            {review.isOlderVersion ? (
+              <span className="game-review-older-tag">
+                {t('gamedetail.reviews.olderVersionTag')}
+              </span>
+            ) : null}
             {review.platformLabel ? (
               <span className="game-review-platform">{review.platformLabel}</span>
+            ) : null}
+            {review.modsLabel ? (
+              <span className="game-review-mods">{review.modsLabel}</span>
             ) : null}
             {dateLabel ? <span className="game-review-date">{dateLabel}</span> : null}
             {review.edited ? (
@@ -178,16 +261,57 @@ function ReviewCardItem({
   );
 }
 
+function ScoreLines({
+  lines,
+  filters,
+  onSelect,
+}: {
+  lines: ReviewScoreLine[];
+  filters: ThreadReviewsPage['filters'];
+  onSelect: (line: ReviewScoreLine) => void;
+}) {
+  if (lines.length === 0) return null;
+  return (
+    <div className="game-reviews-score-lines" role="group">
+      {lines.map((line) => {
+        const active =
+          line.active ||
+          (line.recent && filters.recent) ||
+          (!!line.versionId && filters.version === line.versionId);
+        return (
+          <button
+            key={line.key}
+            type="button"
+            className={
+              active
+                ? 'game-reviews-score-line game-reviews-score-line--active'
+                : 'game-reviews-score-line'
+            }
+            aria-pressed={active}
+            title={line.href ?? undefined}
+            onClick={() => onSelect(line)}
+          >
+            <span>{line.label}</span>
+            {line.score != null ? <strong>{formatScore(line.score)} ★</strong> : null}
+          </button>
+        );
+      })}
+    </div>
+  );
+}
+
 function StatsPanel({
   stats,
   filters,
   onStars,
   onMention,
+  onScoreLine,
 }: {
   stats: ReviewStats;
   filters: ThreadReviewsPage['filters'];
   onStars: (stars: 1 | 2 | 3 | 4 | 5 | undefined) => void;
   onMention: (mention: string | undefined) => void;
+  onScoreLine: (line: ReviewScoreLine) => void;
 }) {
   const { t } = useT();
   const [showPerMonth, setShowPerMonth] = useState(false);
@@ -205,6 +329,11 @@ function StatsPanel({
           ) : stats.count != null ? (
             <span className="game-reviews-count-label">{stats.count}</span>
           ) : null}
+          <ScoreLines
+            lines={stats.scoreLines ?? []}
+            filters={filters}
+            onSelect={onScoreLine}
+          />
         </div>
 
         {stats.starBars.length > 0 && (
@@ -248,15 +377,30 @@ function StatsPanel({
           <div className="game-reviews-parts-avg">
             <span className="game-reviews-stats-title">{t('gamedetail.reviews.partsTitle')}</span>
             <ul className="game-reviews-parts-list">
-              {stats.parts.map((p) => (
-                <li key={p.label} className="game-reviews-parts-item">
-                  <span className="game-reviews-parts-item-label">{p.label}</span>
-                  <span className="game-reviews-parts-item-avg">{formatScore(p.average)}</span>
-                  {p.countHint ? (
-                    <span className="game-reviews-parts-item-hint">{p.countHint}</span>
-                  ) : null}
-                </li>
-              ))}
+              {stats.parts.map((p) => {
+                const pct = Math.max(
+                  0,
+                  Math.min(100, (p.average / 5) * 100),
+                );
+                return (
+                  <li
+                    key={p.label}
+                    className="game-reviews-parts-item"
+                    title={p.countHint ?? undefined}
+                  >
+                    <span className="game-reviews-parts-item-label">{p.label}</span>
+                    <span className="game-reviews-parts-item-track">
+                      <span
+                        className="game-reviews-parts-item-fill"
+                        style={{ width: `${pct}%` }}
+                      />
+                    </span>
+                    <span className="game-reviews-parts-item-avg">
+                      {formatScore(p.average)}
+                    </span>
+                  </li>
+                );
+              })}
             </ul>
           </div>
         )}
@@ -290,7 +434,6 @@ function StatsPanel({
           </div>
         </div>
       )}
-
       {stats.monthlyAverage.length > 0 && (
         <div className="game-reviews-chart">
           <div className="game-reviews-chart-head">
@@ -310,13 +453,27 @@ function StatsPanel({
           <div className="game-reviews-chart-plot" aria-hidden={false}>
             <div className="game-reviews-chart-y">
               <span>5</span>
+              <span>4</span>
               <span>3</span>
+              <span>2</span>
               <span>1</span>
             </div>
             <div className="game-reviews-chart-area">
+              {(stats.releases ?? []).map((rel, idx) => (
+                <span
+                  key={`release-${idx}-${rel.leftPct}`}
+                  className="game-reviews-chart-release"
+                  style={{ left: `${rel.leftPct}%` }}
+                  title={rel.label}
+                  aria-label={rel.label}
+                  tabIndex={0}
+                >
+                  <span className="game-reviews-chart-release-mark" aria-hidden="true" />
+                </span>
+              ))}
               {stats.monthlyAverage.map((pt) => {
                 const left = pt.leftPct + pt.widthPct / 2;
-                const top = Math.max(0, Math.min(100, (1 - pt.average / 5) * 100));
+                const top = monthlyAverageTopPct(pt.average);
                 return (
                   <span
                     key={pt.label}
@@ -336,7 +493,7 @@ function StatsPanel({
                     points={stats.monthlyAverage
                       .map((pt) => {
                         const x = pt.leftPct + pt.widthPct / 2;
-                        const y = Math.max(0, Math.min(100, (1 - pt.average / 5) * 100));
+                        const y = monthlyAverageTopPct(pt.average);
                         return `${x},${y}`;
                       })
                       .join(' ')}
@@ -352,44 +509,159 @@ function StatsPanel({
           </div>
 
           {showPerMonth && stats.perMonth.length > 0 && (
-            <div className="game-reviews-per-month">
-              <div className="game-reviews-per-month-key">
-                <span className="game-reviews-per-month-key-up">
-                  {t('gamedetail.reviews.perMonthKeyUp')}
-                </span>
-                <span className="game-reviews-per-month-key-down">
-                  {t('gamedetail.reviews.perMonthKeyDown')}
-                </span>
-              </div>
-              <ul className="game-reviews-per-month-list">
-                {stats.perMonth.map((row) => {
-                  const total = row.positive + row.negative + row.inBetween || 1;
-                  return (
-                    <li key={row.label} className="game-reviews-per-month-row">
-                      <span className="game-reviews-per-month-label">{row.label}</span>
-                      <span className="game-reviews-per-month-track">
-                        <span
-                          className="game-reviews-per-month-pos"
-                          style={{ width: `${(row.positive / total) * 100}%` }}
-                        />
-                        <span
-                          className="game-reviews-per-month-mid"
-                          style={{ width: `${(row.inBetween / total) * 100}%` }}
-                        />
-                        <span
-                          className="game-reviews-per-month-neg"
-                          style={{ width: `${(row.negative / total) * 100}%` }}
-                        />
-                      </span>
-                    </li>
-                  );
-                })}
-              </ul>
-            </div>
+            <PerMonthBars rows={stats.perMonth} />
           )}
         </div>
       )}
     </section>
+  );
+}
+
+function CurrentGroupHead({ group }: { group: ReviewCurrentGroup }) {
+  return (
+    <div className="game-reviews-group-head">
+      <span className="game-reviews-group-kind">{group.kind}</span>
+      {group.name ? <strong className="game-reviews-group-name">{group.name}</strong> : null}
+      {group.line ? <span className="game-reviews-group-line">{group.line}</span> : null}
+    </div>
+  );
+}
+
+function OlderFolds({
+  folds,
+  threadId,
+  locale,
+  disabled,
+  onShowAll,
+}: {
+  folds: ReviewOlderFold[];
+  threadId: string;
+  locale: string;
+  disabled?: boolean;
+  onShowAll: (fold: ReviewOlderFold) => void;
+}) {
+  const { t } = useT();
+  const [expandedId, setExpandedId] = useState<string | null>(null);
+  const [foldReviews, setFoldReviews] = useState<Record<string, ReviewCard[]>>({});
+  const [foldLoading, setFoldLoading] = useState<string | null>(null);
+  const [foldError, setFoldError] = useState<Record<string, string>>({});
+  const fetchGen = useRef(0);
+
+  if (folds.length === 0) return null;
+
+  const toggleFold = async (fold: ReviewOlderFold) => {
+    if (!fold.versionId || disabled) return;
+    const key = fold.versionId;
+    if (expandedId === key) {
+      setExpandedId(null);
+      return;
+    }
+    setExpandedId(key);
+    if (foldReviews[key]) return;
+
+    const gen = ++fetchGen.current;
+    setFoldLoading(key);
+    setFoldError((prev) => {
+      const next = { ...prev };
+      delete next[key];
+      return next;
+    });
+    try {
+      // Match F95 fold: load most-helpful reviews for that version inline.
+      const page = await threadReviews(threadId, {
+        page: 1,
+        version: key,
+        sort: 'helpful',
+      });
+      if (gen !== fetchGen.current) return;
+      setFoldReviews((prev) => ({ ...prev, [key]: page.reviews }));
+    } catch (err) {
+      if (gen !== fetchGen.current) return;
+      setFoldError((prev) => ({ ...prev, [key]: formatIpcError(err) }));
+    } finally {
+      if (gen === fetchGen.current) setFoldLoading(null);
+    }
+  };
+
+  return (
+    <div className="game-reviews-older" id="game-reviews-older">
+      <div className="game-reviews-group-head">
+        <span className="game-reviews-group-kind">{t('gamedetail.reviews.olderVersions')}</span>
+      </div>
+      <ul className="game-reviews-folds">
+        {folds.map((fold) => {
+          const key = fold.versionId ?? `x-${fold.name}`;
+          const open = expandedId === fold.versionId;
+          const loading = foldLoading === fold.versionId;
+          const reviews = fold.versionId ? foldReviews[fold.versionId] : undefined;
+          const err = fold.versionId ? foldError[fold.versionId] : undefined;
+          return (
+            <li key={key} className={open ? 'game-reviews-fold is-open' : 'game-reviews-fold'}>
+              <button
+                type="button"
+                className="game-reviews-fold-row"
+                disabled={disabled || !fold.versionId || loading}
+                aria-expanded={open}
+                onClick={() => void toggleFold(fold)}
+              >
+                <strong className="game-reviews-fold-name">{fold.name}</strong>
+                {fold.dateLabel ? (
+                  <span className="game-reviews-fold-date">{fold.dateLabel}</span>
+                ) : null}
+                {fold.statLabel ? (
+                  <span className="game-reviews-fold-stat">{fold.statLabel}</span>
+                ) : null}
+                <span className="game-reviews-fold-action">
+                  {open
+                    ? t('gamedetail.reviews.foldHide')
+                    : t('gamedetail.reviews.foldShow')}
+                </span>
+              </button>
+              {open && (
+                <div className="game-reviews-fold-body">
+                  {loading && (
+                    <div className="game-reviews-status game-reviews-status--muted">
+                      {t('gamedetail.reviews.loading')}
+                    </div>
+                  )}
+                  {err && (
+                    <div className="game-reviews-status game-reviews-status--error">{err}</div>
+                  )}
+                  {!loading && !err && reviews && reviews.length === 0 && (
+                    <div className="game-reviews-status game-reviews-status--muted">
+                      {t('gamedetail.reviews.empty')}
+                    </div>
+                  )}
+                  {!loading && reviews && reviews.length > 0 && (
+                    <ul className="game-reviews-list game-reviews-list--fold">
+                      {reviews.map((review) => (
+                        <ReviewCardItem
+                          key={review.reviewId}
+                          review={review}
+                          locale={locale}
+                        />
+                      ))}
+                    </ul>
+                  )}
+                  {!loading && fold.versionId && (
+                    <div className="game-reviews-fold-footer">
+                      <button
+                        type="button"
+                        className="game-reviews-fold-all-btn"
+                        disabled={disabled}
+                        onClick={() => onShowAll(fold)}
+                      >
+                        {t('gamedetail.reviews.foldShowAll', { version: fold.name })}
+                      </button>
+                    </div>
+                  )}
+                </div>
+              )}
+            </li>
+          );
+        })}
+      </ul>
+    </div>
   );
 }
 
@@ -406,8 +678,30 @@ export function GameReviews({ threadId }: Props) {
   const [data, setData] = useState<ThreadReviewsPage | null>(null);
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState<string | null>(null);
+  /** Keep mention pills available after a filtered page omits them. */
+  const mentionsCacheRef = useRef<ReviewStats['mentions']>([]);
+  /** Keep version options when a filtered page drops fold-only entries (e.g. none). */
+  const versionsCacheRef = useRef<ThreadReviewsPage['versions']>([]);
   const queryRef = useRef(query);
   queryRef.current = query;
+
+  useEffect(() => {
+    if (data?.stats?.mentions && data.stats.mentions.length > 0) {
+      mentionsCacheRef.current = data.stats.mentions;
+    }
+    if (data?.versions && data.versions.length > 0) {
+      const byId = new Map(
+        versionsCacheRef.current.filter((v) => v.id).map((v) => [v.id!, v]),
+      );
+      for (const v of data.versions) {
+        if (v.id) byId.set(v.id, v);
+      }
+      versionsCacheRef.current = [
+        ...data.versions.filter((v) => !v.id),
+        ...byId.values(),
+      ];
+    }
+  }, [data]);
 
   const openUrlForSection = data?.reviewsUrl || reviewsFallbackUrl(threadId);
 
@@ -420,6 +714,8 @@ export function GameReviews({ threadId }: Props) {
         const result = await threadReviews(threadId, q);
         if (gen !== fetchGen.current) return;
         setData(result);
+        // Prefer the requested filters so the toolbar (esp. version select)
+        // stays in sync even if the HTML echo is incomplete.
         const synced: ThreadReviewsQuery = {
           page: result.page,
           sort:
@@ -427,12 +723,13 @@ export function GameReviews({ threadId }: Props) {
               ? (result.sort as ReviewSort)
               : q.sort) ?? 'latest',
         };
-        if (result.filters.stars != null) {
-          synced.stars = result.filters.stars as 1 | 2 | 3 | 4 | 5;
-        }
-        if (result.filters.mention) synced.mention = result.filters.mention;
-        if (result.filters.version) synced.version = result.filters.version;
-        if (result.filters.recent) synced.recent = true;
+        const stars = q.stars ?? result.filters.stars ?? undefined;
+        if (stars != null) synced.stars = stars as 1 | 2 | 3 | 4 | 5;
+        const mention = q.mention ?? result.filters.mention ?? undefined;
+        if (mention) synced.mention = mention;
+        const version = q.version ?? result.filters.version ?? undefined;
+        if (version) synced.version = version;
+        if (q.recent || result.filters.recent) synced.recent = true;
         queryRef.current = synced;
         setQuery(synced);
       } catch (err) {
@@ -471,6 +768,8 @@ export function GameReviews({ threadId }: Props) {
     setLoading(false);
     setError(null);
     pendingScrollReviewId.current = null;
+    mentionsCacheRef.current = [];
+    versionsCacheRef.current = [];
   }, [threadId]);
 
   // Near-viewport lazy gate.
@@ -551,6 +850,28 @@ export function GameReviews({ threadId }: Props) {
     query.stars || query.mention || query.version || query.recent,
   );
 
+  const activeVersion = query.version ?? data?.filters.version ?? null;
+  const versionOptions = (() => {
+    const fromData = data?.versions?.length ? data.versions : [];
+    const cached = versionsCacheRef.current;
+    const byId = new Map<string, (typeof cached)[number]>();
+    for (const v of [...cached, ...fromData]) {
+      if (v.id) byId.set(v.id, v);
+    }
+    if (activeVersion && !byId.has(activeVersion)) {
+      const foldMatch = data?.olderFolds?.find((f) => f.versionId === activeVersion);
+      byId.set(activeVersion, {
+        id: activeVersion,
+        name: foldMatch?.name ?? activeVersion,
+        dateLabel: foldMatch?.dateLabel ?? null,
+        statLabel: foldMatch?.statLabel ?? null,
+        isCurrent: false,
+        selected: true,
+      });
+    }
+    return [...byId.values()];
+  })();
+
   const page = data?.page ?? query.page ?? 1;
   const totalPages = data?.totalPages ?? null;
   const hasMore = data?.hasMore ?? false;
@@ -610,12 +931,42 @@ export function GameReviews({ threadId }: Props) {
 
           {data?.stats && (
             <StatsPanel
-              stats={data.stats}
-              filters={data.filters}
+              stats={{
+                ...data.stats,
+                mentions:
+                  data.stats.mentions.length > 0
+                    ? data.stats.mentions
+                    : mentionsCacheRef.current,
+              }}
+              filters={{ ...data.filters, mention: query.mention ?? data.filters.mention }}
               onStars={(stars) => applyQuery({ page: 1, stars })}
               onMention={(mention) => applyQuery({ page: 1, mention })}
+              onScoreLine={(line) => {
+                if (line.recent) {
+                  applyQuery({
+                    page: 1,
+                    recent: true,
+                    version: undefined,
+                  });
+                  return;
+                }
+                if (line.versionId) {
+                  applyQuery({
+                    page: 1,
+                    version: line.versionId,
+                    recent: undefined,
+                  });
+                  return;
+                }
+              }}
             />
           )}
+
+          {data?.pendingNote ? (
+            <div className="game-reviews-pending" role="note">
+              {data.pendingNote}
+            </div>
+          ) : null}
 
           {data && data.highlights.length > 0 && (
             <ul className="game-reviews-highlights">
@@ -664,7 +1015,7 @@ export function GameReviews({ threadId }: Props) {
                 ))}
               </div>
 
-              {data.versions.length > 0 && (
+              {versionOptions.length > 0 && (
                 <label className="game-reviews-version">
                   <span className="game-reviews-toolbar-label">
                     {t('gamedetail.reviews.versionLabel')}
@@ -672,23 +1023,21 @@ export function GameReviews({ threadId }: Props) {
                   <select
                     className="game-reviews-version-select"
                     disabled={loading}
-                    value={query.version ?? data.filters.version ?? ''}
+                    value={activeVersion ?? ''}
                     onChange={(e) => {
                       const v = e.target.value;
                       applyQuery({ page: 1, version: v || undefined });
                     }}
                   >
                     <option value="">{t('gamedetail.reviews.versionAll')}</option>
-                    {data.versions
-                      .filter((v) => v.id)
-                      .map((v) => (
-                        <option key={v.id!} value={v.id!}>
-                          {v.name}
-                          {v.dateLabel ? ` (${v.dateLabel})` : ''}
-                          {v.statLabel ? ` — ${v.statLabel}` : ''}
-                          {v.isCurrent ? ' ★' : ''}
-                        </option>
-                      ))}
+                    {versionOptions.map((v) => (
+                      <option key={v.id!} value={v.id!}>
+                        {v.name}
+                        {v.dateLabel ? ` (${v.dateLabel})` : ''}
+                        {v.statLabel ? ` — ${v.statLabel}` : ''}
+                        {v.isCurrent ? ' ★' : ''}
+                      </option>
+                    ))}
                   </select>
                 </label>
               )}
@@ -722,12 +1071,31 @@ export function GameReviews({ threadId }: Props) {
             </div>
           )}
 
+          {data?.currentGroup ? <CurrentGroupHead group={data.currentGroup} /> : null}
+
           {data && data.reviews.length > 0 && (
             <ul className="game-reviews-list">
               {data.reviews.map((review) => (
                 <ReviewCardItem key={review.reviewId} review={review} locale={locale} />
               ))}
             </ul>
+          )}
+
+          {data && (data.olderFolds?.length ?? 0) > 0 && (
+            <OlderFolds
+              folds={data.olderFolds ?? []}
+              threadId={threadId}
+              locale={locale}
+              disabled={loading}
+              onShowAll={(fold) => {
+                if (!fold.versionId) return;
+                applyQuery({
+                  page: 1,
+                  version: fold.versionId,
+                  recent: undefined,
+                });
+              }}
+            />
           )}
 
           {showPager && (
