@@ -37,7 +37,7 @@ import {
 import { SocialLinkChips } from '../components/game/SocialLinkChips';
 import { DeveloperNameLink } from '../components/developer/DeveloperNameLink';
 import { MoreLikeThis } from '../components/game/MoreLikeThis';
-import { ThreadDiscussion } from '../components/game/ThreadDiscussion';
+import { GameReviews } from '../components/game/GameReviews';
 import { useContextMenu } from '../components/contextMenu';
 import { useOffline } from '../contexts/Offline';
 import { useStoreFilters } from '../contexts/StoreFilters';
@@ -387,7 +387,9 @@ export function GameDetailPage() {
 
           <MoreLikeThis threadId={g.threadId} category={category} tags={g.tags} />
 
-          <ThreadDiscussion threadId={g.threadId} />
+          <GameDetailSection title={t('gamedetail.section.reviews')}>
+            <GameReviews threadId={g.threadId} />
+          </GameDetailSection>
         </GameDetailMain>
 
         <GameDetailAside>
