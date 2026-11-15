@@ -54,6 +54,7 @@ import { formatIpcError } from '../lib/ipcError';
 import { findSamTagByNameOrSlug } from '../lib/tagCatalog';
 import type { GameDetail, GamePrefix, GameTag } from '../types/game';
 import type { SamTag } from '../types/sam';
+import { GamePageDetail } from './GamePageDetail';
 
 type State =
   | { kind: 'loading' }
@@ -293,6 +294,26 @@ export function GameDetailPage() {
   }
 
   const g = state.data;
+  const layout = g.layout ?? 'classic';
+
+  if (layout === 'gamePage') {
+    return (
+      <GamePageDetail
+        data={g}
+        category={category}
+        inLibrary={inLibrary}
+        adding={adding}
+        watched={watched}
+        watchBusy={watchBusy}
+        isOffline={isOffline}
+        onAddToLibrary={onAddToLibrary}
+        onToggleWatch={() => void onToggleWatch()}
+        onTagClick={onTagClick}
+        onContextMenu={openDetailContextMenu}
+      />
+    );
+  }
+
   const displayPrefixes = normalizeDetailPrefixes(g.prefixes, g.version);
   const sanitized = DOMPurify.sanitize(g.descriptionHtml, {
     ADD_TAGS: ['details', 'summary', 'button'],

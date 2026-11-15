@@ -107,27 +107,60 @@ export function GameDetailHero({
 export function GameDetailShell({
   children,
   onContextMenu,
+  className,
 }: {
   children: React.ReactNode;
   onContextMenu?: (e: React.MouseEvent) => void;
+  className?: string;
 }) {
+  const cls = className ? `game-detail-page ${className}` : 'game-detail-page';
   return (
-    <div className="game-detail-page" onContextMenu={onContextMenu}>
+    <div className={cls} onContextMenu={onContextMenu}>
       {children}
     </div>
   );
 }
 
-export function GameDetailBody({ children }: { children: React.ReactNode }) {
-  return <div className="game-detail-body">{children}</div>;
+export function GameDetailBody({
+  children,
+  className,
+}: {
+  children: React.ReactNode;
+  className?: string;
+}) {
+  return (
+    <div className={className ? `game-detail-body ${className}` : 'game-detail-body'}>
+      {children}
+    </div>
+  );
 }
 
-export function GameDetailMain({ children }: { children: React.ReactNode }) {
-  return <main className="game-detail-main">{children}</main>;
+export function GameDetailMain({
+  children,
+  className,
+}: {
+  children: React.ReactNode;
+  className?: string;
+}) {
+  return (
+    <main className={className ? `game-detail-main ${className}` : 'game-detail-main'}>
+      {children}
+    </main>
+  );
 }
 
-export function GameDetailAside({ children }: { children: React.ReactNode }) {
-  return <aside className="game-detail-aside">{children}</aside>;
+export function GameDetailAside({
+  children,
+  className,
+}: {
+  children: React.ReactNode;
+  className?: string;
+}) {
+  return (
+    <aside className={className ? `game-detail-aside ${className}` : 'game-detail-aside'}>
+      {children}
+    </aside>
+  );
 }
 
 export function GameDetailSection({
