@@ -45,9 +45,11 @@ const RE_UNBOLD_VERSION_SUFFIX =
   /^(?:[-–—:]\s*.+|(?:bug\s*fixes?|remake|redux|hotfix|patch)(?:\s+\S+){0,2})$/i;
 
 function isVersionTitle(trimmed: string, fromBold: boolean): boolean {
-  const m = trimmed.match(RE_VERSION_CORE);
-  if (!m) return false;
-  const rest = trimmed.slice(m[0].length).trim();
+  // Broken XF nesting can leave `wip.8189):` after "Changelog (" closed early.
+  const normalized = trimmed.replace(/\)\s*:?\s*$/, '').trim();
+  const m = normalized.match(RE_VERSION_CORE);
+  if (!m || m.index !== 0) return false;
+  const rest = normalized.slice(m[0].length).trim();
   if (!rest) return true;
   if (fromBold) return true;
   return RE_UNBOLD_VERSION_SUFFIX.test(rest);

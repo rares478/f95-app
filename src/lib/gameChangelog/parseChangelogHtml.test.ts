@@ -110,6 +110,30 @@ describe('parseChangelogHtml', () => {
     expect(r.preambleHtml.trim()).toBe('');
   });
 
+  it('repairs nested b/u that splits Changelog ( from wip.N', () => {
+    const html = [
+      '<div class="bbCodeBlock-content">',
+      '<b><u><b><u>Changelog (</u></b>wip.8189):</u></b><br>',
+      '<ul><li>Restored Josie</li></ul>',
+      '<b><u>Changelog (wip.7944):</u></b><br>',
+      '<ul><li>Created event</li></ul>',
+      '<details class="x-spoiler"><summary>Changelog wip.6440</summary>',
+      '<div class="bbCodeBlock-content"><ul><li>Fixed migrations</li></ul></div>',
+      '</details>',
+      '</div>',
+    ].join('');
+    const r = parseChangelogHtml(html);
+    expect(r.ok).toBe(true);
+    if (!r.ok) return;
+    expect(r.entries.map((e) => e.title)).toEqual([
+      'Changelog (wip.8189)',
+      'Changelog (wip.7944)',
+      'Changelog wip.6440',
+    ]);
+    expect(r.entries[0].bodyHtml).toContain('Restored Josie');
+    expect(r.entries[2].bodyHtml).toContain('Fixed migrations');
+  });
+
   it('splits Changelog + version headers (Long Live the Princess)', () => {
     const html = [
       '<div class="bbCodeBlock-content"><b>v1.0.0</b><br>',
