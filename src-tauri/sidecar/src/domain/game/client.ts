@@ -78,6 +78,10 @@ export interface GameDetail {
   social: SocialLink[];
   /** File attachments from OP message chrome (outside bbWrapper). */
   attachments: PostAttachment[];
+  /** Presentation layout. Classic OP vs F95 game page. Defaults to classic. */
+  layout: 'classic' | 'gamePage';
+  /** Store-only structured sections when layout is gamePage. */
+  gamePage?: unknown | null;
 }
 export interface GamePrefix {
   name: string;
@@ -550,6 +554,8 @@ function parseThread(html: string, finalUrl: string): GameDetail {
     downloads,
     social,
     attachments,
+    layout: 'classic',
+    gamePage: null,
   };
 }
 

@@ -32,6 +32,42 @@ import type { PostAttachment } from './threadPosts';
 
 export type { PostAttachment };
 
+export type GameDetailLayout = 'classic' | 'gamePage';
+
+export type GamePageWhatsNew = {
+  title: string;
+  items: string[];
+  historyHref: string | null;
+};
+
+export type GamePageFold = {
+  title: string;
+  html: string;
+};
+
+export type GamePageTagGroup = {
+  key: string;
+  title: string;
+  tags: GameTag[];
+};
+
+export type GamePageStats = {
+  likesLabel: string | null;
+  likesTitle: string | null;
+  viewsLabel: string | null;
+  viewsTitle: string | null;
+  repliesLabel: string | null;
+  repliesTitle: string | null;
+};
+
+export type GamePagePayload = {
+  whatsNew: GamePageWhatsNew | null;
+  folds: GamePageFold[];
+  tagGroups: GamePageTagGroup[];
+  stats: GamePageStats | null;
+  coverPositionY: string | null;
+};
+
 export interface GameDetail {
   threadId: string;
   threadUrl: string;
@@ -55,4 +91,8 @@ export interface GameDetail {
   downloads: GameDownload[];
   social: SocialLink[];
   attachments: PostAttachment[];
+  /** Presentation layout. Classic OP vs F95 game page. Defaults to classic. */
+  layout: GameDetailLayout;
+  /** Store-only structured sections when layout is gamePage. */
+  gamePage?: GamePagePayload | null;
 }
