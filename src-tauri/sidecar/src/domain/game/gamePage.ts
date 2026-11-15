@@ -110,6 +110,14 @@ export function isF95GamePageHtml(html: string): boolean {
   return false;
 }
 
+/** Append `/game-history` to a thread URL (with or without trailing slash). */
+export function buildGameHistoryUrl(threadUrl: string): string {
+  // https://f95zone.to/threads/68105/ → .../threads/68105/game-history
+  // https://f95zone.to/threads/slug.68105/ → .../game-history
+  const base = threadUrl.replace(/\/?$/, '/');
+  return `${base}game-history`;
+}
+
 export type GameHistoryRow = {
   version: string;
   date: string | null;

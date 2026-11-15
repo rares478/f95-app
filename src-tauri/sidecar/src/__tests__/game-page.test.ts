@@ -2,6 +2,7 @@ import { readFileSync } from 'node:fs';
 import { join } from 'node:path';
 import { describe, expect, it } from 'vitest';
 import {
+  buildGameHistoryUrl,
   isF95GamePageHtml,
   parseGameHistoryHtml,
   parseGamePage,
@@ -10,6 +11,20 @@ import {
 
 const fix = (name: string) =>
   readFileSync(join(__dirname, 'fixtures', name), 'utf8');
+
+describe('buildGameHistoryUrl', () => {
+  it('appends game-history with trailing slash normalization', () => {
+    expect(buildGameHistoryUrl('https://f95zone.to/threads/68105/')).toBe(
+      'https://f95zone.to/threads/68105/game-history',
+    );
+    expect(buildGameHistoryUrl('https://f95zone.to/threads/68105')).toBe(
+      'https://f95zone.to/threads/68105/game-history',
+    );
+    expect(
+      buildGameHistoryUrl('https://f95zone.to/threads/slug.68105/'),
+    ).toBe('https://f95zone.to/threads/slug.68105/game-history');
+  });
+});
 
 describe('parseGamePage', () => {
   it('detects f95gp_game template', () => {

@@ -42,7 +42,14 @@ import {
   parseMessageAttachments,
   type PostAttachment,
 } from './postAttachments';
-import type { GamePagePayload } from './gamePage';
+import {
+  buildGameHistoryUrl,
+  isF95GamePageHtml,
+  parseGameHistoryHtml,
+  parseGamePage,
+  synthesizeChangelogHtml,
+  type GamePagePayload,
+} from './gamePage';
 
 export type { GameDownload } from './downloadBlock';
 export type { PostAttachment } from './postAttachments';
@@ -147,7 +154,28 @@ export class GameClient {
         `thread fetch HTTP ${res.status} for ${url}`,
       );
     }
-    return parseThread(res.body, res.url || url);
+    const finalUrl = res.url || url;
+    if (isF95GamePageHtml(res.body)) {
+      const detail = parseGamePage(res.body, finalUrl);
+      try {
+        const histUrl = buildGameHistoryUrl(finalUrl);
+        log(`[game] GET history ${histUrl}`);
+        const hist = await this.http.get(histUrl);
+        assertNotCloudflareChallenge(hist.body, hist.headers, {
+          message: 'Cloudflare challenge encountered on game-history fetch',
+        });
+        if (hist.status < 400) {
+          const rows = parseGameHistoryHtml(hist.body);
+          detail.changelogHtml =
+            rows.length > 0 ? synthesizeChangelogHtml(rows) : null;
+        }
+      } catch (err) {
+        log(`[game] game-history skipped: ${String(err)}`);
+        detail.changelogHtml = null;
+      }
+      return detail;
+    }
+    return parseThread(res.body, finalUrl);
   }
 
   async getPosts(threadId: string, page = 1): Promise<ThreadPostsPage> {
