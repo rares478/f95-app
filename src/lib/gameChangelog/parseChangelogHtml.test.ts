@@ -355,6 +355,18 @@ describe('parseChangelogHtml', () => {
     expect(r.preambleHtml.trim()).toBe('');
   });
 
+  it('parses f95gp synthesized history HTML', () => {
+    const html = [
+      '<b>v0.22.0 Beta</b><br><ul><li>Double date</li><li>Bugfixes</li></ul>',
+      '<b>v0.21.4</b><br><ul><li>Translation update</li></ul>',
+    ].join('');
+    const r = parseChangelogHtml(html);
+    expect(r.ok).toBe(true);
+    if (!r.ok) return;
+    expect(r.entries[0]?.title).toMatch(/v0\.22\.0/i);
+    expect(r.entries.some((e) => /v0\.21\.4/i.test(e.title))).toBe(true);
+  });
+
   it('chunked parse matches sync and reports progress', async () => {
     const html = load('summer-heat.html');
     const sync = parseChangelogHtml(html);

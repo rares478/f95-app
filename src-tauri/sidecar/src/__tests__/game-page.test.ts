@@ -1,7 +1,12 @@
 import { readFileSync } from 'node:fs';
 import { join } from 'node:path';
 import { describe, expect, it } from 'vitest';
-import { isF95GamePageHtml, parseGamePage } from '../domain/game/gamePage';
+import {
+  isF95GamePageHtml,
+  parseGameHistoryHtml,
+  parseGamePage,
+  synthesizeChangelogHtml,
+} from '../domain/game/gamePage';
 
 const fix = (name: string) =>
   readFileSync(join(__dirname, 'fixtures', name), 'utf8');
@@ -40,5 +45,25 @@ describe('parseGamePage', () => {
     expect(detail.gamePage?.tagGroups.length).toBeGreaterThanOrEqual(2);
     expect(detail.gamePage?.stats?.likesLabel).toBeTruthy();
     expect(detail.changelogHtml).toBeNull(); // filled by getDetail fetch later
+  });
+
+  it('parses Desert Stalker game-history rows', () => {
+    const rows = parseGameHistoryHtml(
+      fix('thread-game-history-desert-stalker.html'),
+    );
+    expect(rows.length).toBeGreaterThan(10);
+    expect(rows[0]?.version).toMatch(/v0\.22\.0/i);
+    expect(rows[0]?.lines.length).toBeGreaterThan(0);
+    expect(rows.some((r) => /v0\.21\.4/i.test(r.version))).toBe(true);
+  });
+
+  it('synthesizes changelogHtml with bold version headers', () => {
+    const html = synthesizeChangelogHtml([
+      { version: 'v0.22.0 Beta', date: '2026-11-14', lines: ['A', 'B'] },
+      { version: 'v0.21.4', date: null, lines: ['C'] },
+    ]);
+    expect(html).toContain('<b>v0.22.0 Beta</b>');
+    expect(html).toContain('<b>v0.21.4</b>');
+    expect(html).toContain('<li>A</li>');
   });
 });

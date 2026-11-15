@@ -110,6 +110,55 @@ export function isF95GamePageHtml(html: string): boolean {
   return false;
 }
 
+export type GameHistoryRow = {
+  version: string;
+  date: string | null;
+  lines: string[];
+};
+
+function escapeChangelogHtml(s: string): string {
+  return s
+    .replace(/&/g, '&amp;')
+    .replace(/</g, '&lt;')
+    .replace(/>/g, '&gt;')
+    .replace(/"/g, '&quot;')
+    .replace(/'/g, '&#39;');
+}
+
+/** Parse f95gp `/game-history` rows into structured changelog entries. */
+export function parseGameHistoryHtml(html: string): GameHistoryRow[] {
+  const $ = cheerio.load(html);
+  const rows: GameHistoryRow[] = [];
+  $('details.f95gp-vrow').each((_, el) => {
+    const $el = $(el);
+    const version = cleanText($el.find('.f95gp-vrow-name').first().text());
+    if (!version) return;
+    const datetime =
+      cleanText($el.find('.f95gp-vrow-date time').first().attr('datetime') ?? '') ||
+      null;
+    const date = datetime ? datetime.slice(0, 10) : null;
+    const lines: string[] = [];
+    $el.find('.f95gp-vrow-lines li').each((__, li) => {
+      const text = cleanText($(li).text());
+      if (text) lines.push(text);
+    });
+    rows.push({ version, date, lines });
+  });
+  return rows;
+}
+
+/** Build frontend-parseable changelogHtml from history rows. */
+export function synthesizeChangelogHtml(rows: GameHistoryRow[]): string {
+  return rows
+    .map((row) => {
+      const lis = row.lines
+        .map((line) => `<li>${escapeChangelogHtml(line)}</li>`)
+        .join('');
+      return `<b>${escapeChangelogHtml(row.version)}</b><br><ul>${lis}</ul>`;
+    })
+    .join('');
+}
+
 export function parseGamePage(html: string, finalUrl: string): GameDetail {
   const $ = cheerio.load(html);
   const threadId =
