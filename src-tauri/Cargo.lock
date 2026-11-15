@@ -1678,7 +1678,7 @@ dependencies = [
 
 [[package]]
 name = "f95-app"
-version = "1.10.0"
+version = "1.10.1"
 dependencies = [
  "aes 0.9.4",
  "anyhow",
@@ -7984,8 +7984,6 @@ checksum = "24d5b23dc417412679681396f2b49f3de8c1473deb516bd34410872eff51ed0d"
 [[package]]
 name = "windows_x86_64_msvc"
 version = "0.36.1"
-source = "registry+https://github.com/rust-lang/crates.io-index"
-checksum = "c811ca4a8c853ef420abd8592ba53ddbbac90410fab6903b3e79972a631f7680"
 
 [[package]]
 name = "windows_x86_64_msvc"

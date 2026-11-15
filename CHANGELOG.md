@@ -15,6 +15,11 @@ together when cutting a release:
 
 ## [Unreleased]
 
+## [1.10.1] - 2026-11-15
+
+### Fixed
+- Windows public build crash on startup after updating to 1.10.0 (`0xC0000005` in `vertdll.dll`). Rust 1.100 + Stronghold’s old `windows` 0.36 import library bound `WaitOnAddress` to the VBS enclave DLL; vendor a fixed `windows_x86_64_msvc` 0.36.1 import lib so those symbols resolve from `api-ms-win-core-synch-l1-2-0.dll` again.
+
 ## [1.10.0] - 2026-11-15
 
 ### Added
