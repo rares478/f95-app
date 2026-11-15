@@ -15,6 +15,23 @@ together when cutting a release:
 
 ## [Unreleased]
 
+## [1.10.0] - 2026-11-15
+
+### Added
+- Store game detail for F95 Overview (`f95gp_game`) threads: dedicated layout with What’s new, folds, grouped tags, and stats.
+- Fetch `/threads/…/game` for Overview pages (Discussion OP stays classic); load changelog from `/game-history` and host links from the `/game-downloads` overlay (platforms + More/Update Only/Extras).
+- In-app full-changelog dialog with version rail, position counter, and newer/older navigation (shared with library).
+- Store game detail Reviews section (F95 reviews pages, Latest chrome, pagination).
+
+### Fixed
+- Prefer `/game` so converted threads (e.g. Desert Stalker) are not stuck on the classic OP UI.
+- Stream library changelog parsing so the page stays responsive; parse Summertime-style nested XF changelog headers.
+- Support F95 `/dl/` download links and lazy `bbImageWrapper` images; drop About banner images above Overview.
+- Reviews pagination from `rangeLabel` when page controls are missing.
+
+### Changed
+- Bump major npm and Cargo dependencies.
+
 ## [1.9.0] - 2026-09-13
 
 ### Added
