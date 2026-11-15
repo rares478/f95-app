@@ -40,6 +40,38 @@ export function GameDescription({ html, className, style }: Props) {
     const root = rootRef.current;
     if (!root) return;
 
+    // Cached/raw OP HTML can still contain XF lightbox shells with inline
+    // height (e.g. 500px) and empty or placeholder children — unwrap/remove.
+    root.querySelectorAll<HTMLElement>('.bbImageWrapper, .js-lbImage').forEach((el) => {
+      if (el.tagName === 'IMG') return;
+      const img = el.querySelector('img');
+      const dataSrc = el.getAttribute('data-src');
+      if (img) {
+        el.replaceWith(img);
+        return;
+      }
+      if (dataSrc && !dataSrc.startsWith('data:')) {
+        const next = document.createElement('img');
+        next.src = toF95FullUrl(dataSrc);
+        next.alt = el.getAttribute('title') || el.getAttribute('alt') || '';
+        next.loading = 'lazy';
+        el.replaceWith(next);
+        return;
+      }
+      el.remove();
+    });
+
+    // Cover/banner shots above Overview already appear in the hero.
+    const overview = Array.from(root.querySelectorAll('b, strong')).find((el) =>
+      /^overview\b/i.test((el.textContent || '').trim()),
+    );
+    if (overview) {
+      root.querySelectorAll('img').forEach((img) => {
+        const pos = overview.compareDocumentPosition(img);
+        if (pos & Node.DOCUMENT_POSITION_PRECEDING) img.remove();
+      });
+    }
+
     priorityRef.current = 0;
     upgradedRef.current = new WeakSet();
     const imgs = root.querySelectorAll<HTMLImageElement>('img');

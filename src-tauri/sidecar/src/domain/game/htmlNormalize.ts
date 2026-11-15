@@ -61,10 +61,14 @@ export function normalizeOpHtml(
     );
   });
 
-  // XF sometimes emits empty lazy wrappers with data-src and no <img> child.
+  // XF lazy wrappers: empty ones carry the URL in data-src; others wrap a
+  // placeholder <img>. Both often ship with inline height (e.g. 500px) that
+  // leaves a huge blank gap once the placeholder is gone — materialize or
+  // unwrap, then drop any leftover shell.
   clone.find('.bbImageWrapper[data-src], .js-lbImage[data-src]').each((_, el) => {
     const $el = $(el);
-    if ($el.is('img') || $el.find('img').length) return;
+    if ($el.is('img')) return;
+    if ($el.find('img').length) return;
     const raw = $el.attr('data-src') ?? '';
     if (!raw || raw.startsWith('data:')) {
       $el.remove();
@@ -111,6 +115,18 @@ export function normalizeOpHtml(
     $el.removeAttr('data-zoom-target');
     $el.removeAttr('style');
     $el.attr('loading', 'lazy');
+  });
+
+  // Unwrap lightbox shells so their reserved height/width cannot survive.
+  clone.find('.bbImageWrapper, .js-lbImage').each((_, el) => {
+    const $el = $(el);
+    if ($el.is('img')) return;
+    const $img = $el.children('img').first();
+    if ($img.length) {
+      $el.replaceWith($img);
+      return;
+    }
+    $el.remove();
   });
 
   // Rewrite XF spoiler containers into native <details> for collapsibility.
@@ -175,5 +191,91 @@ export function normalizeOpHtml(
     $el.removeAttr('data-xf-click');
   });
 
+  // Hero already shows the cover — drop OP banner images above Overview.
+  stripImagesBeforeOverview($, clone);
+
   return clone.html() ?? '';
+}
+
+function isOverviewHeading($: cheerio.CheerioAPI, el: Element): boolean {
+  const tag = el.tagName?.toLowerCase?.() ?? (el as { name?: string }).name?.toLowerCase() ?? '';
+  if (tag !== 'b' && tag !== 'strong') return false;
+  return /^overview\b/i.test(cleanText($(el).text()));
+}
+
+/**
+ * Remove images that appear before the first Overview heading. Those are the
+ * cover/banner shots already shown in the game detail hero.
+ */
+export function stripImagesBeforeOverview(
+  $: cheerio.CheerioAPI,
+  root: cheerio.Cheerio<Element>,
+): void {
+  const hasOverview =
+    root.find('b, strong').toArray().some((el) => isOverviewHeading($, el as Element)) ||
+    /\boverview\s*:/i.test(root.text());
+  if (!hasOverview) return;
+
+  let hitOverview = false;
+
+  const visit = (nodes: Element[]): void => {
+    for (const node of nodes) {
+      if (hitOverview) return;
+      // cheerio contents include text/comment nodes typed loosely
+      const anyNode = node as unknown as {
+        type?: string;
+        data?: string;
+        name?: string;
+        tagName?: string;
+        children?: Element[];
+      };
+      if (anyNode.type === 'text') {
+        if (/^\s*overview\s*:/i.test(anyNode.data ?? '')) {
+          hitOverview = true;
+        }
+        continue;
+      }
+      if (anyNode.type && anyNode.type !== 'tag') continue;
+
+      const el = node as Element;
+      if (isOverviewHeading($, el)) {
+        hitOverview = true;
+        return;
+      }
+
+      const tag =
+        (el as { name?: string }).name?.toLowerCase() ??
+        el.tagName?.toLowerCase() ??
+        '';
+      if (tag === 'img') {
+        $(el).remove();
+        continue;
+      }
+
+      const kids = $(el).contents().toArray() as Element[];
+      if (kids.length) visit(kids);
+    }
+  };
+
+  visit(root.contents().toArray() as Element[]);
+
+  // Trim leftover leading <br> that only padded the removed banner.
+  const stripLeadingBreaks = ($box: cheerio.Cheerio<Element>) => {
+    for (const node of $box.contents().toArray()) {
+      const anyNode = node as unknown as { type?: string; name?: string; data?: string };
+      if (anyNode.type === 'text' && !cleanText(anyNode.data)) {
+        $(node).remove();
+        continue;
+      }
+      if (anyNode.type === 'tag' && anyNode.name === 'br') {
+        $(node).remove();
+        continue;
+      }
+      break;
+    }
+  };
+  stripLeadingBreaks(root);
+  root.children('div, p, span, center').each((_, el) => {
+    stripLeadingBreaks($(el));
+  });
 }

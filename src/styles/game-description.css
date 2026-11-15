@@ -7,6 +7,15 @@
   contain-intrinsic-size: 240px 180px;
 }
 
+/* XF bbImageWrapper often ships inline height:500px; collapse leftovers. */
+.game-description .bbImageWrapper,
+.game-description .js-lbImage {
+  height: auto !important;
+  width: auto !important;
+  min-height: 0 !important;
+  display: contents;
+}
+
 /* XF spoilers → <details class="x-spoiler"> */
 .game-description .x-spoiler {
   margin: 0.75em 0;
