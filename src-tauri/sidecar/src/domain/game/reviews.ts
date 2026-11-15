@@ -168,7 +168,7 @@ export function buildThreadReviewsUrl(
   const page = query?.page ?? 1;
   const base =
     page > 1
-      ? `${F95_BASE}/threads/${threadId}/reviews/page-${page}`
+      ? `${F95_BASE}/threads/${threadId}/reviews/page-${page}/`
       : `${F95_BASE}/threads/${threadId}/reviews/`;
 
   const params = new URLSearchParams();
@@ -182,6 +182,28 @@ export function buildThreadReviewsUrl(
 
   const qs = params.toString();
   return qs ? `${base}?${qs}` : base;
+}
+
+/** Parse F95 Reviews range chrome like `1–20 of 63` (en-dash / hyphen / em-dash). */
+function parseRangeLabel(
+  label: string | null | undefined,
+): { start: number; end: number; total: number } | null {
+  if (!label) return null;
+  const m = label.match(/(\d+)\s*[–—−-]\s*(\d+)\s+of\s+(\d+)/i);
+  if (!m) return null;
+  const start = Number(m[1]);
+  const end = Number(m[2]);
+  const total = Number(m[3]);
+  if (![start, end, total].every((n) => Number.isFinite(n) && n > 0)) return null;
+  if (end < start || total < end) return null;
+  return { start, end, total };
+}
+
+function totalPagesFromRange(
+  range: { start: number; end: number; total: number },
+): number {
+  const pageSize = Math.max(1, range.end - range.start + 1);
+  return Math.ceil(range.total / pageSize);
 }
 
 function parseStats($: cheerio.CheerioAPI): ReviewStats | null {
@@ -468,11 +490,19 @@ export function parseThreadReviewsPage(
 
   const rangeLabel =
     $('.f95rv-sortBar-count').first().text().replace(/\s+/g, ' ').trim() || null;
+  const range = parseRangeLabel(rangeLabel);
 
-  const totalPages = detectTotalPages($);
+  // Prefer XF pageNav when present; F95 Reviews often omit it and only show
+  // `.f95rv-sortBar-count` (`1–20 of 63`).
+  let totalPages = detectTotalPages($);
+  if (totalPages == null && range) {
+    totalPages = totalPagesFromRange(range);
+  }
   const hasNextJump = $('.pageNav-jump--next').length > 0;
   const hasMore =
-    hasNextJump || (totalPages != null ? opts.page < totalPages : false);
+    hasNextJump ||
+    (totalPages != null ? opts.page < totalPages : false) ||
+    (range != null && range.end < range.total);
 
   return {
     threadId: opts.threadId,

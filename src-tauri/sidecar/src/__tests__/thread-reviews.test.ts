@@ -25,7 +25,7 @@ describe('buildThreadReviewsUrl', () => {
       version: '1',
       recent: true,
     });
-    expect(url).toContain('/threads/46657/reviews/page-3');
+    expect(url).toContain('/threads/46657/reviews/page-3/');
     expect(url).toContain('sort=helpful');
     expect(url).toContain('stars=5');
     expect(url).toContain('mention=story');
@@ -62,6 +62,18 @@ describe('parseThreadReviewsPage', () => {
     expect(first.bodyHtml.length).toBeGreaterThan(20);
     expect(page.rangeLabel).toMatch(/1/);
     expect(page.reviewsUrl).toContain('/threads/46657/reviews');
+  });
+
+  it('derives hasMore/totalPages from rangeLabel when pageNav is absent', () => {
+    const page = parseThreadReviewsPage(fix('thread-reviews-bad-teacher.html'), {
+      threadId: '46657',
+      page: 1,
+    });
+    expect(page.rangeLabel).toMatch(/1\s*[–—−-]\s*20\s+of\s+63/i);
+    expect(page.reviews.length).toBe(20);
+    // No .pageNav in fixture — must fall back to "1–20 of 63"
+    expect(page.totalPages).toBe(Math.ceil(63 / 20));
+    expect(page.hasMore).toBe(true);
   });
 
   it('returns empty cards without throwing on empty fixture', () => {
