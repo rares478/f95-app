@@ -103,6 +103,8 @@ function slugify(s: string): string {
 export function isF95GamePageHtml(html: string): boolean {
   if (/data-template\s*=\s*["']f95gp_game["']/i.test(html)) return true;
   if (/class\s*=\s*["'][^"']*\bf95gp-page\b/i.test(html)) return true;
+  // Classic threads never mention f95gp — skip expensive cheerio parse.
+  if (!/f95gp/i.test(html)) return false;
   // Cheerio fallback for oddly quoted / late attributes
   const $ = cheerio.load(html);
   if ($('[data-template="f95gp_game"]').length > 0) return true;
