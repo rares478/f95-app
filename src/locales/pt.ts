@@ -944,6 +944,8 @@ const pt: Record<string, string> = {
   'libdetail.changelog.emptyNotes': 'Sem notas de atualização para esta versão.',
   'libdetail.changelog.newer': 'Mais recente',
   'libdetail.changelog.older': 'Mais antiga',
+  'libdetail.changelog.loading': 'A carregar changelog…',
+  'libdetail.changelog.loadingMore': 'A carregar mais atualizações…',
   'libdetail.notes.placeholder': 'Anotações pessoais, save locations, dicas…',
   'libdetail.section.sessions': 'Sessões recentes',
   'libdetail.sessions.empty': 'Nenhuma sessão ainda. Clique em Jogar pra começar.',

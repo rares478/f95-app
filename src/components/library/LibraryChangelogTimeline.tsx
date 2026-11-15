@@ -1,10 +1,18 @@
-import { useEffect, useLayoutEffect, useMemo, useRef, useState, type CSSProperties } from 'react';
+import {
+  startTransition,
+  useEffect,
+  useLayoutEffect,
+  useRef,
+  useState,
+  type CSSProperties,
+} from 'react';
 import DOMPurify from 'dompurify';
 import { GameDescription } from '../game/GameDescription';
-import { parseChangelogHtml } from '../../lib/gameChangelog/parseChangelogHtml';
+import { parseChangelogHtmlChunked } from '../../lib/gameChangelog/parseChangelogHtml';
 import { matchInstalledVersion } from '../../lib/gameChangelog/matchInstalledVersion';
 import { snippetFromHtml } from '../../lib/gameChangelog/snippetFromHtml';
 import { unwrapChangelogSpoilers } from '../../lib/gameChangelog/unwrapChangelogSpoilers';
+import type { GameChangelogEntry } from '../../lib/gameChangelog/types';
 import { useT } from '../../lib/i18n';
 
 const PURIFY = {
@@ -18,11 +26,12 @@ const BODY_STYLE: CSSProperties = {
   wordBreak: 'break-word',
 };
 
+type Phase = 'parsing' | 'ok' | 'fallback';
+
 /**
  * Steam-style changelog timeline for library game detail.
- * Falls back to a single sanitized blob when parsing is not confident.
- * Installed games: highlight the matched version with an Installed chip.
- * Not installed: highlight the newest entry as Latest (no Installed label).
+ * Parses in idle chunks so cards paint as versions are discovered; callers
+ * should keep discussion lazy until `onParsed` (full parse finished).
  */
 export function LibraryChangelogTimeline({
   html,
@@ -33,18 +42,67 @@ export function LibraryChangelogTimeline({
   html: string;
   currentVersion: string | null;
   isInstalled: boolean;
-  /** Fires after parse + layout so callers can defer below-fold fetches. */
+  /** Fires after the full parse finishes (ok or fallback). */
   onParsed?: () => void;
 }) {
   const { t } = useT();
-  const flatHtml = useMemo(() => unwrapChangelogSpoilers(html), [html]);
-  const parsed = useMemo(() => parseChangelogHtml(flatHtml), [flatHtml]);
+  const [phase, setPhase] = useState<Phase>('parsing');
+  const [flatHtml, setFlatHtml] = useState('');
+  const [preambleHtml, setPreambleHtml] = useState('');
+  const [entries, setEntries] = useState<GameChangelogEntry[]>([]);
   const [selectedIdx, setSelectedIdx] = useState<number | null>(null);
   const dialogBodyRef = useRef<HTMLDivElement>(null);
+  const onParsedRef = useRef(onParsed);
+  onParsedRef.current = onParsed;
+
+  useEffect(() => {
+    const ac = new AbortController();
+    setPhase('parsing');
+    setEntries([]);
+    setPreambleHtml('');
+    setSelectedIdx(null);
+
+    const flat = unwrapChangelogSpoilers(html);
+    setFlatHtml(flat);
+
+    void parseChangelogHtmlChunked(flat, {
+      signal: ac.signal,
+      segmentsPerChunk: 40,
+      onProgress: ({ entries: next }) => {
+        startTransition(() => {
+          setEntries(next.map((e) => ({ ...e })));
+        });
+      },
+    })
+      .then((result) => {
+        if (ac.signal.aborted) return;
+        if (!result.ok) {
+          setPhase('fallback');
+          setEntries([]);
+          setPreambleHtml('');
+          return;
+        }
+        setPreambleHtml(result.preambleHtml);
+        setEntries(result.entries);
+        setPhase('ok');
+      })
+      .catch((err: unknown) => {
+        if (ac.signal.aborted) return;
+        if (err instanceof Error && err.name === 'AbortError') return;
+        setPhase('fallback');
+        setEntries([]);
+        setPreambleHtml('');
+      });
+
+    return () => {
+      ac.abort();
+    };
+  }, [html]);
 
   useLayoutEffect(() => {
-    onParsed?.();
-  }, [parsed, onParsed]);
+    if (phase === 'parsing') return;
+    onParsedRef.current?.();
+  }, [phase]);
 
   useLayoutEffect(() => {
     if (selectedIdx == null) return;
@@ -52,8 +110,8 @@ export function LibraryChangelogTimeline({
   }, [selectedIdx]);
 
   useEffect(() => {
-    if (selectedIdx == null || !parsed.ok) return;
-    const last = parsed.entries.length - 1;
+    if (selectedIdx == null || phase !== 'ok') return;
+    const last = entries.length - 1;
     function onKey(e: KeyboardEvent) {
       if (e.key === 'Escape') {
         e.preventDefault();
@@ -72,9 +130,9 @@ export function LibraryChangelogTimeline({
     }
     window.addEventListener('keydown', onKey);
     return () => window.removeEventListener('keydown', onKey);
-  }, [selectedIdx, parsed]);
+  }, [selectedIdx, phase, entries.length]);
 
-  if (!parsed.ok) {
+  if (phase === 'fallback') {
     return (
       <GameDescription
         html={DOMPurify.sanitize(flatHtml, PURIFY)}
@@ -84,12 +142,21 @@ export function LibraryChangelogTimeline({
     );
   }
 
+  const showTimeline = entries.length >= 2;
+  if (!showTimeline) {
+    return (
+      <p className="library-changelog-loading" aria-live="polite">
+        {t('libdetail.changelog.loading')}
+      </p>
+    );
+  }
+
   const installedIdx = isInstalled
-    ? matchInstalledVersion(parsed.entries, currentVersion)
+    ? matchInstalledVersion(entries, currentVersion)
     : -1;
-  const latestIdx = !isInstalled && parsed.entries.length > 0 ? 0 : -1;
+  const latestIdx = !isInstalled && entries.length > 0 ? 0 : -1;
   const selected =
-    selectedIdx != null ? parsed.entries[selectedIdx] ?? null : null;
+    selectedIdx != null ? entries[selectedIdx] ?? null : null;
   const selectedBadge =
     selectedIdx != null && selectedIdx === installedIdx
       ? ('installed' as const)
@@ -99,14 +166,14 @@ export function LibraryChangelogTimeline({
 
   return (
     <div className="library-changelog-timeline">
-      {parsed.preambleHtml.trim() ? (
+      {preambleHtml.trim() ? (
         <GameDescription
-          html={DOMPurify.sanitize(parsed.preambleHtml, PURIFY)}
+          html={DOMPurify.sanitize(preambleHtml, PURIFY)}
           className="library-changelog-preamble libdetail-changelog-body"
           style={BODY_STYLE}
         />
       ) : null}
-      {parsed.entries.map((entry, i) => {
+      {entries.map((entry, i) => {
         const installed = i === installedIdx;
         const latest = i === latestIdx;
         const featured = installed || latest;
@@ -150,6 +217,11 @@ export function LibraryChangelogTimeline({
           </button>
         );
       })}
+      {phase === 'parsing' ? (
+        <p className="library-changelog-loading" aria-live="polite">
+          {t('libdetail.changelog.loadingMore')}
+        </p>
+      ) : null}
       {selected ? (
         <div
           className="app-dialog-overlay"
@@ -206,7 +278,7 @@ export function LibraryChangelogTimeline({
                 </p>
               )}
             </div>
-            {selectedIdx != null && parsed.entries.length > 1 ? (
+            {selectedIdx != null && entries.length > 1 ? (
               <footer className="library-changelog-entry-nav">
                 <button
                   type="button"
@@ -219,22 +291,22 @@ export function LibraryChangelogTimeline({
                   </span>
                   {selectedIdx > 0 ? (
                     <span className="library-changelog-entry-nav-title">
-                      {parsed.entries[selectedIdx - 1].title}
+                      {entries[selectedIdx - 1].title}
                     </span>
                   ) : null}
                 </button>
                 <button
                   type="button"
                   className="library-changelog-entry-nav-btn library-changelog-entry-nav-btn--next"
-                  disabled={selectedIdx >= parsed.entries.length - 1}
+                  disabled={selectedIdx >= entries.length - 1}
                   onClick={() => setSelectedIdx(selectedIdx + 1)}
                 >
                   <span className="library-changelog-entry-nav-dir">
                     {t('libdetail.changelog.older')}
                   </span>
-                  {selectedIdx < parsed.entries.length - 1 ? (
+                  {selectedIdx < entries.length - 1 ? (
                     <span className="library-changelog-entry-nav-title">
-                      {parsed.entries[selectedIdx + 1].title}
+                      {entries[selectedIdx + 1].title}
                     </span>
                   ) : null}
                 </button>

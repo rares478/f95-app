@@ -6,6 +6,14 @@ type Piece =
   | { kind: 'header'; title: string }
   | { kind: 'html'; html: string };
 
+type ParseState = {
+  boldOpen: boolean;
+  preambleHtml: string;
+  entries: GameChangelogEntry[];
+  current: GameChangelogEntry | null;
+  pendingBr: boolean;
+};
+
 function stripTags(html: string): string {
   return html
     .replace(/<[^>]+>/g, '')
@@ -169,77 +177,157 @@ function splitSegment(
   return { pieces, boldOpen: open };
 }
 
-export function parseChangelogHtml(html: string): GameChangelogParseResult {
-  const normalized = unwrapChangelogSpoilers(html ?? '');
-  const segments = normalized.split(/<br\s*\/?>/i);
+function createParseState(): ParseState {
+  return {
+    boldOpen: false,
+    preambleHtml: '',
+    entries: [],
+    current: null,
+    pendingBr: false,
+  };
+}
 
-  let boldOpen = false;
-  let preamble = { html: '' };
-  const entries: GameChangelogEntry[] = [];
-  let current: GameChangelogEntry | null = null;
-  let pendingBr = false;
+function commitCurrent(state: ParseState): void {
+  if (!state.current) return;
+  state.entries.push(state.current);
+  state.current = null;
+}
 
-  for (let i = 0; i < segments.length; i++) {
-    const { pieces, boldOpen: nextBold } = splitSegment(segments[i], boldOpen);
-    boldOpen = nextBold;
+function feedSegment(
+  state: ParseState,
+  segment: string,
+  hasFollowingBr: boolean,
+): void {
+  const { pieces, boldOpen: nextBold } = splitSegment(segment, state.boldOpen);
+  state.boldOpen = nextBold;
 
-    if (pieces.length === 0) {
-      // Empty segment = blank line via <br>
-      if (current) {
-        if (pendingBr || current.bodyHtml.length > 0) current.bodyHtml += '<br>';
-        else pendingBr = true;
-      } else if (preamble.html.length > 0) {
-        preamble.html += '<br>';
+  if (pieces.length === 0) {
+    if (state.current) {
+      if (state.pendingBr || state.current.bodyHtml.length > 0) {
+        state.current.bodyHtml += '<br>';
       } else {
-        pendingBr = true;
+        state.pendingBr = true;
       }
-      continue;
+    } else if (state.preambleHtml.length > 0) {
+      state.preambleHtml += '<br>';
+    } else {
+      state.pendingBr = true;
     }
-
+  } else {
     for (const piece of pieces) {
       if (piece.kind === 'header') {
-        pendingBr = false;
-        if (current) entries.push(current);
-        current = { title: piece.title, bodyHtml: '' };
+        state.pendingBr = false;
+        commitCurrent(state);
+        state.current = { title: piece.title, bodyHtml: '' };
         continue;
       }
 
-      if (!current) {
-        if (pendingBr && preamble.html.length > 0) preamble.html += '<br>';
-        pendingBr = false;
-        preamble.html += piece.html;
+      if (!state.current) {
+        if (state.pendingBr && state.preambleHtml.length > 0) {
+          state.preambleHtml += '<br>';
+        }
+        state.pendingBr = false;
+        state.preambleHtml += piece.html;
       } else {
-        if (pendingBr && current.bodyHtml.length > 0) current.bodyHtml += '<br>';
-        pendingBr = false;
-        // Avoid leading <br> at start of body
-        if (current.bodyHtml.length === 0 && piece.html === '') continue;
-        current.bodyHtml += piece.html;
+        if (state.pendingBr && state.current.bodyHtml.length > 0) {
+          state.current.bodyHtml += '<br>';
+        }
+        state.pendingBr = false;
+        if (state.current.bodyHtml.length === 0 && piece.html === '') continue;
+        state.current.bodyHtml += piece.html;
       }
     }
-
-    // A <br> follows this segment unless it was the last one
-    if (i < segments.length - 1) {
-      pendingBr = true;
-    }
   }
 
-  if (current) entries.push(current);
+  if (hasFollowingBr) {
+    state.pendingBr = true;
+  }
+}
 
-  // Drop trailing <br> noise on preamble
-  preamble.html = trimEntryHtml(preamble.html);
-  // Wrapper-only open tags (e.g. <div class="bbCodeBlock-content">) are not preamble
-  if (stripTags(preamble.html).length === 0) {
-    preamble.html = '';
+function finalizeParse(state: ParseState): GameChangelogParseResult {
+  commitCurrent(state);
+
+  let preambleHtml = trimEntryHtml(state.preambleHtml);
+  if (stripTags(preambleHtml).length === 0) {
+    preambleHtml = '';
   }
 
-  if (entries.length < 2) return { ok: false };
+  if (state.entries.length < 2) return { ok: false };
 
   return {
     ok: true,
-    preambleHtml: preamble.html,
-    entries: entries.map((e) => ({
+    preambleHtml,
+    entries: state.entries.map((e) => ({
       title: e.title,
       bodyHtml: trimEntryHtml(e.bodyHtml),
     })),
   };
+}
+
+export function parseChangelogHtml(html: string): GameChangelogParseResult {
+  const normalized = unwrapChangelogSpoilers(html ?? '');
+  const segments = normalized.split(/<br\s*\/?>/i);
+  const state = createParseState();
+  for (let i = 0; i < segments.length; i++) {
+    feedSegment(state, segments[i], i < segments.length - 1);
+  }
+  return finalizeParse(state);
+}
+
+function yieldToMain(): Promise<void> {
+  return new Promise((resolve) => {
+    if (typeof requestIdleCallback === 'function') {
+      requestIdleCallback(() => resolve(), { timeout: 32 });
+      return;
+    }
+    setTimeout(resolve, 0);
+  });
+}
+
+export type ChangelogParseProgress = {
+  /** Completed entries so far (bodies not yet final-trimmed). */
+  entries: GameChangelogEntry[];
+};
+
+/**
+ * Same result as `parseChangelogHtml`, but yields to the main thread between
+ * segment batches and reports completed entries so the UI can paint progressively.
+ */
+export async function parseChangelogHtmlChunked(
+  html: string,
+  opts: {
+    signal?: AbortSignal;
+    /** Segments processed before yielding (default 48). */
+    segmentsPerChunk?: number;
+    onProgress?: (progress: ChangelogParseProgress) => void;
+  } = {},
+): Promise<GameChangelogParseResult> {
+  const { signal, segmentsPerChunk = 48, onProgress } = opts;
+  const normalized = unwrapChangelogSpoilers(html ?? '');
+  const segments = normalized.split(/<br\s*\/?>/i);
+  const state = createParseState();
+  let lastReported = 0;
+
+  const report = () => {
+    if (state.entries.length === lastReported) return;
+    lastReported = state.entries.length;
+    onProgress?.({ entries: state.entries.slice() });
+  };
+
+  for (let i = 0; i < segments.length; i++) {
+    if (signal?.aborted) {
+      const err = new Error('Aborted');
+      err.name = 'AbortError';
+      throw err;
+    }
+    feedSegment(state, segments[i], i < segments.length - 1);
+
+    if ((i + 1) % segmentsPerChunk === 0) {
+      report();
+      await yieldToMain();
+    }
+  }
+
+  report();
+  return finalizeParse(state);
 }

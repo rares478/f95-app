@@ -2,7 +2,10 @@ import { readFileSync } from 'node:fs';
 import { dirname, join } from 'node:path';
 import { fileURLToPath } from 'node:url';
 import { describe, expect, it } from 'vitest';
-import { parseChangelogHtml } from './parseChangelogHtml';
+import {
+  parseChangelogHtml,
+  parseChangelogHtmlChunked,
+} from './parseChangelogHtml';
 
 const dir = dirname(fileURLToPath(import.meta.url));
 const load = (name: string) =>
@@ -326,5 +329,21 @@ describe('parseChangelogHtml', () => {
       'Episode 5.0',
     ]);
     expect(r.preambleHtml.trim()).toBe('');
+  });
+
+  it('chunked parse matches sync and reports progress', async () => {
+    const html = load('summer-heat.html');
+    const sync = parseChangelogHtml(html);
+    const progressLens: number[] = [];
+    const chunked = await parseChangelogHtmlChunked(html, {
+      segmentsPerChunk: 8,
+      onProgress: ({ entries }) => {
+        progressLens.push(entries.length);
+      },
+    });
+    expect(chunked).toEqual(sync);
+    if (!sync.ok) return;
+    expect(progressLens.length).toBeGreaterThan(0);
+    expect(progressLens[progressLens.length - 1]).toBeGreaterThanOrEqual(1);
   });
 });

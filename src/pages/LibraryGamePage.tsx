@@ -648,11 +648,17 @@ export function LibraryGamePage() {
           ) : null}
 
           <GameDetailSection title={t('gamedetail.section.discussion')}>
-            <ThreadDiscussion
-              threadId={g.threadId}
-              offline={isOffline}
-              lazyEnabled={postsLazyEnabled}
-            />
+            {postsLazyEnabled ? (
+              <ThreadDiscussion
+                threadId={g.threadId}
+                offline={isOffline}
+                lazyEnabled
+              />
+            ) : (
+              <p className="library-changelog-loading" aria-busy="true">
+                {t('gamedetail.discussion.loading')}
+              </p>
+            )}
           </GameDetailSection>
         </GameDetailMain>
 
