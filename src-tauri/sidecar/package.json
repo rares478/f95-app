@@ -18,17 +18,16 @@
   },
   "dependencies": {
     "browser-rest-api": "file:../../../browser-api",
-    "cheerio": "^1.0.0",
+    "cheerio": "^1.2.0",
     "f95-app": "file:../..",
-    "fast-xml-parser": "^5.8.0",
-    "playwright": "^1.60.0"
+    "fast-xml-parser": "^5.12.1",
+    "playwright": "^1.65.1"
   },
   "devDependencies": {
-    "@types/node": "^20.11.0",
-    "esbuild": "^0.24.0",
-    "tsx": "^4.7.0",
-    "typescript": "^5.4.0",
-    "vitest": "^3.0.0"
+    "@types/node": "^22.20.5",
+    "esbuild": "^0.28.2",
+    "tsx": "^4.23.15",
+    "typescript": "^5.9.3",
+    "vitest": "^3.2.7"
   }
 }
-

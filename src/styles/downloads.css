@@ -170,13 +170,12 @@
   width: 100%;
   height: 110px;
 }
-  stroke: var(--border);
-  stroke-width: 1;
-  vector-effect: non-scaling-stroke;
-}
 
 .dl-speed-graph-line {
   fill: none;
+  stroke: var(--border);
+  stroke-width: 1;
+  vector-effect: non-scaling-stroke;
 }
 
 .downloads-stat {

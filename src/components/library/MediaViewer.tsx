@@ -634,7 +634,7 @@ function PdfView({ path }: { path: string }) {
         if (!ctx) return;
         node.width = viewport.width;
         node.height = viewport.height;
-        await p.render({ canvasContext: ctx, viewport }).promise;
+        await p.render({ canvasContext: ctx, canvas: node, viewport }).promise;
         if (!cancelled) setCanvasReady(true);
       })
       .catch(() => {
