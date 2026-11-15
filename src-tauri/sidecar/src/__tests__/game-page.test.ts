@@ -3,9 +3,12 @@ import { join } from 'node:path';
 import { describe, expect, it } from 'vitest';
 import { GameClient } from '../domain/game/client';
 import {
+  buildGameDownloadsUrl,
   buildGameHistoryUrl,
   buildGamePageUrl,
+  extractGameDownloadsHref,
   isF95GamePageHtml,
+  parseGameDownloadsHtml,
   parseGameHistoryHtml,
   parseGamePage,
   synthesizeChangelogHtml,
@@ -109,8 +112,24 @@ describe('GameClient.getDetail history isolation', () => {
             headers: history.headers ?? okHeaders,
           };
         }
+        if (url.includes('game-downloads')) {
+          return {
+            status: 200,
+            url,
+            body: '',
+            headers: okHeaders,
+          };
+        }
+        if (url.includes('/account')) {
+          return {
+            status: 200,
+            url,
+            body: '<html><input name="_xfToken" value="test-token" /></html>',
+            headers: okHeaders,
+          };
+        }
         // Prefer /game — return game-page HTML for that URL
-        if (url.includes('/game')) {
+        if (/\/game(?:\/|$|\?)/.test(url) || url.endsWith('/game')) {
           return {
             status: 200,
             url: gameUrl,
@@ -251,5 +270,149 @@ describe('parseGamePage', () => {
     expect(html).toContain('<b>v0.22.0 Beta</b>');
     expect(html).toContain('<b>v0.21.4</b>');
     expect(html).toContain('<li>A</li>');
+  });
+});
+
+describe('f95gp game-downloads', () => {
+  it('buildGameDownloadsUrl strips /game and appends query', () => {
+    expect(buildGameDownloadsUrl('https://f95zone.to/threads/68105/game')).toBe(
+      'https://f95zone.to/threads/68105/game-downloads?platform=0',
+    );
+    expect(
+      buildGameDownloadsUrl('https://f95zone.to/threads/slug.68105/', 2),
+    ).toBe('https://f95zone.to/threads/slug.68105/game-downloads?platform=2');
+  });
+
+  it('extracts game-downloads href from overview download section', () => {
+    const href = extractGameDownloadsHref(`
+      <section id="f95gp-download">
+        <a href="/threads/slug.68105/game-downloads?platform=0" class="f95gp-dlButton js-f95gpDlButton">Download</a>
+        <span class="js-f95gpDlOption" hidden data-os="apple" data-href="/threads/slug.68105/game-downloads?platform=1"></span>
+      </section>
+    `);
+    expect(href).toBe(
+      'https://f95zone.to/threads/slug.68105/game-downloads?platform=0',
+    );
+  });
+
+  it('parses platform tabs and More downloads extras', () => {
+    const downloads = parseGameDownloadsHtml(
+      fix('thread-game-downloads-desert-stalker.html'),
+    );
+    expect(downloads.filter((d) => d.platform === 'Win/Linux').length).toBe(5);
+    expect(downloads.filter((d) => d.platform === 'Mac').length).toBe(2);
+    expect(downloads.filter((d) => d.platform === 'Android').length).toBe(2);
+    expect(
+      downloads.some(
+        (d) => d.host === 'mega' && d.platform === 'Win/Linux' && d.kindHint === 'full',
+      ),
+    ).toBe(true);
+
+    const patches = downloads.filter((d) => d.kindHint === 'patch');
+    expect(patches.length).toBe(2);
+    expect(patches[0]?.group).toMatch(/Update Only/i);
+
+    const extras = downloads.filter((d) => d.kindHint === 'extra');
+    expect(extras.length).toBe(2);
+    expect(extras.some((d) => /Walkthrough/i.test(d.text))).toBe(true);
+    expect(extras.every((d) => d.group === 'Extras')).toBe(true);
+  });
+
+  it('getDetail fills downloads from game-downloads overlay', async () => {
+    const gameUrl = 'https://f95zone.to/threads/68105/game';
+    const pageHtml = fix('thread-game-page-desert-stalker.html').replace(
+      /<div class="blockMessage f95gp-guest">[\s\S]*?<\/div>/,
+      `<div class="f95gp-dlMain js-f95gpDlMain">
+        <a href="/threads/desert-stalker.68105/game-downloads?platform=0" class="f95gp-dlButton js-f95gpDlButton">Download</a>
+      </div>`,
+    );
+    const gets: string[] = [];
+    const http = {
+      get: async (url: string) => {
+        gets.push(url);
+        if (url.includes('game-history')) {
+          return { status: 404, url, body: '', headers: okHeaders };
+        }
+        if (url.includes('game-downloads')) {
+          // Plain GET fallback after ajax token load fails in this stub.
+          return {
+            status: 200,
+            url,
+            body: fix('thread-game-downloads-desert-stalker.html'),
+            headers: okHeaders,
+          };
+        }
+        if (url.includes('/account')) {
+          return {
+            status: 200,
+            url,
+            body: '<html><input name="_xfToken" value="test-token" /></html>',
+            headers: okHeaders,
+          };
+        }
+        if (url.endsWith('/game') || url.includes('/game?') || url.includes('/game&')) {
+          return { status: 200, url: gameUrl, body: pageHtml, headers: okHeaders };
+        }
+        // Ajax downloads URL includes _xfResponseType=json
+        if (url.includes('_xfResponseType=json') && url.includes('game-downloads')) {
+          return {
+            status: 200,
+            url,
+            body: JSON.stringify({
+              status: 'ok',
+              html: { content: fix('thread-game-downloads-desert-stalker.html') },
+            }),
+            headers: okHeaders,
+          };
+        }
+        return { status: 404, url, body: '', headers: okHeaders };
+      },
+    };
+    const detail = await new GameClient(http as never).getDetail('68105');
+    expect(detail.layout).toBe('gamePage');
+    expect(gets.some((u) => u.includes('game-downloads'))).toBe(true);
+    expect(detail.downloads.length).toBeGreaterThan(5);
+    expect(detail.downloads.some((d) => d.platform === 'Win/Linux')).toBe(true);
+    expect(detail.downloads.some((d) => d.kindHint === 'extra')).toBe(true);
+  });
+
+  it('getDetail still fetches game-downloads when overview is guest (URL fallback)', async () => {
+    const gameUrl = 'https://f95zone.to/threads/68105/game';
+    const pageHtml = fix('thread-game-page-desert-stalker.html'); // guest download section
+    const gets: string[] = [];
+    const http = {
+      get: async (url: string) => {
+        gets.push(url);
+        if (url.includes('game-history')) {
+          return { status: 404, url, body: '', headers: okHeaders };
+        }
+        if (url.includes('/account')) {
+          return {
+            status: 200,
+            url,
+            body: '<html><input name="_xfToken" value="tok" /></html>',
+            headers: okHeaders,
+          };
+        }
+        if (url.includes('game-downloads')) {
+          return {
+            status: 200,
+            url,
+            body: JSON.stringify({
+              status: 'ok',
+              html: { content: fix('thread-game-downloads-desert-stalker.html') },
+            }),
+            headers: okHeaders,
+          };
+        }
+        if (url.includes('/game')) {
+          return { status: 200, url: gameUrl, body: pageHtml, headers: okHeaders };
+        }
+        return { status: 404, url, body: '', headers: okHeaders };
+      },
+    };
+    const detail = await new GameClient(http as never).getDetail('68105');
+    expect(gets.some((u) => u.includes('game-downloads'))).toBe(true);
+    expect(detail.downloads.some((d) => d.host === 'mega')).toBe(true);
   });
 });

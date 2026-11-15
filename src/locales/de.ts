@@ -987,6 +987,7 @@ const de: Record<string, string> = {
   'libdetail.changelog.emptyNotes': 'Keine Patchnotes für diese Version.',
   'libdetail.changelog.newer': 'Neuer',
   'libdetail.changelog.older': 'Älter',
+  'libdetail.changelog.position': '{current} von {total}',
   'libdetail.changelog.loading': 'Änderungsprotokoll wird geladen…',
   'libdetail.changelog.loadingMore': 'Weitere Updates werden geladen…',
   'libdetail.notes.placeholder': 'Persönliche Notizen, Speicherorte, Hinweise…',

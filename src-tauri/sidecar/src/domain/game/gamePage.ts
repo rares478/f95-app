@@ -4,6 +4,7 @@ import {
   parseDownloadBlock,
   type GameDownload,
 } from './downloadBlock';
+import { classifyHost } from './hosts';
 import { absoluteUrl, cleanText, normalizeOpHtml } from './htmlNormalize';
 import type { PostAttachment } from './postAttachments';
 
@@ -129,6 +130,172 @@ export function buildGameHistoryUrl(threadUrl: string): string {
     .replace(/\/game\/?$/i, '/')
     .replace(/\/?$/, '/');
   return `${base}game-history`;
+}
+
+/** Build `/threads/.../game-downloads?platform=N` from a thread or /game URL. */
+export function buildGameDownloadsUrl(threadUrl: string, platform = 0): string {
+  const base = threadUrl
+    .replace(/\/game\/?$/i, '/')
+    .replace(/\/?$/, '/');
+  return `${base}game-downloads?platform=${platform}`;
+}
+
+/**
+ * Absolute `/game-downloads?platform=N` URL from the Overview download section.
+ * Real host links only appear after this overlay endpoint is fetched.
+ */
+export function extractGameDownloadsHref(html: string): string | null {
+  const $ = cheerio.load(html);
+  const buttonHref =
+    $('#f95gp-download a.js-f95gpDlButton[href]').first().attr('href') ??
+    $('#f95gp-download a.f95gp-dlButton[href*="game-downloads"]')
+      .first()
+      .attr('href') ??
+    $('a.js-f95gpDlButton[href*="game-downloads"]').first().attr('href') ??
+    $('a[href*="game-downloads"]').first().attr('href') ??
+    null;
+  if (buttonHref) return absoluteUrl(buttonHref);
+  const optHref =
+    $('#f95gp-download .js-f95gpDlOption[data-href]').first().attr('data-href') ??
+    $('.js-f95gpDlOption[data-href]').first().attr('data-href') ??
+    null;
+  return optHref ? absoluteUrl(optHref) : null;
+}
+
+function tabPaneLabel($: cheerio.CheerioAPI, tab: Element): string {
+  const clone = $(tab).clone();
+  clone.find('.f95gp-tabCount, .f95gp-platform-icons, svg, i').remove();
+  return cleanText(clone.text());
+}
+
+function pushDownloadLink(
+  $: cheerio.CheerioAPI,
+  el: Element,
+  out: GameDownload[],
+  seen: Set<string>,
+  meta: {
+    group: string;
+    platform: string | null;
+    kindHint: GameDownload['kindHint'];
+    allowNonDirect: boolean;
+  },
+): void {
+  const href = $(el).attr('href');
+  if (!href || href.startsWith('#')) return;
+  const url = absoluteUrl(href);
+  if (seen.has(url)) return;
+  const $a = $(el);
+  const text = cleanText($a.text());
+  const info = classifyHost(url, { text, style: $a.attr('style') });
+  if (info?.category === 'direct') {
+    seen.add(url);
+    out.push({
+      host: info.host,
+      url,
+      text: text || info.host,
+      group: meta.group,
+      edition: null,
+      platform: meta.platform,
+      part: null,
+      kindHint: meta.kindHint,
+      topLevel: meta.kindHint === 'full',
+    });
+    return;
+  }
+  if (!meta.allowNonDirect) return;
+  // Extras often link to F95 threads/mods — still surface under Extras.
+  seen.add(url);
+  out.push({
+    host: info?.host ?? 'f95zone',
+    url,
+    text: text || info?.host || url,
+    group: meta.group,
+    edition: null,
+    platform: meta.platform,
+    part: null,
+    kindHint: meta.kindHint,
+    topLevel: false,
+  });
+}
+
+function moreSectionKind(label: string): GameDownload['kindHint'] {
+  if (/\bupdate\s*only\b|\bpatch(?:es)?\b/i.test(label)) return 'patch';
+  return 'extra';
+}
+
+/**
+ * Parse f95gp `/game-downloads` overlay HTML (all platform tabs + More).
+ * XF may return a bare fragment or a full page wrapping `.f95gp-dlWindow`.
+ */
+export function parseGameDownloadsHtml(html: string): GameDownload[] {
+  let body = html;
+  const trimmed = html.trim();
+  if (trimmed.startsWith('{')) {
+    try {
+      const json = JSON.parse(trimmed) as {
+        html?: { content?: string; templateHtml?: string };
+      };
+      const nested = json.html?.content ?? json.html?.templateHtml;
+      if (typeof nested === 'string' && nested.trim()) body = nested;
+    } catch {
+      // fall through — treat as HTML
+    }
+  }
+
+  const $ = cheerio.load(body);
+  const window = $('.f95gp-dlWindow').first();
+  const tabs = (
+    window.length ? window : $('body')
+  ).find('h2.block-tabHeader a.tabs-tab, .block-tabHeader a.tabs-tab');
+  const panes = (
+    window.length ? window : $('body')
+  ).find('ul.tabPanes > li');
+  if (!tabs.length || !panes.length) return [];
+
+  const out: GameDownload[] = [];
+  const seen = new Set<string>();
+
+  tabs.each((i, tab) => {
+    const pane = panes.get(i);
+    if (!pane) return;
+    const label = tabPaneLabel($, tab);
+    if (!label) return;
+    const $pane = $(pane);
+
+    if (/^more\s+downloads$/i.test(label)) {
+      $pane.find('details.f95gp-dl').each((_, details) => {
+        const $d = $(details);
+        const sectionLabel =
+          cleanText($d.find('.f95gp-dl-label').first().text()) ||
+          cleanText($d.find('summary').first().text()) ||
+          'Extras';
+        const kindHint = moreSectionKind(sectionLabel);
+        $d.find('.f95gp-dl-body a[href]').each((__, a) => {
+          pushDownloadLink($, a, out, seen, {
+            group: sectionLabel,
+            platform: null,
+            kindHint,
+            allowNonDirect: true,
+          });
+        });
+      });
+      return;
+    }
+
+    $pane.find('.f95gp-hostButtons a[href], a.link[href]').each((_, a) => {
+      // Prefer host button anchors; skip nested junk if any.
+      const $a = $(a);
+      if ($a.closest('details.f95gp-dl').length) return;
+      pushDownloadLink($, a, out, seen, {
+        group: label,
+        platform: label,
+        kindHint: 'full',
+        allowNonDirect: false,
+      });
+    });
+  });
+
+  return out;
 }
 
 export type GameHistoryRow = {

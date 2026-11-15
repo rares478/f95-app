@@ -6,6 +6,7 @@ import { log } from '../../logger';
 import { classifyHost } from './hosts';
 import { assertNotCloudflareChallenge } from '../../shared/cloudflare';
 import { F95_BASE } from '../../shared/constants';
+import { buildXfAjaxUrl, loadXfToken } from '../f95/alerts';
 import { extractChangelogHtml } from './changelog';
 import { absoluteUrl, cleanText, normalizeOpHtml } from './htmlNormalize';
 import {
@@ -43,9 +44,12 @@ import {
   type PostAttachment,
 } from './postAttachments';
 import {
+  buildGameDownloadsUrl,
   buildGameHistoryUrl,
   buildGamePageUrl,
+  extractGameDownloadsHref,
   isF95GamePageHtml,
+  parseGameDownloadsHtml,
   parseGameHistoryHtml,
   parseGamePage,
   synthesizeChangelogHtml,
@@ -187,9 +191,102 @@ export class GameClient {
         log(`[game] game-history skipped: ${String(err)}`);
         detail.changelogHtml = null;
       }
+      // Host links live in /game-downloads overlay, not inline on /game.
+      if (detail.downloads.length === 0) {
+        const dlHref =
+          extractGameDownloadsHref(res.body) ??
+          buildGameDownloadsUrl(finalUrl);
+        try {
+          const requestUri = (() => {
+            try {
+              return new URL(finalUrl).pathname || '/';
+            } catch {
+              return '/';
+            }
+          })();
+          const dlHtml = await this.fetchGameDownloadsHtml(dlHref, requestUri);
+          const parsed = parseGameDownloadsHtml(dlHtml);
+          if (parsed.length > 0) {
+            detail.downloads = parsed;
+          } else {
+            log(
+              `[game] game-downloads empty (${dlHtml.length} bytes) — login required?`,
+            );
+          }
+        } catch (err) {
+          log(`[game] game-downloads skipped: ${String(err)}`);
+        }
+      }
       return detail;
     }
     return parseThread(res.body, finalUrl);
+  }
+
+  /**
+   * F95 serves download host pills in an XF overlay. Prefer the AJAX JSON
+   * payload (same as watch overlays); fall back to a plain document GET.
+   */
+  private async fetchGameDownloadsHtml(
+    downloadsUrl: string,
+    requestUri: string,
+  ): Promise<string> {
+    const path = downloadsUrl.startsWith(F95_BASE)
+      ? downloadsUrl.slice(F95_BASE.length)
+      : downloadsUrl.startsWith('/')
+        ? downloadsUrl
+        : `/${downloadsUrl}`;
+
+    try {
+      const xfToken = await loadXfToken(this.http);
+      const ajaxUrl = buildXfAjaxUrl(path, xfToken, requestUri);
+      log(`[game] GET downloads ${path} (ajax)`);
+      const res = await this.http.get(ajaxUrl, {
+        headers: {
+          accept: 'application/json, text/javascript, */*; q=0.01',
+          'x-requested-with': 'XMLHttpRequest',
+          referer: `${F95_BASE}${requestUri}`,
+        },
+      });
+      assertNotCloudflareChallenge(res.body, res.headers, {
+        message: 'Cloudflare challenge encountered on game-downloads fetch',
+      });
+      if (res.url.includes('/login')) {
+        throw new RpcError(RPC_ERROR.NOT_INITIALIZED, 'not logged in');
+      }
+      if (res.status < 400) {
+        const nested = extractXfOverlayHtml(res.body);
+        if (nested) return nested;
+        if (
+          /f95gp-dlWindow|f95gp-hostButtons|js-f95gpDl/i.test(res.body)
+        ) {
+          return res.body;
+        }
+      }
+    } catch (err) {
+      log(`[game] game-downloads ajax skipped: ${String(err)}`);
+    }
+
+    log(`[game] GET downloads ${downloadsUrl}`);
+    const plain = await this.http.get(downloadsUrl, {
+      headers: {
+        accept: 'text/html',
+        referer: `${F95_BASE}${requestUri}`,
+      },
+    });
+    assertNotCloudflareChallenge(plain.body, plain.headers, {
+      message: 'Cloudflare challenge encountered on game-downloads fetch',
+    });
+    if (plain.url.includes('/login')) {
+      throw new RpcError(RPC_ERROR.NOT_INITIALIZED, 'not logged in');
+    }
+    if (plain.status >= 400) {
+      throw new RpcError(
+        RPC_ERROR.INTERNAL,
+        `game-downloads HTTP ${plain.status}`,
+      );
+    }
+    const nested = extractXfOverlayHtml(plain.body);
+    return nested ?? plain.body;
   }
 
   async getPosts(threadId: string, page = 1): Promise<ThreadPostsPage> {
@@ -895,6 +992,26 @@ function isElement(n: AnyNode): n is Element {
 
 function isText(n: AnyNode): n is Text {
   return n.type === 'text';
+}
+
+/** Pull overlay HTML from an XF `_xfResponseType=json` body when present. */
+function extractXfOverlayHtml(body: string): string | null {
+  const raw = body.trim();
+  if (!raw.startsWith('{')) return null;
+  try {
+    const parsed = JSON.parse(raw) as Record<string, unknown>;
+    const html = parsed.html;
+    if (html && typeof html === 'object') {
+      const content = (html as Record<string, unknown>).content;
+      if (typeof content === 'string' && content.trim()) return content;
+    }
+    if (typeof parsed.html === 'string' && parsed.html.trim()) {
+      return parsed.html;
+    }
+  } catch {
+    return null;
+  }
+  return null;
 }
 
 /** Test-only seam for OP parse assertions (GameDetail.authorUserId). */

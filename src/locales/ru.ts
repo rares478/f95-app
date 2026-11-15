@@ -987,6 +987,7 @@ const ru: Record<string, string> = {
   'libdetail.changelog.emptyNotes': 'Нет описания изменений для этой версии.',
   'libdetail.changelog.newer': 'Новее',
   'libdetail.changelog.older': 'Старее',
+  'libdetail.changelog.position': '{current} из {total}',
   'libdetail.changelog.loading': 'Загрузка списка изменений…',
   'libdetail.changelog.loadingMore': 'Загрузка следующих обновлений…',
   'libdetail.notes.placeholder': 'Личные заметки, расположение сейвов, подсказки…',

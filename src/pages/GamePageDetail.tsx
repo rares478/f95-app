@@ -2,9 +2,12 @@ import { useEffect, useState } from 'react';
 import { useNavigate } from 'react-router-dom';
 import DOMPurify from 'dompurify';
 import { openUrl } from '@tauri-apps/plugin-opener';
+import { ChangelogEntryDialog } from '../components/game/ChangelogEntryDialog';
 import { GameDescription } from '../components/game/GameDescription';
 import { ScreenshotGallery } from '../components/game/ScreenshotGallery';
 import { DownloadLinks } from '../components/game/DownloadLinks';
+import { parseChangelogHtml } from '../lib/gameChangelog/parseChangelogHtml';
+import type { GameChangelogEntry } from '../lib/gameChangelog/types';
 import {
   GameDetailAside,
   GameDetailBackBar,
@@ -79,11 +82,20 @@ export function GamePageDetail({
   const { t } = useT();
   const navigate = useNavigate();
   const [localInLibrary, setLocalInLibrary] = useState(inLibrary);
+  const [changelogEntries, setChangelogEntries] = useState<
+    GameChangelogEntry[] | null
+  >(null);
+  const [changelogIdx, setChangelogIdx] = useState<number | null>(null);
   const gp = g.gamePage ?? null;
 
   useEffect(() => {
     setLocalInLibrary(inLibrary);
   }, [inLibrary]);
+
+  useEffect(() => {
+    setChangelogEntries(null);
+    setChangelogIdx(null);
+  }, [g.threadId, g.changelogHtml]);
 
   const displayPrefixes = normalizeDetailPrefixes(g.prefixes, g.version);
   const plotHtml = DOMPurify.sanitize(g.descriptionHtml, PURIFY_OPTS);
@@ -92,6 +104,20 @@ export function GamePageDetail({
   const folds = gp?.folds ?? [];
   const tagGroups = gp?.tagGroups ?? [];
   const stats = gp?.stats ?? null;
+
+  function openFullChangelog() {
+    const href = whatsNew?.historyHref ?? null;
+    const html = g.changelogHtml?.trim() ?? '';
+    if (html) {
+      const parsed = parseChangelogHtml(html);
+      if (parsed.ok && parsed.entries.length > 0) {
+        setChangelogEntries(parsed.entries);
+        setChangelogIdx(0);
+        return;
+      }
+    }
+    if (href) void openUrl(href);
+  }
 
   const orderedFields = FIELD_ORDER.filter((k) => g.fields[k]);
   const extraFields = Object.entries(g.fields).filter(
@@ -228,17 +254,24 @@ export function GamePageDetail({
                   <li key={`${i}-${item.slice(0, 24)}`}>{item}</li>
                 ))}
               </ul>
-              {whatsNew.historyHref && (
+              {(whatsNew.historyHref || g.changelogHtml) && (
                 <div className="game-page-whats-new-actions">
-                  <GameDetailBtnSecondary
-                    onClick={() => void openUrl(whatsNew.historyHref!)}
-                  >
+                  <GameDetailBtnSecondary onClick={openFullChangelog}>
                     {t('gamedetail.section.fullChangelog')}
                   </GameDetailBtnSecondary>
                 </div>
               )}
             </GameDetailSection>
           )}
+
+          {changelogEntries && changelogIdx != null ? (
+            <ChangelogEntryDialog
+              entries={changelogEntries}
+              selectedIdx={changelogIdx}
+              onSelectIdx={setChangelogIdx}
+              latestIdx={0}
+            />
+          ) : null}
 
           {folds.length > 0 && (
             <div className="game-page-folds">

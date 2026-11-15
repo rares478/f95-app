@@ -992,6 +992,7 @@ const pt: Record<string, string> = {
   'libdetail.changelog.emptyNotes': 'Sem notas de atualização para esta versão.',
   'libdetail.changelog.newer': 'Mais recente',
   'libdetail.changelog.older': 'Mais antiga',
+  'libdetail.changelog.position': '{current} de {total}',
   'libdetail.changelog.loading': 'A carregar changelog…',
   'libdetail.changelog.loadingMore': 'A carregar mais atualizações…',
   'libdetail.notes.placeholder': 'Anotações pessoais, save locations, dicas…',

@@ -7,6 +7,7 @@ import {
   type CSSProperties,
 } from 'react';
 import DOMPurify from 'dompurify';
+import { ChangelogEntryDialog } from '../game/ChangelogEntryDialog';
 import { GameDescription } from '../game/GameDescription';
 import { parseChangelogHtmlChunked } from '../../lib/gameChangelog/parseChangelogHtml';
 import { matchInstalledVersion } from '../../lib/gameChangelog/matchInstalledVersion';
@@ -51,7 +52,6 @@ export function LibraryChangelogTimeline({
   const [preambleHtml, setPreambleHtml] = useState('');
   const [entries, setEntries] = useState<GameChangelogEntry[]>([]);
   const [selectedIdx, setSelectedIdx] = useState<number | null>(null);
-  const dialogBodyRef = useRef<HTMLDivElement>(null);
   const onParsedRef = useRef(onParsed);
   onParsedRef.current = onParsed;
 
@@ -104,34 +104,6 @@ export function LibraryChangelogTimeline({
     onParsedRef.current?.();
   }, [phase]);
 
-  useLayoutEffect(() => {
-    if (selectedIdx == null) return;
-    dialogBodyRef.current?.scrollTo({ top: 0 });
-  }, [selectedIdx]);
-
-  useEffect(() => {
-    if (selectedIdx == null || phase !== 'ok') return;
-    const last = entries.length - 1;
-    function onKey(e: KeyboardEvent) {
-      if (e.key === 'Escape') {
-        e.preventDefault();
-        setSelectedIdx(null);
-        return;
-      }
-      if (e.key === 'ArrowLeft' || e.key === 'ArrowUp') {
-        e.preventDefault();
-        setSelectedIdx((i) => (i != null && i > 0 ? i - 1 : i));
-        return;
-      }
-      if (e.key === 'ArrowRight' || e.key === 'ArrowDown') {
-        e.preventDefault();
-        setSelectedIdx((i) => (i != null && i < last ? i + 1 : i));
-      }
-    }
-    window.addEventListener('keydown', onKey);
-    return () => window.removeEventListener('keydown', onKey);
-  }, [selectedIdx, phase, entries.length]);
-
   if (phase === 'fallback') {
     return (
       <GameDescription
@@ -155,14 +127,6 @@ export function LibraryChangelogTimeline({
     ? matchInstalledVersion(entries, currentVersion)
     : -1;
   const latestIdx = !isInstalled && entries.length > 0 ? 0 : -1;
-  const selected =
-    selectedIdx != null ? entries[selectedIdx] ?? null : null;
-  const selectedBadge =
-    selectedIdx != null && selectedIdx === installedIdx
-      ? ('installed' as const)
-      : selectedIdx != null && selectedIdx === latestIdx
-        ? ('latest' as const)
-        : null;
 
   return (
     <div className="library-changelog-timeline">
@@ -222,98 +186,14 @@ export function LibraryChangelogTimeline({
           {t('libdetail.changelog.loadingMore')}
         </p>
       ) : null}
-      {selected ? (
-        <div
-          className="app-dialog-overlay"
-          role="presentation"
-          onClick={() => setSelectedIdx(null)}
-        >
-          <div
-            className="app-dialog library-changelog-entry-dialog"
-            role="dialog"
-            aria-modal="true"
-            aria-labelledby="library-changelog-entry-title"
-            onClick={(e) => e.stopPropagation()}
-          >
-            <header className="app-dialog-header">
-              <div className="app-dialog-header-text">
-                <h2
-                  id="library-changelog-entry-title"
-                  className="app-dialog-title"
-                >
-                  {selected.title}
-                </h2>
-                {selectedBadge === 'installed' ? (
-                  <p className="library-changelog-entry-dialog-badge">
-                    {t('libdetail.changelog.installed')}
-                  </p>
-                ) : selectedBadge === 'latest' ? (
-                  <p className="library-changelog-entry-dialog-badge">
-                    {t('libdetail.changelog.latest')}
-                  </p>
-                ) : null}
-              </div>
-              <button
-                type="button"
-                className="app-dialog-close"
-                aria-label={t('common.close')}
-                onClick={() => setSelectedIdx(null)}
-              >
-                ×
-              </button>
-            </header>
-            <div
-              ref={dialogBodyRef}
-              className="library-changelog-entry-dialog-body"
-            >
-              {snippetFromHtml(selected.bodyHtml) ? (
-                <GameDescription
-                  html={DOMPurify.sanitize(selected.bodyHtml, PURIFY)}
-                  className="libdetail-changelog-body"
-                  style={BODY_STYLE}
-                />
-              ) : (
-                <p className="library-changelog-empty-notes">
-                  {t('libdetail.changelog.emptyNotes')}
-                </p>
-              )}
-            </div>
-            {selectedIdx != null && entries.length > 1 ? (
-              <footer className="library-changelog-entry-nav">
-                <button
-                  type="button"
-                  className="library-changelog-entry-nav-btn"
-                  disabled={selectedIdx <= 0}
-                  onClick={() => setSelectedIdx(selectedIdx - 1)}
-                >
-                  <span className="library-changelog-entry-nav-dir">
-                    {t('libdetail.changelog.newer')}
-                  </span>
-                  {selectedIdx > 0 ? (
-                    <span className="library-changelog-entry-nav-title">
-                      {entries[selectedIdx - 1].title}
-                    </span>
-                  ) : null}
-                </button>
-                <button
-                  type="button"
-                  className="library-changelog-entry-nav-btn library-changelog-entry-nav-btn--next"
-                  disabled={selectedIdx >= entries.length - 1}
-                  onClick={() => setSelectedIdx(selectedIdx + 1)}
-                >
-                  <span className="library-changelog-entry-nav-dir">
-                    {t('libdetail.changelog.older')}
-                  </span>
-                  {selectedIdx < entries.length - 1 ? (
-                    <span className="library-changelog-entry-nav-title">
-                      {entries[selectedIdx + 1].title}
-                    </span>
-                  ) : null}
-                </button>
-              </footer>
-            ) : null}
-          </div>
-        </div>
+      {selectedIdx != null ? (
+        <ChangelogEntryDialog
+          entries={entries}
+          selectedIdx={selectedIdx}
+          onSelectIdx={setSelectedIdx}
+          latestIdx={latestIdx}
+          installedIdx={installedIdx}
+        />
       ) : null}
     </div>
   );
