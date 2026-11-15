@@ -11,6 +11,7 @@ import type {
   ThreadPostsPage,
   ThreadReplyResult,
 } from '../types/threadPosts';
+import type { ThreadReviewsPage, ThreadReviewsQuery } from '../types/threadReviews';
 import type { CbzPreviewResult, InstallMediaIndex } from '../types/media';
 import type { F95AlertsListResult, F95AlertsPopupResult } from '../types/alerts';
 import type {
@@ -139,6 +140,21 @@ export async function forumSearchFormOptions(): Promise<ForumSearchFormOptions> 
 
 export async function threadPosts(threadId: string, page = 1): Promise<ThreadPostsPage> {
   return invoke<ThreadPostsPage>('thread_posts', { threadId, page });
+}
+
+export async function threadReviews(
+  threadId: string,
+  query: ThreadReviewsQuery = {},
+): Promise<ThreadReviewsPage> {
+  return invoke<ThreadReviewsPage>('thread_reviews', {
+    threadId,
+    page: query.page,
+    sort: query.sort,
+    stars: query.stars,
+    mention: query.mention,
+    version: query.version,
+    recent: query.recent,
+  });
 }
 
 export async function threadReply(

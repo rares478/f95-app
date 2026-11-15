@@ -162,6 +162,10 @@ impl SidecarClient {
             .await
     }
 
+    pub async fn thread_reviews(&self, params: Value) -> Result<Value, AppError> {
+        self.inner.call("threadReviews", params).await
+    }
+
     pub async fn forum_search(&self, params: Value) -> Result<Value, AppError> {
         self.inner.call("forumSearch", params).await
     }

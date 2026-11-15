@@ -55,6 +55,18 @@ export const RPC_METHODS = {
     params: { threadId: 'string', page: 'number?' },
     result: 'unknown',
   },
+  threadReviews: {
+    params: {
+      threadId: 'string',
+      page: 'number?',
+      sort: 'string?',
+      stars: 'number?',
+      mention: 'string?',
+      version: 'string?',
+      recent: 'boolean?',
+    },
+    result: 'unknown',
+  },
   threadReply: {
     params: { threadId: 'string', message: 'string' },
     result: { threadId: 'string', postId: 'string|null', page: 'number|null' },

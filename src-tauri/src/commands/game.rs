@@ -20,6 +20,41 @@ pub async fn thread_posts(
 }
 
 #[tauri::command]
+pub async fn thread_reviews(
+    state: State<'_, AppState>,
+    thread_id: String,
+    page: Option<u32>,
+    sort: Option<String>,
+    stars: Option<u32>,
+    mention: Option<String>,
+    version: Option<String>,
+    recent: Option<bool>,
+) -> Result<Value, AppError> {
+    let client = ensure_sidecar(&state).await?;
+    let mut params = serde_json::Map::new();
+    params.insert("threadId".into(), Value::String(thread_id));
+    if let Some(p) = page {
+        params.insert("page".into(), Value::from(p));
+    }
+    if let Some(s) = sort {
+        params.insert("sort".into(), Value::String(s));
+    }
+    if let Some(st) = stars {
+        params.insert("stars".into(), Value::from(st));
+    }
+    if let Some(m) = mention {
+        params.insert("mention".into(), Value::String(m));
+    }
+    if let Some(v) = version {
+        params.insert("version".into(), Value::String(v));
+    }
+    if let Some(r) = recent {
+        params.insert("recent".into(), Value::Bool(r));
+    }
+    client.thread_reviews(Value::Object(params)).await
+}
+
+#[tauri::command]
 pub async fn thread_reply(
     state: State<'_, AppState>,
     thread_id: String,

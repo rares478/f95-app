@@ -1,5 +1,6 @@
 import type { SamFilters } from '../../domain/sam/client';
 import type { AppContext } from '../../domain/context';
+import type { ReviewSort } from '../../domain/game/reviews';
 import { RPC_ERROR, RpcError, type RpcHandler } from '../../rpc';
 
 export function createSamHandlers(ctx: AppContext): Record<string, RpcHandler> {
@@ -32,6 +33,27 @@ export function createGameHandlers(ctx: AppContext): Record<string, RpcHandler> 
         throw new RpcError(RPC_ERROR.INVALID_PARAMS, 'page must be >= 1');
       }
       return ctx.getGame().getPosts(threadId, page);
+    },
+    threadReviews: async (p) => {
+      const threadId = String(p?.threadId ?? p?.thread_id ?? '');
+      if (!threadId) throw new RpcError(RPC_ERROR.INVALID_PARAMS, 'threadId required');
+      const page = p?.page != null ? Number(p.page) : 1;
+      if (!Number.isFinite(page) || page < 1) {
+        throw new RpcError(RPC_ERROR.INVALID_PARAMS, 'page must be >= 1');
+      }
+      const starsRaw = p?.stars != null ? Number(p.stars) : undefined;
+      const stars =
+        starsRaw === 1 || starsRaw === 2 || starsRaw === 3 || starsRaw === 4 || starsRaw === 5
+          ? starsRaw
+          : undefined;
+      return ctx.getGame().getReviews(threadId, {
+        page,
+        sort: typeof p?.sort === 'string' ? (p.sort as ReviewSort) : undefined,
+        stars,
+        mention: typeof p?.mention === 'string' ? p.mention : undefined,
+        version: typeof p?.version === 'string' ? p.version : undefined,
+        recent: Boolean(p?.recent),
+      });
     },
     threadReply: async (p) => {
       const threadId = String(p?.threadId ?? p?.thread_id ?? '');

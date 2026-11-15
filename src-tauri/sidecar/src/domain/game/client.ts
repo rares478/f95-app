@@ -17,6 +17,12 @@ import {
   type ThreadPostsPage,
 } from './posts';
 import {
+  buildThreadReviewsUrl,
+  parseThreadReviewsPage,
+  type ThreadReviewsPage,
+  type ThreadReviewsQuery,
+} from './reviews';
+import {
   buildBbcodePreviewForm,
   parseBbcodePreviewResponse,
   type BbcodePreviewResult,
@@ -149,6 +155,37 @@ export class GameClient {
       );
     }
     return parseThreadPostsPage(res.body, { threadId: id, page });
+  }
+
+  async getReviews(
+    threadId: string,
+    query: ThreadReviewsQuery = {},
+  ): Promise<ThreadReviewsPage> {
+    const id = String(threadId).trim();
+    if (!/^\d+$/.test(id)) {
+      throw new RpcError(RPC_ERROR.INVALID_PARAMS, 'threadId must be numeric');
+    }
+    const page = Number(query.page ?? 1);
+    if (!Number.isFinite(page) || page < 1) {
+      throw new RpcError(RPC_ERROR.INVALID_PARAMS, 'page must be >= 1');
+    }
+    const url = buildThreadReviewsUrl(id, { ...query, page });
+    log(`[game] GET reviews ${url}`);
+    const res = await this.http.get(url);
+    assertNotCloudflareChallenge(res.body, res.headers, {
+      message: 'Cloudflare challenge encountered on thread reviews fetch',
+    });
+    if (res.status >= 400) {
+      throw new RpcError(
+        RPC_ERROR.INTERNAL,
+        `thread reviews HTTP ${res.status} for ${url}`,
+      );
+    }
+    return parseThreadReviewsPage(res.body, {
+      threadId: id,
+      page,
+      query: { ...query, page },
+    });
   }
 
   async reply(threadId: string, message: string): Promise<ThreadReplyResult> {
