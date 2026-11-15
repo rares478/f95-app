@@ -42,9 +42,18 @@ import {
   parseMessageAttachments,
   type PostAttachment,
 } from './postAttachments';
+import type { GamePagePayload } from './gamePage';
 
 export type { GameDownload } from './downloadBlock';
 export type { PostAttachment } from './postAttachments';
+export type {
+  GamePagePayload,
+  GamePageWhatsNew,
+  GamePageFold,
+  GamePageTagGroup,
+  GamePageStats,
+  GameDetailLayout,
+} from './gamePage';
 
 const BASE = F95_BASE;
 
@@ -81,7 +90,7 @@ export interface GameDetail {
   /** Presentation layout. Classic OP vs F95 game page. Defaults to classic. */
   layout: 'classic' | 'gamePage';
   /** Store-only structured sections when layout is gamePage. */
-  gamePage?: unknown | null;
+  gamePage?: GamePagePayload | null;
 }
 export interface GamePrefix {
   name: string;
