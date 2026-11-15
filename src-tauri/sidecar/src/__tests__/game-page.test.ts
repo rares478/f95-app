@@ -4,6 +4,7 @@ import { describe, expect, it } from 'vitest';
 import { GameClient } from '../domain/game/client';
 import {
   buildGameHistoryUrl,
+  buildGamePageUrl,
   isF95GamePageHtml,
   parseGameHistoryHtml,
   parseGamePage,
@@ -14,6 +15,20 @@ const fix = (name: string) =>
   readFileSync(join(__dirname, 'fixtures', name), 'utf8');
 
 const okHeaders: Record<string, string> = {};
+
+describe('buildGamePageUrl', () => {
+  it('appends /game and is idempotent', () => {
+    expect(buildGamePageUrl('https://f95zone.to/threads/68105/')).toBe(
+      'https://f95zone.to/threads/68105/game',
+    );
+    expect(buildGamePageUrl('https://f95zone.to/threads/68105')).toBe(
+      'https://f95zone.to/threads/68105/game',
+    );
+    expect(buildGamePageUrl('https://f95zone.to/threads/68105/game')).toBe(
+      'https://f95zone.to/threads/68105/game',
+    );
+  });
+});
 
 describe('buildGameHistoryUrl', () => {
   it('appends game-history with trailing slash normalization', () => {
@@ -26,6 +41,15 @@ describe('buildGameHistoryUrl', () => {
     expect(
       buildGameHistoryUrl('https://f95zone.to/threads/slug.68105/'),
     ).toBe('https://f95zone.to/threads/slug.68105/game-history');
+  });
+
+  it('strips /game before appending game-history', () => {
+    expect(
+      buildGameHistoryUrl('https://f95zone.to/threads/68105/game'),
+    ).toBe('https://f95zone.to/threads/68105/game-history');
+    expect(
+      buildGameHistoryUrl('https://f95zone.to/threads/68105/game/'),
+    ).toBe('https://f95zone.to/threads/68105/game-history');
   });
 });
 
@@ -62,6 +86,7 @@ describe('isF95GamePageHtml', () => {
 
 describe('GameClient.getDetail history isolation', () => {
   const threadUrl = 'https://f95zone.to/threads/68105/';
+  const gameUrl = 'https://f95zone.to/threads/68105/game';
   const pageHtml = fix('thread-game-page-desert-stalker.html');
 
   function makeHttp(history: {
@@ -84,6 +109,15 @@ describe('GameClient.getDetail history isolation', () => {
             headers: history.headers ?? okHeaders,
           };
         }
+        // Prefer /game — return game-page HTML for that URL
+        if (url.includes('/game')) {
+          return {
+            status: 200,
+            url: gameUrl,
+            body: pageHtml,
+            headers: okHeaders,
+          };
+        }
         return {
           status: 200,
           url: threadUrl,
@@ -94,6 +128,52 @@ describe('GameClient.getDetail history isolation', () => {
     };
     return http;
   }
+
+  it('fetches /game first then game-history', async () => {
+    const http = makeHttp({
+      body: fix('thread-game-history-desert-stalker.html'),
+    });
+    const detail = await new GameClient(http as never).getDetail('68105');
+    expect(detail.layout).toBe('gamePage');
+    expect(http.gets[0]?.url).toBe(gameUrl);
+    expect(http.gets.some((g) => g.url.endsWith('/game-history'))).toBe(true);
+    expect(http.gets.some((g) => g.url === threadUrl)).toBe(false);
+  });
+
+  it('falls back to classic thread URL when /game is missing', async () => {
+    const classicHtml =
+      '<html data-template="thread_view"><body><article class="message--side"><div class="bbWrapper">OP</div></article></body></html>';
+    const gets: { url: string }[] = [];
+    const http = {
+      gets,
+      get: async (url: string) => {
+        gets.push({ url });
+        if (url.endsWith('/game')) {
+          return {
+            status: 404,
+            url,
+            body: 'Not Found',
+            headers: okHeaders,
+          };
+        }
+        return {
+          status: 200,
+          url: threadUrl,
+          body: classicHtml,
+          headers: okHeaders,
+        };
+      },
+    };
+    // parseThread may throw on minimal HTML — only assert URL sequence + that
+    // we attempted classic after /game 404.
+    try {
+      await new GameClient(http as never).getDetail('68105');
+    } catch {
+      // parse errors ok for this stub; URL order is what we care about
+    }
+    expect(gets[0]?.url).toBe(gameUrl);
+    expect(gets[1]?.url).toBe(threadUrl);
+  });
 
   it('keeps layout gamePage and changelogHtml null when history GET throws', async () => {
     const http = makeHttp({ throw: new Error('network down') });

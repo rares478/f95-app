@@ -14,10 +14,24 @@ export function seedGameDetail(detail: GameDetail): void {
   cache.set(detail.threadId, detail);
 }
 
+/** Drop one cached detail (or all) so the next load hits the network. */
+export function invalidateGameDetail(threadId?: string): void {
+  if (threadId == null) {
+    cache.clear();
+    return;
+  }
+  cache.delete(threadId);
+}
+
 /** Load game detail, deduping concurrent requests and reusing cache hits. */
-export async function loadGameDetail(threadId: string): Promise<GameDetail> {
-  const cached = cache.get(threadId);
-  if (cached) return cached;
+export async function loadGameDetail(
+  threadId: string,
+  opts?: { force?: boolean },
+): Promise<GameDetail> {
+  if (!opts?.force) {
+    const cached = cache.get(threadId);
+    if (cached) return cached;
+  }
 
   let pending = inflight.get(threadId);
   if (!pending) {

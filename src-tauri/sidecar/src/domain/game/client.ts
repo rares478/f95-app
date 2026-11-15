@@ -44,6 +44,7 @@ import {
 } from './postAttachments';
 import {
   buildGameHistoryUrl,
+  buildGamePageUrl,
   isF95GamePageHtml,
   parseGameHistoryHtml,
   parseGamePage,
@@ -143,18 +144,31 @@ export class GameClient {
 
   async getDetail(threadIdOrUrl: string): Promise<GameDetail> {
     const url = normalizeThreadUrl(threadIdOrUrl);
-    log(`[game] GET ${url}`);
-    const res = await this.http.get(url);
-    assertNotCloudflareChallenge(res.body, res.headers, {
-      message: 'Cloudflare challenge encountered on thread fetch',
-    });
-    if (res.status >= 400) {
-      throw new RpcError(
-        RPC_ERROR.INTERNAL,
-        `thread fetch HTTP ${res.status} for ${url}`,
-      );
+    // F95 Game Page lives at /threads/{id}/game — root /threads/{id}/ is still
+    // the classic Discussion OP for converted threads (e.g. Desert Stalker).
+    const gameUrl = buildGamePageUrl(url);
+    log(`[game] GET ${gameUrl}`);
+    let res = await this.http.get(gameUrl);
+    let usedGameUrl = true;
+    if (res.status >= 400 || !isF95GamePageHtml(res.body)) {
+      usedGameUrl = false;
+      log(`[game] GET ${url} (classic fallback)`);
+      res = await this.http.get(url);
+      assertNotCloudflareChallenge(res.body, res.headers, {
+        message: 'Cloudflare challenge encountered on thread fetch',
+      });
+      if (res.status >= 400) {
+        throw new RpcError(
+          RPC_ERROR.INTERNAL,
+          `thread fetch HTTP ${res.status} for ${url}`,
+        );
+      }
+    } else {
+      assertNotCloudflareChallenge(res.body, res.headers, {
+        message: 'Cloudflare challenge encountered on game page fetch',
+      });
     }
-    const finalUrl = res.url || url;
+    const finalUrl = res.url || (usedGameUrl ? gameUrl : url);
     if (isF95GamePageHtml(res.body)) {
       const detail = parseGamePage(res.body, finalUrl);
       try {

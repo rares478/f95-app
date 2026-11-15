@@ -129,21 +129,24 @@ export function GameDetailPage() {
     if (!threadId) return;
     let cancelled = false;
 
+    // Paint cache immediately, then always revalidate — classic prefetch can
+    // stick after a thread gains an F95 /game page (e.g. Desert Stalker).
     const cached = peekGameDetail(threadId);
     if (cached) {
       setState({ kind: 'ready', data: cached });
     } else {
       setState({ kind: 'loading' });
-      loadGameDetail(threadId)
-        .then((data) => {
-          if (cancelled) return;
-          setState({ kind: 'ready', data });
-        })
-        .catch((err) => {
-          if (cancelled) return;
-          setState({ kind: 'error', message: formatIpcError(err) });
-        });
     }
+    loadGameDetail(threadId, { force: true })
+      .then((data) => {
+        if (cancelled) return;
+        setState({ kind: 'ready', data });
+      })
+      .catch((err) => {
+        if (cancelled) return;
+        if (cached) return; // keep stale paint if refresh fails
+        setState({ kind: 'error', message: formatIpcError(err) });
+      });
 
     library
       .isInLibrary(threadId)

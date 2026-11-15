@@ -112,11 +112,22 @@ export function isF95GamePageHtml(html: string): boolean {
   return false;
 }
 
+/** Prefer F95 Overview game page: `/threads/{id}/` → `/threads/{id}/game`. */
+export function buildGamePageUrl(threadUrl: string): string {
+  // https://f95zone.to/threads/68105/ → .../threads/68105/game
+  // Already on /game → leave as-is
+  const trimmed = threadUrl.replace(/\/+$/, '');
+  if (/\/game$/i.test(trimmed)) return trimmed;
+  return `${trimmed}/game`;
+}
+
 /** Append `/game-history` to a thread URL (with or without trailing slash). */
 export function buildGameHistoryUrl(threadUrl: string): string {
   // https://f95zone.to/threads/68105/ → .../threads/68105/game-history
-  // https://f95zone.to/threads/slug.68105/ → .../game-history
-  const base = threadUrl.replace(/\/?$/, '/');
+  // https://f95zone.to/threads/slug.68105/game → .../game-history (strip /game)
+  const base = threadUrl
+    .replace(/\/game\/?$/i, '/')
+    .replace(/\/?$/, '/');
   return `${base}game-history`;
 }
 
