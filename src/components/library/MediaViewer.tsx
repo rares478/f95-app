@@ -622,7 +622,7 @@ function PdfView({ path }: { path: string }) {
     let cancelled = false;
     setCanvasReady(false);
     pdfjs
-      .getDocument(toAssetUrl(path))
+      .getDocument({ url: toAssetUrl(path) })
       .promise.then(async (doc) => {
         if (cancelled) return;
         setNumPages(doc.numPages);

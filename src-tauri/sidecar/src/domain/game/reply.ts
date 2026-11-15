@@ -124,8 +124,9 @@ export function parseThreadReplyResponse(args: {
   const fromFinal = args.finalUrl ?? '';
   const postId =
     extractPostIdFromFinal(fromFinal) ??
-    (raw.match(/\/posts\/(\d+)/)?.[1] ?? null) ??
-    (raw.match(/#post-(\d+)/i)?.[1] ?? null);
+    raw.match(/\/posts\/(\d+)/)?.[1] ??
+    raw.match(/#post-(\d+)/i)?.[1] ??
+    null;
   if (/login/i.test(fromFinal)) {
     throw new RpcError(RPC_ERROR.NOT_INITIALIZED, 'not logged in');
   }

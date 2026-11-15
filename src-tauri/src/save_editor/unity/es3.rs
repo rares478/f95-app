@@ -6,7 +6,7 @@
 
 use crate::error::AppError;
 use aes::Aes128;
-use cbc::cipher::{block_padding::Pkcs7, BlockDecryptMut, BlockEncryptMut, KeyIvInit};
+use cbc::cipher::{block_padding::Pkcs7, BlockModeDecrypt, BlockModeEncrypt, KeyIvInit};
 use cbc::{Decryptor, Encryptor};
 use flate2::read::GzDecoder;
 use pbkdf2::pbkdf2_hmac;
@@ -55,7 +55,7 @@ pub fn decrypt_es3(bytes: &[u8], password: &str) -> Result<String, AppError> {
         .map_err(|_| AppError::keyed(DECRYPT_ERR))?;
     let mut buf = ciphertext.to_vec();
     let plain = decryptor
-        .decrypt_padded_mut::<Pkcs7>(&mut buf)
+        .decrypt_padded::<Pkcs7>(&mut buf)
         .map_err(|_| AppError::keyed(DECRYPT_ERR))?;
 
     let uncompressed = maybe_gunzip(plain)?;
@@ -65,7 +65,7 @@ pub fn decrypt_es3(bytes: &[u8], password: &str) -> Result<String, AppError> {
 /// Encrypt JSON as ES3 AES stream (random IV prefix + ciphertext).
 pub fn encrypt_es3(json: &str, password: &str) -> Result<Vec<u8>, AppError> {
     let mut iv = [0u8; IV_LEN];
-    getrandom::getrandom(&mut iv).map_err(|e| AppError::Io(format!("es3 iv: {e}")))?;
+    getrandom::fill(&mut iv).map_err(|e| AppError::Io(format!("es3 iv: {e}")))?;
 
     let key = derive_key(password, &iv);
     let encryptor = Aes128CbcEnc::new_from_slices(&key, &iv)
@@ -75,7 +75,7 @@ pub fn encrypt_es3(json: &str, password: &str) -> Result<Vec<u8>, AppError> {
     let mut buf = vec![0u8; plaintext.len() + 16];
     buf[..plaintext.len()].copy_from_slice(plaintext);
     let ciphertext = encryptor
-        .encrypt_padded_mut::<Pkcs7>(&mut buf, plaintext.len())
+        .encrypt_padded::<Pkcs7>(&mut buf, plaintext.len())
         .map_err(|_| AppError::keyed(DECRYPT_ERR))?;
 
     let mut out = Vec::with_capacity(IV_LEN + ciphertext.len());
@@ -154,13 +154,13 @@ mod tests {
 
         // Encrypt gzip bytes with the same ES3 stream layout.
         let mut iv = [7u8; 16];
-        getrandom::getrandom(&mut iv).unwrap();
+        getrandom::fill(&mut iv).unwrap();
         let key = derive_key("f95-test-password", &iv);
         let encryptor = Aes128CbcEnc::new_from_slices(&key, &iv).unwrap();
         let mut buf = vec![0u8; gz.len() + 16];
         buf[..gz.len()].copy_from_slice(&gz);
         let ct = encryptor
-            .encrypt_padded_mut::<Pkcs7>(&mut buf, gz.len())
+            .encrypt_padded::<Pkcs7>(&mut buf, gz.len())
             .unwrap();
         let mut enc = Vec::new();
         enc.extend_from_slice(&iv);

@@ -112,10 +112,7 @@ fn parse_root_element(text: &str) -> Result<Element, AppError> {
                 }
             }
             Ok(Event::Text(t)) => {
-                let s = t
-                    .decode()
-                    .map_err(|_| AppError::keyed("error.saveEditor.parse"))?
-                    .into_owned();
+                let s = t.xml_content(XmlVersion::Implicit1_0).into_owned();
                 append_text(&mut stack, &s);
             }
             Ok(Event::GeneralRef(r)) => {
@@ -124,10 +121,7 @@ fn parse_root_element(text: &str) -> Result<Element, AppError> {
                 }
             }
             Ok(Event::CData(t)) => {
-                let s = std::str::from_utf8(t.as_ref())
-                    .map_err(|_| AppError::keyed("error.saveEditor.parse"))?
-                    .to_string();
-                append_text(&mut stack, &s);
+                append_text(&mut stack, t.as_ref());
             }
             Ok(Event::End(_)) => {
                 let mut finished = stack
@@ -152,26 +146,18 @@ fn parse_root_element(text: &str) -> Result<Element, AppError> {
 }
 
 fn qname_str(e: &BytesStart<'_>) -> Result<String, AppError> {
-    let n = e.name();
-    let local = n.local_name();
-    std::str::from_utf8(local.as_ref())
-        .map(|s| s.to_string())
-        .map_err(|_| AppError::keyed("error.saveEditor.parse"))
+    Ok(e.name().local_name().as_ref().to_string())
 }
 
 fn attrs_of(e: &BytesStart<'_>) -> Result<Vec<(String, String)>, AppError> {
     let mut out = Vec::new();
     for a in e.attributes().flatten() {
-        let key = std::str::from_utf8(a.key.local_name().as_ref())
-            .map_err(|_| AppError::keyed("error.saveEditor.parse"))?
-            .to_string();
+        let local = a.key.local_name().as_ref().to_string();
         // Keep prefixed xmlns attrs with full key when present.
-        let key = if a.key.as_ref().starts_with(b"xmlns") {
-            std::str::from_utf8(a.key.as_ref())
-                .unwrap_or(key.as_str())
-                .to_string()
+        let key = if a.key.as_ref().starts_with("xmlns") {
+            a.key.as_ref().to_string()
         } else {
-            key
+            local
         };
         let val = a
             .normalized_value(XmlVersion::Implicit1_0)
@@ -197,10 +183,7 @@ fn resolve_general_ref(r: &quick_xml::events::BytesRef<'_>) -> Result<Option<Str
     {
         return Ok(Some(ch.to_string()));
     }
-    let name = r
-        .decode()
-        .map_err(|_| AppError::keyed("error.saveEditor.parse"))?;
-    Ok(resolve_predefined_entity(&name).map(str::to_string))
+    Ok(resolve_predefined_entity(r.as_ref()).map(str::to_string))
 }
 
 fn element_to_value(el: &Element) -> Value {

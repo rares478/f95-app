@@ -151,7 +151,8 @@ export function parseConversationReplyResponse(args: {
     conversationPath,
     messageId:
       extractMessageIdFromUrl(fromFinal) ??
-      (raw.match(/\/posts\/(\d+)/)?.[1] ?? null) ??
-      (raw.match(/#message-(\d+)/i)?.[1] ?? null),
+      raw.match(/\/posts\/(\d+)/)?.[1] ??
+      raw.match(/#message-(\d+)/i)?.[1] ??
+      null,
   };
 }

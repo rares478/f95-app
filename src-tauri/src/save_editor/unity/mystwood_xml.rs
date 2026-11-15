@@ -7,7 +7,7 @@ use crate::save_editor::types::RenpySavePatch;
 use crate::save_editor::unity::xml_save::{apply_xml_patches, looks_like_xml_save, parse_xml_to_json};
 use aes::Aes256;
 use base64::{engine::general_purpose::STANDARD as B64, Engine};
-use cbc::cipher::{block_padding::Pkcs7, BlockDecryptMut, BlockEncryptMut, KeyIvInit};
+use cbc::cipher::{block_padding::Pkcs7, BlockModeDecrypt, BlockModeEncrypt, KeyIvInit};
 use cbc::{Decryptor, Encryptor};
 use serde_json::Value;
 use std::fs;
@@ -75,7 +75,7 @@ fn aes_cbc_decrypt(ciphertext: &[u8], key: &[u8]) -> Result<Vec<u8>, AppError> {
         .map_err(|_| AppError::keyed(DECRYPT_ERR))?;
     let mut buf = ciphertext.to_vec();
     decryptor
-        .decrypt_padded_mut::<Pkcs7>(&mut buf)
+        .decrypt_padded::<Pkcs7>(&mut buf)
         .map(|plain| plain.to_vec())
         .map_err(|_| AppError::keyed(DECRYPT_ERR))
 }
@@ -89,7 +89,7 @@ fn aes_cbc_encrypt(plaintext: &[u8], key: &[u8]) -> Result<Vec<u8>, AppError> {
     let mut buf = vec![0u8; plaintext.len() + 16];
     buf[..plaintext.len()].copy_from_slice(plaintext);
     encryptor
-        .encrypt_padded_mut::<Pkcs7>(&mut buf, plaintext.len())
+        .encrypt_padded::<Pkcs7>(&mut buf, plaintext.len())
         .map(|ct| ct.to_vec())
         .map_err(|_| AppError::keyed(DECRYPT_ERR))
 }
