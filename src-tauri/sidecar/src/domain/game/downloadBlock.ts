@@ -26,7 +26,11 @@ export function rootHasDirectHost(
     if (found) return;
     const href = $(el).attr('href');
     if (!href || href.startsWith('#')) return;
-    const info = classifyHost(absoluteUrl(href));
+    const $a = $(el);
+    const info = classifyHost(absoluteUrl(href), {
+      text: cleanText($a.text()),
+      style: $a.attr('style'),
+    });
     if (info?.category === 'direct') found = true;
   });
   return found;
@@ -375,7 +379,9 @@ export function parseDownloadBlock(
     const href = $(el).attr('href');
     if (!href || href.startsWith('#')) return;
     const url = absoluteUrl(href);
-    const info = classifyHost(url);
+    const $a = $(el);
+    const text = cleanText($a.text());
+    const info = classifyHost(url, { text, style: $a.attr('style') });
     if (!info || info.category !== 'direct') return;
     if (seen.has(url)) return;
     seen.add(url);
@@ -402,7 +408,7 @@ export function parseDownloadBlock(
     downloads.push({
       host: info.host,
       url,
-      text: cleanText($(el).text()) || info.host,
+      text: text || info.host,
       edition,
       platform,
       part,

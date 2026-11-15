@@ -27,4 +27,20 @@ describe('normalizeOpHtml media embeds', () => {
     const out = normalizeOpHtml($, $('.bbWrapper').first());
     expect(out).toContain('https://f95zone.to/attachments/shot.jpg');
   });
+
+  it('materializes empty bbImageWrapper[data-src] into img tags', () => {
+    const html = `
+      <div class="bbWrapper">
+        <div class="bbImageWrapper js-lbImage" title="BTTM.jpg"
+          data-src="https://attachments.f95zone.to/2020/11/918065_bttm.png"
+          data-type="image"></div>
+      </div>`;
+    const $ = cheerio.load(html);
+    const out = normalizeOpHtml($, $('.bbWrapper').first());
+    expect(out).toContain(
+      'src="https://attachments.f95zone.to/2020/11/918065_bttm.png"',
+    );
+    expect(out).toContain('<img');
+    expect(out).not.toContain('bbImageWrapper');
+  });
 });

@@ -46,6 +46,33 @@ describe('resolveBannerAndScreenshots', () => {
     expect(screenshots.join(' ')).not.toContain('desc-shot');
   });
 
+  it('picks banner from empty bbImageWrapper data-src', () => {
+    const html = `
+      <div class="bbWrapper">
+        <div class="bbImageWrapper js-lbImage" title="BTTM.jpg"
+          data-src="https://attachments.f95zone.to/2020/11/918065_bttm.png"></div>
+        <br><b>Overview</b>:<br>story text
+        <div>
+          <b>DOWNLOAD</b><br>
+          <b>Win</b>:
+          <a href="https://f95zone.to/dl/1/?k=a" style="background-image: url(&quot;https://external-content.duckduckgo.com/ip3/pixeldrain.com.ico&quot;);">PIXELDRAIN</a>
+          <a href="https://attachments.f95zone.to/2020/04/646935_screen1.png">
+            <img src="https://attachments.f95zone.to/2020/04/646935_screen1.png" class="bbImage" />
+          </a>
+        </div>
+      </div>`;
+    const $ = cheerio.load(html);
+    const opBody = $('.bbWrapper').first() as cheerio.Cheerio<Element>;
+    const root = resolveDownloadRoot($, opBody);
+    const { bannerUrl, screenshots } = resolveBannerAndScreenshots($, opBody, root);
+    expect(bannerUrl).toBe(
+      'https://attachments.f95zone.to/2020/11/918065_bttm.png',
+    );
+    expect(screenshots).toContain(
+      'https://attachments.f95zone.to/2020/04/646935_screen1.png',
+    );
+  });
+
   it('returns no screenshots when there is no download root', () => {
     const html = `
 <article class="message">

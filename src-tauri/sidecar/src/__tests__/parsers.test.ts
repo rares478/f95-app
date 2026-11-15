@@ -1,7 +1,10 @@
 import { describe, expect, it } from 'vitest';
 import { classifyHost } from '../domain/game/hosts';
 import {
+  decodeF95DlCode,
   inferRefererFromMasked,
+  parseF95DlGoResponse,
+  parseF95DlPage,
   parseUnmaskResponse,
 } from '../domain/f95/unmask';
 import { isCloudflareInterstitial, assertNotCloudflareChallenge, isBotChallengePage } from '../shared/cloudflare';
@@ -53,6 +56,27 @@ describe('classifyHost', () => {
     ).toEqual({ host: 'pixeldrain', category: 'direct' });
   });
 
+  it('classifies F95 /dl/ URLs from link text and favicon style', () => {
+    const dl =
+      'https://f95zone.to/dl/477444/?u=1&k=abc&r=1&t=xyz';
+    expect(
+      classifyHost(dl, {
+        text: 'PIXELDRAIN',
+        style:
+          'background-image: url("https://external-content.duckduckgo.com/ip3/pixeldrain.com.ico");',
+      }),
+    ).toEqual({ host: 'pixeldrain', category: 'direct' });
+    expect(classifyHost(dl, { text: 'BZZHR' })).toEqual({
+      host: 'buzzheavier',
+      category: 'direct',
+    });
+    expect(classifyHost(dl, { text: 'DATANODES' })).toEqual({
+      host: 'datanodes',
+      category: 'direct',
+    });
+    expect(classifyHost(dl)).toEqual({ host: 'f95-dl', category: 'direct' });
+  });
+
   it('classifies social hosts', () => {
     expect(classifyHost('https://www.patreon.com/creator')).toEqual({
       host: 'patreon',
@@ -85,6 +109,43 @@ describe('unmask', () => {
 
   it('returns null when thread id missing', () => {
     expect(inferRefererFromMasked('https://pixeldrain.com/u/abc')).toBeNull();
+  });
+
+  it('decodes F95 /dl/ data-code values', () => {
+    // encode: reverse("secret") → "terces", then base64, then prefix "c"
+    const encoded = `c${Buffer.from('terces', 'utf8').toString('base64')}`;
+    expect(decodeF95DlCode(encoded)).toBe('secret');
+    expect(decodeF95DlCode('')).toBe('');
+  });
+
+  it('parses /dl/ interstitial form fields and go redirect HTML', () => {
+    const encoded = `c${Buffer.from('terces', 'utf8').toString('base64')}`;
+    const pageHtml = `
+      <html data-csrf="csrf-token">
+        <div class="f95dl-page" data-xf-init="f95dl-page" data-code="${encoded}">
+          <form class="f95dl-box" action="/dl/11334991/" method="post">
+            <input type="hidden" name="_xfToken" value="" />
+            <input type="hidden" name="had_check" value="" />
+            <input type="hidden" name="code" class="js-f95dlCode" value="" />
+            <button type="submit" class="js-f95dlContinue">Continue</button>
+          </form>
+        </div>
+      </html>`;
+    const parsed = parseF95DlPage(
+      pageHtml,
+      'https://f95zone.to/dl/11334991/?u=1&k=a&r=1&t=b',
+    );
+    expect(parsed).not.toBeNull();
+    expect(parsed!.actionUrl).toBe('https://f95zone.to/dl/11334991/');
+    expect(parsed!.fields.code).toBe('secret');
+    expect(parsed!.fields.had_check).toBe('1');
+    expect(parsed!.fields._xfToken).toBe('csrf-token');
+    expect(parsed!.hasCaptcha).toBe(false);
+
+    const goHtml = `
+      <div data-xf-init="f95dl-go"
+           data-url="https://pixeldrain.com/u/abc123"></div>`;
+    expect(parseF95DlGoResponse(goHtml)).toBe('https://pixeldrain.com/u/abc123');
   });
 });
 

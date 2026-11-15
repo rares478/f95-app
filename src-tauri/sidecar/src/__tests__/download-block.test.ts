@@ -19,6 +19,26 @@ function byUrl(downloads: GameDownload[], frag: string): GameDownload[] {
   return downloads.filter((d) => d.url.includes(frag));
 }
 
+describe('parseDownloadBlock — F95 /dl/ mirrors', () => {
+  it('classifies hosts from link text on f95zone.to/dl/ URLs', () => {
+    const { $, root } = loadRoot('download-block-f95-dl.html');
+    const downloads = parseDownloadBlock($, root);
+    expect(downloads.map((d) => d.host).sort()).toEqual([
+      'buzzheavier',
+      'datanodes',
+      'mega',
+      'pixeldrain',
+      'vikingfile',
+    ]);
+    expect(downloads.every((d) => d.url.includes('f95zone.to/dl/'))).toBe(true);
+    expect(downloads[0]).toMatchObject({
+      platform: 'Win',
+      kindHint: 'full',
+      topLevel: true,
+    });
+  });
+});
+
 describe('parseDownloadBlock — basic rows', () => {
   it('groups mirrors under bold platform rows as Current full', () => {
     const { $, root } = loadRoot('download-block-basic.html');

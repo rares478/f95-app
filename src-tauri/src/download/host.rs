@@ -1,5 +1,13 @@
+/// F95 gated download URLs that need the xhr unmask POST (`/masked/` or `/dl/`).
 pub(crate) fn is_f95_masked(url: &str) -> bool {
-    url.starts_with("https://f95zone.to/masked/") || url.starts_with("http://f95zone.to/masked/")
+    let lower = url.to_ascii_lowercase();
+    let rest = lower
+        .strip_prefix("https://f95zone.to")
+        .or_else(|| lower.strip_prefix("http://f95zone.to"));
+    match rest {
+        Some(path) => path.starts_with("/masked/") || path.starts_with("/dl/"),
+        None => false,
+    }
 }
 
 /// Pull the `<host>` segment from `/masked/<host>/<thread>/...`.
@@ -129,6 +137,17 @@ pub(crate) fn host_label(host: &str) -> String {
 #[cfg(test)]
 mod tests {
     use super::*;
+
+    #[test]
+    fn is_f95_masked_matches_masked_and_dl_paths() {
+        assert!(is_f95_masked(
+            "https://f95zone.to/masked/pixeldrain/12345/67890/key"
+        ));
+        assert!(is_f95_masked(
+            "https://f95zone.to/dl/477444/?u=1&k=abc&r=1&t=xyz"
+        ));
+        assert!(!is_f95_masked("https://pixeldrain.com/u/abc"));
+    }
 
     #[test]
     fn clean_download_filename_strips_trailing_size() {

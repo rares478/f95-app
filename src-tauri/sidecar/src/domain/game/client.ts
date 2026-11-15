@@ -573,21 +573,28 @@ function collectOpImages(
 ): string[] {
   const seen = new Set<string>();
   const out: string[] = [];
+  const push = (raw: string | null | undefined) => {
+    if (!raw || raw.startsWith('data:')) return;
+    if (isPlaceholder(raw)) return;
+    const full = absoluteUrl(raw).replace(/\/thumb\/(?=[^/]+$)/, '/');
+    if (seen.has(full)) return;
+    seen.add(full);
+    out.push(full);
+  };
+
+  // Empty XF lazy wrappers (no <img> child) carry the real URL in data-src.
+  opBody.find('.bbImageWrapper[data-src], .js-lbImage[data-src]').each((_, el) => {
+    const $el = $(el);
+    if ($el.is('img') || $el.find('img').length) return;
+    push($el.attr('data-src'));
+  });
+
   opBody.find('img').each((_, el) => {
     const $el = $(el);
     const cls = $el.attr('class') ?? '';
     // Skip smileys and tiny icons.
     if (/smilie|smiley|emoji/i.test(cls)) return;
-    const src = pickImageSrc($el);
-    if (!src) return;
-    // Skip placeholder SVGs (already filtered by pickImageSrc, but be safe).
-    if (src.startsWith('data:')) return;
-    // Skip F95 'thumb/' variants — we want the full image. Prefer to swap
-    // /thumb/<id>_name to /<id>_name if it's a known attachments URL.
-    const full = src.replace(/\/thumb\/(?=[^/]+$)/, '/');
-    if (seen.has(full)) return;
-    seen.add(full);
-    out.push(full);
+    push(pickImageSrc($el));
   });
   return out;
 }

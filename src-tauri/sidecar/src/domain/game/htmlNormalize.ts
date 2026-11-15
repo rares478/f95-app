@@ -61,6 +61,26 @@ export function normalizeOpHtml(
     );
   });
 
+  // XF sometimes emits empty lazy wrappers with data-src and no <img> child.
+  clone.find('.bbImageWrapper[data-src], .js-lbImage[data-src]').each((_, el) => {
+    const $el = $(el);
+    if ($el.is('img') || $el.find('img').length) return;
+    const raw = $el.attr('data-src') ?? '';
+    if (!raw || raw.startsWith('data:')) {
+      $el.remove();
+      return;
+    }
+    const full = toF95FullUrl(absoluteUrl(raw));
+    if (omitImageUrls?.has(full)) {
+      $el.remove();
+      return;
+    }
+    const alt = escapeHtml($el.attr('title') ?? $el.attr('alt') ?? '');
+    $el.replaceWith(
+      `<img src="${escapeHtml(full)}" alt="${alt}" loading="lazy" />`,
+    );
+  });
+
   // Lazy images: real URL is in data-src; src is an SVG placeholder.
   clone.find('img').each((_, el) => {
     const $el = $(el);

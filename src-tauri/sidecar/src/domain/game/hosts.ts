@@ -5,6 +5,13 @@ export interface HostInfo {
   category: HostCategory;
 }
 
+export interface ClassifyHostHints {
+  /** Visible link text (e.g. "PIXELDRAIN" on F95 /dl/ anchors). */
+  text?: string | null;
+  /** Inline style; F95 paints host favicons via duckduckgo ip3/*.ico. */
+  style?: string | null;
+}
+
 interface Pattern {
   host: string;
   regex: RegExp;
@@ -49,12 +56,69 @@ const PATTERNS: Pattern[] = [
   { host: 'youtube',       regex: /^(www\.)?(youtube\.com|youtu\.be)$/i,                    category: 'social' },
 ];
 
+/** Link-text aliases F95 uses on /dl/ buttons (not always equal to host id). */
+const TEXT_ALIASES: Record<string, string> = {
+  pixeldrain: 'pixeldrain',
+  mega: 'mega',
+  mediafire: 'mediafire',
+  mixdrop: 'mixdrop',
+  gofile: 'gofile',
+  workupload: 'workupload',
+  anonfiles: 'anonfiles',
+  datanodes: 'datanodes',
+  buzzheavier: 'buzzheavier',
+  bzzhr: 'buzzheavier',
+  racaty: 'racaty',
+  uploadhaven: 'uploadhaven',
+  zippyshare: 'zippyshare',
+  k2s: 'k2s',
+  rapidgator: 'rapidgator',
+  turbobit: 'turbobit',
+  nopy: 'nopy',
+  sendspace: 'sendspace',
+  '1fichier': '1fichier',
+  bunkr: 'bunkr',
+  cyberfile: 'cyberfile',
+  cyberdrop: 'cyberdrop',
+  dropbox: 'dropbox',
+  gdrive: 'gdrive',
+  'google drive': 'gdrive',
+  googledrive: 'gdrive',
+  pcloud: 'pcloud',
+  akirabox: 'akirabox',
+  vikingfile: 'vikingfile',
+};
+
+function hostFromHostname(hostname: string): HostInfo | null {
+  const m = PATTERNS.find((p) => p.regex.test(hostname));
+  return m ? { host: m.host, category: m.category } : null;
+}
+
+function hostFromLinkText(text: string | null | undefined): HostInfo | null {
+  if (!text) return null;
+  const key = text.trim().toLowerCase().replace(/\s+/g, ' ');
+  const alias = TEXT_ALIASES[key] ?? TEXT_ALIASES[key.replace(/[^a-z0-9]/g, '')];
+  if (!alias) return null;
+  return { host: alias, category: 'direct' };
+}
+
+function hostFromFaviconStyle(style: string | null | undefined): HostInfo | null {
+  if (!style) return null;
+  const m = style.match(/ip3\/([^/"')\s]+)\.ico/i);
+  if (!m) return null;
+  return hostFromHostname(m[1]);
+}
+
 /**
  * Classify a URL by inspecting its hostname. F95Zone wraps download links in
- * its own redirector at `/masked/<host>/<thread>/<key>` — when we see that, we
- * read the real host from the path segment instead of the URL hostname.
+ * redirectors:
+ * - legacy `/masked/<host>/<thread>/<key>` — host is in the path
+ * - current `/dl/<id>/?…` — host is only in link text / favicon style hints
  */
-export function classifyHost(rawUrl: string): HostInfo | null {
+export function classifyHost(
+  rawUrl: string,
+  hints?: ClassifyHostHints,
+): HostInfo | null {
   let u: URL;
   try {
     u = new URL(rawUrl);
@@ -62,18 +126,27 @@ export function classifyHost(rawUrl: string): HostInfo | null {
     return null;
   }
 
-  if (u.hostname.toLowerCase() === 'f95zone.to' && u.pathname.startsWith('/masked/')) {
-    const segs = u.pathname.split('/').filter(Boolean);
-    if (segs.length >= 2) {
-      const rawHost = segs[1];
-      const match = PATTERNS.find((p) => p.regex.test(rawHost));
-      if (match) return { host: match.host, category: match.category };
-      // Unknown but clearly a download intent (F95 only masks downloads).
-      return { host: rawHost.toLowerCase(), category: 'direct' };
+  const host = u.hostname.toLowerCase();
+  if (host === 'f95zone.to') {
+    if (u.pathname.startsWith('/masked/')) {
+      const segs = u.pathname.split('/').filter(Boolean);
+      if (segs.length >= 2) {
+        const rawHost = segs[1];
+        const match = PATTERNS.find((p) => p.regex.test(rawHost));
+        if (match) return { host: match.host, category: match.category };
+        // Unknown but clearly a download intent (F95 only masks downloads).
+        return { host: rawHost.toLowerCase(), category: 'direct' };
+      }
+    }
+
+    if (/^\/dl\/\d+/i.test(u.pathname)) {
+      return (
+        hostFromFaviconStyle(hints?.style) ??
+        hostFromLinkText(hints?.text) ??
+        { host: 'f95-dl', category: 'direct' }
+      );
     }
   }
 
-  const m = PATTERNS.find((p) => p.regex.test(u.hostname));
-  if (m) return { host: m.host, category: m.category };
-  return null;
+  return hostFromHostname(u.hostname);
 }
